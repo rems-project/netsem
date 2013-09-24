@@ -1,0 +1,408 @@
+(*
+(* A HOL98 specification of TCP *)
+
+(* Various utility definitions *)
+
+(*[ RCSID "$Id: TCP1_utilsScript.sml,v 1.69 2005/02/07 15:12:27 kw217 Exp $" ]*)
+
+(* standard prefix *)
+open HolKernel boolLib Parse
+
+open bossLib
+
+open HolDoc
+
+local open arithmeticTheory stringTheory pred_setTheory integerTheory
+           finite_mapTheory realTheory word16Theory word32Theory
+           containerTheory in end;
+
+val _ = new_theory "TCP1_utils";
+
+val _ = BasicProvers.augment_srw_ss [rewrites [LET_THM]]
+
+val _ = Version.registerTheory "$RCSfile: TCP1_utilsScript.sml,v $" "$Revision: 1.69 $" "$Date: 2005/02/07 15:12:27 $";
+*)
+
+(*: @chapter [[TCP1_utils]] Utility functions
+
+This file contains various utility functions and definitions, for functions, lists, and numeric types, that are
+used throughout the specification.
+
+:*)
+
+(* -------------------------------------------------- *)
+(*                   STUFF                            *)
+(* -------------------------------------------------- *)
+
+(*: @section [[util_stuff]] GEN Basic utilities
+
+Basic utilities for functions, numbers, maps, and records.
+
+:*)
+
+(*
+(* equal and not-equal with same precedence as comparison operators, tighter than /\ *)
+val _ = set_fixity "=" (Infixr 450);  (* ALTERS FIXITY OF = !! *)
+     (* making it RIGHT makes little sense, but < <= > >= are RIGHT already, so can't change *)
+val _ = add_infix ("<>", 450, RIGHT);
+val neq_def = xDefine "neq" `(x <> y) = ~(x = y)` (*: @norender :*);
+val _ = Phase.add_to_phase 1 "neq_def";
+
+val _ = add_infix ("NOTIN", 450, RIGHT);
+val notin_def = xDefine "NOTIN" `(x NOTIN s) = ~(x IN s)` (*: @norender :*);  (* xDefine only because of HOLDoc limitations *)
+val _ = BasicProvers.export_rewrites ["NOTIN_def"]
+
+val notinlist_def = Define`notinlist x l = ~MEM x l` (*: @norender :*);
+val _ = BasicProvers.export_rewrites ["notinlist_def"]
+val _ = overload_on("NOTIN", ``notinlist``)
+
+(* dont put this into any phase of the
+   rewriting; it's handled specially elsewhere *)
+*)
+
+
+(*: update one point of a function:*)
+let funupd f x y = fun x' -> if x'=x then y else f x
+(*: @mergewithnext :*)
+
+(*: update multiple points of a function:*)
+let  funupd_list f xys = List.fold_left (fun f (x,y) -> funupd f x y) f xys
+(*: @mergewithnext :*)
+
+let (int_zero:int) = Int.int 0 (* FIXME remove this defn and occurrences in following *)
+
+let clip (i:int) = if Int.(<) i int_zero then 0 else 0
+
+let tmp = (Int.int 0) = int_zero
+
+(*: clip [[int]] to [[num]] :*)
+let clip_int_to_num (i:int) = if Int.(<) i i then 0 else 0
+(*: @mergewithnext :*)
+
+(* shifts on naturals (only defined on words so far) *)
+  (*: left shift, written [[<<]] :*)
+let left_shift_num (n:num) (i:num) = n * (2 ** i)
+(*: @mergewithnext :*)
+
+  (*: right shift, written [[>>]] :*)
+let right_shift_num (n:num) (i:num) = n / (2 ** i)
+  (*: @mergewithnext :*)
+
+let (<<) = left_shift_num
+let (>>) = right_shift_num
+
+let DIV = fun x y -> x / y
+
+(* Don't Phase: handled by testEval *)
+(*: round [[v]] down to multiple of [[bs]], unless [[v < bs]] already :*)
+let  rounddown bs v = if v < bs then v else (DIV v bs) * bs
+(*: @mergewithnext :*)
+
+
+(* Don't Phase: handled by testEval *)
+  (*: round [[v]] up to next multiple of [[bs]]; if [[v = k*bs]] then no change :*)
+let  roundup   bs v = (DIV (v + (bs - 1)) bs) * bs
+(*: @mergewithnext :*) 
+
+
+
+
+(* -------------------------------------------------- *)
+(*                   WORD32                           *)
+(* -------------------------------------------------- *)
+
+(*
+(* COMPATIBILITY *)
+(* CVS change wordFunctorLib.sml,1.1,1.2 annoyingly renamed this value; rename it back *)
+val _ = overload_on("w_0", ``word_0:word16``);
+val _ = overload_on("w_0", ``word_0:word32``);
+
+val _ = add_bare_numeral_form (#"w", SOME "n2w")
+*)
+
+(* -------------------------------------------------- *)
+(*                   REAL                             *)
+(* -------------------------------------------------- *)
+
+(* FIXME this is a hack just to get a type for real *)
+type real = Real of (num -> bool)
+let FIXME_real = Real (fun x -> true)
+
+let MIN = fun x y -> FIXME_real
+let MAX = fun x y -> FIXME_real
+
+let real_of_num = fun x -> FIXME_real
+
+let real_zero = FIXME_real
+
+let Num x = x
+
+let (~) = fun x -> real_zero (* FIXME *)
+
+(* this definition really should be built in... *)
+(* ... doesn't need phasing; handled specially in testEval *)
+(*: inject [[int]] into [[real]] :*)
+let  real_of_int (i:int) = if Int.(<) i int_zero then ~(real_of_num (Num ~i))
+                                 else real_of_num (Num i)
+(*: @mergewithnext :*)
+
+let FIXME_bool = true
+let real_gt x y = FIXME_bool
+
+let FIXME_least s d = Set.choose s d
+
+let FIXME_num = 0
+
+(*: [[num]] floor of [[real]] :*)
+let num_floor (x:real) = FIXME_least { (n:num) | real_gt (real_of_num (n+1)) x } FIXME_num 
+(*: @mergewithnext :*) (* better version proved in TCP1_timerProps, though could/should be here
+      really *)
+
+let real_minus x y = FIXME_real
+
+(*: [[num]] floor and fractional part of [[real]] :*)
+let  num_floor_and_frac (x:real)
+    = let n = num_floor x
+      in
+      (n,real_minus x (real_of_num n))
+(*: @mergewithnext :*)
+
+
+(* ----------------------------------------------------------------------
+    FINITE MAPS
+   ---------------------------------------------------------------------- *)
+
+  (*: finite map exists, written [[?(k,v) :: fm . P (k,v)]] :*)
+let  fm_exists fm P = exists k. k IN Pmap.domain fm && P (k, Pmap.find k fm)
+  (*: @mergewithnext :*)
+
+(* enable syntax like
+     ?(k,v) :: fm \\ k0. k = v
+   which should be read as
+     there exists a (k,v) pair in the finite map fm \\ k0, such that
+     k = v
+*)
+(* 
+FIXME
+val _ = overload_on ("RES_EXISTS", ``fm_exists``)
+*)
+
+
+(* -------------------------------------------------- *)
+(*             RECORDS                                *)
+(* -------------------------------------------------- *)
+
+(* allows you to say  cb with <| field updated_by value onlywhen condition |>
+   instead of cb with <| field := if condition then value else cb.field |> *)
+
+(* FIXME
+val _ = add_infix ("onlywhen", 460, NONASSOC);  (* slightly tighter than updated_by (=450) *)
+*)
+
+
+let K x y = x
+let I x = x
+
+  (*: used for conditional record updates :*)
+let onlywhen x b = if b then K x else I
+
+
+(*: @description
+    TODO3
+    @internal
+    [[rounddown]] and [[roundup]] are part of |tcp_mss()|: calculate buffer sizes based on MSS etc.
+:*)
+(* onlywhen xDefine only because of HOLDoc limitations *)
+
+
+(* -------------------------------------------------- *)
+(*             NONDETERMINISTIC CHOICE                *)
+(* -------------------------------------------------- *)
+
+(* choose a value nondetermistically from A, and pass it
+   to f:
+      choose x :: {1;2;3}. y = x + x
+   is true if y IN {2;4;6} and false otherwise.
+   Note, this is angelic nondeterminism (I think).  Beware.
+*)
+
+(*
+val _ = add_binder("choose", 0);
+val _ = associate_restriction("choose", "choose_from_set");
+val _ = overload_on("choose_from_set", ``bool$RES_EXISTS``);
+
+
+val _ = overload_on("choose", ``$?``);
+val _ = overload_on("?", ``$?``);
+*)
+
+(* FIXME lem version of choose *)
+
+(* by repeating that there is a link from constant ? to "?", the system
+   knows that we prefer to see "?" rather than "choose" when it prints
+   things out, but the parser will accept "choose" *)
+
+
+
+(* would like to write:
+
+     choose x from A in e
+
+   to mean
+
+     ?x. x IN A /\ e
+
+   in other words "choose x from A in" should be a prefix operator
+   which also binds x.
+
+   Can write
+
+      choose x :: A . e
+
+   for the moment.
+
+   Can also write
+
+      choose x. e
+
+   which is equivalent to
+
+     choose x :: UNIV. e
+*)
+
+
+(* -------------------------------------------------- *)
+(*                   LISTS                            *)
+(* -------------------------------------------------- *)
+
+(*: @section [[util_lists]] GEN List utilities
+This section contains a number of basic functions for manipulating lists.
+:*)
+
+(*: split worker function:*)
+let rec SPLIT_REV_0 n ls rs = (match (n,ls,rs) with 
+  | (0,ls,rs) -> (ls,rs)
+  | (n',ls,(r::rs)) -> (SPLIT_REV_0 (n'-1) (r::ls) rs)
+  | (n',ls,[]) -> (ls,[])
+end)
+(*: @mergewithnext :*)
+
+
+(*: split a list after [[n]] elements, returning the reversed prefix
+and the remainder:*)
+let  SPLIT_REV n rs = SPLIT_REV_0 n [] rs
+(*: @mergewithnext :*)
+
+let REVERSE xs = List.rev xs
+
+(*: split a list after [[n]] elements, returning the prefix and the remainder:*)
+let  SPLIT n rs = let (ls,rs) = SPLIT_REV n rs in (REVERSE ls,rs)
+(*: @mergewithnext :*)
+
+(*: take the first [[n]] elements of a list:*)
+let  TAKE n rs = let (ls,rs) = SPLIT_REV n rs in REVERSE ls
+(*: @mergewithnext :*)
+
+(*: drop the first [[n]] elements of a list:*)
+let  DROP n rs = let (ls,rs) = SPLIT_REV n rs in rs
+(*: @mergewithnext :*)
+
+(*: split a list at first element not satisfying [[p]], returning reversed prefix and remainder:*)
+let rec TAKEWHILE_REV p ls rs = (match rs with
+  | (r::rs) -> TAKEWHILE_REV p (if p r then (r::ls) else ls) rs 
+  | [] -> ls
+end)
+(*: @mergewithnext :*)
+
+(*: split a list at first element not satisfying [[p]], returning prefix and remainder:*)
+let  TAKEWHILE p rs = REVERSE (TAKEWHILE_REV p [] rs)
+(*: @mergewithnext :*)
+
+(*: make a list of [[n]] copies of [[x]]:*)
+let rec REPLICATE n x = (match n with
+| 0 -> []
+| n' -> x :: REPLICATE n x
+end)
+(*: @mergewithnext :*)
+
+
+(*: decrement a list of nums by a num, dropping any that count below zero:*)
+(*  : num -> num list -> num list *)
+let rec decr_list d ns = (match ns with
+| [] -> ([]:list num)
+| (n::ns) -> (if n < d then I else (::) (n-d)) (decr_list d ns)
+end)
+(*: @mergewithnext :*)
+
+(* FIXME 
+(* member and not-member for lists *)
+val _ = add_infix ("IN'"   , 450, RIGHT);
+val _ = overload_on ("IN'", ``MEM``);
+
+val _ = add_infix ("NOTIN'", 450, RIGHT);
+val NOTIN'_def = xDefine "NOTIN'" `
+(*: not in :*)
+(x NOTIN' y) = ~(MEM x y)` (*: @mergewithnext:*);  (* xDefine only because of HOLDoc limitations *)
+*)
+let IN' x xs = List.mem x xs
+let NOTIN' x xs = not (IN' x xs)
+
+let APPEND = List.append
+
+(*: map with optional result:*)
+let rec MAP_OPTIONAL f xs = (match xs with
+  | (x::xs) -> (APPEND (match f x with
+                                      None -> []
+                                   | Some y -> [y] end)
+                                  (MAP_OPTIONAL f xs))
+  | [] -> []
+end)
+(*: @mergewithnext :*)
+
+(*: concatentation of option list that drops all [[NONE]]s:*)
+let CONCAT_OPTIONAL xs = MAP_OPTIONAL I xs
+(*: @mergewithnext :*)
+
+let LIST_TO_SET xs = Set.from_list xs
+
+let CARD = Set.cardinal
+
+let LENGTH = List.length
+
+(*: the set of all orderings of a set :*)
+let ORDERINGS s l = (LIST_TO_SET l = s &&
+                   LENGTH l      = CARD s)
+(*: @mergewithnext :*)
+
+let FILTER = List.filter
+
+(*: insert ordered:*)
+let INSERT_ORDERED new old bad =
+     FILTER (fun fd -> fd IN' new || fd IN' bad) old
+
+
+(* -------------------------------------------------- *)
+(*                   ASSERTIONS                       *)
+(* -------------------------------------------------- *)
+
+(*: @section [[util_assertions]] GEN Assertions
+This definition is an alias for false, which induces the checker to
+emit a special message indicating an assertion failure.
+:*)
+
+(*: assertion failure (causes checker to halt) :*)
+let ASSERTION_FAILURE (s:string) = false
+
+
+(* -------------------------------------------------- *)
+
+(*
+val _ = adjoin_to_theory
+        { sig_ps = NONE,
+          struct_ps =
+          SOME (fn pps =>
+                   (PP.add_string pps "val _ = Datatype.big_record_size := 8;";
+                    PP.add_newline pps))}
+
+val _ = export_theory();
+*)

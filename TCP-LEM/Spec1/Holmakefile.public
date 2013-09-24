@@ -1,0 +1,16 @@
+all: HolDoc.sml HolDoc.sig word16Theory.ui word16Theory.uo word32Theory.uo word32Theory.ui TCP1_net1Theory.uo
+
+word16Theory.ui word16Theory.uo : \
+                  $(SIGOBJ)/wordFunctor.ui $(SIGOBJ)/wordFunctorLib.ui \
+                  $(SIGOBJ)/bitsTheory.ui
+	$(HOLDIR)/bin/mkword.exe 16
+
+word32Theory.uo word32Theory.ui : \
+                  $(SIGOBJ)/wordFunctor.ui $(SIGOBJ)/wordFunctorLib.ui \
+                  $(SIGOBJ)/bitsTheory.ui
+	$(HOLDIR)/bin/mkword.exe 32
+
+HolDoc.sml HolDoc.sig : \
+		$(HOLDIR)/tools/holdoc/HolDoc.sml \
+		$(HOLDIR)/tools/holdoc/HolDoc.sig
+	cp $(HOLDIR)/tools/holdoc/HolDoc.sml $(HOLDIR)/tools/holdoc/HolDoc.sig .
