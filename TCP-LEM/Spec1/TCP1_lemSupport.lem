@@ -1,0 +1,24 @@
+(* contains defns available in HOL but not available in LEM, such as
+word32; this comes before all other TCP1_xxx files; many FIXMEs *)
+
+type char = string (* FIXME FIXME *)
+
+type word32 = WORD32 of num (* FIXME *)
+
+let (int_zero:int) = Int.int 0 (* FIXME remove this defn and occurrences in following *)
+
+let FIXME_int = int_zero
+
+let w2i w = FIXME_int
+
+let n2w n = WORD32 n
+
+let FIXME_word32 = WORD32 0
+
+let i2w i = FIXME_word32
+
+let w_minus x y = FIXME_word32
+
+let w_plus x y = FIXME_word32
+
+

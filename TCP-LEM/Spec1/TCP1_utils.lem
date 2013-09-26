@@ -23,6 +23,8 @@ val _ = BasicProvers.augment_srw_ss [rewrites [LET_THM]]
 val _ = Version.registerTheory "$RCSfile: TCP1_utilsScript.sml,v $" "$Revision: 1.69 $" "$Date: 2005/02/07 15:12:27 $";
 *)
 
+open TCP1_lemSupport
+
 (*: @chapter [[TCP1_utils]] Utility functions
 
 This file contains various utility functions and definitions, for functions, lists, and numeric types, that are
@@ -68,8 +70,6 @@ let funupd f x y = fun x' -> if x'=x then y else f x
 (*: update multiple points of a function:*)
 let  funupd_list f xys = List.fold_left (fun f (x,y) -> funupd f x y) f xys
 (*: @mergewithnext :*)
-
-let (int_zero:int) = Int.int 0 (* FIXME remove this defn and occurrences in following *)
 
 let clip (i:int) = if Int.(<) i int_zero then 0 else 0
 
@@ -148,6 +148,8 @@ let  real_of_int (i:int) = if Int.(<) i int_zero then ~(real_of_num (Num ~i))
 
 let FIXME_bool = true
 let real_gt x y = FIXME_bool
+let real_lt x y = FIXME_bool
+let real_lte x y = real_lt x y || x=y
 
 let FIXME_least s d = Set.choose s d
 
@@ -159,6 +161,9 @@ let num_floor (x:real) = FIXME_least { (n:num) | real_gt (real_of_num (n+1)) x }
       really *)
 
 let real_minus x y = FIXME_real
+let real_plus x y = FIXME_real
+let real_div x y = FIXME_real
+let real_times x y = FIXME_real
 
 (*: [[num]] floor and fractional part of [[real]] :*)
 let  num_floor_and_frac (x:real)

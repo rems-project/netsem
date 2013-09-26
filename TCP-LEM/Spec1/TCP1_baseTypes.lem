@@ -1,3 +1,4 @@
+(*
 (* A HOL98 specification of TCP *)
 
 (* Basic types used in the specification, including language types and time types *)
@@ -20,6 +21,12 @@ local open arithmeticTheory stringTheory pred_setTheory integerTheory
 val _ = new_theory "TCP1_baseTypes";
 
 val _ = Version.registerTheory "$RCSfile: TCP1_baseTypesScript.sml,v $" "$Revision: 1.66 $" "$Date: 2009/02/17 11:56:46 $";
+*)
+
+open TCP1_lemSupport
+open TCP1_errors 
+open TCP1_signals 
+open TCP1_utils
 
 (*: @chapter [[TCP1_baseTypes]] Base types
 
@@ -46,31 +53,31 @@ Zero values are used as wildcards in some places and are forbidden in others;
 this typing lets that be captured explicitly.
 :*)
 
-val _ = Hol_datatype `port = Port of num (*: really 16 bits, non-zero :*)`
+type port = Port of num (*: really 16 bits, non-zero :*)
 (*: @description
 TCP or UDP port number, non-zero.
 :*)
-;
-val _ = Hol_datatype `ip   = ip of num (*: really 32 bits, non-zero :*)`
+
+type ip   = ip of num (*: really 32 bits, non-zero :*)
 (*: @description
 IPv4 address, non-zero.
 :*)
-;
 
-val _ = Hol_datatype `ifid = LO | ETH of num`
+
+type ifid = LO | ETH of num
 (*: @description
 Interface ID: either the loopback interface, or a numbered Ethernet interface.
 :*)
-;
 
-val _ = Hol_datatype `netmask = NETMASK of num`
+
+type netmask = NETMASK of num
 (*: @description
 Network mask, represented as the number of 1 bits (as in a CIDR /nn
 suffix).
 :*)
-;
 
-val _ = Hol_datatype `fd = FD of num`
+
+type fd = FD of num
 (*: @description
 File descriptor.  On Unix-like systems this is a small nonnegative
 integer; on Windows it is an arbitrary handle.
@@ -80,7 +87,7 @@ integer; on Windows it is an arbitrary handle.
      choice.  It's an index into a table of open file descriptions,
      and so can't by definition be negative.
 :*)
-;
+
 
 
 (*: @section [[base_flags]] ALL File and socket flags
@@ -88,10 +95,9 @@ integer; on Windows it is an arbitrary handle.
 This defines the types of various flags used in the sockets API: file flags, socket flags, message flags (used in [[send]] and [[recv]] calls), and socket types (used in [[socket]] calls).  The socket flags are partitioned into those with boolean, natural-number and time-valued arguments.
 :*)
 
-val _ = Hol_datatype
-  `filebflag = O_NONBLOCK
+type filebflag = O_NONBLOCK
              | O_ASYNC
-`
+
 (*: @description
 Boolean flags affecting the behaviour of an open file (or socket).
 
@@ -100,15 +106,14 @@ Boolean flags affecting the behaviour of an open file (or socket).
 [[O_ASYNC]] specifies whether signal driven I/O is enabled.
 
 :*)
-;
 
-val _ = Hol_datatype
-  `sockbflag = SO_BSDCOMPAT (* Linux only *)
+
+type sockbflag = SO_BSDCOMPAT (* Linux only *)
              | SO_REUSEADDR
              | SO_KEEPALIVE
              | SO_OOBINLINE (* ? *)
              | SO_DONTROUTE
-`
+
 (*: @description
 Boolean flags affecting the behaviour of a socket.
 
@@ -131,14 +136,13 @@ Boolean flags affecting the behaviour of a socket.
 @variation Linux
 The flag [[SO_BSDCOMPAT]] is Linux-only.
 :*)
-;
 
-val _ = Hol_datatype
-  `socknflag = SO_SNDBUF
+
+type socknflag = SO_SNDBUF
              | SO_RCVBUF
              | SO_SNDLOWAT
              | SO_RCVLOWAT
-`
+
 (*: @description
 Natural-number flags affecting the behaviour of a socket.
 
@@ -152,13 +156,12 @@ Natural-number flags affecting the behaviour of a socket.
      [[SO_RCVLOWAT]] Specifies the minimum number of bytes to process for socket input
      operations.
 :*)
-;
 
-val _ = Hol_datatype
-  `socktflag = SO_LINGER
+
+type socktflag = SO_LINGER
              | SO_SNDTIMEO
              | SO_RCVTIMEO
-`
+
 (*: @description
 Time-valued flags affecting the behaviour of a socket.
 
@@ -172,14 +175,13 @@ Time-valued flags affecting the behaviour of a socket.
 
 
 :*)
-;
 
-val _ = Hol_datatype
-  `msgbflag = MSG_PEEK      (* recv only, [in] *)
+
+type msgbflag = MSG_PEEK      (* recv only, [in] *)
             | MSG_OOB       (* recv and send, [in] *)
             | MSG_WAITALL   (* recv only, [in] *)
             | MSG_DONTWAIT  (* recv and send, [in] *)
-`
+
 (*: @description
 Boolean flags affecting the behaviour of a [[send]] or [[recv]] call.
 
@@ -192,18 +194,17 @@ Boolean flags affecting the behaviour of a [[send]] or [[recv]] call.
  [[MSG_WAITALL]]: Block untill all [[n]] bytes of data are available.
 
 :*)
-;
 
-val _ = Hol_datatype
-  `socktype = SOCK_STREAM
+
+type socktype = SOCK_STREAM
              | SOCK_DGRAM
-`
+
 (*: @description
 The two different flavours of socket, as passed to the [[socket]] call,
   [[SOCK_STREAM]] for TCP and [[SOCK_DGRAM]] for UDP.
 
 :*)
-;
+
 
 
 (*: @section [[base_langinter]] GEN Language interaction types
@@ -220,25 +221,25 @@ An inductive definition defines a typing relation between the two.
 
 :*)
 
-val _ = Hol_datatype `tid = TID of num`
+type tid = TID of num
 (*: @description
 Thread IDs.
 
 @internal
 Or do we want names?
 :*)
-;
+
 
 (* REMARK tjr the following type is overly general in taking an 'a;
 further, OK is overloaded later in this file in a (to me) very
 confusing manner *)
 
-val _ = Hol_datatype `err = OK of 'a | FAIL of error`
+type err 'a = OK of 'a | FAIL of error
 (*: @description
 Each library call returns either success ([[OK v]]) or failure ([[FAIL err]]).
 
 :*)
-;
+
 (*
 val _ = Hol_datatype `exn = EX_udp of error
                           | EX_match_failure of (string # num # num)`
@@ -247,14 +248,14 @@ val _ = Hol_datatype `exn = EX_udp of error
 The language appears to have exceptions
 
 :*)
-;
 
-val _ = Hol_datatype `except = EOK of 'a | EEX of exn`
+
+type except = EOK of 'a | EEX of exn`
 (*: @description
 
 - isn't this for something we don't do?
 :*)
-;
+
 *)
 
 (* -------------------------------------------------- *)
@@ -263,12 +264,11 @@ val _ = Hol_datatype `except = EOK of 'a | EEX of exn`
 
 (* (*: @section [[base_langty]] ALL Language types :*) *)
 
-val _ = Hol_datatype
-  `TLang_type = TLty_int
+type TLang_type = TLty_int
               | TLty_bool
               | TLty_string
               | TLty_one
-              | TLty_pair of (TLang_type # TLang_type)
+              | TLty_pair of (TLang_type * TLang_type)
               | TLty_list of TLang_type
               | TLty_lift of TLang_type
               | TLty_err of TLang_type
@@ -284,11 +284,11 @@ val _ = Hol_datatype
               | TLty_socktflag
 	      | TLty_socktype
               | TLty_tid
-              | TLty_signal`
+              | TLty_signal
 (*: @description
 Type names for language types that are used in the sockets API.
 :*)
-;
+
 
 
 (*              | TLty_void                   *)
@@ -304,15 +304,18 @@ Locations.
 ;
 *)
 
-val _ = Hol_datatype
-  `TLang = TL_int of int
+type one = | One
+
+let one = One
+
+type TLang = TL_int of int
          | TL_bool of bool
          | TL_string of string
          | TL_one of one
-         | TL_pair of TLang # TLang
-         | TL_list of TLang list
-         | TL_option of TLang option
-         | TL_err of TLang err
+         | TL_pair of (TLang * TLang)
+         | TL_list of list TLang 
+         | TL_option of option TLang 
+         | TL_err of err TLang 
          | TL_fd of fd
          | TL_ip of ip
          | TL_port of port
@@ -325,63 +328,68 @@ val _ = Hol_datatype
          | TL_socktflag of socktflag
          | TL_socktype of socktype
          | TL_tid of tid
-         | TL_signal of signal`
+         | TL_signal of signal
 (*: @description
 Language values.
 
 :*)
-;
+
+(* let _MEM x xs = List.mem x xs *)
 
 (* Note that one of [[TLty_lift]] and [[TL_option]] needs to be fixed so that the names are consistent. *)
 
+let SOME = Some
+let NONE = None
 
-val (TLang_typing_rules,TLang_typing_ind,TLang_typing_cases) =
-    IndDefLib.Hol_reln`
-       (!i. tlang_typing (TL_int i) TLty_int) /\
+indreln
+[ tlang_typing:  TLang -> TLang_type -> bool ]
 
-       (!b. tlang_typing (TL_bool b) TLty_bool) /\
+       r1: forall i. true ==> tlang_typing (TL_int i) TLty_int and
 
-       (!s. tlang_typing (TL_string s) TLty_string) /\
+       r2: forall b. true ==> tlang_typing (TL_bool b) TLty_bool and
 
-       tlang_typing (TL_one one) TLty_one /\
+       r3: forall s. true ==> tlang_typing (TL_string s) TLty_string and
 
-       (!p1 p2 ty1 ty2.
-            tlang_typing p1 ty1 /\ tlang_typing p2 ty2 ==>
-            tlang_typing (TL_pair(p1,p2)) (TLty_pair(ty1,ty2))) /\
+       r4: forall. true ==> tlang_typing (TL_one one) TLty_one and
 
-       (!tl ty. (!e. MEM e tl ==> tlang_typing e ty) ==>
-                tlang_typing (TL_list tl) (TLty_list ty)) /\
+       r5: forall p1 p2 ty1 ty2.
+            tlang_typing p1 ty1 && tlang_typing p2 ty2 ==>
+            tlang_typing (TL_pair(p1,p2)) (TLty_pair(ty1,ty2)) and
 
-       (!p ty. tlang_typing p ty ==>
-               tlang_typing (TL_option (SOME p)) (TLty_lift ty)) /\
-       (!ty. tlang_typing (TL_option NONE) (TLty_lift ty)) /\
+       r6: forall tl ty. (forall e. List.mem e tl --> tlang_typing e ty) ==>
+                tlang_typing (TL_list tl) (TLty_list ty) and
 
-       (!e ty. tlang_typing (TL_err (FAIL e)) (TLty_err ty)) /\
-       (!p ty. tlang_typing p ty ==>
-               tlang_typing (TL_err (OK p)) (TLty_err ty)) /\
+       r7: forall p ty. tlang_typing p ty ==>
+               tlang_typing (TL_option (SOME p)) (TLty_lift ty) and
+       r8: forall ty. true ==> tlang_typing (TL_option NONE) (TLty_lift ty) and
 
-       (!fd. tlang_typing (TL_fd fd) TLty_fd) /\
+       r9: forall e ty. true ==> tlang_typing (TL_err (FAIL e)) (TLty_err ty) and
+       r10: forall p ty. tlang_typing p ty ==>
+               tlang_typing (TL_err (OK p)) (TLty_err ty) and
 
-       (!i. tlang_typing (TL_ip i) TLty_ip) /\
-       (!p. tlang_typing (TL_port p) TLty_port) /\
-       (!e. tlang_typing (TL_error e) TLty_error) /\
-       (!nm. tlang_typing (TL_netmask nm) TLty_netmask) /\
-       (!ifid. tlang_typing (TL_ifid ifid) TLty_ifid) /\
-       (!ff. tlang_typing (TL_filebflag ff) TLty_filebflag) /\
-       (!sf. tlang_typing (TL_sockbflag sf) TLty_sockbflag) /\
-       (!sf. tlang_typing (TL_socknflag sf) TLty_socknflag) /\
-       (!sf. tlang_typing (TL_socktflag sf) TLty_socktflag) /\
-       (!st. tlang_typing (TL_socktype st) TLty_socktype) /\
-       (!tid. tlang_typing (TL_tid tid) TLty_tid) /\
-(*       (!l ty. tlang_typing (TL_ref (Loc (ty,l))) (TLty_ref ty)) /\ *)
-(*       (!ex. tlang_typing (TL_exn ex) TLty_exn ) /\ *)
-(*       (!p ty.  tlang_typing p ty ==>                    *)
+       r11: forall fd. true ==> tlang_typing (TL_fd fd) TLty_fd and
+
+       r12: forall i. true ==> tlang_typing (TL_ip i) TLty_ip and
+       r13: forall p. true ==> tlang_typing (TL_port p) TLty_port and
+       r14: forall e. true ==> tlang_typing (TL_error e) TLty_error and
+       r15: forall nm. true ==> tlang_typing (TL_netmask nm) TLty_netmask and
+       r16: forall ifid. true ==> tlang_typing (TL_ifid ifid) TLty_ifid and
+       r17: forall ff. true ==> tlang_typing (TL_filebflag ff) TLty_filebflag and
+       r18: forall sf. true ==> tlang_typing (TL_sockbflag sf) TLty_sockbflag and
+       r19: forall sf. true ==> tlang_typing (TL_socknflag sf) TLty_socknflag and
+       r20: forall sf. true ==> tlang_typing (TL_socktflag sf) TLty_socktflag and
+       r21: forall st. true ==> tlang_typing (TL_socktype st) TLty_socktype and
+       r22: forall tid. true ==> tlang_typing (TL_tid tid) TLty_tid and
+(*       (forall l ty. tlang_typing (TL_ref (Loc (ty,l))) (TLty_ref ty)) /\ *)
+(*       (forall ex. tlang_typing (TL_exn ex) TLty_exn ) /\ *)
+(*       (forall p ty.  tlang_typing p ty ==>                    *)
 (*                tlang_typing (TL_except (EOK p)) (TLty_except ty)) /\ *)
-(*        (!ex ty.  tlang_typing (TL_exn ex) TLty_exn ==> *)
+(*        (forall ex ty.  tlang_typing (TL_exn ex) TLty_exn ==> *)
 (*                 tlang_typing (TL_except (EEX ex)) (TLty_except ty)) /\ *)
-       (!s. tlang_typing (TL_signal s) TLty_signal)`;
+       r23: forall s. true ==> tlang_typing (TL_signal s) TLty_signal
 
 
+(*
 val TLang_typing_thm = let
   open simpLib
   fun app_letter ty ctxt = let
@@ -405,79 +413,75 @@ in
   save_thm("TLang_typing_thm",
            LIST_CONJ (map gen_case (TypeBase.constructors_of ``:TLang``)))
 end
-
+*)
 
 (* -------------------------------------------------- *)
 (*                     OK AND FAIL                    *)
 (* -------------------------------------------------- *)
 
-val OK'_def   = Phase.phase 1 Define `OK'   v = TL_err (OK   v)`(*:@norender:*);
-val FAIL'_def = Phase.phase 1 Define `FAIL' e = TL_err (FAIL e)`(*:@norender:*);
+let OK'   v = TL_err (OK   v)(*:@norender:*)
+let FAIL' e = TL_err (FAIL e)(*:@norender:*)
 
+(*
 val _ = overload_on("FAIL", ``FAIL'``);
+*)
 
-val OK'_int_def     = Phase.phase 1 Define `OK'_int     v = OK' (TL_int v)`(*:@norender:*);
-val OK'_bool_def    = Phase.phase 1 Define `OK'_bool    v = OK' (TL_bool v)`(*:@norender:*);
-val OK'_string_def  = Phase.phase 1 Define `OK'_string  v = OK' (TL_string v)`(*:@norender:*);
-val OK'_one_def     = Phase.phase 1 Define `OK'_one     v = OK' (TL_one v)`(*:@norender:*);
-val OK'_pair_def    = Phase.phase 1 Define `OK'_pair    v = OK' (TL_pair v)`(*:@norender:*);
-val OK'_list_def    = Phase.phase 1 Define `OK'_list    v = OK' (TL_list v)`(*:@norender:*);
-val OK'_option_def  = Phase.phase 1 Define `OK'_option  v = OK' (TL_option v)`(*:@norender:*);
-val OK'_err_def     = Phase.phase 1 Define `OK'_err     v = OK' (TL_err v)`(*:@norender:*);
-val OK'_fd_def      = Phase.phase 1 Define `OK'_fd      v = OK' (TL_fd v)`(*:@norender:*);
-val OK'_ip_def      = Phase.phase 1 Define `OK'_ip      v = OK' (TL_ip v)`(*:@norender:*);
-val OK'_port_def    = Phase.phase 1 Define `OK'_port    v = OK' (TL_port v)`(*:@norender:*);
-val OK'_error_def   = Phase.phase 1 Define `OK'_error   v = OK' (TL_error v)`(*:@norender:*);
-val OK'_tid_def     = Phase.phase 1 Define `OK'_tid     v = OK' (TL_tid v)`(*:@norender:*);
-val OK'_netmask_def = Phase.phase 1 Define `OK'_netmask v = OK' (TL_netmask v)`(*:@norender:*);
-val OK'_ifid_def    = Phase.phase 1 Define `OK'_ifid    v = OK' (TL_ifid v)`(*:@norender:*);
-val OK'_fileflags_def = Phase.phase 1 Define `
-  OK'_fileflags v = OK' (TL_list (MAP TL_filebflag v))
-`(*:@norender:*);
-val OK'_sockbflag_def = Phase.phase 1 Define `
-  OK'_sockbflag v = OK' (TL_sockbflag v)
-`(*:@norender:*);
-val OK'_socknflag_def = Phase.phase 1 Define `
-  OK'_socknflag v = OK' (TL_socknflag v)
-`(*:@norender:*);
-val OK'_socktflag_def = Phase.phase 1 Define `
-  OK'_socktflag v = OK' (TL_socktflag v)
-`(*:@norender:*);
-val OK'_int_option_def = Phase.phase 1 Define `
-  OK'_int_option v = OK' (TL_option (OPTION_MAP TL_int v))
-`(*:@norender:*);
-val OK'_intpair_option_def = Phase.phase 1 Define `
-  OK'_intpair_option v = OK' (TL_option
-                                (OPTION_MAP (\ (x,y). TL_pair (TL_int x,
+let OK'_int     v = OK' (TL_int v) (*:@norender:*)
+let OK'_bool    v = OK' (TL_bool v) (*:@norender:*)
+let OK'_string  v = OK' (TL_string v) (*:@norender:*)
+let OK'_one     v = OK' (TL_one v) (*:@norender:*)
+let OK'_pair    v = OK' (TL_pair v) (*:@norender:*)
+let OK'_list    v = OK' (TL_list v) (*:@norender:*)
+let OK'_option  v = OK' (TL_option v) (*:@norender:*)
+let OK'_err     v = OK' (TL_err v) (*:@norender:*)
+let OK'_fd      v = OK' (TL_fd v) (*:@norender:*)
+let OK'_ip      v = OK' (TL_ip v) (*:@norender:*)
+let OK'_port    v = OK' (TL_port v) (*:@norender:*)
+let OK'_error   v = OK' (TL_error v) (*:@norender:*)
+let OK'_tid     v = OK' (TL_tid v) (*:@norender:*)
+let OK'_netmask v = OK' (TL_netmask v) (*:@norender:*)
+let OK'_ifid    v = OK' (TL_ifid v) (*:@norender:*)
+
+let MAP = List.map
+
+let OK'_fileflags v = OK' (TL_list (MAP TL_filebflag v))
+(*:@norender:*)
+let OK'_sockbflag v = OK' (TL_sockbflag v)
+(*:@norender:*)
+let OK'_socknflag v = OK' (TL_socknflag v)
+(*:@norender:*)
+let OK'_socktflag v = OK' (TL_socktflag v)
+(*:@norender:*)
+let OPTION_MAP f x = match x with None -> None | Some x -> Some (f x) end
+let OK'_int_option v = OK' (TL_option (OPTION_MAP TL_int v))
+(*:@norender:*)
+let OK'_intpair_option v = OK' (TL_option
+                                (OPTION_MAP (fun (x,y) -> TL_pair (TL_int x,
                                                                TL_int y)) v))
-`(*:@norender:*);
-val OK'_string_ipportpair_pair_def = Phase.phase 1 Define `
-  OK'_string_ipportpair_pair (s,ipo) =
+
+(*:@norender:*)
+let OK'_string_ipportpair_pair (s,ipo) =
     OK'_pair (TL_string s,
 	      TL_option
                 (OPTION_MAP
-                   (\ ((i,p),b).
+                   (fun ((i,p),b) ->
                       TL_pair(TL_pair(TL_option (OPTION_MAP TL_ip i),
 				      TL_option (OPTION_MAP TL_port p)),
                               TL_bool b)) ipo))
-`(*:@norender:*);
-val OK'_ipport_def = Phase.phase 1 Define `
-  OK'_ipport (i1,p1) = OK'_pair (TL_ip i1, TL_port p1)
-`(*:@norender:*);
-val OK'_ipportlift_def = Phase.phase 1 Define `
-    OK'_ipportlift (is1,ps1) =
+(*:@norender:*)
+let OK'_ipport (i1,p1) = OK'_pair (TL_ip i1, TL_port p1)
+(*:@norender:*)
+let OK'_ipportlift (is1,ps1) =
              OK'_pair (TL_option (OPTION_MAP TL_ip is1),
                        TL_option (OPTION_MAP TL_port ps1))
-`(*:@norender:*);
-val OK'_fdipport_def = Phase.phase 1 Define `
-  OK'_fdipport (fd,(i2,p2)) =
+(*:@norender:*)
+let OK'_fdipport (fd,(i2,p2)) =
              OK' (TL_pair (TL_fd fd,
                            TL_pair (TL_ip i2,
                                     TL_port p2)))
-`(*:@norender:*);
-val OK'_errorlift_def = Phase.phase 1 Define `
-  OK'_errorlift e = OK'_option (OPTION_MAP TL_error e)
-`(*:@norender:*);
+(*:@norender:*)
+let OK'_errorlift e = OK'_option (OPTION_MAP TL_error e)
+(*:@norender:*)
 (*
 val OK'_msglift_def =
   Define `OK'_msglift (i1,ps1,data) =
@@ -485,21 +489,19 @@ val OK'_msglift_def =
                                 TL_pair(TL_option (OPTION_MAP TL_port ps1),
                                         TL_string data))))`(*:@norender:*);
 *)
-val OK'_fdlisttriple_def = Phase.phase 1 Define`
-  OK'_fdlisttriple (fdl1, fdl2, fdl3) =
+let OK'_fdlisttriple (fdl1, fdl2, fdl3) =
              TL_err (OK(TL_pair(TL_list (MAP TL_fd fdl1),
                                 TL_pair(TL_list (MAP TL_fd fdl2),
-                                        TL_list (MAP TL_fd fdl3)))))`(*:@norender:*);
-val OK'_getifaddrs_ret_def = Phase.phase 1 Define`
-    OK'_getifaddrs_ret retlist =
+                                        TL_list (MAP TL_fd fdl3)))))(*:@norender:*)
+let OK'_getifaddrs_ret retlist =
         TL_err (OK(TL_list
-                     (MAP (\ (ifid, i, ipl, nm).
+                     (MAP (fun (ifid, i, ipl, nm) ->
                                TL_pair(TL_ifid ifid,
                                        TL_pair(TL_ip i,
                                                TL_pair(TL_list (MAP TL_ip ipl),
                                                        TL_netmask nm))))
-                          retlist)))`(*:@norender:*);
-
+                          retlist)))(*:@norender:*)
+(*
 val _ = overload_on("OK", ``OK'_int``);
 val _ = overload_on("OK", ``OK'_bool``);
 val _ = overload_on("OK", ``OK'_string``);
@@ -533,7 +535,7 @@ val _ = overload_on("OK", ``OK'_msglift``);
 *)
 val _ = overload_on("OK", ``OK'_fdlisttriple``);
 val _ = overload_on("OK", ``OK'_getifaddrs_ret``);
-
+*)
 
 (* -------------------------------------------------- *)
 (*                        TIME                        *)
@@ -547,118 +549,134 @@ finite.
 
 :*)
 
-val _ = Hol_datatype `time = time_infty | time of real`
 
-val _ = type_abbrev ("duration", ``:real``);
+type time = time_infty | time of real
 
-val time_lt_def  = Phase.phase 1 Define `
+type duration = real
+
+let time_lt x y = match (x,y) with
  (*: written [[<]] :*)
-    ((time_lt:time -> time -> bool) (time x) (time y) = x < y)
- /\ (time_lt  time_infty     ys      = F)
- /\ (time_lt xs        time_infty    = T)
-`(*: @mergewithnext :*) ;
-val time_lte_def = Phase.phase 1 Define `
+ | ((time x), (time y)) -> (real_lt x y)
+ | (time_infty,     ys) -> false
+ | (xs,        time_infty) -> true 
+end
+(*: @mergewithnext :*) 
+
+let time_lte x y = match (x,y) with
  (*: written [[<=]] :*)
-  time_lte (time x) (time y) = x <= y /\
-  time_lte t time_infty = T /\
-  time_lte time_infty t = (t = time_infty)
-`(*: @mergewithnext :*) ;
-val time_gt_def  = Phase.phase 1 Define `
+  | ( (time x), (time y)) -> (real_lte x y)
+  | ( t, time_infty) -> true
+  | ( time_infty, t) -> (t = time_infty)
+end
+(*: @mergewithnext :*) 
+let 
  (*: written [[>]] :*)
   time_gt  xs ys = time_lt ys xs
-`(*: @mergewithnext :*) ;
-val time_gte_def = Phase.phase 1 Define`
+(*: @mergewithnext :*) 
+let 
  (*: written [[>=]] :*)
   time_gte xs ys = time_lte ys xs
-`;
+
+(* FIXME
 val _ = overload_on("<" , ``time_lt`` );
 val _ = overload_on("<=", ``time_lte``);
 val _ = overload_on(">" , ``time_gt`` );
 val _ = overload_on(">=", ``time_gte``);
+*)
 
-val time_min_def = Phase.phase 1 Define `
+let time_min x y = match (x,y) with
  (*: written [[MIN x y]] :*)
-  time_min (time x) (time y) = time (MIN x y) /\
-  time_min (time x) time_infty = time x /\
-  time_min time_infty (time x) = time x /\
-  time_min time_infty time_infty = time_infty
-`(*: @mergewithnext :*) ;
+  | ( (time x), (time y) ) -> time (MIN x y) 
+  | ( (time x), time_infty ) -> time x 
+  | ( time_infty, (time x) ) -> time x 
+  | ( time_infty, time_infty ) -> time_infty
+end
+(*: @mergewithnext :*) 
 
-val time_max_def = Phase.phase 1 Define `
+
+let time_max x y = match (x,y) with
  (*: written [[MAX x y]] :*)
-  time_max (time x) (time y) = time (MAX x y) /\
-  time_max time_infty (time x) = time_infty /\
-  time_max (time x) time_infty = time_infty /\
-  time_max time_infty time_infty = time_infty
-`(*: @mergewithnext :*) ;
+  | ( (time x), (time y) ) -> time (MAX x y) 
+  | ( time_infty, (time x) ) -> time_infty 
+  | ( (time x), time_infty ) -> time_infty 
+  | ( time_infty, time_infty ) -> time_infty
+end
+(*: @mergewithnext :*) 
 
+(* FIXME
 val _ = overload_on("MIN", ``time_min``);
 val _ = overload_on("MAX", ``time_max``);
+*)
 
 (* adding a duration to a time *)
-val time_plus_dur_def = Phase.phase 1 Define`
+let time_plus_dur t d = match (t,d) with
  (*: written [[+]] :*)
-  ((time_plus_dur:time -> duration -> time)
-                   (time x) y = time (x+y)) /\
-   (time_plus_dur  time_infty    y = time_infty)
-`(*: @mergewithnext :*);
+  | ((time x), y) -> time (real_plus x y)
+  | (time_infty,    y) -> time_infty
+end
+(*: @mergewithnext :*)
+(*
 val _ = overload_on("+", ``time_plus_dur``) handle e => Raise e;
+*)
+
 
 (* subtracting a duration from a time *)
-val time_minus_dur_def = Phase.phase 1 Define`
+let time_minus_dur t d = match (t,d) with
  (*: written [[-]] :*)
-  ((time_minus_dur:time -> duration -> time)
-                    (time x)      y = time (x-y)) /\
-   (time_minus_dur  time_infty    y = time_infty)
-`(*: @mergewithnext :*);
+ | ((time x),      y) -> time (real_minus x y) 
+ | (time_infty,    y) -> time_infty
+end
+(*: @mergewithnext :*)
+(*
 val _ = overload_on("-", ``time_minus_dur``);
+*)
 
 (* scalar premultiplication of a time by a real *)
-val real_mult_time_def = Phase.phase 1 Define`
+let real_mult_time r t = match (r,t) with 
  (*: written [[*]] :*)
-  (real_mult_time:real -> time -> time)
-                  x  (time y)      = time (x*y) /\
-   real_mult_time x  time_infty    = time_infty
-`;
+  | (x,  (time y)) -> time (real_times x y) 
+  | (x, time_infty) -> time_infty
+end
+(*
 val _ = overload_on("*", ``real_mult_time``) handle e => Raise e;
+*)
 
-val time_zero_def = Phase.phase 1 Define `
-  (time_zero : time) = time 0
-`;
+let (time_zero : time) = time real_zero
+
 
 (* construct a duration from two naturals *)
-val duration_def = Phase.phase 1 Define`
-  (duration : num -> num -> duration) sec usec = $&sec + $&usec / 1000000
-`
+let duration (* (duration : num -> num -> duration) *) sec usec = real_plus (real_of_num sec) (real_div (real_of_num usec) 1000000)
+
 (*: @description
 Some durations may be represented as [[duration sec usec]], where [[sec]]
 and [[usec]] are both natural numbers.
 :*)
-;
+
 
 (* absolute time - constructed from two naturals, time since the epoch *)
-val abstime_def = Phase.phase 1 Define`
-  (abstime : num -> num -> duration) sec usec =  $&sec + $&usec / 1000000
-`
+let abstime (* (abstime : num -> num -> duration) *) sec usec =  real_plus (real_of_num sec) (real_div (real_of_num usec) 1000000)
+
 (*: @description
 Some times may be represented as [[duration sec usec]], where [[sec]]
 and [[usec]] are both natural numbers.
 :*)
-;
+
 
 (* destructor - to option *)
-val realopt_of_time_def = Phase.phase 1 Define `
-  (realopt_of_time : time -> real option) (time x) = SOME x /\
-  realopt_of_time time_infty = NONE
-`(*: @mergewithnext :*);
+let realopt_of_time t = match t with 
+  | (time x) -> SOME x 
+  | time_infty -> NONE
+end
+(*: @mergewithnext :*)
 
 (* destructor - to real; unspecified on time_infty *)
-val the_time_def = Phase.phase 1 Define`
+let the_time x = match x with 
   (*: written [[THE]] :*)
-  the_time (time x) = x
-`;
+| (time x) -> x
+end
+(*
 val _ = overload_on("THE", ``the_time``);
-
+*)
 
 (*: @section [[base_net]] TCP Basic network types: sequence numbers
 
@@ -674,7 +692,7 @@ number and vice versa.
 (*                       BYTES                        *)
 (* -------------------------------------------------- *)
 
-val _ = type_abbrev ("byte", ``:char``);
+type byte = char
 
 
 (* -------------------------------------------------- *)
@@ -684,49 +702,57 @@ val _ = type_abbrev ("byte", ``:char``);
 (* Sequence numbers are 32-bit quantities
    with special wraparound comparison operators *)
 
+(*
 local open integer_word32Theory (* for w2i and i2w functions *) in end;
+*)
 
+type seq32 'a = SEQ32 of 'a * word32
 
-val _ = Hol_datatype `
-  seq32 = SEQ32 of 'a => word32
-`
 (*: @description
 32-bit wraparound sequence numbers, as used in TCP, along with their special arithmetic.
 :*)
-;
+
 
 (* Arithmetic: adding or subtracting a natural or integer *)
 
-val seq32_plus_def = Phase.phase 1 Define`
+let 
  (*: written [[+]] :*)
-  seq32_plus   (SEQ32 a n) (m:num) = SEQ32 a (n + n2w m)
-`(*: @mergewithnext :*);
-val seq32_minus_def = Phase.phase 1 Define`
- (*: written [[-]] :*)
-  seq32_minus  (SEQ32 a n) (m:num) = SEQ32 a (n - n2w m)
-`(*: @mergewithnext :*);
-val seq32_plus'_def = Phase.phase 1 Define`
- (*: written [[+]] :*)
-  seq32_plus'  (SEQ32 a n) (m:int) = SEQ32 a (n + i2w m)
-`(*: @mergewithnext :*);
-val seq32_minus'_def = Phase.phase 1 Define`
- (*: written [[-]] :*)
-  seq32_minus' (SEQ32 a n) (m:int) = SEQ32 a (n - i2w m)
-`(*: @mergewithnext :*);
+  seq32_plus   (SEQ32 a n) (m:num) = SEQ32 a (w_plus n (n2w m))
+(*: @mergewithnext :*)
 
+
+let 
+ (*: written [[-]] :*)
+  seq32_minus  (SEQ32 a n) (m:num) = SEQ32 a (w_minus n (n2w m))
+(*: @mergewithnext :*)
+
+let 
+ (*: written [[+]] :*)
+  seq32_plus'  (SEQ32 a n) (m:int) = SEQ32 a (w_plus n (i2w m))
+(*: @mergewithnext :*)
+
+let 
+ (*: written [[-]] :*)
+  seq32_minus' (SEQ32 a n) (m:int) = SEQ32 a (w_minus n (i2w m))
+(*: @mergewithnext :*)
+
+(* FIXME
 val _ = overload_on("+", ``seq32_plus``  );
 val _ = overload_on("-", ``seq32_minus`` );
 val _ = overload_on("+", ``seq32_plus'`` );
 val _ = overload_on("-", ``seq32_minus'``);
+*)
 
 (* Difference: *)
 
-val seq32_diff_def = Phase.phase 1 Define`
+let 
  (*: written [[-]] :*)
-  seq32_diff (SEQ32 (a:'a) n) (SEQ32 (b:'a) m) = w2i (n - m)
-`(*: @mergewithnext :*);
+  seq32_diff (SEQ32 (a:'a) n) (SEQ32 (b:'a) m) = w2i (w_minus n m)
+(*: @mergewithnext :*)
 
+(*
 val _ = overload_on("-", ``seq32_diff``);
+*)
 
 (* Comparison: code from BSD says:
      define  SEQ_LT(a,b)   ((int)((a)-(b)) < 0)
@@ -735,77 +761,90 @@ val _ = overload_on("-", ``seq32_diff``);
      define  SEQ_GEQ(a,b)  ((int)((a)-(b)) >= 0)
 *)
 
-val seq32_lt_def = Phase.phase 1 Define`
+let 
  (*: written [[<]] :*)
-  seq32_lt  (n:'a seq32) (m:'a seq32) = ( (n - m) : int ) < 0
-`(*: @mergewithnext :*);
-val seq32_leq_def = Phase.phase 1 Define`
+  seq32_lt  (n:seq32 'a) (m:seq32 'a) = Int.(<) ( (seq32_diff n m) : int ) int_zero
+(*: @mergewithnext :*)
+
+let 
  (*: written [[<=]] :*)
-  seq32_leq (n:'a seq32) (m:'a seq32) = ( (n - m) : int ) <= 0
-`(*: @mergewithnext :*);
-val seq32_gt_def = Phase.phase 1 Define`
+  seq32_leq (n:seq32 'a) (m:seq32 'a) = Int.(<=) ( (seq32_diff n m) : int ) int_zero
+(*: @mergewithnext :*)
+let 
  (*: written [[>]] :*)
-  seq32_gt  (n:'a seq32) (m:'a seq32) = ( (n - m) : int ) > 0
-`(*: @mergewithnext :*);
-val seq32_geq_def = Phase.phase 1 Define`
+  seq32_gt  (n:seq32 'a) (m:seq32 'a) = Int.(>) ( (seq32_diff n m) : int ) int_zero
+(*: @mergewithnext :*)
+let 
  (*: written [[>=]] :*)
-  seq32_geq (n:'a seq32) (m:'a seq32) = ( (n - m) : int ) >= 0
-`(*: @mergewithnext :*);
+  seq32_geq (n:seq32 'a) (m:seq32 'a) = Int.(>=) ( (seq32_diff n m) : int ) int_zero
+(*: @mergewithnext :*)
+(* FIXME
 val _ = overload_on("<" , ``seq32_lt`` );
 val _ = overload_on("<=", ``seq32_leq``);
 val _ = overload_on(">" , ``seq32_gt`` );
 val _ = overload_on(">=", ``seq32_geq``);
+*)
+
 
 (* coercion *)
+(*
 val seq32_fromto_def = Phase.phase 1 Define`
   seq32_fromto (a:'a) b (SEQ32 (c:'a) n) = SEQ32 b n
 `(*: @mergewithnext :*);
+*)
+(*
 val seq32_coerce_def = Phase.phase 1 Define`
   seq32_coerce (SEQ32 a n) = SEQ32 ARB n
 `(*: @mergewithnext :*);
+*)
 
-val seq32_min_def = Phase.phase 1 Define`
+let 
  (*: written [[MIN x y]] :*)
-  seq32_min (n:'a seq32) (m:'a seq32) = if n < m then n else m
-`(*: @mergewithnext :*);
-val seq32_max_def = Phase.phase 1 Define`
+  seq32_min (n:seq32 'a) (m:seq32 'a) = if seq32_lt n m then n else m
+(*: @mergewithnext :*)
+let 
  (*: written [[MAX x y]] :*)
-  seq32_max (n:'a seq32) (m:'a seq32) = if n < m then m else n
-`;
+  seq32_max (n:seq32 'a) (m:seq32 'a) = if seq32_lt n m then m else n
+
+(* FIXME
 val _ = overload_on("MIN", ``seq32_min``);
 val _ = overload_on("MAX", ``seq32_max``);
-
+*)
 
 (* -------------------------------------------------- *)
 (*      TCP SEQUENCE NUMBERS and TIMESTAMPS           *)
 (* -------------------------------------------------- *)
 
+
 (* TCP singleton types *)
-val _ = Hol_datatype`tcpLocal   = TcpLocal  `;
-val _ = Hol_datatype`tcpForeign = TcpForeign`;
+type tcpLocal   = | TcpLocal  
+type tcpForeign = | TcpForeign
 
 (* TCP sequence number types *)
-val _ = type_abbrev("tcp_seq_local"  , ``:tcpLocal   seq32``);
-val _ = type_abbrev("tcp_seq_foreign", ``:tcpForeign seq32``);
+type tcp_seq_local = seq32 tcpLocal
+type tcp_seq_foreign = seq32 tcpForeign
 
 (* TCP constructors *)
-val _ = Phase.phase 1 Define`tcp_seq_local   (n:word32) = SEQ32 TcpLocal   n`(*: @mergewithnext :*);
-val _ = Phase.phase 1 Define`tcp_seq_foreign (n:word32) = SEQ32 TcpForeign n`(*: @mergewithnext :*);
+let tcp_seq_local   (n:word32) = SEQ32 TcpLocal   n (*: @mergewithnext :*)
+let tcp_seq_foreign (n:word32) = SEQ32 TcpForeign n (*: @mergewithnext :*)
+
 
 (* TCP flip-sense overloaded operator *)
-val _ = Define`tcp_seq_local_to_foreign = seq32_coerce:tcp_seq_local -> tcp_seq_foreign`(*: @mergewithnext :*);
-val _ = Define`tcp_seq_foreign_to_local = seq32_coerce:tcp_seq_foreign -> tcp_seq_local`;
+let tcp_seq_local_to_foreign x = match x with | SEQ32 TcpLocal n -> SEQ32 TcpForeign n end (*: @mergewithnext :*)
+let tcp_seq_foreign_to_local x = match x with | SEQ32 TcpForeign n -> SEQ32 TcpLocal n end 
+(* FIXME
 val _ = overload_on("tcp_seq_flip_sense", ``tcp_seq_local_to_foreign``);
 val _ = overload_on("tcp_seq_flip_sense", ``tcp_seq_foreign_to_local``);
-
+*)
 
 (* timestamps are treated identically with TCP sequence numbers,
    as wraparound unsigned 32-bit words *)
-val _ = Hol_datatype`tstamp = Tstamp`;
-val _ = type_abbrev("ts_seq", ``:tstamp seq32``);
-val _ = Phase.phase 1 Define`ts_seq (n:word32) = SEQ32 Tstamp n`;
+type tstamp = | Tstamp
+type ts_seq = seq32 tstamp
+let ts_seq (n:word32) = SEQ32 Tstamp n
 
 (* -------------------------------------------------- *)
-
+(*
 val _ = export_theory();
 
+*)
