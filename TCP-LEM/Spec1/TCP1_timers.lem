@@ -1,3 +1,4 @@
+(*
 (* A HOL98 specification of TCP *)
 
 (* Definitions and support for various kinds of timer *)
@@ -20,6 +21,11 @@ val _ = BasicProvers.augment_srw_ss [rewrites [LET_THM]]
 val _ = new_theory "TCP1_timers";
 
 val _ = Version.registerTheory "$RCSfile: TCP1_timersScript.sml,v $" "$Revision: 1.60 $" "$Date: 2005/10/20 09:00:14 $";
+*)
+
+open TCP1_baseTypes
+open TCP1_utils
+
 
 (* -------------------------------------------------- *)
 (*      TIMERS                                        *)
@@ -86,35 +92,33 @@ Axioms of time, that all timers must satisfy.
 
 :*)
 
-val time_pass_additive_def = Define`
-  (time_pass_additive : (duration -> 'a -> 'a -> bool) -> bool)
-                      time_pass
-     = !dur1 dur2 s0 s1 s2.
-         time_pass dur1 s0 s1 /\ time_pass dur2 s1 s2 ==> time_pass (dur1+dur2) s0 s2
-`
+let
+  time_pass_additive
+                      (time_pass : (duration -> 'a -> 'a -> bool) )
+     = forall dur1 dur2 s0 s1 s2.
+         time_pass dur1 s0 s1 && time_pass dur2 s1 s2 --> time_pass (real_plus dur1 dur2) s0 s2
 (*: @description
 Property S1, additivity:
 %
     If [[s' -- (Lh_epsilon d) --> s'']] and [[s'' -- (Lh_epsilon d') --> s]] then [[s' -- (Lh_epsilon (d+d')) --> s]].
 :*)
-;
 
-val time_pass_trajectory_def = Define`
-  (time_pass_trajectory : (duration -> 'a -> 'a -> bool) -> bool)
-                        time_pass
-     = !dur s0 s1.
+let  
+  time_pass_trajectory
+                      (time_pass : (duration -> 'a -> 'a -> bool) )
+     = forall dur s0 s1.
          time_pass dur s0 s1
-         ==>
-         ?w.
-           w 0   = s0 /\
-           w dur = s1 /\
-           !t t'.
-             0 <= t  /\ t <= dur /\
-             0 <= t' /\ t' <= dur /\
-             t < t'
-             ==>
-             time_pass (t'-t) (w t) (w t')
-`
+         -->
+         exists w.
+           w real_zero = s0 &&
+           w dur = s1 &&
+           forall t t'.
+             real_lte real_zero t && real_lte t dur &&
+             real_lte real_zero t' && real_lte t' dur &&
+             real_lt t t'
+             -->
+             time_pass (real_minus t' t) (w t) (w t')
+
 (*: @description
 Property S2 is defined as follows:
     Each time passage step [[s' -- (Lh_epsilon d) --> s]] has a \emph{trajectory},
@@ -134,17 +138,18 @@ Property S2 is defined as follows:
      and [[w(t) -- (Lh_epsilon (t'-t)) --> w(t')]] for all $t$,$t'$ in $[0,d]$ with $t < t'$.
 
 :*)
-;
 
-val opttorel_def = Define`
-  (opttorel : (duration -> 'a -> 'a option) -> (duration -> 'a -> 'a -> bool))
+
+let
+  opttorel
             tp dur x y
-     = case tp dur x of
-           SOME x' -> y = x'
-        || NONE    -> F
-`(*: @description
+     = match tp dur x with
+           Some x' -> y = x'
+        | None    -> false
+end
+(*: @description
 Impedance-matching coercion.
-:*);
+:*)
 
 
 (* -------------------------------------------------------------------- *)
@@ -161,50 +166,50 @@ beyond the maximum expiry time.
 :*)
 
 (* building block for deadline timer and time-window timer *)
-val _ = Hol_datatype `timer = Timer of duration # time # time`;  (* elapsed, min, max *)
+type timer = Timer of (duration * time * time)  (* elapsed, min, max *)
 
-val fuzzy_timer_def = Phase.phase 1 Define`
+let 
   (*: timer that goes off in the interval [[ [d-eps,d+fuz] ]], like a BSD ticks-based timer :*)
   (*: [[fuz]] is some fuzziness added to mask the atomic nature of the model. :*)
 
-  (fuzzy_timer : time -> duration -> duration -> timer)
-               d eps fuz = Timer(0,d-eps,d+fuz)
-`;
-val sharp_timer_def = Phase.phase 1 Define`
-(*: timer that goes off at exactly [[d]] after now :*)
-  sharp_timer d = fuzzy_timer d 0 0
-` (*: @mergewithnext :*) ;
-val never_timer_def = Phase.phase 1 Define`
-(*: timer that never goes off :*)
-  never_timer = Timer(0,time_infty,time_infty)
-` (*: @mergewithnext :*) ;
-val upper_timer_def = Phase.phase 1 Define`
-(*: timer that goes off between now and [[d]] :*)
-  upper_timer d = Timer(0,time_zero,d)
-`;
+  fuzzy_timer (* fuzzy_timer : time -> duration -> duration -> timer *)
+               d eps fuz = Timer(real_zero,time_minus_dur d eps,time_plus_dur d fuz)
 
-val timer_expires_def = Phase.phase 1 Define`
+let 
+(*: timer that goes off at exactly [[d]] after now :*)
+  sharp_timer d = fuzzy_timer d time_zero time_zero
+ (*: @mergewithnext :*) 
+let 
+(*: timer that never goes off :*)
+  never_timer = Timer(real_zero,time_infty,time_infty)
+ (*: @mergewithnext :*) 
+let 
+(*: timer that goes off between now and [[d]] :*)
+  upper_timer d = Timer(real_zero,time_zero,d)
+
+
+let 
   (* true if the timer may expire now *)
   (* NB: we assume below that this is monotonic; if it is once true it
      is always true (at least at any time that can be reached *)
-  (timer_expires : timer -> bool) (Timer(e,deadmin,deadmax))
-  = (time e >= deadmin)
-`;
-val Time_Pass_timer_def = Phase.phase 3 Define`
+  timer_expires (* timer_expires : timer -> bool *) (Timer(e,deadmin,deadmax))
+  = (time_gte (time e) deadmin)
+
+let
 (* state of timer after time passage *)
-  (Time_Pass_timer : duration -> timer -> timer option)
+  Time_Pass_timer (* Time_Pass_timer : duration -> timer -> timer option *)
      dur (Timer(e,deadmin,deadmax))
-   = let e' = e + dur
+   = let e' = real_plus e dur
      in
-     if time e' <= deadmax
+     if time_lte (time e') deadmax
      then SOME (Timer(e',deadmin,deadmax))
      else NONE
-`;
 
-val Time_Pass_timer_additive =
-  ``time_pass_additive (opttorel Time_Pass_timer)``;
-val Time_Pass_timer_trajectory =
-  ``time_pass_additive (opttorel Time_Pass_timer)``;
+
+let _FIXME_assertion_Time_Pass_timer_additive =
+  time_pass_additive (opttorel Time_Pass_timer)
+let _FIXME_assertion_Time_Pass_timer_trajectory =
+  time_pass_additive (opttorel Time_Pass_timer)
 
 
 (* -------------------------------------------------------------------- *)
@@ -223,26 +228,27 @@ a [[timer]].  This is a very convenient idiom.
 (*[ HOL_CURRIED_ALIST
   Timed "" 99 false false
 ]*)
-val _ = Hol_datatype `timed = Timed of 'a # timer`;
+type timed 'a = Timed of ('a * timer)
 (*[ MODE 0 ]*)
 
-val timed_val_of_def = Phase.phase 1 Define`timed_val_of (Timed(x,_)) = x`;
-val timed_timer_of_def = Phase.phase 1 Define`timed_timer_of (Timed(x,d)) = d`;
-val timed_expires_def = Phase.phase 1 Define`timed_expires (Timed(_,d)) = timer_expires d`;
 
-val Time_Pass_timed_def = Phase.phase 3 Define`
-  (Time_Pass_timed : duration -> 'a timed -> 'a timed option)
+let timed_val_of (Timed(x,_)) = x
+let timed_timer_of (Timed(x,d)) = d
+let timed_expires (Timed(_,d)) = timer_expires d
+
+let
+  Time_Pass_timed  (* Time_Pass_timed : duration -> 'a timed -> 'a timed option *)
      dur (Timed(x,d))
-   = case Time_Pass_timer dur d of
-        SOME d' -> SOME (Timed(x,d'))
-     || NONE    -> NONE
-`;
+   = match Time_Pass_timer dur d with
+        Some d' -> Some (Timed(x,d'))
+     | None    -> None
+end
 
 
-val Time_Pass_timed_additive =
-  ``time_pass_additive (opttorel Time_Pass_timed)``;
-val Time_Pass_timed_trajectory =
-  ``time_pass_additive (opttorel Time_Pass_timed)``;
+let _FIXME_assertion_Time_Pass_timed_additive =
+  time_pass_additive (opttorel Time_Pass_timed)
+let _FIXME_assertion_Time_Pass_timed_trajectory =
+  time_pass_additive (opttorel Time_Pass_timed)
 
 
 (* -------------------------------------------------------------------- *)
@@ -262,33 +268,34 @@ induces urgency.
 (*[ NEWMODE straighttimewindow ]*)
 (*[ HOL_CURRIED_ALIST TimeWindow "" 99 false false
 ]*)
-val _ = Hol_datatype `timewindow = TimeWindow of 'a # timer | TimeWindowClosed`;
+type timewindow 'a = TimeWindow of ('a * timer) | TimeWindowClosed
 (*[ MODE 0 ]*)
 
-val timewindow_val_of_def = Phase.phase 1 Define`
-  timewindow_val_of (TimeWindow(x,_)) = SOME x /\
-  timewindow_val_of  TimeWindowClosed = NONE
-`;
+let 
+  timewindow_val_of x = (match x with
+  | (TimeWindow(x,_)) -> Some x 
+  |  TimeWindowClosed -> None end)
 
-val timewindow_open_def = Phase.phase 1 Define`
-  timewindow_open (TimeWindow(_,_)) = T /\
-  timewindow_open  TimeWindowClosed = F
-`;
 
-val Time_Pass_timewindow_def = Phase.phase 3 Define`
-  (Time_Pass_timewindow : duration -> 'a timewindow -> 'a timewindow -> bool)
-     dur (TimeWindow(x,d)) tw'
-   = (case Time_Pass_timer dur d of
-         NONE    -> tw' = TimeWindowClosed
-      || SOME d' -> tw' = TimeWindow(x,d') \/
-                    (timer_expires d' /\ tw' = TimeWindowClosed)) /\
-   Time_Pass_timewindow dur TimeWindowClosed tw' = (tw' = TimeWindowClosed)
-`;
+let 
+  timewindow_open x = (match x with
+  | (TimeWindow(_,_)) -> true
+  |  TimeWindowClosed -> false end)
 
-val Time_Pass_timewindow_additive =
-  ``time_pass_additive Time_Pass_timewindow``;
-val Time_Pass_timewindow_trajectory =
-  ``time_pass_additive Time_Pass_timewindow``;
+let
+  Time_Pass_timewindow (* Time_Pass_timewindow : duration -> 'a timewindow -> 'a timewindow -> bool *)
+     dur x tw'
+   = (match x with
+  | (TimeWindow(x,d)) -> (match Time_Pass_timer dur d with
+         None    -> tw' = TimeWindowClosed
+      | Some d' -> tw' = TimeWindow(x,d') ||
+                    (timer_expires d' && tw' = TimeWindowClosed) end) 
+  | TimeWindowClosed  -> (tw' = TimeWindowClosed) end)
+
+let _FIXME_assertion_Time_Pass_timewindow_additive =
+  time_pass_additive Time_Pass_timewindow
+let _FIXME_assertion_Time_Pass_timewindow_trajectory =
+  time_pass_additive Time_Pass_timewindow
 
 
 (* -------------------------------------------------------------------- *)
@@ -310,40 +317,38 @@ the last increment.
    timer and a rule that bumps the tick count whenever it fires; but that
    would yield a tau step every 10milliseconds, which would get rather
    annoying. *)
-val _ = Hol_datatype `ticker = Ticker of ts_seq # duration(* may be zero *) # duration # duration`;
+type ticker = Ticker of (ts_seq * duration(* may be zero *) * duration * duration)
 
-val ticks_of_def = Phase.phase 1 Define`ticks_of (Ticker(ticks,_,_,_)) = ticks`;
+let ticks_of (Ticker(ticks,_,_,_)) = ticks
 
 (* leave this out of any rewriting phases; it can be usefully treated as an
    atomic relation *)
-val Time_Pass_ticker_def = Define`
-  (Time_Pass_ticker : duration -> ticker -> ticker -> bool)
+let 
+  Time_Pass_ticker (* Time_Pass_ticker : duration -> ticker -> ticker -> bool *)
      dur (Ticker(ticks,remdr,intvlmin,intvlmax)) t'
-   = let d = remdr + dur
+   = let d = real_plus remdr dur
      in
-       ?delta remdr'.
-          d - real_of_num delta * intvlmax <= remdr' /\
-          remdr' <= d - real_of_num delta * intvlmin /\
-          0 <= remdr' /\ remdr' < intvlmax /\
-          t' = Ticker(ticks + delta, remdr', intvlmin, intvlmax)
-`;
+       exists delta remdr'.
+          real_lte (real_minus d (real_times (real_of_num delta) intvlmax)) remdr' &&
+          real_lte remdr' (real_minus d (real_times (real_of_num delta) intvlmin)) &&
+          real_lte real_zero remdr' && real_lt remdr' intvlmax &&
+          t' = Ticker(seq32_plus ticks delta, remdr', intvlmin, intvlmax)
 
-val ticker_ok_def = Phase.phase 1 Define`
+let
   ticker_ok (Ticker(ticks, remdr, imin, imax)) =
-    (0 <= remdr /\ remdr < imax /\ imin <= imax /\ 0 < imin)
-`;
+    (real_lte real_zero remdr && real_lt remdr imax && real_lte imin imax && real_lt real_zero imin)
 
-val tick_imin_def = Define`
+let
   tick_imin(Ticker(t,r,imin, imax)) = imin
-`;
-val tick_imax_def = Define`
-  tick_imax(Ticker(t,r,imin,imax)) = imax
-`;
 
-val Time_Pass_ticker_additive =
-  ``time_pass_additive Time_Pass_ticker``;
-val Time_Pass_ticker_trajectory =
-  ``time_pass_trajectory Time_Pass_ticker``;
+let 
+  tick_imax(Ticker(t,r,imin,imax)) = imax
+
+
+let _FIXME_assertion_Time_Pass_ticker_additive =
+  time_pass_additive Time_Pass_ticker
+let _FIXME_assertion_Time_Pass_ticker_trajectory =
+  time_pass_trajectory Time_Pass_ticker
 
 
 (* -------------------------------------------------------------------- *)
@@ -358,27 +363,26 @@ factor applied to the passage of time.
 
 :*)
 
-val _ = Hol_datatype`
-  stopwatch = Stopwatch of duration(* may be zero *) # real # real
-`;
+type stopwatch = Stopwatch of (duration(* may be zero *) * real * real)
 
-val stopwatch_val_of_def = Phase.phase 1 Define`
+let
   stopwatch_val_of (Stopwatch(d,_,_)) = d
-`;
 
-val Time_Pass_stopwatch_def = Phase.phase 3 Define`
-  (Time_Pass_stopwatch : duration -> stopwatch -> stopwatch -> bool)
+
+let 
+  Time_Pass_stopwatch (* Time_Pass_stopwatch : duration -> stopwatch -> stopwatch -> bool *)
     dur (Stopwatch(d,ratemin,ratemax)) s'
-   = ?rate. ratemin <= rate /\ rate <= ratemax /\
-     s' = Stopwatch(d+(dur*rate),ratemin,ratemax)
-`;
+   = exists rate. real_lte ratemin rate && real_lte rate ratemax &&
+     s' = Stopwatch(real_plus d (real_times dur rate),ratemin,ratemax)
 
-val Time_Pass_stopwatch_additive =
-  ``time_pass_additive Time_Pass_stopwatch``;
-val Time_Pass_stopwatch_trajectory =
-  ``time_pass_additive Time_Pass_stopwatch``;
+let _FIXME_assertion_Time_Pass_stopwatch_additive =
+  time_pass_additive Time_Pass_stopwatch
+let _FIXME_assertion_Time_Pass_stopwatch_trajectory =
+  time_pass_additive Time_Pass_stopwatch
 
 
 (* -------------------------------------------------- *)
 
+(*
 val _ = export_theory();
+*)

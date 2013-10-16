@@ -21,4 +21,8 @@ let w_minus x y = FIXME_word32
 
 let w_plus x y = FIXME_word32
 
+let FIXME_num = 0
 
+let w2n w = FIXME_num
+
+let INT32_SIGNED_MAX = FIXME_word32

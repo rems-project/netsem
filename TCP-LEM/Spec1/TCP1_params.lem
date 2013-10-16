@@ -1,3 +1,4 @@
+(*
 (* A HOL98 specification of TCP *)
 
 (* Host behavioural parameters *)
@@ -24,6 +25,13 @@ val Term = Parse.Term;
 val _ = new_theory "TCP1_params";
 
 val _ = Version.registerTheory "$RCSfile: TCP1_paramsScript.sml,v $" "$Revision: 1.30 $" "$Date: 2009/02/17 11:56:46 $";
+*)
+
+open TCP1_lemSupport
+open TCP1_utils
+open TCP1_baseTypes
+open TCP1_timers
+
 
 (*: @chapter [[TCP1_params]] Host behavioural parameters
 
@@ -64,30 +72,30 @@ These types used to be in hostTypes. They should probably be moved to baseTypes.
 TODO3
 :*)
 
-val _ = Hol_datatype `(*: file ID :*) fid = FID of num`(*:@mergewithnext:*);
+type (*: file ID :*) fid = FID of num(*:@mergewithnext:*)
 
-val _ = Hol_datatype `(* socket ID *) sid = SID of num`(*:
+type (* socket ID *) sid = SID of num(*:
 @description
 File IDs [[fid]] and socket IDs [[sid]] are really unique, unlike file
 descriptors [[fd]].
 
-:*);
+:*)
 
 
-val _ = Hol_datatype`(*: type of file, with pointer to details structure :*)
-   filetype = FT_Console            | FT_Socket of sid`(*:@mergewithnext:*);
+type (*: type of file, with pointer to details structure :*)
+   filetype = FT_Console            | FT_Socket of sid(*:@mergewithnext:*)
 
-val _ = Hol_datatype`(*: flags set on a file :*)
+type (*: flags set on a file :*)
    fileflags = <| b : filebflag -> bool     |>
-`(*:@mergewithnext:*);
+(*:@mergewithnext:*)
 
-val _ = Hol_datatype`(*: open file description  :*)
+type (*: open file description  :*)
    file  = <| ft  : filetype;  ff  : fileflags  |>
-`(*:@mergewithnext:*);
+(*:@mergewithnext:*)
 
-val File_def = xDefine "File" `(*: helper constructor :*)
-  File(ft,ff) = <| ft:=ft; ff:=ff |>
-`(*:
+let (*: helper constructor :*)
+  File(ft,ff) = <| ft=ft; ff=ff |>
+(*:
 @description
 A file is represented by an "open file description" (in POSIX
 terminology).  This contains file flags and a file type; the specification only covers [[FT_Console]] and [[FT_Socket]] files.  For most
@@ -98,22 +106,22 @@ a [[socket]] structure for files of type [[FT_Socket]].
 The file flags are defined in TCP1\_baseTypes: see {@link
 [[filebflag]]}.
 
-:*);
+:*)
 
 
 (* sockflag types are defined in TCP1_baseTypes *)
-val _ = Hol_datatype`(*: flags set on a socket :*)
-   sockflags = <| b : sockbflag -> bool;
+type (*: flags set on a socket :*)
+   sockflags = <| b1 : sockbflag -> bool;
                   n : socknflag -> num;
                   t : socktflag -> time
                |>
-`; (* removed @mergewithnext *)
+ (* removed @mergewithnext *)
 
-val _ = Hol_datatype`(*: the architectures we consider :*)
+type (*: the architectures we consider :*)
   arch = Linux_2_4_20_8
        | WinXP_Prof_SP1
        | FreeBSD_4_6_RELEASE
-`(*:
+(*:
 @description
 %
 The behaviour of TCP/IP stacks varies between architectures.  Here we
@@ -124,7 +132,7 @@ and another edit to improve the accuracy of kernel time (for our
 automated testing).  We believe that these do not impact the TCP
 semantics in any way.
 
-:*);
+:*)
 
 (*
 Speculation: POSIX should perhaps be an architecture, one that yields
@@ -143,9 +151,9 @@ Booleans that select a particular model semantics.
 :*)
 (* ------------------------------------------------------------------ *)
 
-val INFINITE_RESOURCES_def = Phase.phase 1 Define`
-  INFINITE_RESOURCES = T
-`(*:
+let 
+  INFINITE_RESOURCES = true
+(*:
 @description
 
 [[INFINITE_RESOURCES]] forbids various resource
@@ -155,11 +163,11 @@ specification would have to model far more detail about the real
 system) and rare in practice, so for testing and reasoning one often
 wants to exclude them altogether.
 
-:*);
+:*)
 
-val BSD_RTTVAR_BUG_def = Phase.phase 1 Define`
-  BSD_RTTVAR_BUG = T
-`
+let 
+  BSD_RTTVAR_BUG = true
+
 (*:
 @description
  [[BSD_RTTVAR_BUG]] enables a peculiarity of BSD behaviour for retransmit timeouts.
@@ -185,7 +193,7 @@ val BSD_RTTVAR_BUG_def = Phase.phase 1 Define`
      |tcp_subr.c:542| --- and the |tcp_timer.c:420| code has no effect at
      all.
 :*)
-;
+
 
 
 
@@ -199,13 +207,14 @@ Parameters controlling the timing of the OS scheduler.
 (* ------------------------------------------------------------------ *)
 
 (* maximum host op scheduling delay: *)
-val dschedmax_def = Phase.phase 1 Define`dschedmax = time ( 1000/1000) (* make large for now, tighten when better understood *)`(*: @mergewithnext :*);
+let dschedmax = time (real_div 1000 1000) (* make large for now, tighten when better understood *)(*: @mergewithnext :*)
+
 
 (* maximum inqueue scheduling delay: *)
-val diqmax_def = Phase.phase 1 Define`diqmax = time ( 1000/1000) (* make large for now, tighten when better understood *)`(*: @mergewithnext :*);
+let diqmax = time (real_div 1000 1000) (* make large for now, tighten when better understood *)(*: @mergewithnext :*)
 
 (* maximum outqueue emission delay: *)
-val doqmax_def = Phase.phase 1 Define`doqmax = time ( 1000/1000) (* make large for now, tighten when better understood *)`
+let doqmax = time (real_div 1000 1000) (* make large for now, tighten when better understood *)
 (*:
 @description
 %
@@ -221,7 +230,7 @@ For now, pending investigation of tighter realistic upper bounds, they
 are all made conservatively large.
 
 :*)
-;
+
 
 
 
@@ -236,71 +245,72 @@ used in the model.
 (* ------------------------------------------------------------------ *)
 
 
-val HZ_def = Phase.phase 1 Define`
-  HZ = 100 : real  (* Note this is the FreeBSD 4.6 value. Becomes 1000 in
+let 
+  HZ = (real_of_num 100) (* : real *) (* Note this is the FreeBSD 4.6 value. Becomes 1000 in
                       FreeBSD 6.0 *)
-`
+
 (*:
 @description
 The nominal rate at which the timestamp (etc.) clock ticks, in hertz (ticks per second).
 :*)
-;
 
-val tickintvlmin_def = Phase.phase 1 Define`
-  tickintvlmin = 100/(105*HZ) : real
-`(*: @mergewithnext :*);
 
-val tickintvlmax_def = Phase.phase 1 Define`
-  tickintvlmax = 105/(100*HZ) : real
-`
+let 
+  tickintvlmin = real_div (real_of_num 100) (real_times (real_of_num 105) HZ) 
+(*: @mergewithnext :*)
+
+let 
+  tickintvlmax = real_div (real_of_num 105) (real_times (real_of_num 100) HZ) 
+
 (*:
 @description
 The actual bounds on the tick interval, in seconds-per-tick; must include [[1/HZ]], and be within the RFC1323 bounds of 1sec to 1msec.
 :*)
-;
 
-val stopwatchfuzz_def = Phase.phase 1 Define`
-  stopwatchfuzz = (5/100) : real  (* +/- factor on accuracy of stopwatch timers *)
-`(*: @mergewithnext :*);
 
-val stopwatch_zero_def = Phase.phase 1 Define`
-  stopwatch_zero = Stopwatch(0,1/(1+stopwatchfuzz),1+stopwatchfuzz)
-`
+let
+  stopwatchfuzz = (real_div (real_of_num 5) (real_of_num 100))  (* +/- factor on accuracy of stopwatch timers *)
+(*: @mergewithnext :*)
+
+let 
+  stopwatch_zero = Stopwatch(real_zero,real_div (real_of_num 1) (real_plus (real_of_num 1) stopwatchfuzz),(real_plus 1 stopwatchfuzz))
+
 (*:
 @description
 A stopwatch timer is initialised to [[stopwatch_zero]], which gives it an initial time of [[0]] and a fuzz of [[stopwatchfuzz]].
 :*)
-;
 
-val SLOW_TIMER_INTVL_def = Phase.phase 1 Define`
-  SLOW_TIMER_INTVL = (1/2) : duration  (* slow timer is 500msec on BSD *)
-`(*: @mergewithnext :*);
 
-val SLOW_TIMER_MODEL_INTVL_def = Phase.phase 1 Define`
-  SLOW_TIMER_MODEL_INTVL = (1/1000) : duration (*: 1msec fuzziness to mask atomicity of model; Note that it might be possible to reduce this fuzziness :*)
-`(*: @mergewithnext :*);
+let 
+  SLOW_TIMER_INTVL = (real_div (real_of_num 1) (real_of_num 2))  (* slow timer is 500msec on BSD *)
+(*: @mergewithnext :*)
 
-val FAST_TIMER_INTVL_def = Phase.phase 1 Define`
-  FAST_TIMER_INTVL = (1/5) : duration  (* fast timer is 200msec on BSD *)
-`(*: @mergewithnext :*);
+let 
+  SLOW_TIMER_MODEL_INTVL = real_div (real_of_num 1) (real_of_num 1000) (*: 1msec fuzziness to mask atomicity of model; Note that it might be possible to reduce this fuzziness :*)
+(*: @mergewithnext :*)
 
-val FAST_TIMER_MODEL_INTVL_def = Phase.phase 1 Define`
-  FAST_TIMER_MODEL_INTVL = (1/1000) : duration (*: 1msec fuzziness to mask atomicity of model; Note that it might be possible to reduce this fuzziness :*)
-`(*: @mergewithnext :*);
+let 
+  FAST_TIMER_INTVL = real_div (real_of_num 1) (real_of_num 5)  (* fast timer is 200msec on BSD *)
+(*: @mergewithnext :*)
 
-val KERN_TIMER_INTVL_def = Phase.phase 1 Define`
-  KERN_TIMER_INTVL = tickintvlmax : duration  (* precision of select timer *)
-`(*: @mergewithnext :*);
+let 
+  FAST_TIMER_MODEL_INTVL = real_div (real_of_num 1) (real_of_num 1000) (*: 1msec fuzziness to mask atomicity of model; Note that it might be possible to reduce this fuzziness :*)
+(*: @mergewithnext :*)
 
-val KERN_TIMER_MODEL_INTVL_def = Phase.phase 1 Define`
-  KERN_TIMER_MODEL_INTVL = (the_time dschedmax) : duration (*: Note that some fuzziness may be required here :*)
+let 
+  KERN_TIMER_INTVL = tickintvlmax  (* precision of select timer *)
+(*: @mergewithnext :*)
+
+
+let 
+  KERN_TIMER_MODEL_INTVL = (the_time dschedmax) (*: Note that some fuzziness may be required here :*)
   (* Note this was previously 0usec fuzziness; it should really have some fuzziness, though dschedmax
      has a current value of 1s which is too high. Once epsilon_2 is used properly by the checker,
      we should be able to reduce this fuzziness as it will enable the time transitions to be
      split. e.g. in pselect rules, we really want to change from PSelect2() to Ret() states
      pretty much exactly when the timer goes off, then allow a further epsilon transition
      before returning. *)
-`
+
 (*:
 @description
 The slow, fast, and kernel timers are the timers used to control TCP time-related behaviour.
@@ -311,7 +321,7 @@ establishment, FIN\_WAIT\_2, 2MSL, and linger timers.  The fast timer
 is used for delayed acks.  The kernel timer is used for timestamp
 expiry, \texttt{select}, and bad-retransmit detection.
 :*)
-;
+
 
 
 
@@ -325,26 +335,26 @@ file descriptors and sockets.
 :*)
 (* ------------------------------------------------------------------ *)
 
-val OPEN_MAX_def = Phase.phase 1 Define`
-  OPEN_MAX = 957 : num  (*: typical value of |kern.maxfilesperproc| on one of our BSD boxen :*)
-`(*: @mergewithnext :*);
+let 
+  OPEN_MAX = 957  (*: typical value of |kern.maxfilesperproc| on one of our BSD boxen :*)
+(*: @mergewithnext :*)
 
-val OPEN_MAX_FD_def = Phase.phase 1 Define`
+let 
   OPEN_MAX_FD = FD OPEN_MAX
-`
+
 (*:
 @description
 A process may hold a maximum of [[OPEN_MAX]] file descriptors at any
 one time.  These are numbered consecutively from zero on non-Windows
 architectures, and so the first forbidden file descriptor is [[OPEN_MAX_FD]].
 :*)
-;
 
-val FD_SETSIZE_def = Phase.phase 1 Define`
-  (FD_SETSIZE : arch -> num)  Linux_2_4_20_8 = 1024n /\
-   FD_SETSIZE                 WinXP_Prof_SP1 = 64n /\
-   FD_SETSIZE                 FreeBDS_4_6_RELEASE = 1024n
-`
+
+let FD_SETSIZE x = (match x with
+   | Linux_2_4_20_8 -> 1024
+   | WinXP_Prof_SP1 -> 64
+   | FreeBDS_4_6_RELEASE -> 1024 end)
+
 (*:
 @description
 The sets of file descriptors used in calls to [[pselect]] can contain
@@ -355,17 +365,17 @@ only file descriptors numbered less than [[FD_SETSIZE]].
 [[FD_SETSIZE]] refers to the maximum number of file descriptors in a
 file descriptor set.
 :*)
-;
 
 
-val SOMAXCONN_def = Phase.phase 1 Define`
-  SOMAXCONN = 128 : num
-`
+
+let 
+  SOMAXCONN = 128 
+
 (*:
 @description
 The maximum listen-queue length.
 :*)
-;
+
 
 
 
@@ -378,17 +388,16 @@ UDP-specific parameters.
 :*)
 (* ------------------------------------------------------------------ *)
 
-val UDPpayloadMax_def = Phase.phase 1 Define`
-    (UDPpayloadMax : arch -> num)
-                      Linux_2_4_20_8 = 65507n /\
-    UDPpayloadMax WinXP_Prof_SP1 = 65507n /\
-    UDPpayloadMax FreeBSD_4_6_RELEASE = 9216n
-`
+let UDPpayloadMax x = (match x with
+    | Linux_2_4_20_8 -> 65507
+    | WinXP_Prof_SP1 -> 65507
+    | FreeBSD_4_6_RELEASE -> 9216 end)
+
 (*:
 @description
 The architecture-dependent maximum payload for a UDP datagram.
 :*)
-;
+
 
 
 
@@ -401,21 +410,21 @@ Parameters to the buffer size computation.
 :*)
 (* ------------------------------------------------------------------ *)
 
-val MCLBYTES_def = Phase.phase 1 Define` (* size of an mbuf cluster *)
-  MCLBYTES = 2048 : num  (* BSD default on i386; really, just needs to be >=1500 to fit an etherseg *)
-`(*: @mergewithnext :*);
+let 
+  MCLBYTES = 2048  (* BSD default on i386; really, just needs to be >=1500 to fit an etherseg *)
+(*: @mergewithnext :*)
 
-val MSIZE_def = Phase.phase 1 Define`
-  MSIZE = 256 : num  (* BSD default on i386; really, size of an mbuf *)
-`(*: @mergewithnext :*);
+let 
+  MSIZE = 256  (* BSD default on i386; really, size of an mbuf *)
+(*: @mergewithnext :*)
 
-val SB_MAX_def = Phase.phase 1 Define`
-  SB_MAX = 256 * 1024 : num  (* BSD *)
-`(*: @mergewithnext :*);
+let 
+  SB_MAX = 256 * 1024  (* BSD *)
+(*: @mergewithnext :*)
 
-val oob_extra_sndbuf_def = Phase.phase 1 Define`
-  oob_extra_sndbuf = 1024 : num
-`;
+let 
+  oob_extra_sndbuf = 1024 
+
 
 
 
@@ -430,127 +439,128 @@ really be set to [[T]] by default on FreeBSD.
 :*)
 (* ------------------------------------------------------------------ *)
 
-val ff_default_b_def = Phase.phase 1 Define`
+let ff_default_b x = (match x with
 (*: file flags default :*)
-  (ff_default_b : filebflag -> bool)
-                O_NONBLOCK = F /\
-   ff_default_b O_ASYNC    = F
-`(*: @mergewithnext :*);
-val ff_default_def = Phase.phase 1 Define`
-  ff_default = <| b := ff_default_b |>
-`;
+  | O_NONBLOCK -> false
+  | O_ASYNC    -> false end)
+(*: @mergewithnext :*)
+let 
+  ff_default = <| b = ff_default_b |>
 
-val sf_default_b_def = Phase.phase 1 Define`
+
+let sf_default_b x = (match x with
 (*: [[bool]] socket flags default :*)
-  (sf_default_b : sockbflag -> bool)
-               SO_BSDCOMPAT  = F /\
-  sf_default_b SO_REUSEADDR  = F /\
-  sf_default_b SO_KEEPALIVE  = F /\
-  sf_default_b SO_OOBINLINE  = F /\
-  sf_default_b SO_DONTROUTE  = F
-`;
+  | SO_BSDCOMPAT  -> false
+  | SO_REUSEADDR  -> false
+  | SO_KEEPALIVE  -> false
+  | SO_OOBINLINE  -> false
+  | SO_DONTROUTE  -> false end)
 
-
-val sf_default_n_def = Phase.phase 1 Define`
+let 
 (*: [[num]] socket flags defaults :*)
-  (sf_default_n : arch -> socktype -> socknflag -> num)
-               Linux_2_4_20_8 SOCK_STREAM SO_SNDBUF      = 16384 /\ (* from tests *)
-  sf_default_n WinXP_Prof_SP1 SOCK_STREAM SO_SNDBUF      = 8192 /\ (* from tests *)
-  sf_default_n FreeBSD_4_6_RELEASE SOCK_STREAM SO_SNDBUF = 32*1024 /\ (* from code*)
+  sf_default_n (* sf_default_n : arch -> socktype -> socknflag -> num *)
+    x y z = (match (x,y,z) with
+    (Linux_2_4_20_8,SOCK_STREAM,SO_SNDBUF     ) -> 16384  (* from tests *)
+  | (WinXP_Prof_SP1,SOCK_STREAM,SO_SNDBUF     ) -> 8192  (* from tests *)
+  | (FreeBSD_4_6_RELEASE,SOCK_STREAM,SO_SNDBUF) -> 32*1024  (* from code*)
+    
+  | (Linux_2_4_20_8,SOCK_STREAM,SO_RCVBUF     ) -> 43689  (* from tests - strange number? *)
+  | (WinXP_Prof_SP1,SOCK_STREAM,SO_RCVBUF     ) -> 8192   (* from tests *)
+  | (FreeBSD_4_6_RELEASE,SOCK_STREAM,SO_RCVBUF) -> 57344  (* from code, becomes 65536 in FreeBSD 6.0 *)
+    
+  | (Linux_2_4_20_8,SOCK_STREAM,SO_SNDLOWAT     ) -> 1  (* from tests *)
+  | (WinXP_Prof_SP1,SOCK_STREAM,SO_SNDLOWAT     ) -> 1  (* Note this value has not been checked in testing. *)
+  | (FreeBSD_4_6_RELEASE,SOCK_STREAM,SO_SNDLOWAT) -> 2048  (* from code *)
+    
+  | (Linux_2_4_20_8,SOCK_STREAM,SO_RCVLOWAT     ) -> 1  (* from tests *)
+  | (WinXP_Prof_SP1,SOCK_STREAM,SO_RCVLOWAT     ) -> 1 
+  | (FreeBSD_4_6_RELEASE,SOCK_STREAM,SO_RCVLOWAT) -> 1  (* from code *)
+    
+  | (Linux_2_4_20_8,SOCK_DGRAM,SO_SNDBUF      ) -> 65535  (* from tests *)
+  | (WinXP_Prof_SP1,SOCK_DGRAM,SO_SNDBUF      ) -> 8192   (* from tests *)
+  | (FreeBSD_4_6_RELEASE,SOCK_DGRAM,SO_SNDBUF ) -> 9216   (* from code *)
+    
+  | (Linux_2_4_20_8,SOCK_DGRAM,SO_RCVBUF      ) -> 65535  (* correct from tests *)
+  | (WinXP_Prof_SP1,SOCK_DGRAM,SO_RCVBUF      ) -> 8192   (* correct from tests *)
+  | (FreeBSD_4_6_RELEASE,SOCK_DGRAM,SO_RCVBUF ) -> 42080  (*: from tests but:  41600 from code; i386 only as dependent on |sizeof(struct sockaddr_in)| :*)
+    
+  | (Linux_2_4_20_8,SOCK_DGRAM,SO_SNDLOWAT      ) -> 1  (* from tests *)
+  | (WinXP_Prof_SP1,SOCK_DGRAM,SO_SNDLOWAT      ) -> 1  (* from tests *)
+  | (FreeBSD_4_6_RELEASE,SOCK_DGRAM,SO_SNDLOWAT ) -> 2048  (* from code *)
+    
+  | (Linux_2_4_20_8,SOCK_DGRAM,SO_RCVLOWAT      ) -> 1  (* from tests *)
+  | (WinXP_Prof_SP1,SOCK_DGRAM,SO_RCVLOWAT      ) -> 1  (* from tests *)
+  | (FreeBSD_4_6_RELEASE,SOCK_DGRAM,SO_RCVLOWAT ) -> 1 (* from code *)
+end)
 
-  sf_default_n Linux_2_4_20_8 SOCK_STREAM SO_RCVBUF      = 43689 /\ (* from tests - strange number? *)
-  sf_default_n WinXP_Prof_SP1 SOCK_STREAM SO_RCVBUF      = 8192  /\ (* from tests *)
-  sf_default_n FreeBSD_4_6_RELEASE SOCK_STREAM SO_RCVBUF = 57344 /\ (* from code, becomes 65536 in FreeBSD 6.0 *)
 
-  sf_default_n Linux_2_4_20_8 SOCK_STREAM SO_SNDLOWAT      = 1 /\ (* from tests *)
-  sf_default_n WinXP_Prof_SP1 SOCK_STREAM SO_SNDLOWAT      = 1 /\ (* Note this value has not been checked in testing. *)
-  sf_default_n FreeBSD_4_6_RELEASE SOCK_STREAM SO_SNDLOWAT = 2048 /\ (* from code *)
-
-  sf_default_n Linux_2_4_20_8 SOCK_STREAM SO_RCVLOWAT      = 1 /\ (* from tests *)
-  sf_default_n WinXP_Prof_SP1 SOCK_STREAM SO_RCVLOWAT      = 1 /\
-  sf_default_n FreeBSD_4_6_RELEASE SOCK_STREAM SO_RCVLOWAT = 1 /\ (* from code *)
-
-  sf_default_n Linux_2_4_20_8 SOCK_DGRAM SO_SNDBUF       = 65535 /\ (* from tests *)
-  sf_default_n WinXP_Prof_SP1 SOCK_DGRAM SO_SNDBUF       = 8192 /\  (* from tests *)
-  sf_default_n FreeBSD_4_6_RELEASE SOCK_DGRAM SO_SNDBUF  = 9216  /\ (* from code *)
-
-  sf_default_n Linux_2_4_20_8 SOCK_DGRAM SO_RCVBUF       = 65535 /\ (* correct from tests *)
-  sf_default_n WinXP_Prof_SP1 SOCK_DGRAM SO_RCVBUF       = 8192 /\  (* correct from tests *)
-  sf_default_n FreeBSD_4_6_RELEASE SOCK_DGRAM SO_RCVBUF  = 42080 /\ (*: from tests but:  41600 from code; i386 only as dependent on |sizeof(struct sockaddr_in)| :*)
-
-  sf_default_n Linux_2_4_20_8 SOCK_DGRAM SO_SNDLOWAT       = 1 /\ (* from tests *)
-  sf_default_n WinXP_Prof_SP1 SOCK_DGRAM SO_SNDLOWAT       = 1 /\ (* from tests *)
-  sf_default_n FreeBSD_4_6_RELEASE SOCK_DGRAM SO_SNDLOWAT  = 2048 /\ (* from code *)
-
-  sf_default_n Linux_2_4_20_8 SOCK_DGRAM SO_RCVLOWAT       = 1 /\ (* from tests *)
-  sf_default_n WinXP_Prof_SP1 SOCK_DGRAM SO_RCVLOWAT       = 1 /\ (* from tests *)
-  sf_default_n FreeBSD_4_6_RELEASE SOCK_DGRAM SO_RCVLOWAT  = 1 (* from code *)
-`;
-
-val sf_default_t_def = Phase.phase 1 Define`
+let 
 (*: [[time]] socket flags defaults :*)
+  
+  sf_default_t (* sf_default_t : socktflag -> time *) x = (match x with 
+  | SO_LINGER     -> time_infty 
+  | SO_SNDTIMEO   -> time_infty 
+  | SO_RCVTIMEO   -> time_infty
+end)
 
-  (sf_default_t : socktflag -> time)
-               SO_LINGER     = time_infty /\
-  sf_default_t SO_SNDTIMEO   = time_infty /\
-  sf_default_t SO_RCVTIMEO   = time_infty
-`;
 
-val sf_default_def = Phase.phase 1 Define`
+let
 (*: socket flags defaults :*)
-  sf_default arch socktype = <| b := sf_default_b;
-                                n := sf_default_n arch socktype;
-                                t := sf_default_t
+  sf_default arch socktype = <| b1 = sf_default_b;
+                                n = sf_default_n arch socktype;
+                                t = sf_default_t
                               |>
-`;
 
-val sf_min_n_def = Phase.phase 1 Define`
+let 
 (*: minimum values of [[num]] socket flags :*)
-  (sf_min_n : arch -> socknflag -> num)
-           Linux_2_4_20_8 SO_SNDBUF      = 2048 /\ (* from tests *)
-  sf_min_n WinXP_Prof_SP1 SO_SNDBUF      = 0 /\ (* from tests *)
-  sf_min_n FreeBSD_4_6_RELEASE SO_SNDBUF = 1 /\ (* from code *)
-  sf_min_n Linux_2_4_20_8 SO_RCVBUF      = 256 /\ (* from tests *)
-  sf_min_n WinXP_Prof_SP1 SO_RCVBUF      = 0 /\ (* from tests *)
-  sf_min_n FreeBSD_4_6_RELEASE SO_RCVBUF = 1 /\ (* from code *)
-  sf_min_n Linux_2_4_20_8 SO_SNDLOWAT      = 1 /\ (* from tests *)
-  sf_min_n WinXP_Prof_SP1 SO_SNDLOWAT      = 1 /\ (* Note this value has not been checked in testing. *)
-  sf_min_n FreeBSD_4_6_RELEASE SO_SNDLOWAT = 1 /\ (* from code *)
-  sf_min_n Linux_2_4_20_8 SO_RCVLOWAT      = 1 /\ (* from tests *)
-  sf_min_n WinXP_Prof_SP1 SO_RCVLOWAT      = 1 /\ (* Note this value has not been checked in testing. *)
-  sf_min_n FreeBSD_4_6_RELEASE SO_RCVLOWAT = 1  (* from code *)
-`(*: @mergewithnext :*);
+  sf_min_n  (* sf_min_n : arch -> socknflag -> num *)
+    x y = (match (x,y) with
+  | (Linux_2_4_20_8,SO_SNDBUF     ) -> 2048  (* from tests *)
+  | (WinXP_Prof_SP1,SO_SNDBUF     ) -> 0  (* from tests *)
+  | (FreeBSD_4_6_RELEASE,SO_SNDBUF) -> 1  (* from code *)
+  | (Linux_2_4_20_8,SO_RCVBUF     ) -> 256  (* from tests *)
+  | (WinXP_Prof_SP1,SO_RCVBUF     ) -> 0  (* from tests *)
+  | (FreeBSD_4_6_RELEASE,SO_RCVBUF) -> 1  (* from code *)
+  | (Linux_2_4_20_8,SO_SNDLOWAT     ) -> 1  (* from tests *)
+  | (WinXP_Prof_SP1,SO_SNDLOWAT     ) -> 1  (* Note this value has not been checked in testing. *)
+  | (FreeBSD_4_6_RELEASE,SO_SNDLOWAT) -> 1  (* from code *)
+  | (Linux_2_4_20_8,SO_RCVLOWAT     ) -> 1  (* from tests *)
+  | (WinXP_Prof_SP1,SO_RCVLOWAT     ) -> 1  (* Note this value has not been checked in testing. *)
+  | (FreeBSD_4_6_RELEASE,SO_RCVLOWAT) -> 1  (* from code *)
+end)
 
-val sf_max_n_def = Phase.phase 1 Define`
+
+let
 (*: maximum values of [[num]] socket flags :*)
-  (sf_max_n : arch -> socknflag -> num)
-           Linux_2_4_20_8 SO_SNDBUF      = 131070 /\ (* from tests *)
-  sf_max_n WinXP_Prof_SP1 SO_SNDBUF      = 131070 /\ (* from tests *)
-  sf_max_n FreeBSD_4_6_RELEASE SO_SNDBUF =
-       SB_MAX * MCLBYTES DIV (MCLBYTES + MSIZE) /\ (* from code *)
-  sf_max_n Linux_2_4_20_8 SO_RCVBUF      = 131070 /\ (* from tests *)
-  sf_max_n WinXP_Prof_SP1 SO_RCVBUF      = 131070 /\ (* from tests *)
-  sf_max_n FreeBSD_4_6_RELEASE SO_RCVBUF =
-       SB_MAX * MCLBYTES DIV (MCLBYTES + MSIZE) /\ (* from code *)
-  sf_max_n Linux_2_4_20_8 SO_SNDLOWAT      = 1 /\ (* from tests *)
-  sf_max_n WinXP_Prof_SP1 SO_SNDLOWAT      = 1 /\ (* Note this value has not been checked in testing. *)
-  sf_max_n FreeBSD_4_6_RELEASE SO_SNDLOWAT =
-       SB_MAX * MCLBYTES DIV (MCLBYTES + MSIZE) /\ (* clip to SO_SNDBUF *)
-  sf_max_n Linux_2_4_20_8 SO_RCVLOWAT      = w2n INT32_SIGNED_MAX /\ (* from code *)
-  sf_max_n WinXP_Prof_SP1 SO_RCVLOWAT      = 1 /\ (* Note this value has not been checked in testing. *)
-  sf_max_n FreeBSD_4_6_RELEASE SO_RCVLOWAT =
-       SB_MAX * MCLBYTES DIV (MCLBYTES + MSIZE)(* clip to SO_RCVBUF *)
-`;
+  sf_max_n (* sf_max_n : arch -> socknflag -> num *) x y = (match (x,y) with
+  | (Linux_2_4_20_8,SO_SNDBUF     ) -> 131070  (* from tests *)
+  | (WinXP_Prof_SP1,SO_SNDBUF     ) -> 131070  (* from tests *)
+  | (FreeBSD_4_6_RELEASE,SO_SNDBUF) ->
+       DIV (SB_MAX * MCLBYTES) (MCLBYTES + MSIZE)  (* from code *)
+  | (Linux_2_4_20_8,SO_RCVBUF     ) -> 131070  (* from tests *)
+  | (WinXP_Prof_SP1,SO_RCVBUF     ) -> 131070  (* from tests *)
+  | (FreeBSD_4_6_RELEASE,SO_RCVBUF) ->
+       DIV (SB_MAX * MCLBYTES) (MCLBYTES + MSIZE)  (* from code *)
+  | (Linux_2_4_20_8,SO_SNDLOWAT     ) -> 1  (* from tests *)
+  | (WinXP_Prof_SP1,SO_SNDLOWAT     ) -> 1  (* Note this value has not been checked in testing. *)
+  | (FreeBSD_4_6_RELEASE,SO_SNDLOWAT) ->
+       DIV (SB_MAX * MCLBYTES) (MCLBYTES + MSIZE)  (* clip to SO_SNDBUF *)
+  | (Linux_2_4_20_8,SO_RCVLOWAT     ) -> w2n INT32_SIGNED_MAX  (* from code *)
+  | (WinXP_Prof_SP1,SO_RCVLOWAT     ) -> 1  (* Note this value has not been checked in testing. *)
+  | (FreeBSD_4_6_RELEASE,SO_RCVLOWAT) ->
+       DIV (SB_MAX * MCLBYTES) (MCLBYTES + MSIZE)(* clip to SO_RCVBUF *)
+end)
 
-val sndrcv_timeo_t_max_def = Phase.phase 1 Define`
+
+let 
 (*: maximum value of [[send]]/[[recv]] timeouts :*)
-  sndrcv_timeo_t_max = time 655350000
-`(*: @mergewithnext :*);
+  sndrcv_timeo_t_max = time (real_of_num 655350000)
+(*: @mergewithnext :*)
 
-val pselect_timeo_t_max_def = Phase.phase 1 Define`
+let 
 (*: maximum value of [[pselect]] timeouts :*)
-  pselect_timeo_t_max = time (31 * 24 * 3600)
-`;
+  pselect_timeo_t_max = time (real_of_num (31 * 24 * 3600))
+
 
 
 
@@ -563,29 +573,29 @@ Protocol value limits specified in the TCP RFCs.
 :*)
 (* ------------------------------------------------------------------ *)
 
-val dtsinval_def = Phase.phase 1 Define`
+let
 (*:
 RFC1323 s4.2.3: timestamp validity period.
-:*)  dtsinval = time (24 * 24 * 60 * 60)
-`
-;
+:*)  dtsinval = time (real_of_num (24 * 24 * 60 * 60))
 
-val TCP_MAXWIN_def = Phase.phase 1 Define`
+
+
+let 
 (*: maximum (scaled) window size :*)
-  TCP_MAXWIN = 65535 : num
-`(*: @mergewithnext :*);
+  TCP_MAXWIN = 65535 
+(*: @mergewithnext :*)
 
-val TCP_MAXWINSCALE_def = Phase.phase 1 Define`
+let
 (*: maximum window scaling exponent :*)
-  TCP_MAXWINSCALE = 14 : num
-`
+  TCP_MAXWINSCALE = 14 
+
 (*:
 @description
 The maximum (scaled) window size value is [[TCP_MAXWIN]], and
 the maximum scaling exponent is [[TCP_MAXWINSCALE]].  Thus the maximum
 window size is [[TCP_MAXWIN << TCP_MAXWINSCALE]].
 :*)
-;
+
 
 
 
@@ -600,33 +610,33 @@ worthwhile modelling these parameters changing during operation.
 :*)
 (* ------------------------------------------------------------------ *)
 
-val MSSDFLT_def = Phase.phase 1 Define`
+let 
 (*: initial [[t_maxseg]], modulo route and link MTUs :*)
-  MSSDFLT = 512 : num  (* BSD default; RFC1122 sec. 4.2.2.6 says this MUST be 536 *)
-`;
+  MSSDFLT = (512 : num)  (* BSD default; RFC1122 sec. 4.2.2.6 says this MUST be 536 *)
 
-val SS_FLTSZ_LOCAL_def = Phase.phase 1 Define`
+
+let 
 (*: initial [[snd_cwnd]] for local connections :*)
-  SS_FLTSZ_LOCAL = 4 : num  (* BSD; is a sysctl *)
-`(*: @mergewithnext :*);
+  SS_FLTSZ_LOCAL = (4 : num)  (* BSD; is a sysctl *)
+(*: @mergewithnext :*)
 
-val SS_FLTSZ_def = Phase.phase 1 Define`
+let 
 (*: initial [[snd_cwnd]] for non-local connections :*)
-  SS_FLTSZ = 1 : num  (* BSD; is a sysctl *)
-`;
+  SS_FLTSZ = (1 : num)  (* BSD; is a sysctl *)
 
-val TCP_DO_NEWRENO_def = Phase.phase 1 Define`
+
+let 
 (*: do NewReno fast recovery :*)
-  TCP_DO_NEWRENO = T : bool (* BSD default *)
-`;
+  TCP_DO_NEWRENO = (true : bool) (* BSD default *)
 
-val TCP_Q0MINLIMIT_def = Phase.phase 1 Define`
-  TCP_Q0MINLIMIT = 30 : num  (* FreeBSD 4.6-RELEASE: tcp_syncache.bucket_limit *)
-`(*: @mergewithnext :*);
 
-val TCP_Q0MAXLIMIT_def = Phase.phase 1 Define`
-  TCP_Q0MAXLIMIT = 512 * 30 : num  (* FreeBSD 4.6-RELEASE: tcp_syncache.cache_limit *)
-`
+let 
+  TCP_Q0MINLIMIT = (30 : num)  (* FreeBSD 4.6-RELEASE: tcp_syncache.bucket_limit *)
+(*: @mergewithnext :*)
+
+let 
+  TCP_Q0MAXLIMIT = (512 * 30 : num)  (* FreeBSD 4.6-RELEASE: tcp_syncache.cache_limit *)
+
 (*:
 @description
 The incomplete-connection listen queue [[q0]] has a nondeterministic
@@ -634,18 +644,18 @@ length limit.  Connections \emph{may} be dropped once [[q0]] reaches
 [[TCP_Q0MINLIMIT]], and \emph{must} be dropped once [[q0]] reaches
 [[TCP_Q0MAXLIMIT]].
 :*)
-;
 
-val backlog_fudge_def = Phase.phase 1 Define`
+
+let 
   backlog_fudge (n:int) = MIN SOMAXCONN (clip_int_to_num n)
-`
+
 (*:
 @description
 The backlog length fudge-factor function, which translates the
 requested length of the listen queue into the actual value used.  Some
 architectures apply a linear transformation here.
 :*)
-;
+
 
 
 
@@ -658,68 +668,68 @@ Various time intervals controlling TCP's behaviour.
 :*)
 (* ------------------------------------------------------------------ *)
 
-val TCPTV_DELACK_def = Phase.phase 1 Define`
-  TCPTV_DELACK = time (1 / 10)  (* FreeBSD 4.6-RELEASE, tcp_timer.h *)
-`
+let 
+  TCPTV_DELACK = time (real_div (real_of_num 1) (real_of_num 10))  (* FreeBSD 4.6-RELEASE, tcp_timer.h *)
+
 (*: @description
 TODO3: SAY WHAT ALL THESE TIMER VALUES MEAN
 :*)
-;
 
 
-val TCPTV_RTOBASE_def = Phase.phase 1 Define`
-  TCPTV_RTOBASE = 3 : duration (* initial RTT, in seconds: FreeBSD 4.6-RELEASE, tcp_timer.h *)
-`(*: @mergewithnext :*);
 
-val TCPTV_RTTVARBASE_def = Phase.phase 1 Define`
-  TCPTV_RTTVARBASE = 0 : duration  (* initial retransmit variance, in seconds *)
+let 
+  TCPTV_RTOBASE = ((real_of_num 3) : duration) (* initial RTT, in seconds: FreeBSD 4.6-RELEASE, tcp_timer.h *)
+(*: @mergewithnext :*)
+
+let 
+  TCPTV_RTTVARBASE = (real_zero : duration)  (* initial retransmit variance, in seconds *)
      (* FreeBSD has no way of encoding an initial RTT variance,
         but we do (thanks to tf_srttvalid); it should be zero
         so TCPTV_RTOBASE = initial RTO *)
-`(*: @mergewithnext :*);
+(*: @mergewithnext :*)
 
-val TCPTV_MIN_def = Phase.phase 1 Define`
-  TCPTV_MIN = 1 : duration  (* minimum RTT in absence of cached value, in seconds: FreeBSD 4.6-RELEASE, tcp_timer.h *)
-`(*: @mergewithnext :*);
+let 
+  TCPTV_MIN = ((real_of_num 1) : duration)  (* minimum RTT in absence of cached value, in seconds: FreeBSD 4.6-RELEASE, tcp_timer.h *)
+(*: @mergewithnext :*)
 
-val TCPTV_REXMTMAX_def = Phase.phase 1 Define`
-  TCPTV_REXMTMAX = time 64  (* BSD: maximum possible RTT *)
-`;
-
-
-val TCPTV_MSL_def = Phase.phase 1 Define`
-  TCPTV_MSL = time 30 (* maximum segment lifetime: BSD: tcp_timer.h:79 *)
-`;
+let 
+  TCPTV_REXMTMAX = time (real_of_num 64)  (* BSD: maximum possible RTT *)
 
 
-val TCPTV_PERSMIN_def = Phase.phase 1 Define`
-  TCPTV_PERSMIN = time 5  (* BSD: minimum possible persist interval: tcp_timer.h:85 *)
-`(*: @mergewithnext :*);
 
-val TCPTV_PERSMAX_def = Phase.phase 1 Define`
-  TCPTV_PERSMAX = time 60  (* BSD: maximum possible persist interval: tcp_timer.h:86 *)
-`;
+let 
+  TCPTV_MSL = time (real_of_num 30) (* maximum segment lifetime: BSD: tcp_timer.h:79 *)
 
 
-val TCPTV_KEEP_INIT_def = Phase.phase 1 Define`
-  TCPTV_KEEP_INIT = time 75 (* connect timeout: BSD: tcp_timer.h:88 *)
-`(*: @mergewithnext :*);
 
-val TCPTV_KEEP_IDLE_def = Phase.phase 1 Define`
-  TCPTV_KEEP_IDLE = time (120*60) (* time before first keepalive probe: BSD: tcp_timer.h:89 *)
-`(*: @mergewithnext :*);
+let 
+  TCPTV_PERSMIN = time (real_of_num 5)  (* BSD: minimum possible persist interval: tcp_timer.h:85 *)
+(*: @mergewithnext :*)
 
-val TCPTV_KEEPINTVL_def = Phase.phase 1 Define`
-  TCPTV_KEEPINTVL = time 75 (* time between subsequent keepalive probes: BSD: tcp_timer.h:90 *)
-`(*: @mergewithnext :*);
+let 
+  TCPTV_PERSMAX = time (real_of_num 60)  (* BSD: maximum possible persist interval: tcp_timer.h:86 *)
 
-val TCPTV_KEEPCNT_def = Phase.phase 1 Define`
-  TCPTV_KEEPCNT = 8 : num (* max number of keepalive probes (+/- a few?): BSD: tcp_timer.h:91 *)
-`(*: @mergewithnext :*);
 
-val TCPTV_MAXIDLE_def = Phase.phase 1 Define`
-  TCPTV_MAXIDLE = 8 * TCPTV_KEEPINTVL (* BSD calls this tcp_maxidle *)
-`;
+
+let 
+  TCPTV_KEEP_INIT = time (real_of_num 75) (* connect timeout: BSD: tcp_timer.h:88 *)
+(*: @mergewithnext :*)
+
+let 
+  TCPTV_KEEP_IDLE = time (real_of_num (120*60)) (* time before first keepalive probe: BSD: tcp_timer.h:89 *)
+(*: @mergewithnext :*)
+
+let 
+  TCPTV_KEEPINTVL = time (real_of_num 75) (* time between subsequent keepalive probes: BSD: tcp_timer.h:90 *)
+(*: @mergewithnext :*)
+
+let 
+  TCPTV_KEEPCNT = (8 : num) (* max number of keepalive probes (+/- a few?): BSD: tcp_timer.h:91 *)
+(*: @mergewithnext :*)
+
+let 
+  TCPTV_MAXIDLE = real_mult_time (real_of_num 8) TCPTV_KEEPINTVL (* BSD calls this tcp_maxidle *)
+
 
 
 
@@ -732,48 +742,49 @@ Parameters relating to TCP's exponential backoff.
 :*)
 (* ------------------------------------------------------------------ *)
 
-val TCP_BSD_BACKOFFS_def = Phase.phase 1 Define` (* TCP exponential retransmit backoff: BSD: from source code, tcp_timer.c:155 *)
-  TCP_BSD_BACKOFFS = [ 1; 2; 4; 8; 16; 32; 64; 64; 64; 64; 64; 64; 64 ] : num list
-`(*: @mergewithnext :*);
+let  (* TCP exponential retransmit backoff: BSD: from source code, tcp_timer.c:155 *)
+  TCP_BSD_BACKOFFS = ([ 1; 2; 4; 8; 16; 32; 64; 64; 64; 64; 64; 64; 64 ] : list num)
+(*: @mergewithnext :*)
 
-val TCP_LINUX_BACKOFFS_def = Phase.phase 1 Define` (* TCP exponential retransmit backoff: Linux: experimentally determined *)
-  TCP_LINUX_BACKOFFS = [ 1; 2; 4; 8; 16; 32; 64; 128; 256; 512; 512 ] : num list (* Note: the tail may be  incomplete *)
-`(*: @mergewithnext :*);
+let  (* TCP exponential retransmit backoff: Linux: experimentally determined *)
+  TCP_LINUX_BACKOFFS = ([ 1; 2; 4; 8; 16; 32; 64; 128; 256; 512; 512 ] : list num) (* Note: the tail may be  incomplete *)
+(*: @mergewithnext :*)
 
-val TCP_WINXP_BACKOFFS_def = Phase.phase 1 Define` (* TCP exponential retransmit backoff: WinXP: experimentally determined *)
-  TCP_WINXP_BACKOFFS = [ 1; 2; 4; 8; 16 ] : num list (* Note: the tail may be incomplete *)
-`;
+let  (* TCP exponential retransmit backoff: WinXP: experimentally determined *)
+  TCP_WINXP_BACKOFFS = ([ 1; 2; 4; 8; 16 ] : list num) (* Note: the tail may be incomplete *)
 
-val TCP_MAXRXTSHIFT_def = Phase.phase 1 Define`
+
+let 
 (*: TCP maximum retransmit shift :*)
-  TCP_MAXRXTSHIFT = 12 : num  (* TCPv2p842 *)
-`(*: @mergewithnext :*);
+  TCP_MAXRXTSHIFT = (12 : num)  (* TCPv2p842 *)
+(*: @mergewithnext :*)
 
-val TCP_SYNACKMAXRXTSHIFT_def = Phase.phase 1 Define`
+let 
 (*: TCP maximum SYNACK retransmit shift :*)
-  TCP_SYNACKMAXRXTSHIFT = 3 : num  (* FreeBSD 4.6-RELEASE, tcp_syncache.c:SYNCACHE_MAXREXMTS *)
-`;
+  TCP_SYNACKMAXRXTSHIFT = (3 : num)  (* FreeBSD 4.6-RELEASE, tcp_syncache.c:SYNCACHE_MAXREXMTS *)
 
 
-val TCP_SYN_BSD_BACKOFFS_def = Phase.phase 1 Define` (* TCP exponential SYN retransmit backoff: BSD: tcp_timer.c:152 *)
-  TCP_SYN_BSD_BACKOFFS = [ 1; 1; 1; 1; 1; 2; 4; 8; 16; 32; 64; 64; 64 ] : num list (* Our experimentation shows that this list stops at 8. This will be
+
+let  (* TCP exponential SYN retransmit backoff: BSD: tcp_timer.c:152 *)
+  TCP_SYN_BSD_BACKOFFS = ([ 1; 1; 1; 1; 1; 2; 4; 8; 16; 32; 64; 64; 64 ] : list num) (* Our experimentation shows that this list stops at 8. This will be
    due to the connection establishment timer firing. Values here are
    obtained from the BSD source *)
-`(*: @mergewithnext :*);
+(*: @mergewithnext :*)
 
-val TCP_SYN_LINUX_BACKOFFS_def = Phase.phase 1 Define` (* TCP exponential SYN retransmit backoff: Linux: experimentally determined *)
-  TCP_SYN_LINUX_BACKOFFS = [ 1; 2; 4; 8; 16 ] : num list  (* This list might be longer. Experimentation does not show further entries, perhaps
+let  (* TCP exponential SYN retransmit backoff: Linux: experimentally determined *)
+  TCP_SYN_LINUX_BACKOFFS = ([ 1; 2; 4; 8; 16 ] : list num)  (* This list might be longer. Experimentation does not show further entries, perhaps
    due to the connection establishment timer firing *)
 
-`(*: @mergewithnext :*);
+(*: @mergewithnext :*)
 
-val TCP_SYN_WINXP_BACKOFFS_def = Phase.phase 1 Define` (* TCP exponential SYN retransmit backoff: WinXP: experimentally determined *)
-  TCP_SYN_WINXP_BACKOFFS = [ 1; 2 ] : num list  (* This list might be longer. Experimentation does not show further entries, perhaps
+let  (* TCP exponential SYN retransmit backoff: WinXP: experimentally determined *)
+  TCP_SYN_WINXP_BACKOFFS = ([ 1; 2 ] : list num)  (* This list might be longer. Experimentation does not show further entries, perhaps
    due to the connection establishment timer firing *)
-`;
+
 
 
 
 (* -------------------------------------------------- *)
-
+(*
 val _ = export_theory();
+*)
