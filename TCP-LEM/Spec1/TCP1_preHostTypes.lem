@@ -1,3 +1,4 @@
+(*
 (* A HOL98 specification of TCP *)
 
 (* Type definitions of the host and its components: file, socket, TCPCB etc *)
@@ -27,6 +28,7 @@ val _ = new_theory "TCP1_preHostTypes";
 
 val _ = Version.registerTheory "$RCSfile: TCP1_preHostTypesScript.sml,v $" "$Revision: 1.4 $" "$Date: 2009/02/17 11:56:46 $";
 
+*)
 
 (* -------------------------------------------------- *)
 (*                       TCP STATES            *)
@@ -38,7 +40,16 @@ TODO3
 
 :*)
 
-val _ = Hol_datatype`(*: TCP protocol states :*)
+open Hol.Finite_map
+open TCP1_lemSupport
+open TCP1_errors
+open TCP1_utils
+open TCP1_baseTypes
+open TCP1_timers
+open TCP1_params
+open TCP1_netTypes
+
+type 
    tcpstate =  CLOSED
              | LISTEN
              | SYN_SENT
@@ -50,49 +61,50 @@ val _ = Hol_datatype`(*: TCP protocol states :*)
              | LAST_ACK
              | FIN_WAIT_2
              | TIME_WAIT
-`(*:
+(*:
 @description
 The states laid down by RFC793, with spelling as in the BSD source.
 
-:*);
+:*)
+
 
 (* stripped the TCP control block flags TF_* and the OOB flags
 TCBOOB_*, as these are not used in our model (we model them directly
 in other ways).  See CVS r1.135 for the definitions. *)
 
 
-val _ = Hol_datatype`(*: extra info for a listening socket :*)
+type 
    socket_listen
-     = <| q0 : sid list; (* incomplete connections queue *)
-          q  : sid list; (* completed connections queue *)
+     = <| q0 : list sid; (* incomplete connections queue *)
+          q  : list sid; (* completed connections queue *)
           qlimit : int   (* backlog value as passed to listen *)
        |>
-`;
 
-val _ = Hol_datatype`(*: ordinary datagram on UDP receive queue :*)
+
+type 
    dgram_msg
-     = <| data : byte list;
-          is   : ip option;  (* source ip *)
-          ps   : port option (* source port *)
+     = <| data : list byte;
+          is   : option ip;  (* source ip *)
+          ps   : option port (* source port *)
        |>
-`(*:@mergewithnext:*);
+(*:@mergewithnext:*)
 (*        ifid : ifid;*)
 
 
-val _ = Hol_datatype`(*: error (pseudo-)datagram on UDP receive queue :*)
+type (*: error (pseudo-)datagram on UDP receive queue :*)
    dgram_error
      = <| e : error |>
-`(*:@mergewithnext:*);
+(*:@mergewithnext:*)
 
-val _ = Hol_datatype`(*: receive queue elements for a UDP socket :*)
+type (*: receive queue elements for a UDP socket :*)
    dgram = Dgram_msg of dgram_msg
          | Dgram_error of dgram_error
-`(*:@mergewithnext:*);
+(*:@mergewithnext:*)
 
-val _ = Hol_datatype`(*: details of a UDP socket :*)
+type (*: details of a UDP socket :*)
    udp_socket
-     = <| rcvq : dgram list  |>
-`(*:
+     = <| rcvq : list dgram  |>
+(*:
 @description
 %
 UDP sockets are very simple -- the protocol-specific content is merely
@@ -114,21 +126,21 @@ by placing them in the receive queue.
 On FreeBSD and Linux, only messages are placed in the receive queue,
 and errors are treated asynchronously.
 
-:*);
+:*)
 
-val _ = Hol_datatype `(*: network interface descriptor :*)
-                      ifd = <| ipset : ip set; (* set of IP addresses of this interface *)
+type (*: network interface descriptor :*)
+                      ifd = <| ipset : set ip; (* set of IP addresses of this interface *)
                                primary : ip; (* and the primary IP address *)
                                netmask : netmask; (* netmask *)
                                up : bool  (* status: up (and connected) or not *)
-                            |>`;
+                            |>
 
-val _ = Hol_datatype`(*: routing table entry :*)
+type (*: routing table entry :*)
   routing_table_entry = <| destination_ip : ip;
                            destination_netmask : netmask;
                            ifid : ifid
                         |>
-`
+
 (*: @description
 
 Note that both routing table entries and interfaces have IP addresses
@@ -162,75 +174,73 @@ should?).
 network, as a fuzzy cloud rather than a network of routers
 
 :*)
-;
-
-val _ = type_abbrev ("routing_table", ``:routing_table_entry list``);
 
 
-val _ = Hol_datatype`(*: segment category, determining which band limiter to use :*)
+type routing_table = list routing_table_entry
+
+
+type (*: segment category, determining which band limiter to use :*)
   bandlim_reason = BANDLIM_UNLIMITED
                  | BANDLIM_RST_CLOSEDPORT
                  | BANDLIM_RST_OPENPORT
-`(*: @description
+(*: @description
 internal bandlimiter state; intended to be opaque
  :*)
-;
 
 
-val _ = type_abbrev ("bandlim_state", ``:(tcpSegment # ts_seq # bandlim_reason) list``);
 
+type bandlim_state = list (tcpSegment * ts_seq * bandlim_reason)
 
-val _ =
-  Hol_datatype`(*: state of host wrt a thread :*)
+type (*: state of host wrt a thread :*)
     hostThreadState = Run              (*: thread is running :*)
                     | Ret of TLang     (*: about to return given value to thread :*)
                     | Accept2 of sid   (*: blocked in [[accept]] :*)
                     | Close2 of sid    (*: blocked in [[close]] :*)
                     | Connect2 of sid  (*: blocked in [[connect]] :*)
-                    | Recv2 of sid # num # msgbflag set  (*: blocked in [[recv]] :*)
-                    | Send2 of sid # ((ip # port) option # ip option # port option # ip option # port option) option
-                        # byte list # msgbflag set  (*: blocked in [[send]] :*)
-                    | PSelect2 of fd list # fd list # fd list  (*: blocked in [[pselect]] :*)
-`(*:
+                    | Recv2 of sid * num * set msgbflag  (*: blocked in [[recv]] :*)
+                    | Send2 of sid *  option (option (ip * port) * option ip * option port * option ip * option port)
+                        * list byte * set msgbflag  (*: blocked in [[send]] :*)
+                    | PSelect2 of list fd * list fd * list fd  (*: blocked in [[pselect]] :*)
+(*:
 @description
 Host threads are either [[Run]]ning or executing a sockets call.  The latter can either be about to return a value to the thread (state [[Ret]]) or blocked; the remaining states capture the data required for the unblock processing for each slow call.
-:*);
+:*)
 
                   (* | Exit
                      | Zombie
                      | Delay2
                      | Print2 of string *)
 
-val _ = Hol_datatype `(*: other relevant bits of host configuration :*)
+type (*: other relevant bits of host configuration :*)
     hostParams = <|
                     min_eph_port  : num;
                     max_eph_port  : num
                   |>
-`(*:
+(*:
 @description Specifies (inclusive) lower and upper bounds for the ephemeral
 ports range, which can vary
 from host to host; notably, the Linux kernel picks values for these parameters
 based on the amount of available memory.
-:*);
+:*)
 
-val _ = Hol_datatype`(*: trace record flavours :*)
+type (*: trace record flavours :*)
   traceflavour = TA_INPUT
                | TA_OUTPUT
                | TA_USER
                | TA_RESPOND
                | TA_DROP
-`
+
 (*: @description
 Different situations in which a trace may be generated.
 
-:*);
+:*)
 
 
-val _ = Hol_datatype `
+type 
     hostid =
         Test
       | Aux
-`;
+
 
 
 (* -------------------------------------------------- *)
@@ -246,32 +256,32 @@ fire immediately, or may be delayed).
 
 :*)
 
-val _ = Hol_datatype`
+type 
   rule_proto = rp_tcp
              | rp_udp
              | rp_all
-` (*: @description
+ (*: @description
 Rules are classified as to whether they relate to TCP, to UDP, or to both.
-:*);
+:*)
 
-val _ = Hol_datatype`
+type 
   rule_status = succeed
               | fail
               | badfail
-`(*: @description
+(*: @description
 Socket call rules marked [[succeed]] construct an [[OK v]] value to be returned to the calling thread, whereas those maked [[fail]] or [[badfail]] construct a [[FAIL e]] error to be returned.
 The [[badfail]] rules are those involving (unusual) lack of resources, e.g.~of ephemeral ports, file descriptors, or kernel memory.  They are distinguished from the [[fail]] rules to make it easy to state properties of the form "if no bad failures occur, then...".
 :*)
-;
 
 
-val _ = Hol_datatype`
+
+type
   rule_cat  = fast    of rule_status
             | block
-            | slow    of bool  => rule_status
+            | slow    of bool  * rule_status 
             | network of bool
             | misc    of bool
-` (*: @description
+ (*: @description
 Socket call rules are either [[fast]], immediately constructing a return value or error, [[block]], entering a state in which the calling thread is blocked, or [[slow]], completing processing for a blocked thread.
 [[fast]] and [[slow]] rules have a [[rule_status]] as above.
 The [[network]] rules include message send and receive and the internal actions involved in the protocol.
@@ -280,23 +290,23 @@ returning values to threads, timer expiry, TCP tracing, interface status changes
 The [[bool]] argument to [[slow]], [[network]], and [[misc]] rule categories
 indicates whether the rule is \emph{urgent}.  If an urgent rule is enabled then no time may pass.
 
-:*);
+:*)
 
 (*            | exit *)
 
 
-val _ = Define`urgent = T` (*: @mergewithnext :*);
-val _ = Define`nonurgent = F` (*: @mergewithnext :*);
+let urgent = true (*: @mergewithnext :*)
+let nonurgent = false (*: @mergewithnext :*)
 
-val is_urgent_def = Define`
-  is_urgent (slow    b _) = b /\
-  is_urgent (network b  ) = b /\
-  is_urgent (misc    b  ) = b /\
-  is_urgent  _            = F
-`;
+
+let is_urgent x = (match x with 
+  | (slow    b _) -> b 
+  | (network b  ) -> b 
+  | (misc    b  ) -> b 
+  |  _            -> F
+end)
 
 (* -------------------------------------------------- *)
-
 
 
 (* ------------------------------------------------------------------ *)
@@ -311,18 +321,18 @@ or even all Unix, OSes.  Below we define predicates for these cases, to allow va
 :*)
 (* ------------------------------------------------------------------ *)
 
-val windows_arch_def = Phase.phase 1 Define`
+let 
 (*: test if host architecture is Windows :*)
-windows_arch arch = (arch IN {WinXP_Prof_SP1}                     )`(*: @mergewithnext :*);
-val bsd_arch_def     = Phase.phase 1 Define`
+windows_arch arch = (arch IN {WinXP_Prof_SP1}                     )(*: @mergewithnext :*)
+let 
 (*: test if host architecture is BSD :*)
-bsd_arch     arch = (arch IN {FreeBSD_4_6_RELEASE}                )`(*: @mergewithnext :*);
-val linux_arch_def   = Phase.phase 1 Define`
+bsd_arch     arch = (arch IN {FreeBSD_4_6_RELEASE}                )(*: @mergewithnext :*)
+let 
 (*: test if host architecture is Linux :*)
-linux_arch   arch = (arch IN {Linux_2_4_20_8}                     )`(*: @mergewithnext :*);
-val unix_arch_def    = Phase.phase 1 Define`
+linux_arch   arch = (arch IN {Linux_2_4_20_8}                     )(*: @mergewithnext :*)
+let 
 (*: test if host architecture is Unix :*)
-unix_arch    arch = (arch IN {Linux_2_4_20_8; FreeBSD_4_6_RELEASE})`;
+unix_arch    arch = (arch IN {Linux_2_4_20_8; FreeBSD_4_6_RELEASE})
 
 
 
@@ -340,18 +350,18 @@ interfaces, IP addresses, and routing.
 (*                NETMASKS                            *)
 (* -------------------------------------------------- *)
 
-val mask_def = Phase.phase 1 Define`(*: apply a netmask to an IP to obtain the network number :*)
-  mask (NETMASK m) (ip n) = ip ((n DIV (2 EXP (32 - m))) * 2 EXP (32 - m))
-`(*:@mergewithnext:*);
+let (*: apply a netmask to an IP to obtain the network number :*)
+  mask (NETMASK m) (ip n) = ip ((DIV n (EXP 2 (32 - m))) * EXP 2 (32 - m))
+(*:@mergewithnext:*)
 
-val mask_bits_def = Phase.phase 1 Define`(*: compute network bitmask from netmask :*)
-  mask_bits (NETMASK m) = ((2 EXP 32 - 1) DIV (2 EXP (32 - m))) * 2 EXP (32 - m)
-`(*:
+let (*: compute network bitmask from netmask :*)
+  mask_bits (NETMASK m) = (DIV (EXP 2 (32 - 1)) (EXP 2 (32 - m))) * EXP 2 (32 - m)
+(*:
 @description
 Netmask operations.
 Recall netmasks are stored as the number of 1 bits in the mask; thus
 255.255.128.0 is modelled by [[NETMASK 17]].
-:*);
+:*)
 
 
 (* -------------------------------------------------- *)
@@ -359,92 +369,94 @@ Recall netmasks are stored as the number of 1 bits in the mask; thus
 (* -------------------------------------------------- *)
 
 (* DON'T phase: in betters *)
-val IP_def = Define`(*: constructor for dotted-decimal IP addresses :*)
-  IP (a:num) (b:num) (c:num) (d:num) = ip (a * 2 EXP 24 + b * 2 EXP 16 + c * 2 EXP 8 + d)
-`(*:@mergewithnext:*);
+let (*: constructor for dotted-decimal IP addresses :*)
+  IP (a:num) (b:num) (c:num) (d:num) = ip (a * EXP 2 24 + b * EXP 2 16 + c * EXP 2 8 + d)
+(*:@mergewithnext:*)
 
-val IN_MULTICAST_def = Phase.phase 1 Define`(*: the set of multicast addresses :*)
+let (*: the set of multicast addresses :*)
   IN_MULTICAST = { i | mask (NETMASK 4) i = IP 224 0 0 0 }
-`(*:@mergewithnext:*);
+(*:@mergewithnext:*)
 
-val INADDR_BROADCAST_def = Phase.phase 1 Define`(*: the local broadcast address :*)
+let (*: the local broadcast address :*)
   INADDR_BROADCAST = IP 255 255 255 255
-`(*:@mergewithnext:*);
+(*:@mergewithnext:*)
 
-val LOOPBACK_ADDRS_def = Phase.phase 1 Define`(*: the set of loopback addresses :*)
+let (*: the set of loopback addresses :*)
   LOOPBACK_ADDRS = { i | mask (NETMASK 8) i = IP 127 0 0 0 }
-`(*:@mergewithnext:*);
+(*:@mergewithnext:*)
 
-val ip_localhost_def = Phase.phase 1 Define`(*: the canonical loopback address, aka 'localhost' :*)
+let (*: the canonical loopback address, aka 'localhost' :*)
   ip_localhost = IP 127 0 0 1
-`(*:@mergewithnext:*);
+(*:@mergewithnext:*)
 
-val in_loopback_def = Phase.phase 1 Define`(*: is IP address a loopback address? :*)
+let (*: is IP address a loopback address? :*)
   in_loopback i = (i IN LOOPBACK_ADDRS)
-`(*:@mergewithnext:*);
+(*:@mergewithnext:*)
 
 (* don't put any phasing on this definition; the use of FRANGE means it's
    a pain to use directly in this form; a "better" rewrite is available
    instead. *)
 (* DON'T phase: in betters *)
-val in_local_def = Define`(*: is IP address a local address? :*)
-  in_local (ifds:ifid |-> ifd) i =
-         (in_loopback i \/
+let (*: is IP address a local address? :*)
+  in_local ifds (* ifds:ifid |-> ifd *) i =
+         (in_loopback i ||
          i IN (BIGUNION { ifd_.ipset | ifd_ IN (FRANGE ifds) }))
   (*: Note: the test "[[in_loopback i]]" is usually redundant as there
      is almost always a loopback interface in [[ifds]] with [[ipset = LOOPBACK_ADDRS]] :*)
-`(*:@mergewithnext:*);
+(*:@mergewithnext:*)
 
 (* DON'T phase: in betters *)
-val local_ips_def = Define`(*: the set of local IP addresses :*)
-  local_ips(ifds:ifid |-> ifd) = BIGUNION { ifd_.ipset | ifd_ IN (FRANGE ifds) }
+let (*: the set of local IP addresses :*)
+  local_ips ifds (* ifds:ifid |-> ifd *) = BIGUNION { ifd_.ipset | ifd_ IN (FRANGE ifds) }
 (* annoying: ifd is a constructor, and { | } has no binder to allow us
    to shadow it *)
-`(*:@mergewithnext:*);
+(*:@mergewithnext:*)
 
-val local_primary_ips_def = Phase.phase 1 Define`(*: the set of local primary IP addresses :*)
-  local_primary_ips(ifds:ifid |-> ifd) = { ifd_.primary | ifd_ IN (FRANGE ifds) }
-`(*:@mergewithnext:*);
+let (*: the set of local primary IP addresses :*)
+  local_primary_ips ifds (* ifds:ifid |-> ifd *) = { ifd_.primary | ifd_ IN (FRANGE ifds) }
+(*:@mergewithnext:*)
 
 (* DON'T phase: in betters *)
-val is_localnet_def = Define`(*: is IP address on a local subnet of this host? :*)
-  is_localnet (ifds0:ifid |-> ifd) i =
-    (?ifd. ifd IN (FRANGE ifds0) /\  mask ifd.netmask i = mask ifd.netmask ifd.primary)
-`(*:@mergewithnext:*);
+let (*: is IP address on a local subnet of this host? :*)
+  is_localnet ifds0 (*ifds0:ifid |-> ifd*) i =
+    (exists ifd. ifd IN (FRANGE ifds0) &&  mask ifd.netmask i = mask ifd.netmask ifd.primary)
+(*:@mergewithnext:*)
 
-val if_broadcast_def = Phase.phase 1 Define`(*: is IP address a broadcast address? :*)
+let (*: is IP address a broadcast address? :*)
   if_broadcast (ifd0:ifd)
-    = case (ifd0.netmask, mask ifd0.netmask ifd0.primary) of
+    = (match (ifd0.netmask, mask ifd0.netmask ifd0.primary) with
           (NETMASK m, ip n (* n has been masked by m above *)) ->
-            ip (n + 2 EXP (32 - m) - 1)
+            ip (n + EXP 2 (32 - m) - 1) 
+end)
     (*: Note: would be much easier if IPs were actually [[word32]] rather than [[num]] :*)
     (*: corresponds to [[INADDR_BROADCAST]] for the interface :*)
-`(*:@mergewithnext:*);
+(*:@mergewithnext:*)
 
-val if_any_def = Phase.phase 1 Define`(*: the set of addresses in an interface's subnet :*)
+let (*: the set of addresses in an interface's subnet :*)
   if_any (ifd0:ifd)
-    = case (ifd0.netmask, mask ifd0.netmask ifd0.primary) of
+    = (match (ifd0.netmask, mask ifd0.netmask ifd0.primary) with
           (NETMASK m, ip n (* n has been masked by m above *)) ->
             ip (n)
+end)
     (*: Note: would be much easier if IPs were actually [[word32]] rather than [[num]] :*)
-`
+
 (*:
 @description
 %
 Various distinguished IP addresses and sets of IP addresses.  Some of these are
 are dependent on the host's set of interfaces.
 
-:*);
+:*)
 
-val is_broadormulticast_def = Phase.phase 2 Define`(*: is IP address a broadcast/multicast address? :*)
-  is_broadormulticast (ifds0:ifid |-> ifd) i =
-    (i IN IN_MULTICAST \/    (*: is [[i]] a multicast address? :*)
-     i = INADDR_BROADCAST \/ (*: is [[i]] the default broadcast address? [CORRECT NAME?] :*)
-     ? (k, ifd0) :: ifds0.
+let (*: is IP address a broadcast/multicast address? :*)
+  is_broadormulticast ifds0 (*ifds0:ifid |-> ifd*) i =
+    (i IN IN_MULTICAST ||    (*: is [[i]] a multicast address? :*)
+     i = INADDR_BROADCAST || (*: is [[i]] the default broadcast address? [CORRECT NAME?] :*)
+     exists k ifd0. (k,ifd0) IN ifds0 &&
           i IN {if_broadcast ifd0;  (*: is [[i]] the broadcast addr for any interface? :*)
                 if_any ifd0})       (*: RFC 1122 - should accept an all-0s or all-1s
                                                   broadcast address. all three OSes do :*)
-`
+
 (*:
 @description
  Test if IP address [[i]] is a broadcast or multicast address, wrt the
@@ -458,7 +470,7 @@ val is_broadormulticast_def = Phase.phase 2 Define`(*: is IP address a broadcast
    net is another question entirely, although the two data structures
    \emph{should} be consistent.
 :*)
-;
+
 
 
 
@@ -466,33 +478,34 @@ val is_broadormulticast_def = Phase.phase 2 Define`(*: is IP address a broadcast
 (*                ROUTING                             *)
 (* -------------------------------------------------- *)
 
-val routeable_def = Phase.phase 1 Define`(*: compute set of routeable addresses for a routing table entry :*)
+let (*: compute set of routeable addresses for a routing table entry :*)
   routeable(rte:routing_table_entry) =
     { i | mask rte.destination_netmask i = mask rte.destination_netmask rte.destination_ip }
-`(*:@mergewithnext:*);
+(*:@mergewithnext:*)
 
 (* DON'T phase: in betters *)
-val outroute_ifids_def = Define`(*: determine list of possible sending interfaces :*)
-  outroute_ifids(i2,rttab:routing_table) =
-    MAP_OPTIONAL (\rte. if i2 IN routeable rte then SOME rte.ifid else NONE) rttab
-`(*:
+let (*: determine list of possible sending interfaces :*)
+  outroute_ifids(i2,rttab (*rttab:routing_table*) ) =
+    MAP_OPTIONAL (fun rte -> if i2 IN routeable rte then SOME rte.ifid else NONE) rttab
+(*:
 @description
 %
 Determine the list of possible interfaces to use in sending to a given
 IP, based on the routing table.
 
-:*);
+:*)
 
-val ifid_up_def = Phase.phase 1 Define`(*: is the interface up? :*)
-  ifid_up ifds ifid = (ifds ' ifid).up
-`(*:@mergewithnext:*);
+let (*: is the interface up? :*)
+  ifid_up ifds ifid = (FAPPLY ifds ifid).up
+(*:@mergewithnext:*)
 
-val outroute_def = Phase.phase 1 Define`(*: compute interface to use to send to given IP, if any :*)
-  outroute(i2,rttab:routing_table,ifds:ifid |-> ifd) =
-    case FILTER (ifid_up ifds) (outroute_ifids(i2,rttab)) of
+let (*: compute interface to use to send to given IP, if any :*)
+  outroute(i2,rttab (*rttab:routing_table*),ifds (*ifds:ifid |-> ifd*) ) =
+    (match FILTER (ifid_up ifds) (outroute_ifids(i2,rttab)) with
         []           -> NONE
-     || (ifid::_987) -> SOME ifid
-`
+     | (ifid::_987) -> SOME ifid 
+end)
+
 (*:
 @description
 %
@@ -500,16 +513,19 @@ Determine the interface to use to send to a given IP, if possible.
 Returns the first up interface that can route to the destination.
 
 :*)
-;
+
 
 (* subnet_routeable and subnet_outroute OBSELETED; see CVS v1.166 and earlier. *)
 
-val auto_outroute_def = Phase.phase 1 Define`(*: compute source address to use to route to given IP :*)
-  auto_outroute(i2',SOME i2,rttab,ifds) = {i2} /\
-  auto_outroute(i2',NONE   ,rttab,ifds) = case outroute(i2',rttab,ifds) of
-                                              SOME ifid -> { (ifds ' ifid).primary }
-                                           || NONE      -> {}
-`(*:
+let (*: compute source address to use to route to given IP :*)
+  auto_outroute x = (match x with
+  | (i2',Some i2,rttab,ifds) -> {i2} 
+  | (i2',None   ,rttab,ifds) -> (match outroute(i2',rttab,ifds) with
+                                              Some ifid -> { (FAPPLY ifds ifid).primary }
+                                           | None      -> {} 
+end)
+end)
+(*:
 @description
 %
 Compute source address to use to route to a given IP, if any possible.
@@ -517,10 +533,10 @@ If the caller provides an address, use that without checking;
 otherwise try to find one.  Do not return a specific error code.  Used
 for autobinding to a local IP address.
 
-:*);
+:*)
 
-val test_outroute_ip_def = Phase.phase 1 Define`(*: test if we can route to given IP, returning appropriate error if not :*)
-  test_outroute_ip(i2:ip,rttab,ifds,arch)
+let (*: test if we can route to given IP, returning appropriate error if not :*)
+  test_outroute_ip(i2 (*i2:ip*),rttab,ifds,arch)
    = let ifids = outroute_ifids(i2,rttab) in
 	 if ifids = [] then
 	     (if linux_arch arch then SOME ENETUNREACH
@@ -529,15 +545,16 @@ val test_outroute_ip_def = Phase.phase 1 Define`(*: test if we can route to give
 	     if FILTER (ifid_up ifds) ifids = [] then
 		 SOME ENETDOWN
 	     else NONE
-`(*:@mergewithnext:*);
+(*:@mergewithnext:*)
 
 (* DON't phase: is phase 1, but handled explicitly in testEval *)
-val test_outroute_def = Define`(*: if destination IP specified, do [[test_outroute_ip]] :*)
-  test_outroute(msg:msg,rttab,ifds,arch)
-    = case msg.is2 of
-        SOME i2 -> SOME (test_outroute_ip(i2,rttab,ifds,arch))
-     || _ -> NONE
-`
+let (*: if destination IP specified, do [[test_outroute_ip]] :*)
+  test_outroute(msg (*msg:msg*),rttab,ifds,arch)
+    = (match msg_is2 msg with
+        Some i2 -> SOME (test_outroute_ip(i2,rttab,ifds,arch))
+     | _ -> None
+end)
+
 (*:
 @description
 Check that we can route the message out.
@@ -566,16 +583,17 @@ the same.  test 20030204T1525 or so.
    ignore the fact that the function had an unspecified result on
    arguments with bad [[is2]] fields, and make the result type [[ error option]].
 :*)
-;
 
-val loopback_on_wire_def = Phase.phase 1 Define`(*: check if a message bears a loopback address :*)
-  loopback_on_wire (msg:msg) (ifds:ifid |-> ifd) =
-     case (msg.is1, msg.is2) of
-        (NONE, NONE) -> F
-     || (NONE, SOME j) -> F
-     || (SOME i, NONE) -> F
-     || (SOME i, SOME j) -> in_loopback i /\ ~in_local ifds j
-`
+
+let (*: check if a message bears a loopback address :*)
+  loopback_on_wire msg (*(msg:msg)*) ifds (* (ifds:ifid |-> ifd)*) =
+     (match (msg_is1 msg, msg_is2 msg) with
+        (None, None) -> F
+     | (None, Some j) -> F
+     | (Some i, None) -> F
+     | (Some i, Some j) -> in_loopback i && not (in_local ifds j)
+end)
+
 (*:
 @description
  RFC1122 says loopback addresses must never appear on the wire.  Here we test if
@@ -585,7 +603,6 @@ val loopback_on_wire_def = Phase.phase 1 Define`(*: check if a message bears a l
    possibly the best approximation we can make if one considers the possible
    values of [[msg.is1]] and [[msg.is2]].
 :*)
-;
 
 
 (* ------------------------------------------------------------------ *)
@@ -605,32 +622,34 @@ val loopback_on_wire_def = Phase.phase 1 Define`(*: check if a message bears a l
    to a much nicer finite map representation. A lot of the auxiliaries
    that were here became inlined into the hostLTS side conditions. *)
 
-val fdlt_def = Phase.phase 1 Define`(*: [[<]] comparison on file descriptors :*)
+let (*: [[<]] comparison on file descriptors :*)
   fdlt (FD n) (FD m) = n < m
-`(*: @mergewithnext :*);
+(*: @mergewithnext :*)
 
-val fdle_def = Phase.phase 1 Define`(*: [[<=]] comparison on file descriptors :*)
+let (*: [[<=]] comparison on file descriptors :*)
   fdle (FD n) (FD m) = n <= m
-`(*:@mergewithnext:*);
+(*:@mergewithnext:*)
 
+(* FIXME 
 val _ = overload_on ("<", ``fdlt``);
 val _ = overload_on ("<=", ``fdle``);
+*)
 
-val leastfd_def = Phase.phase 1 Define`(*: least [[fd]] satisfying predicate [[P]] :*)
-  leastfd P = FD (LEAST n. P (FD n))
-`(*:@mergewithnext:*);
+let (*: least [[fd]] satisfying predicate [[P]] :*)
+  leastfd P = FD (LEAST { n | (FD n) IN P })
+(*:@mergewithnext:*)
 
-val _ = set_fixity "leastfd" Binder;
+(* FIXME val _ = set_fixity "leastfd" Binder; *)
 
 (* DON'T phase: in betters *)
-val nextfd_def = Define`(*: next file descriptor to use :*)
+let (*: next file descriptor to use :*)
   nextfd arch fds fd' = if windows_arch arch then
                             (* no ordering on Windows fds; they're just handles *)
-                            fd' NOTIN FDOM fds
+                            NOTIN fd' (FDOM fds)
                         else
                             (* POSIX architectures allocate in order *)
-                            fd' = leastfd fd'. fd' NOTIN FDOM fds
-`(*:
+                            fd' = leastfd { fd' | NOTIN fd' (FDOM fds)}
+(*:
 @description
 %
 Basic operations on file descriptors.  Normally, when a new file
@@ -642,12 +661,12 @@ On Windows, file descriptors are opaque handles, and have no useful
 ordering.  In particular, [[nextfd]] returns an arbitrary unused file
 descriptor.
 
-:*);
+:*)
 
 (* DON'T phase: in betters *)
-val fid_ref_count_def = Define`(*: count references to given [[fid]] :*)
-   fid_ref_count(fds:fd |-> fid,fid) = CARD (FDOM (RRESTRICT fds {fid}))
-`
+let (*: count references to given [[fid]] :*)
+   fid_ref_count (fds (*fds:fd |-> fid*),fid) = CARD (FDOM (RRESTRICT fds {fid}))
+
 (*:
 @description
 A file is closed when its reference count drops to zero.  This function determines the
@@ -658,7 +677,7 @@ reference count of a file (strictly, a [[fid]]).
    process
 
 :*)
-;
+
 
 
 (* ------------------------------------------------------------------ *)
@@ -673,18 +692,18 @@ time-dependent behaviours are described using the timers below.
 :*)
 (* ------------------------------------------------------------------ *)
 
-val slow_timer_def  = Phase.phase 1 Define`(*: TCP slow timer, typically 500ms resolution (for keepalive, MSL, linger, badrxtwin) :*)
-  slow_timer d = fuzzy_timer d SLOW_TIMER_INTVL SLOW_TIMER_MODEL_INTVL`(*: @mergewithnext :*);
-val fast_timer_def  = Phase.phase 1 Define`(*: TCP fast timer, typically 200ms resolution (for delack) :*)
-  fast_timer d = fuzzy_timer d FAST_TIMER_INTVL FAST_TIMER_MODEL_INTVL`(*: @mergewithnext :*);
-val kern_timer_def  = Phase.phase 1 Define`(*: kernel timer, typically 10ms resolution (for timestamp valid, pselect) :*)
-  kern_timer d = fuzzy_timer d KERN_TIMER_INTVL KERN_TIMER_MODEL_INTVL`(*: @mergewithnext :*);
-val sched_timer_def    = Phase.phase 3 Define`(*: scheduling timer (for OS returns) :*)
-  sched_timer     = upper_timer dschedmax`(*: @mergewithnext :*);
-val inqueue_timer_def  = Phase.phase 1 Define`(*: in-queue timer (incoming message processing) :*)
-  inqueue_timer   = upper_timer diqmax`(*: @mergewithnext :*);
-val outqueue_timer_def = Phase.phase 2 Define`(*: out-queue timer (outgoing message emission) :*)
-  outqueue_timer  = upper_timer doqmax`
+let (*: TCP slow timer, typically 500ms resolution (for keepalive, MSL, linger, badrxtwin) :*)
+  slow_timer d = fuzzy_timer d SLOW_TIMER_INTVL SLOW_TIMER_MODEL_INTVL(*: @mergewithnext :*)
+let (*: TCP fast timer, typically 200ms resolution (for delack) :*)
+  fast_timer d = fuzzy_timer d FAST_TIMER_INTVL FAST_TIMER_MODEL_INTVL(*: @mergewithnext :*)
+let (*: kernel timer, typically 10ms resolution (for timestamp valid, pselect) :*)
+  kern_timer d = fuzzy_timer d KERN_TIMER_INTVL KERN_TIMER_MODEL_INTVL(*: @mergewithnext :*)
+let (*: scheduling timer (for OS returns) :*)
+  sched_timer     = upper_timer dschedmax(*: @mergewithnext :*)
+let (*: in-queue timer (incoming message processing) :*)
+  inqueue_timer   = upper_timer diqmax(*: @mergewithnext :*)
+let (*: out-queue timer (outgoing message emission) :*)
+  outqueue_timer  = upper_timer doqmax
 (*:
 @description
 
@@ -731,8 +750,6 @@ and [[dmax]].  These events may occur at any time up to a specified
 maximum delay.
 
 :*)
-;
-
 
 
 (* ------------------------------------------------------------------ *)
@@ -741,39 +758,43 @@ maximum delay.
 
    The [[TLang]] sockets interface representation of a time is as a pair of integers,
    the first for seconds and the second for nanoseconds.
-   It also uses [[(int#int) option]] representations, e.g.~in the arguments to [[setsocktopt]] and [[pselect]] and the result of [[setsocktopt]], with the [[None]] value meaning infinity.
+   It also uses [[(int*int) option]] representations, e.g.~in the arguments to [[setsocktopt]] and [[pselect]] and the result of [[setsocktopt]], with the [[None]] value meaning infinity.
    Internally, time is represented as a [[time]] value, either a real or infinity.
    These routines convert between the various types. Note that they allow ill-formed tltimeopts without complaint.
 :*)
 (* ------------------------------------------------------------------ *)
 
 
-val time_of_tltime_def = Phase.phase 1 Define`(*: convert [[(sec,nsec)]] pair to real time value :*)
-  (time_of_tltime : int # int -> time)
-    (sec,nsec) = time (real_of_int sec + real_of_int nsec / 1000000000)
-`(*:@mergewithnext:*);
+let (*: convert [[(sec,nsec)]] pair to real time value :*)
+  time_of_tltime (* time_of_tltime : int * int -> time *)
+    (sec,nsec) = time (real_plus (real_of_int sec)  (real_div (real_of_int nsec) (real_of_num 1000000000)))
+(*:@mergewithnext:*)
 
-val time_of_tltimeopt_def = Phase.phase 1 Define`(*: convert optional [[(sec,nsec)]] pair to real time value (where [[NONE]] mapped to [[time_infty]]) :*)
-  time_of_tltimeopt  NONE     = time_infty /\
-  time_of_tltimeopt (SOME sn) = time_of_tltime sn
-`(*:@mergewithnext:*);
+let (*: convert optional [[(sec,nsec)]] pair to real time value (where [[NONE]] mapped to [[time_infty]]) :*)
+  time_of_tltimeopt x = (match x with 
+  |  None     -> time_infty 
+  | (Some sn) -> time_of_tltime sn
+end)
+(*:@mergewithnext:*)
 
-val tltimeopt_wf_def = Phase.phase 1 Define`(*: is an optional [[(sec,nsec)]] pair well-formed? :*)
-  (tltimeopt_wf : (int # int) option -> bool)
-                NONE             = T /\
-  tltimeopt_wf (SOME (sec,nsec)) = (sec >= 0 /\ nsec >= 0 /\ nsec < 1000000000)
-`(*:@mergewithnext:*);
 
-val tltimeopt_of_time_def = Phase.phase 1 Define`(*: convert a [[time]] value to an optional [[(sec,nsec)]] pair :*)
-  (tltimeopt_of_time : time -> (int # int) option) t
-    = @x. tltimeopt_wf x /\ time_of_tltimeopt x = t  (*: garbage if [[t]] not nonnegative integral number of nsec :*)
-`
+let (*: is an optional [[(sec,nsec)]] pair well-formed? :*)
+  tltimeopt_wf (*tltimeopt_wf : option (int * int) -> bool *) x = (match x with
+  |  None             -> T 
+  | (Some (sec,nsec)) -> (int_geq sec int_zero && int_geq nsec int_zero && int_lt nsec (int_of_num 1000000000))
+end)
+(*:@mergewithnext:*)
+
+let (*: convert a [[time]] value to an optional [[(sec,nsec)]] pair :*)
+  tltimeopt_of_time (*tltimeopt_of_time : time -> (int * int) option*) t
+    = SET_CHOOSE { x | tltimeopt_wf x && (time_of_tltimeopt x = t) }  (*: garbage if [[t]] not nonnegative integral number of nsec :*)
+
 (*:
 @description
  A [[tltimeopt]] is well-formed if [[sec]] and [[nsec]] are positive
    and [[nsec]] is less than $10^9$.
 :*)
-;
+
 
 
 
@@ -822,44 +843,45 @@ At present we see no need for the additional complication.
 (* NB: the queue models both the interface queue and the kernel's
    mbufs used on the way there *)
 
-val enqueue_def = Phase.phase 2 Define`(*: attempt to enqueue a message :*)
+let (*: attempt to enqueue a message :*)
   enqueue dq (Timed(q,d),msg,Timed(q',d'),queued)
-    = ((INFINITE_RESOURCES ==> queued) /\
+    = ((INFINITE_RESOURCES --> queued) &&
        (q',d') = (if queued then (APPEND q [msg],dq) else (q,d))
       )
-`(*: @description
-This is a relation between an original timed queue [[Timed(q,d)]], a message to enqueue, [[msg]], a resulting timed queue [[Timed(q',d')]], and a boolean [[queued]] indicating whether the enqueue was successful or not.  For a successful enqueue the timer on the resulting queue is set to [[dq]] :*);
+(*: @description
+This is a relation between an original timed queue [[Timed(q,d)]], a message to enqueue, [[msg]], a resulting timed queue [[Timed(q',d')]], and a boolean [[queued]] indicating whether the enqueue was successful or not.  For a successful enqueue the timer on the resulting queue is set to [[dq]] :*)
 
-val enqueue_iq_def = Phase.phase 2 Define`(*: attempt to enqueue onto the in-queue :*)
-  enqueue_iq = enqueue inqueue_timer`(*: @mergewithnext :*);
-val enqueue_oq_def = Phase.phase 2 Define`(*: attempt to enqueue onto the out-queue :*)
+let (*: attempt to enqueue onto the in-queue :*)
+  enqueue_iq = enqueue inqueue_timer(*: @mergewithnext :*)
+let (*: attempt to enqueue onto the out-queue :*)
   enqueue_oq = enqueue outqueue_timer
-`
+
 (*:
 @description
 Add a message to the respective queue, returning the new queue and a flag
    saying whether the message was successfully queued.
 :*)
-;
 
-val dequeue_def = Phase.phase 2 Define`(*: attempt to dequeue a message :*)
+
+let (*: attempt to dequeue a message :*)
   dequeue dq (Timed(q,d),Timed(q',d'),msg)
-    = case q of
-        (msg0::q0) -> q' = q0 /\ msg = SOME msg0 /\ d' = (if q0 = [] then never_timer else dq) ||
-        []         -> q' = q  /\ msg = NONE      /\ d' = d
-`(*:@mergewithnext:*);
+    = (match q with
+        (msg0::q0) -> q' = q0 && msg = SOME msg0 && d' = (if q0 = [] then never_timer else dq) 
+       | []         -> q' = q  && msg = NONE      && d' = d
+end)
+(*:@mergewithnext:*)
 
-val dequeue_iq_def = Phase.phase 1 Define`(*: attempt to dequeue from the in-queue :*)
-  dequeue_iq = dequeue inqueue_timer`(*: @mergewithnext :*);
-val dequeue_oq_def = Phase.phase 1 Define`(*: attempt to dequeue from the out-queue :*)
+let (*: attempt to dequeue from the in-queue :*)
+  dequeue_iq = dequeue inqueue_timer(*: @mergewithnext :*)
+let (*: attempt to dequeue from the out-queue :*)
   dequeue_oq = dequeue outqueue_timer
-`
+
 (*:
 @description
 Remove a message from the queue, returning the new queue, and the
    message if there is one.
 :*)
-;
+
 
 (*
    This function is fairly unnecessary at the moment; pattern matching
@@ -868,44 +890,47 @@ Remove a message from the queue, returning the new queue, and the
 *)
 
 (* DON'T phase: handled by betters *)
-val route_and_enqueue_oq_def = Define`(*: attempt to route and then enqueue an outgoing message :*)
+let (*: attempt to route and then enqueue an outgoing message :*)
   route_and_enqueue_oq (rttab,ifds,oq,msg,oq',es,arch)
-    = case test_outroute (msg,rttab,ifds,arch) of
-         NONE -> F
-      || SOME (SOME e) -> oq' = oq /\ es = SOME e
-      || SOME NONE -> ?queued.
-                         enqueue_oq (oq,msg,oq',queued) /\
-                         es = if queued then NONE else SOME ENOBUFS
-`
+    = (match test_outroute (msg,rttab,ifds,arch) with
+        None -> F
+      | Some (Some e) -> oq' = oq && es = Some e
+      | Some None -> exists queued.
+                         enqueue_oq (oq,msg,oq',queued) &&
+                         es = if queued then None else Some ENOBUFS
+end)
+
 (*:
 @description
  This is a relation because [[enqueue_oq]] can non-deterministically
    decide that the [[oq]] is full.
 :*)
-;
 
-val enqueue_list_qinfo_def = Phase.phase 1 Define`(*: attempt to enqueue a list of messages :*)
-  enqueue_list_qinfo dq (q,(msg,queued)::msgqs,q')
-    = (?q0.
-       enqueue            dq (q ,msg  ,q0,queued) /\
-       enqueue_list_qinfo dq (q0,msgqs,q')) /\
-  enqueue_list_qinfo dq (q,[],q')
-    = (q' = q)
-`(*:@mergewithnext:*);
 
-val enqueue_list_def = Phase.phase 1 Define`(*: attempt to enqueue a list of messages, ignoring success flags :*)
-  enqueue_list dq (q,msgs,q',queued) =
-    (?msgqs.
-     enqueue_list_qinfo dq (q,msgqs,q') /\
-     msgs = MAP FST msgqs /\
-     queued = EVERY (\x. SND x = T) msgqs)
-`(*:@mergewithnext:*);
+let rec (*: attempt to enqueue a list of messages :*)
+  enqueue_list_qinfo dq x = (match x with
+  | (q,(msg,queued)::msgqs,q')
+    -> (exists q0.
+       enqueue            dq (q ,msg  ,q0,queued) &&
+       enqueue_list_qinfo dq (q0,msgqs,q')) 
+  | (q,[],q')
+    -> (q' = q)
+end)
+(*:@mergewithnext:*)
 
-val enqueue_oq_list_qinfo_def = Phase.phase 1 Define`(*: attempt to enqueue a list of messages onto the out-queue :*)
-  enqueue_oq_list_qinfo = enqueue_list_qinfo outqueue_timer`(*: @mergewithnext :*);
-val enqueue_oq_list_def = Phase.phase 1 Define`(*: attempt to enqueue a list of messages onto the out-queue, ignoring success flags :*)
+let (*: attempt to enqueue a list of messages, ignoring success flags :*)
+  enqueue_list dq (q,msgs,q',queued) = 
+    (exists msgqs.
+     enqueue_list_qinfo dq (q,msgqs,q') &&
+     msgs = MAP FST msgqs &&
+     queued = EVERY (fun x -> SND x = T) msgqs)
+(*:@mergewithnext:*)
+
+let (*: attempt to enqueue a list of messages onto the out-queue :*)
+  enqueue_oq_list_qinfo = enqueue_list_qinfo outqueue_timer(*: @mergewithnext :*)
+let (*: attempt to enqueue a list of messages onto the out-queue, ignoring success flags :*)
   enqueue_oq_list = enqueue_list outqueue_timer
-`
+
 (*:
 @description
  We sometimes need to enqueue multiple messages at a time.  [[enqueue_list_qinfo]]
@@ -916,24 +941,23 @@ val enqueue_oq_list_def = Phase.phase 1 Define`(*: attempt to enqueue a list of 
    each message.  [[enqueue_list]] provides the AND of success of each
    message (though this is of limited use).
 :*)
-;
 
 
-val accept_incoming_q0_def = Phase.phase 1 Define`(*: should an incoming incomplete connection be accepted? :*)
+let (*: should an incoming incomplete connection be accepted? :*)
   accept_incoming_q0 (lis:socket_listen) (b:bool)
-    = (b = LENGTH lis.q < backlog_fudge lis.qlimit)
-`(*: @mergewithnext :*);
+    = (b = ((LENGTH lis.q) < (backlog_fudge lis.qlimit )))
+(*: @mergewithnext :*)
 
-val accept_incoming_q_def = Phase.phase 1 Define`(*: should an incoming completed connection be accepted? :*)
+let (*: should an incoming completed connection be accepted? :*)
   accept_incoming_q (lis:socket_listen) (b:bool)
-    = (b = LENGTH lis.q < 3 * backlog_fudge lis.qlimit DIV 2)
-`(*:@mergewithnext:*);
+    = (b = (LENGTH lis.q < (3 * (backlog_fudge (int_DIV lis.qlimit (int_of_num 2))))))
+(*:@mergewithnext:*)
 
-val drop_from_q0_def = Phase.phase 1 Define`(*: drop from incomplete-connection queue? :*)
+let (*: drop from incomplete-connection queue? :*)
   drop_from_q0 (lis:socket_listen) (b:bool)
-    = ((LENGTH lis.q0 >= TCP_Q0MINLIMIT /\ b = T) \/
-       (LENGTH lis.q0 <  TCP_Q0MAXLIMIT /\ b = F))
-`
+    = ((LENGTH lis.q0 >= TCP_Q0MINLIMIT && b = T) ||
+       (LENGTH lis.q0 <  TCP_Q0MAXLIMIT && b = F))
+
 (*:
 @description
 %
@@ -952,7 +976,8 @@ Existing incomplete connections may dropped from [[lis.q0]] to make
 room if its length is between its minimum and maximum limits.
 
 :*)
-;
 
 
+(*
 val _ = export_theory();
+*)

@@ -353,7 +353,7 @@ architectures, and so the first forbidden file descriptor is [[OPEN_MAX_FD]].
 let FD_SETSIZE x = (match x with
    | Linux_2_4_20_8 -> 1024
    | WinXP_Prof_SP1 -> 64
-   | FreeBDS_4_6_RELEASE -> 1024 end)
+   | FreeBSD_4_6_RELEASE -> 1024 end)
 
 (*:
 @description
@@ -647,7 +647,7 @@ length limit.  Connections \emph{may} be dropped once [[q0]] reaches
 
 
 let 
-  backlog_fudge (n:int) = MIN SOMAXCONN (clip_int_to_num n)
+  backlog_fudge (n:int) = num_MIN (SOMAXCONN:num) (clip_int_to_num n)
 
 (*:
 @description

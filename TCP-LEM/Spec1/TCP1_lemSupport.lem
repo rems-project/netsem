@@ -1,3 +1,4 @@
+
 (* contains defns available in HOL but not available in LEM, such as
 word32; this comes before all other TCP1_xxx files; many FIXMEs *)
 
@@ -5,7 +6,12 @@ type char = string (* FIXME FIXME *)
 
 type word32 = WORD32 of num (* FIXME *)
 
+type word16 = WORD16 of num (* FIXME *)
+
 let (int_zero:int) = Int.int 0 (* FIXME remove this defn and occurrences in following *)
+
+val int_geq : int -> int -> bool
+val int_lt : int -> int -> bool
 
 let FIXME_int = int_zero
 
@@ -26,3 +32,42 @@ let FIXME_num = 0
 let w2n w = FIXME_num
 
 let INT32_SIGNED_MAX = FIXME_word32
+
+
+let LENGTH = List.length
+
+let T = true
+let F = false
+
+let rec EXP n m = if m = 0 then 1 else n * (EXP n (m-1))
+
+let BIGUNION s = { x | exists t. x IN t && t IN s }
+
+open Hol.Finite_map
+
+val FRANGE : forall 'a 'b. fmap 'a 'b -> set 'b 
+
+val LEAST : set num -> num
+
+let NOTIN x xs = not (x IN xs)
+
+
+open Hol.Set_relation
+
+val RRESTRICT : forall 'a 'b. fmap 'a 'b -> set 'a -> fmap 'a 'b
+
+val CARD : forall 'a. set 'a -> num
+
+val SET_CHOOSE : forall 'a. set 'a -> 'a
+
+val int_of_num : num -> int
+
+val FST : forall 'a 'b. ('a * 'b) -> 'a
+
+val SND : forall 'a 'b. ('a * 'b) -> 'b
+
+val EVERY : forall 'a. ('a -> bool) -> list 'a -> bool
+
+val num_MIN: num -> num -> num
+
+val int_DIV: int -> int -> int
