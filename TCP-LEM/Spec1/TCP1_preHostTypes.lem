@@ -103,7 +103,7 @@ type (*: receive queue elements for a UDP socket :*)
 
 type (*: details of a UDP socket :*)
    udp_socket
-     = <| rcvq : list dgram  |>
+     = <| udp_rcvq : list dgram  |>
 (*:
 @description
 %

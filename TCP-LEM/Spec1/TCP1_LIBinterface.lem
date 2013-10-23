@@ -1,3 +1,4 @@
+(*
 (* A HOL98 specification of TCP *)
 
 (* Type declarations and groups of system ("LIB") calls *)
@@ -15,6 +16,10 @@ open HolDoc
 val _ = new_theory "TCP1_LIBinterface";
 
 val _ = Version.registerTheory "$RCSfile: TCP1_LIBinterfaceScript.sml,v $" "$Revision: 1.37 $" "$Date: 2005/02/07 16:31:21 $";
+*)
+
+open TCP1_signals
+open TCP1_baseTypes
 
 (*: @chapter [[TCP1_LIBinterface]] System call types
 
@@ -64,41 +69,40 @@ typechecking does not check this data at present).
 
 :*)
 
-val _ =
-    Hol_datatype
-    `LIB_interface =
+type 
+    LIB_interface =
         accept       of fd
-      | bind         of (fd # ip option # port option)
+      | bind         of (fd * option ip * option port)
       | close        of fd
-      | connect      of (fd # ip # port option)
+      | connect      of (fd * ip * option port)
       | disconnect   of fd
       | dup          of fd
-      | dupfd        of (fd # int)
+      | dupfd        of (fd * int)
       | getfileflags of fd
       | getifaddrs   of one
       | getpeername  of fd
-      | getsockbopt  of (fd # sockbflag)
+      | getsockbopt  of (fd * sockbflag)
       | getsockerr   of fd
       | getsocklistening of fd
       | getsockname  of fd
-      | getsocknopt  of (fd # socknflag)
-      | getsocktopt  of (fd # socktflag)
-      | listen       of (fd # int)
-      | pselect      of (fd list # fd list # fd list # (int # int) option # signal list option)
-      | recv         of (fd # int # msgbflag list)
-      | send         of (fd # (ip # port) option # string # msgbflag list)
-      | setfileflags of (fd # filebflag list)
-      | setsockbopt  of (fd # sockbflag # bool)
-      | setsocknopt  of (fd # socknflag # int)
-      | setsocktopt  of (fd # socktflag # (int # int) option)
-      | shutdown     of (fd # bool # bool)
+      | getsocknopt  of (fd * socknflag)
+      | getsocktopt  of (fd * socktflag)
+      | listen       of (fd * int)
+      | pselect      of (list fd * list fd * list fd * option (int * int) * option (list signal))
+      | recv         of (fd * int * list msgbflag)
+      | send         of (fd * option (ip * port) * string * list msgbflag)
+      | setfileflags of (fd * list filebflag)
+      | setsockbopt  of (fd * sockbflag * bool)
+      | setsocknopt  of (fd * socknflag * int)
+      | setsocktopt  of (fd * socktflag * option (int * int))
+      | shutdown     of (fd * bool * bool)
       | sockatmark   of fd
       | socket       of socktype
-`
+
 (*: @description
 Sockets calls with their argument types.
 :*)
-;
+
 
 
 
@@ -112,56 +116,55 @@ Sockets calls with their argument types.
       | string_of_ip        of ip
       | int_of_fd           of fd
    (* NB: fd_of_int is deliberately omitted; see dupfd *)
-   (* | create              of ('a -> 'b # 'a)   *)
+   (* | create              of ('a -> 'b * 'a)   *)
       | delay               of int
       | print_ef            of string
       | exit                of one
 
    (* | getaddrinfo of ????                  *)
-   (* | poll        of (fd # event) list ??? *)
+   (* | poll        of (fd * event) list ??? *)
 *)
 
-val retType_def =
-  Define`retType (accept      _) = TLty_pair(TLty_fd,TLty_pair(TLty_ip, TLty_port))
-      /\ retType (bind        _) = TLty_one
-      /\ retType (close       _) = TLty_one
-      /\ retType (connect     _) = TLty_one
-      /\ retType (disconnect  _) = TLty_one
-      /\ retType (dup         _) = TLty_fd
-      /\ retType (dupfd       _) = TLty_fd
-      /\ retType (getfileflags _) = TLty_list TLty_filebflag
-      /\ retType (getifaddrs          _) = TLty_list
+let retType x = (match x with
+      | (accept      _) -> TLty_pair(TLty_fd,TLty_pair(TLty_ip, TLty_port))
+      | (bind        _) -> TLty_one
+      | (close       _) -> TLty_one
+      | (connect     _) -> TLty_one
+      | (disconnect  _) -> TLty_one
+      | (dup         _) -> TLty_fd
+      | (dupfd       _) -> TLty_fd
+      | (getfileflags _) -> TLty_list TLty_filebflag
+      | (getifaddrs          _) -> TLty_list
              (TLty_pair(TLty_ifid,TLty_pair(TLty_ip,TLty_pair((TLty_list TLty_ip),TLty_netmask))))
-      /\ retType (getpeername _) = TLty_pair(TLty_ip, TLty_port)
-      /\ retType (getsockbopt _) = TLty_bool
-      /\ retType (getsockerr  _) = TLty_one
-      /\ retType (getsocklistening _) = TLty_bool
-      /\ retType (getsockname _) = TLty_pair(TLty_lift TLty_ip, TLty_lift TLty_port)
-      /\ retType (getsocknopt _) = TLty_int
-      /\ retType (getsocktopt _) = TLty_lift (TLty_pair(TLty_int,TLty_int))
-      /\ retType (listen      _) = TLty_one
-      /\ retType (pselect     _) = TLty_pair(TLty_list TLty_fd,
+      | (getpeername _) -> TLty_pair(TLty_ip, TLty_port)
+      | (getsockbopt _) -> TLty_bool
+      | (getsockerr  _) -> TLty_one
+      | (getsocklistening _) -> TLty_bool
+      | (getsockname _) -> TLty_pair(TLty_lift TLty_ip, TLty_lift TLty_port)
+      | (getsocknopt _) -> TLty_int
+      | (getsocktopt _) -> TLty_lift (TLty_pair(TLty_int,TLty_int))
+      | (listen      _) -> TLty_one
+      | (pselect     _) -> TLty_pair(TLty_list TLty_fd,
                                              TLty_pair(TLty_list TLty_fd,
                                                        TLty_list TLty_fd))
-      /\ retType (recv        _) = TLty_pair (TLty_string,
+      | (recv        _) -> TLty_pair (TLty_string,
                                               TLty_lift(TLty_pair(TLty_pair(TLty_ip,
 									    TLty_port),
 								  TLty_bool)))
-      /\ retType (send        _) = TLty_string
-      /\ retType (setfileflags _) = TLty_one
-      /\ retType (setsockbopt _) = TLty_one
-      /\ retType (setsocknopt _) = TLty_one
-      /\ retType (setsocktopt _) = TLty_one
-      /\ retType (shutdown    _) = TLty_one
-      /\ retType (sockatmark  _) = TLty_bool
-      /\ retType (socket      _) = TLty_fd
+      | (send        _) -> TLty_string
+      | (setfileflags _) -> TLty_one
+      | (setsockbopt _) -> TLty_one
+      | (setsocknopt _) -> TLty_one
+      | (setsocktopt _) -> TLty_one
+      | (shutdown    _) -> TLty_one
+      | (sockatmark  _) -> TLty_bool
+      | (socket      _) -> TLty_fd
+end)
 
-
-     `
 (*: @description
 Return types of sockets calls.
 :*)
-;
+
 
 
 
@@ -188,37 +191,37 @@ For some purposes it is useful to group together all the system calls
 that expect a single [[fd]], and those that expect a socket [[fd]].
 :*)
 
-val fd_op_def = Define`
+let 
   fd_op fd opn = (
-    opn = accept(fd) \/
-    (?is ps. opn = bind(fd,is,ps)) \/
-    opn = close(fd) \/
-    (?i p. opn = connect(fd,i,p)) \/
-    opn = disconnect(fd) \/
-    opn = dup(fd) \/
-    (?fd'. opn = dupfd(fd,fd')) \/
-    (opn = getfileflags(fd)) \/
-    (?flags. opn = setfileflags(fd,flags)) \/
-    opn = getsockname(fd) \/
-    opn = getpeername(fd) \/
-    (?sfb. opn = getsockbopt(fd,sfb)) \/
-    (?sfn. opn = getsocknopt(fd,sfn)) \/
-    (?sft. opn = getsocktopt(fd,sft)) \/
-    (?sfb b. opn = setsockbopt(fd,sfb,b)) \/
-    (?sfn n. opn = setsocknopt(fd,sfn,n)) \/
-    (?sft t. opn = setsocktopt(fd,sft,t)) \/
-    (?n. opn = listen(fd,n)) \/
-    (?n opt. opn = recv(fd,n,opt)) \/
-    (?data opt. opn = send(fd,data,opt)) \/
-    (?r w. opn = shutdown(fd,r,w)) \/
-    opn = sockatmark(fd) \/
-    opn = getsockerr(fd) \/
+    opn = accept(fd) ||
+    (exists is ps. opn = bind(fd,is,ps)) ||
+    opn = close(fd) ||
+    (exists i p. opn = connect(fd,i,p)) ||
+    opn = disconnect(fd) ||
+    opn = dup(fd) ||
+    (exists fd'. opn = dupfd(fd,fd')) ||
+    (opn = getfileflags(fd)) ||
+    (exists flags. opn = setfileflags(fd,flags)) ||
+    opn = getsockname(fd) ||
+    opn = getpeername(fd) ||
+    (exists sfb. opn = getsockbopt(fd,sfb)) ||
+    (exists sfn. opn = getsocknopt(fd,sfn)) ||
+    (exists sft. opn = getsocktopt(fd,sft)) ||
+    (exists sfb b. opn = setsockbopt(fd,sfb,b)) ||
+    (exists sfn n. opn = setsocknopt(fd,sfn,n)) ||
+    (exists sft t. opn = setsocktopt(fd,sft,t)) ||
+    (exists n. opn = listen(fd,n)) ||
+    (exists n opt. opn = recv(fd,n,opt)) ||
+    (exists data opt1 opt2. opn = send(fd,opt1,data,opt2)) ||
+    (exists r w. opn = shutdown(fd,r,w)) ||
+    opn = sockatmark(fd) ||
+    opn = getsockerr(fd) ||
     opn = getsocklistening(fd)
-)`
+)
 (*: @description
 Calls that expect a (single) fd.
 :*)
-;
+
 
 
    (* | getaddrinfo of ????                  *)
@@ -227,32 +230,32 @@ Calls that expect a (single) fd.
     (* NOT socket *)
     (* NOT the non-POSIX ones *)
 
-val fd_sockop_def = Define`
+let 
   fd_sockop fd opn = (
-    opn = accept(fd) \/
-    (?is ps. opn = bind(fd,is,ps)) \/
-    (?i p. opn = connect(fd,i,p)) \/
-    opn = disconnect(fd) \/
-    opn = getsockname(fd) \/
-    opn = getpeername(fd) \/
-    (?sfb. opn = getsockbopt(fd,sfb)) \/
-    (?sfn. opn = getsocknopt(fd,sfn)) \/
-    (?sft. opn = getsocktopt(fd,sft)) \/
-    (?sfb b. opn = setsockbopt(fd,sfb,b)) \/
-    (?sfn n. opn = setsocknopt(fd,sfn,n)) \/
-    (?sft t. opn = setsocktopt(fd,sft,t)) \/
-    (?n. opn = listen(fd,n)) \/
-    (?n opt. opn = recv(fd,n,opt)) \/
-    (?data opt. opn = send(fd,data,opt)) \/
-    (?r w. opn = shutdown(fd,r,w)) \/
-    opn = sockatmark(fd) \/
-    opn = getsockerr(fd) \/
+    opn = accept(fd) ||
+    (exists is ps. opn = bind(fd,is,ps)) ||
+    (exists i p. opn = connect(fd,i,p)) ||
+    opn = disconnect(fd) ||
+    opn = getsockname(fd) ||
+    opn = getpeername(fd) ||
+    (exists sfb. opn = getsockbopt(fd,sfb)) ||
+    (exists sfn. opn = getsocknopt(fd,sfn)) ||
+    (exists sft. opn = getsocktopt(fd,sft)) ||
+    (exists sfb b. opn = setsockbopt(fd,sfb,b)) ||
+    (exists sfn n. opn = setsocknopt(fd,sfn,n)) ||
+    (exists sft t. opn = setsocktopt(fd,sft,t)) ||
+    (exists n. opn = listen(fd,n)) ||
+    (exists n opt. opn = recv(fd,n,opt)) ||
+    (exists data opt1 opt2. opn = send(fd,opt1,data,opt2)) ||
+    (exists r w. opn = shutdown(fd,r,w)) ||
+    opn = sockatmark(fd) ||
+    opn = getsockerr(fd) ||
     opn = getsocklistening(fd)
-)`
+)
 (*: @description
 Calls that expect a (single) socket fd.
 :*)
-;
+
 
 
     (* NOT close *)
@@ -266,5 +269,6 @@ Calls that expect a (single) socket fd.
     (* NOT socket *)
     (* NOT the non-POSIX ones *)
 
-
+(*
 val _ = export_theory();
+*)

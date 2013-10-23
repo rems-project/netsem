@@ -71,3 +71,5 @@ val EVERY : forall 'a. ('a -> bool) -> list 'a -> bool
 val num_MIN: num -> num -> num
 
 val int_DIV: int -> int -> int
+
+val ARB: forall 'a. 'a
