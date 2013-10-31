@@ -810,6 +810,18 @@ val _ = overload_on("MIN", ``seq32_min``);
 val _ = overload_on("MAX", ``seq32_max``);
 *)
 
+val FIXME_seq32 : forall 'a. seq32 'a
+
+val seq32_MAX: forall 'a. seq32 'a -> seq32 'a -> seq32 'a
+
+val FIXME_w2n: forall 'a. numeral -> seq32 'a
+
+instance forall 'a. (Numeral (seq32 'a))
+  let fromNumeral = FIXME_w2n
+end
+
+
+
 (* -------------------------------------------------- *)
 (*      TCP SEQUENCE NUMBERS and TIMESTAMPS           *)
 (* -------------------------------------------------- *)

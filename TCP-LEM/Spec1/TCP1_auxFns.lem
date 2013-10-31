@@ -33,6 +33,7 @@ val _ = Version.registerTheory "$RCSfile: TCP1_auxFnsScript.sml,v $" "$Revision:
 *)
 
 open import Pervasives_extra
+open import Transform
 open TCP1_lemSupport
 open TCP1_errors
 open TCP1_utils
@@ -1554,7 +1555,7 @@ The TCP output routines.  These, together with the input routines in
 
 
 (* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ *)
-(**
+
 (* Don't Phase: handled specially by netEval *)
 let 
 (*: determine whether TCP output is required :*)
@@ -1592,10 +1593,10 @@ let
     let have_data_or_fin_to_send = seq32_lt cb.snd_nxt last_sndq_data_and_fin_seq in
 
     (*: The amount by which the right edge of the advertised window could be moved :*)
-    let window_update_delta = (int_min (int_of_num(shift_left TCP_MAXWIN cb.rcv_scale))
+    let window_update_delta = FIXME_int (* int - seq32??? (int_min (int_of_num(shift_left TCP_MAXWIN cb.rcv_scale))
 				       (int_of_num(sock.sf.n(SO_RCVBUF)) - int_of_num(LENGTH
-				       tcp_sock.rcvq))) -
-			      (cb.rcv_adv - cb.rcv_nxt) in
+				       tcp_sock.rcvq))) - 
+			      (cb.rcv_adv - cb.rcv_nxt) *) in
 
     (*: Send a window update? This occurs when (a) the advertised window can be increased by at
         least two maximum segment sizes, or (b) the advertised window can be increased by at least
@@ -1623,9 +1624,9 @@ let
       ) in
 
     let persist_fun =
-      let cant_send = (not do_output && tcp_sock.sndq <> [] && mode_of cb.tt_rexmt = None) in
+      let cant_send = (not do_output && tcp_sock.sndq /= [] && mode_of cb.tt_rexmt = None) in
       let window_shrunk = (win = 0 && snd_wnd_unused < 0 && (*: [[win = 0]] if in [[SYN_SENT]], but still may send FIN :*)
-                           (bsd_arch arch --> tcp_sock.st <> SYN_SENT)) in
+                           (bsd_arch arch --> tcp_sock.st /= SYN_SENT)) in
 
       if cant_send then  (* takes priority over window_shrunk; note this needs to be checked *)
         (*: Can not transmit a segment despite a non-empty send queue and no running persist or
@@ -1649,7 +1650,7 @@ let
         None
     in
       (do_output,persist_fun))
-(**
+
 
 (*:
 
@@ -1704,7 +1705,6 @@ let
 :*)
 
 
-
 let 
 (*: do TCP output :*)
   tcp_output_really arch window_probe ts_val' ifds0 sock (sock',outsegs') =
@@ -1712,10 +1712,10 @@ let
     let cb = tcp_sock.cb in
 
     (*: Assert that the socket is fully bound and connected :*)
-    sock.is1 <> None &&
-    sock.is2 <> None &&
-    sock.ps1 <> None &&
-    sock.ps2 <> None &&
+    sock.is1 /= None &&
+    sock.is2 /= None &&
+    sock.ps1 /= None &&
+    sock.ps2 /= None &&
 
     (*: Note this does not deal with |TF_LASTIDLE| and |PRU_MORETOCOME| :*)
     let snd_cwnd' =
@@ -1731,20 +1731,20 @@ let
     (*: Calculate the amount of unused send window :*)
     let win0 = MIN cb.snd_wnd snd_cwnd' in
     let win = (if window_probe && win0 = 0 then 1 else win0) in
-    let (snd_wnd_unused : int) = int_of_num win - (cb.snd_nxt - cb.snd_una) in
+    let (snd_wnd_unused : int) = FIXME_int (* int - seq32? int_of_num win - (cb.snd_nxt - cb.snd_una) *) in
 
     (*: Is it possible that a [[FIN]] may need to be transmitted? :*)
-    let fin_required = (sock.cantsndmore && tcp_sock.st NOTIN {FIN_WAIT_2;TIME_WAIT}) in
+    let fin_required = (sock.cantsndmore && NOTIN tcp_sock.st {FIN_WAIT_2;TIME_WAIT}) in
 
     (*: Calculate the sequence number after the last data byte in the send queue :*)
-    let last_sndq_data_seq = cb.snd_una + LENGTH tcp_sock.sndq in
+    let last_sndq_data_seq = seq32_plus cb.snd_una (LENGTH tcp_sock.sndq) in
 
     (*: The data to send in this segment (if any) :*)
-    let data' = DROP (num_of_int (cb.snd_nxt - cb.snd_una)) tcp_sock.sndq in
-    let data_to_send = TAKE (MIN (clip_int_to_num snd_wnd_unused) cb.t_maxseg) data' in
+    let data' = DROP (num_of_int (seq32_diff cb.snd_nxt cb.snd_una)) tcp_sock.sndq in
+    let data_to_send = TAKE (num_MIN (clip_int_to_num snd_wnd_unused) cb.t_maxseg) data' in
 
     (*: Should [[FIN]] be set in this segment? :*)
-    let FIN = (fin_required && cb.snd_nxt + LENGTH data_to_send >= last_sndq_data_seq) in
+    let FIN = (fin_required && seq32_plus cb.snd_nxt (LENGTH data_to_send) >= last_sndq_data_seq) in
 
     (*: Should [[ACK]] be set in this segment? Under BSD, it is not set if the socket is in [[SYN_SENT]]
         and emitting a [[FIN]] segment due to [[shutdown()]] having been called. :*)
@@ -1752,35 +1752,33 @@ let
 
     (*: If this socket has previously sent a [[FIN]] which has not yet been acked, and [[snd_nxt]]
         is past the [[FIN]]'s sequence number, then [[snd_nxt]] should be set to the sequence number
-        of the [[FIN]] flag, i.e. a retransmission. Check that [[snd_una <> iss]] as in this case no
+        of the [[FIN]] flag, i.e. a retransmission. Check that [[snd_una /= iss]] as in this case no
         data has yet been sent over the socket  :*)
-    let snd_nxt' = if FIN && (cb.snd_nxt + LENGTH data_to_send = last_sndq_data_seq+1 &&
-                      cb.snd_una  <> cb.iss || num_of_int(cb.snd_nxt - cb.iss) = 2) then
-		     cb.snd_nxt - 1
+    let snd_nxt' = if FIN && (seq32_plus cb.snd_nxt (LENGTH data_to_send) = seq32_plus last_sndq_data_seq 1 &&
+                      cb.snd_una  /= cb.iss || num_of_int(seq32_diff cb.snd_nxt cb.iss) = 2) then
+		     seq32_minus cb.snd_nxt 1
                    else
 		     cb.snd_nxt in
-
     (*: The BSD way: set [[PSH]] whenever sending the last byte of data in the send queue :*)
-    let PSH = (data_to_send <> [] && cb.snd_nxt + LENGTH data_to_send = last_sndq_data_seq) in
+    let PSH = (data_to_send /= [] && seq32_plus cb.snd_nxt (LENGTH data_to_send) = last_sndq_data_seq) in
 
     (*: If sending urgent data, set the [[URG]] and [[urp]] fields appropriately :*)
-    let (URG,urp) = (case tcp_sock.sndurp of
+    let (URG,urp) = (match tcp_sock.sndurp with
                       None -> (F,0) |  (*: No urgent data; don't set :*)
-                      Some sndurpn -> let urp_n = (cb.snd_una + sndurpn) - cb.snd_nxt + 1 in
+                      Some sndurpn -> let urp_n = FIXME_num (* (cb.snd_una + sndurpn) - cb.snd_nxt + 1 *) in
                                           (* points one byte *past* the urgent byte *)
                                       if urp_n < 1 then
                                         (F,0) (*: Urgent data out of range; don't set :*)
                                       else if urp_n < 65536 then
-                                        (T,Num urp_n) (*: Urgent data in range; set :*)
+                                        (T,w2n urp_n) (*: Urgent data in range; set :*)
                                       else
 					(*: Urgent data in the very distant future; set :*)
 					(* Steven's suggestion; not sure if followed *)
-                                        (T,65535)) in
-
+                                        (T,65535) end) in
     (*: Calculate size of the receive window (based upon available buffer space) :*)
     let rcv_wnd'' = calculate_bsd_rcv_wnd sock.sf tcp_sock in
-    let rcv_wnd' = MAX (Num (cb.rcv_adv - cb.rcv_nxt)) (MIN (shift_left TCP_MAXWIN cb.rcv_scale)
-                  (if rcv_wnd'' < sock.sf.n(SO_RCVBUF) DIV 4 && rcv_wnd'' < cb.t_maxseg
+    let rcv_wnd' = num_MAX (w2n (seq32_diff cb.rcv_adv cb.rcv_nxt)) (num_MIN (shift_left TCP_MAXWIN cb.rcv_scale)
+                  (if rcv_wnd'' < DIV (sock.sf.n(SO_RCVBUF)) 4 && rcv_wnd'' < cb.t_maxseg
 		   then 0  (*: Silly window avoidance: shouldn't advertise a tiny window :*)
                    else rcv_wnd'')) in
 
@@ -1794,36 +1792,36 @@ let
 
     (*: Advertise an appropriately scaled receive window :*)
     (*: Assert the advertised window is within a sensible range :*)
-    let win = n2w (rcv_wnd' >> cb.rcv_scale) in
-    w2n win = rcv_wnd' >> cb.rcv_scale &&
+    let win = n2w16 (rcv_wnd' >> cb.rcv_scale) in
+    w2n win = (rcv_wnd' >> cb.rcv_scale) &&
 
     (*: Assert the urgent pointer is within a sensible range :*)
-    let urp_ = n2w urp in
+    let urp_ = n2w16 urp in
     w2n urp_ = urp &&
 
-    let seg = <| is1  = sock.is1;
-                 is2  = sock.is2;
-                 ps1  = sock.ps1;
-                 ps2  = sock.ps2;
-                 seq  = snd_nxt';
-                 ack  = cb.rcv_nxt;
-                 URG  = URG;
-                 ACK  = ACK;
-                 PSH  = PSH;
-                 RST  = F;
-                 SYN  = F;
-                 FIN  = FIN;
-                 win  = win;
-                 ws   = None;
-                 urp  = urp_;
-                 mss  = None;
-                 ts   = ts;
-                 data = data_to_send
+    let seg = <| TCP1_netTypes.is1  = sock.is1;
+                 TCP1_netTypes.is2  = sock.is2;
+                 TCP1_netTypes.ps1  = sock.ps1;
+                 TCP1_netTypes.ps2  = sock.ps2;
+                 TCP1_netTypes.seq  = snd_nxt';
+                 TCP1_netTypes.ack  = cb.rcv_nxt;
+                 TCP1_netTypes.URG  = URG;
+                 TCP1_netTypes.ACK  = ACK;
+                 TCP1_netTypes.PSH  = PSH;
+                 TCP1_netTypes.RST  = F;
+                 TCP1_netTypes.SYN  = F;
+                 TCP1_netTypes.FIN  = FIN;
+                 TCP1_netTypes.win  = win;
+                 TCP1_netTypes.ws   = None;
+                 TCP1_netTypes.urp  = urp_;
+                 TCP1_netTypes.mss  = None;
+                 TCP1_netTypes.ts   = ts;
+                 TCP1_netTypes.data = data_to_send
                |> in
 
     (*: If emitting a [[FIN]] for the first time then change TCP state :*)
     let st' = if FIN then
-                case tcp_sock.st of
+                (match tcp_sock.st with
                   SYN_SENT     -> tcp_sock.st |    (*: can't move yet -- wait until connection established (see [[deliver_in_2]]/[[deliver_in_3]]) :*)
                   SYN_RECEIVED -> tcp_sock.st |    (*: can't move yet -- wait until connection established (see [[deliver_in_2]]/[[deliver_in_3]]) :*)
                   ESTABLISHED  -> FIN_WAIT_1 |
@@ -1832,13 +1830,13 @@ let
                   FIN_WAIT_2   -> tcp_sock.st |    (*: can't happen       :*)
                   CLOSING      -> tcp_sock.st |    (*: FIN retransmission :*)
                   LAST_ACK     -> tcp_sock.st |    (*: FIN retransmission :*)
-                  TIME_WAIT    -> tcp_sock.st       (*: can't happen       :*)
+                  TIME_WAIT    -> tcp_sock.st       (*: can't happen       :*) end)
               else
                 tcp_sock.st in
 
     (*: Updated values to store in the control block after the segment is output :*)
-    let snd_nxt'' = snd_nxt' + LENGTH data_to_send + (if FIN then 1 else 0) in
-    let snd_max' = MAX cb.snd_max snd_nxt'' in
+    let snd_nxt'' = FIXME_seq32 (*snd_nxt' + LENGTH data_to_send + (if FIN then 1 else 0) *) in
+    let snd_max' = seq32_MAX cb.snd_max snd_nxt'' in
 
     (*: Following a |tcp_output| code walkthrough by SB: :*)
     let tt_rexmt' = if (mode_of cb.tt_rexmt = None ||
@@ -1850,7 +1848,7 @@ let
                            retransmit timer. Note: if the persist timer is running it will be
                            implicitly stopped :*)
                        start_tt_rexmt arch 0 F cb.t_rttinf
-		    else if (window_probe || (is_Some tcp_sock.sndurp)) && win0 <> 0 &&
+		    else if (window_probe || (is_Some tcp_sock.sndurp)) && win0 /= 0 &&
                        mode_of cb.tt_rexmt = Some(Persist) then
                        (*: If the segment is a window probe or urgent data is being sent, and in
                            either case the send window is not closed, stop any running persist
@@ -1865,7 +1863,7 @@ let
     (*: Time this segment if it is sensible to do so, i.e.~the following conditions hold : (a) a
         segment is not already being timed, and (b) data or a FIN are being sent, and (c) the
         segment being emitted is not a retransmit, and (d) the segment is not a window probe :*)
-    let t_rttseg' = if IS_None cb.t_rttseg && (data_to_send <> [] || FIN) &&
+    let t_rttseg' = if IS_None cb.t_rttseg && (data_to_send /= [] || FIN) &&
                        snd_nxt'' > cb.snd_max && not window_probe
 		    then
                        Some(ts_val', snd_nxt')
@@ -1873,9 +1871,9 @@ let
                        cb.t_rttseg in
 
     (*: Update the socket :*)
-    sock' = sock with <| pr = TCP_PROTO(tcp_sock with
-                        <| st = st'; cb = tcp_sock.cb with
-                          <| tt_rexmt      = tt_rexmt';
+    sock' = <| sock with pr = TCP_PROTO(
+                        <| tcp_sock with st = st'; cb = 
+                          <| tcp_sock.cb with tt_rexmt      = tt_rexmt';
                              snd_cwnd      = snd_cwnd';
                              rcv_wnd       = rcv_wnd';
                              tf_rxwin0sent = (rcv_wnd' = 0);
@@ -1885,7 +1883,7 @@ let
                              snd_nxt       = snd_nxt'';
                              tt_delack     = None;
                              last_ack_sent = cb.rcv_nxt;
-                             rcv_adv       = cb.rcv_nxt + rcv_wnd'
+                             rcv_adv       = seq32_plus cb.rcv_nxt rcv_wnd' 
                        |> |>) |> &&
 
     (*: Constrain the list of output segments to contain just the segment being emitted :*)
@@ -1923,7 +1921,7 @@ let
 
 
 
-
+(**
 
 (* combine both chunks into something a bit like tcp_output.c; sometimes useful *)
 
@@ -2269,11 +2267,11 @@ let
           outsegs = []) &&
     let es' =
       if err = Some ETIMEDOUT then
-       (if tcp_sock.cb.t_softerror <> None then
+       (if tcp_sock.cb.t_softerror /= None then
           tcp_sock.cb.t_softerror
         else
           Some ETIMEDOUT)
-      else if err <> None then err
+      else if err /= None then err
       else sock.es
     in
       sock' = tcp_close arch (sock with <| es = es' |>))
@@ -2291,4 +2289,4 @@ let
 (* -------------------------------------------------- *)
 
 val _ = export_theory();
-**)*)
+**)

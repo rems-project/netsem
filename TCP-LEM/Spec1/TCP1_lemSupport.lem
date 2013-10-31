@@ -42,10 +42,9 @@ let w_plus x y = FIXME_word32
 
 let FIXME_num = 0
 
-let w2n w = FIXME_num
+let w2n w = FIXME_num  (* FIXME needs a more specific type! *)
 
 let INT32_SIGNED_MAX = FIXME_word32
-
 
 let LENGTH = List.length
 
@@ -124,6 +123,13 @@ val EL: forall 'a. nat -> list 'a -> 'a
 
 (* FIXME this is a hack just to get a type for real *)
 type real = Real of (nat -> bool)
+
+val real_from_numeral : numeral -> real
+
+instance (Numeral real)
+  let fromNumeral = real_from_numeral
+end
+
 let FIXME_real = Real (fun x -> true)
 
 val real_MAX: real -> real -> real
@@ -145,6 +151,8 @@ val duration_zero:real
 val UNIV: forall 'a. set 'a
 
 val is_Some: forall 'a. maybe 'a -> bool
+
+val IS_None: forall 'a. maybe 'a -> bool
 
 let fold_left = foldl
 
