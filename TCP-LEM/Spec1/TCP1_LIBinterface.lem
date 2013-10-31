@@ -18,6 +18,8 @@ val _ = new_theory "TCP1_LIBinterface";
 val _ = Version.registerTheory "$RCSfile: TCP1_LIBinterfaceScript.sml,v $" "$Revision: 1.37 $" "$Date: 2005/02/07 16:31:21 $";
 *)
 
+open import Pervasives_extra
+open TCP1_lemSupport
 open TCP1_signals
 open TCP1_baseTypes
 
@@ -72,9 +74,9 @@ typechecking does not check this data at present).
 type 
     LIB_interface =
         accept       of fd
-      | bind         of (fd * option ip * option port)
+      | bind         of (fd * maybe ip * maybe port)
       | close        of fd
-      | connect      of (fd * ip * option port)
+      | connect      of (fd * ip * maybe port)
       | disconnect   of fd
       | dup          of fd
       | dupfd        of (fd * int)
@@ -88,13 +90,13 @@ type
       | getsocknopt  of (fd * socknflag)
       | getsocktopt  of (fd * socktflag)
       | listen       of (fd * int)
-      | pselect      of (list fd * list fd * list fd * option (int * int) * option (list signal))
+      | pselect      of (list fd * list fd * list fd * maybe (int * int) * maybe (list signal))
       | recv         of (fd * int * list msgbflag)
-      | send         of (fd * option (ip * port) * string * list msgbflag)
+      | send         of (fd * maybe (ip * port) * string * list msgbflag)
       | setfileflags of (fd * list filebflag)
       | setsockbopt  of (fd * sockbflag * bool)
       | setsocknopt  of (fd * socknflag * int)
-      | setsocktopt  of (fd * socktflag * option (int * int))
+      | setsocktopt  of (fd * socktflag * maybe (int * int))
       | shutdown     of (fd * bool * bool)
       | sockatmark   of fd
       | socket       of socktype
@@ -193,30 +195,30 @@ that expect a single [[fd]], and those that expect a socket [[fd]].
 
 let 
   fd_op fd opn = (
-    opn = accept(fd) ||
-    (exists is ps. opn = bind(fd,is,ps)) ||
-    opn = close(fd) ||
-    (exists i p. opn = connect(fd,i,p)) ||
-    opn = disconnect(fd) ||
-    opn = dup(fd) ||
-    (exists fd'. opn = dupfd(fd,fd')) ||
-    (opn = getfileflags(fd)) ||
-    (exists flags. opn = setfileflags(fd,flags)) ||
-    opn = getsockname(fd) ||
-    opn = getpeername(fd) ||
-    (exists sfb. opn = getsockbopt(fd,sfb)) ||
-    (exists sfn. opn = getsocknopt(fd,sfn)) ||
-    (exists sft. opn = getsocktopt(fd,sft)) ||
-    (exists sfb b. opn = setsockbopt(fd,sfb,b)) ||
-    (exists sfn n. opn = setsocknopt(fd,sfn,n)) ||
-    (exists sft t. opn = setsocktopt(fd,sft,t)) ||
-    (exists n. opn = listen(fd,n)) ||
-    (exists n opt. opn = recv(fd,n,opt)) ||
-    (exists data opt1 opt2. opn = send(fd,opt1,data,opt2)) ||
-    (exists r w. opn = shutdown(fd,r,w)) ||
-    opn = sockatmark(fd) ||
-    opn = getsockerr(fd) ||
-    opn = getsocklistening(fd)
+    opn = accept(fd) ||    
+((exists is ps. opn = bind(fd,is,ps)) ||    
+(opn = close(fd) ||    
+((exists i p. opn = connect(fd,i,p)) ||    
+(opn = disconnect(fd) ||    
+(opn = dup(fd) ||    
+((exists fd'. opn = dupfd(fd,fd')) ||    
+((opn = getfileflags(fd)) ||    
+((exists flags. opn = setfileflags(fd,flags)) ||    
+(opn = getsockname(fd) ||    
+(opn = getpeername(fd) ||    
+((exists sfb. opn = getsockbopt(fd,sfb)) ||    
+((exists sfn. opn = getsocknopt(fd,sfn)) ||    
+((exists sft. opn = getsocktopt(fd,sft)) ||    
+((exists sfb b. opn = setsockbopt(fd,sfb,b)) ||    
+((exists sfn n. opn = setsocknopt(fd,sfn,n)) ||    
+((exists sft t. opn = setsocktopt(fd,sft,t)) ||    
+((exists n. opn = listen(fd,n)) ||    
+((exists n opt. opn = recv(fd,n,opt)) ||    
+((exists data opt1 opt2. opn = send(fd,opt1,data,opt2)) ||    
+((exists r w. opn = shutdown(fd,r,w)) ||    
+(opn = sockatmark(fd) ||    
+(opn = getsockerr(fd) ||    
+(opn = getsocklistening(fd))))))))))))))))))))))))
 )
 (*: @description
 Calls that expect a (single) fd.
@@ -232,25 +234,25 @@ Calls that expect a (single) fd.
 
 let 
   fd_sockop fd opn = (
-    opn = accept(fd) ||
-    (exists is ps. opn = bind(fd,is,ps)) ||
-    (exists i p. opn = connect(fd,i,p)) ||
-    opn = disconnect(fd) ||
-    opn = getsockname(fd) ||
-    opn = getpeername(fd) ||
-    (exists sfb. opn = getsockbopt(fd,sfb)) ||
-    (exists sfn. opn = getsocknopt(fd,sfn)) ||
-    (exists sft. opn = getsocktopt(fd,sft)) ||
-    (exists sfb b. opn = setsockbopt(fd,sfb,b)) ||
-    (exists sfn n. opn = setsocknopt(fd,sfn,n)) ||
-    (exists sft t. opn = setsocktopt(fd,sft,t)) ||
-    (exists n. opn = listen(fd,n)) ||
-    (exists n opt. opn = recv(fd,n,opt)) ||
-    (exists data opt1 opt2. opn = send(fd,opt1,data,opt2)) ||
-    (exists r w. opn = shutdown(fd,r,w)) ||
-    opn = sockatmark(fd) ||
-    opn = getsockerr(fd) ||
-    opn = getsocklistening(fd)
+    opn = accept(fd) ||    
+((exists is ps. opn = bind(fd,is,ps)) ||    
+((exists i p. opn = connect(fd,i,p)) ||    
+(opn = disconnect(fd) ||    
+(opn = getsockname(fd) ||    
+(opn = getpeername(fd) ||    
+((exists sfb. opn = getsockbopt(fd,sfb)) ||    
+((exists sfn. opn = getsocknopt(fd,sfn)) ||    
+((exists sft. opn = getsocktopt(fd,sft)) ||    
+((exists sfb b. opn = setsockbopt(fd,sfb,b)) ||    
+((exists sfn n. opn = setsocknopt(fd,sfn,n)) ||    
+((exists sft t. opn = setsocktopt(fd,sft,t)) ||    
+((exists n. opn = listen(fd,n)) ||    
+((exists n opt. opn = recv(fd,n,opt)) ||    
+((exists data opt1 opt2. opn = send(fd,opt1,data,opt2)) ||    
+((exists r w. opn = shutdown(fd,r,w)) ||    
+(opn = sockatmark(fd) ||    
+(opn = getsockerr(fd) ||    
+(opn = getsocklistening(fd)))))))))))))))))))
 )
 (*: @description
 Calls that expect a (single) socket fd.

@@ -23,6 +23,7 @@ val _ = new_theory "TCP1_baseTypes";
 val _ = Version.registerTheory "$RCSfile: TCP1_baseTypesScript.sml,v $" "$Revision: 1.66 $" "$Date: 2009/02/17 11:56:46 $";
 *)
 
+open import Pervasives_extra
 open TCP1_lemSupport
 open TCP1_errors 
 open TCP1_signals 
@@ -53,31 +54,31 @@ Zero values are used as wildcards in some places and are forbidden in others;
 this typing lets that be captured explicitly.
 :*)
 
-type port = Port of num (*: really 16 bits, non-zero :*)
+type port = Port of nat (*: really 16 bits, non-zero :*)
 (*: @description
 TCP or UDP port number, non-zero.
 :*)
 
-type ip   = ip of num (*: really 32 bits, non-zero :*)
+type ip   = ip of nat (*: really 32 bits, non-zero :*)
 (*: @description
 IPv4 address, non-zero.
 :*)
 
 
-type ifid = LO | ETH of num
+type ifid = LO | ETH of nat
 (*: @description
 Interface ID: either the loopback interface, or a numbered Ethernet interface.
 :*)
 
 
-type netmask = NETMASK of num
+type netmask = NETMASK of nat
 (*: @description
 Network mask, represented as the number of 1 bits (as in a CIDR /nn
 suffix).
 :*)
 
 
-type fd = FD of num
+type fd = FD of nat
 (*: @description
 File descriptor.  On Unix-like systems this is a small nonnegative
 integer; on Windows it is an arbitrary handle.
@@ -221,7 +222,7 @@ An inductive definition defines a typing relation between the two.
 
 :*)
 
-type tid = TID of num
+type tid = TID of nat
 (*: @description
 Thread IDs.
 
@@ -314,7 +315,7 @@ type TLang = TL_int of int
          | TL_one of one
          | TL_pair of (TLang * TLang)
          | TL_list of list TLang 
-         | TL_option of option TLang 
+         | TL_option of maybe TLang 
          | TL_err of err TLang 
          | TL_fd of fd
          | TL_ip of ip
@@ -338,8 +339,8 @@ Language values.
 
 (* Note that one of [[TLty_lift]] and [[TL_option]] needs to be fixed so that the names are consistent. *)
 
-let SOME = Some
-let NONE = None
+let SOME = Just
+let NONE = Nothing
 
 indreln
 [ tlang_typing:  TLang -> TLang_type -> bool ]
@@ -356,7 +357,7 @@ indreln
             tlang_typing p1 ty1 && tlang_typing p2 ty2 ==>
             tlang_typing (TL_pair(p1,p2)) (TLty_pair(ty1,ty2)) and
 
-       r6: forall tl ty. (forall e. List.mem e tl --> tlang_typing e ty) ==>
+       r6: forall tl ty. (forall e. elem e tl --> tlang_typing e ty) ==>
                 tlang_typing (TL_list tl) (TLty_list ty) and
 
        r7: forall p ty. tlang_typing p ty ==>
@@ -442,8 +443,6 @@ let OK'_tid     v = OK' (TL_tid v) (*:@norender:*)
 let OK'_netmask v = OK' (TL_netmask v) (*:@norender:*)
 let OK'_ifid    v = OK' (TL_ifid v) (*:@norender:*)
 
-let MAP = List.map
-
 let OK'_fileflags v = OK' (TL_list (MAP TL_filebflag v))
 (*:@norender:*)
 let OK'_sockbflag v = OK' (TL_sockbflag v)
@@ -452,7 +451,7 @@ let OK'_socknflag v = OK' (TL_socknflag v)
 (*:@norender:*)
 let OK'_socktflag v = OK' (TL_socktflag v)
 (*:@norender:*)
-let OPTION_MAP f x = match x with None -> None | Some x -> Some (f x) end
+let OPTION_MAP f x = match x with Nothing -> Nothing | Just x -> Just (f x) end
 let OK'_int_option v = OK' (TL_option (OPTION_MAP TL_int v))
 (*:@norender:*)
 let OK'_intpair_option v = OK' (TL_option
@@ -641,7 +640,7 @@ end
 val _ = overload_on("*", ``real_mult_time``) handle e => Raise e;
 *)
 
-let (time_zero : time) = time real_zero
+let time_zero = time real_zero
 
 
 (* construct a duration from two naturals *)
@@ -717,13 +716,13 @@ type seq32 'a = SEQ32 of 'a * word32
 
 let 
  (*: written [[+]] :*)
-  seq32_plus   (SEQ32 a n) (m:num) = SEQ32 a (w_plus n (n2w m))
+  seq32_plus   (SEQ32 a n) (m:nat) = SEQ32 a (w_plus n (n2w m))
 (*: @mergewithnext :*)
 
 
 let 
  (*: written [[-]] :*)
-  seq32_minus  (SEQ32 a n) (m:num) = SEQ32 a (w_minus n (n2w m))
+  seq32_minus  (SEQ32 a n) (m:nat) = SEQ32 a (w_minus n (n2w m))
 (*: @mergewithnext :*)
 
 let 
@@ -763,20 +762,20 @@ val _ = overload_on("-", ``seq32_diff``);
 
 let 
  (*: written [[<]] :*)
-  seq32_lt  (n:seq32 'a) (m:seq32 'a) = Int.(<) ( (seq32_diff n m) : int ) int_zero
+  seq32_lt  (n:seq32 'a) (m:seq32 'a) = Basic_classes.(<) (( (seq32_diff n m) : int )) int_zero
 (*: @mergewithnext :*)
 
 let 
  (*: written [[<=]] :*)
-  seq32_leq (n:seq32 'a) (m:seq32 'a) = Int.(<=) ( (seq32_diff n m) : int ) int_zero
+  seq32_leq (n:seq32 'a) (m:seq32 'a) = Basic_classes.(<=) (( (seq32_diff n m) : int )) int_zero
 (*: @mergewithnext :*)
 let 
  (*: written [[>]] :*)
-  seq32_gt  (n:seq32 'a) (m:seq32 'a) = Int.(>) ( (seq32_diff n m) : int ) int_zero
+  seq32_gt  (n:seq32 'a) (m:seq32 'a) = Basic_classes.(>) (( (seq32_diff n m) : int )) int_zero
 (*: @mergewithnext :*)
 let 
  (*: written [[>=]] :*)
-  seq32_geq (n:seq32 'a) (m:seq32 'a) = Int.(>=) ( (seq32_diff n m) : int ) int_zero
+  seq32_geq (n:seq32 'a) (m:seq32 'a) = Basic_classes.(>=) (( (seq32_diff n m) : int )) int_zero
 (*: @mergewithnext :*)
 (* FIXME
 val _ = overload_on("<" , ``seq32_lt`` );
@@ -823,6 +822,8 @@ type tcpForeign = | TcpForeign
 (* TCP sequence number types *)
 type tcp_seq_local = seq32 tcpLocal
 type tcp_seq_foreign = seq32 tcpForeign
+
+val FIXME_tcp_seq_local : tcp_seq_local
 
 (* TCP constructors *)
 let tcp_seq_local   (n:word32) = SEQ32 TcpLocal   n (*: @mergewithnext :*)

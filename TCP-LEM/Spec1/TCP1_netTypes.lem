@@ -25,6 +25,7 @@ val _ = Version.registerTheory "$RCSfile: TCP1_netTypesScript.sml,v $" "$Revisio
 
 *)
 
+open import Pervasives_extra
 open TCP1_lemSupport
 open TCP1_baseTypes
 
@@ -92,10 +93,10 @@ are modelled as follows.
 type 
 (*: TCP datagram type :*)
 tcpSegment
-  = <| is1 : option ip ;      (* source IP *)
-       is2 : option ip ;      (* destination IP *)
-       ps1 : option port;     (* source port *)
-       ps2 : option port;     (* destination port *)
+  = <| is1 : maybe ip ;      (* source IP *)
+       is2 : maybe ip ;      (* destination IP *)
+       ps1 : maybe port;     (* source port *)
+       ps2 : maybe port;     (* destination port *)
        seq : tcp_seq_local;   (* sequence number       *)
        ack : tcp_seq_foreign; (* acknowledgment number *)
        URG : bool;
@@ -105,10 +106,10 @@ tcpSegment
        SYN : bool;
        FIN : bool;
        win : word16;        (* window size (unsigned) *)
-       ws  : option byte;   (* TCP option: window scaling; typically 0..14 *)
+       ws  : maybe byte;   (* TCP option: window scaling; typically 0..14 *)
        urp : word16;        (* urgent pointer (unsigned) *)
-       mss : option word16;             (* TCP option: maximum segment size (unsigned) *)
-       ts  : option (ts_seq * ts_seq);  (* TCP option: RFC1323 timestamp value and echo-reply *)
+       mss : maybe word16;             (* TCP option: maximum segment size (unsigned) *)
+       ts  : maybe (ts_seq * ts_seq);  (* TCP option: RFC1323 timestamp value and echo-reply *)
        data : list byte
     |>
 
@@ -150,10 +151,10 @@ UDP datagrams are very simple.  They are modelled as follows.
 type 
   (*: UDP datagram type :*)
 udpDatagram
-  = <| udp_is1 : option ip;      (* source IP *)
-       udp_is2 : option ip;      (* destination IP *)
-       udp_ps1 : option port;     (* source port *)
-       udp_ps2 : option port;     (* destination port *)
+  = <| udp_is1 : maybe ip;      (* source IP *)
+       udp_is2 : maybe ip;      (* destination IP *)
+       udp_ps1 : maybe port;     (* source port *)
+       udp_ps2 : maybe port;     (* destination port *)
        udp_data : list byte
     |>
 
@@ -198,7 +199,7 @@ type
   | PROTOCOL
   | PORT
   | SRCFAIL
-  | NEEDFRAG of option word16
+  | NEEDFRAG of maybe word16
   | NET_UNKNOWN
   | HOST_UNKNOWN
   | ISOLATED
@@ -267,17 +268,17 @@ type
 type 
 (*: ICMP datagram type :*)
   icmpDatagram
-  = <| icmp_is1 : option ip;     (* this is the sender of this ICMP *)
-       icmp_is2 : option ip;     (* this is the intended receiver of this ICMP *)
+  = <| icmp_is1 : maybe ip;     (* this is the sender of this ICMP *)
+       icmp_is2 : maybe ip;     (* this is the intended receiver of this ICMP *)
 
        (* we assume the enclosed IP always has at least 8 bytes of data, i.e., enough
           for all the fields below *)
-       icmp_is3 : option ip;     (* source of enclosed IP datagram *)
-       icmp_is4 : option ip;     (* destination of enclosed IP datagram *)
-       icmp_ps3 : option port;    (* source port *)
-       icmp_ps4 : option port;    (* destination port *)
+       icmp_is3 : maybe ip;     (* source of enclosed IP datagram *)
+       icmp_is4 : maybe ip;     (* destination of enclosed IP datagram *)
+       icmp_ps3 : maybe port;    (* source port *)
+       icmp_ps4 : maybe port;    (* destination port *)
        icmp_proto : protocol;     (* protocol *)
-       icmp_seq : option tcp_seq_local ;  (* seq *)
+       icmp_seq : maybe tcp_seq_local ;  (* seq *)
        icmp_t   : icmpType
     |>
 

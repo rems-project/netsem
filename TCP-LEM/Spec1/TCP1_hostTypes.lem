@@ -28,7 +28,7 @@ val _ = new_theory "TCP1_hostTypes";
 val _ = Version.registerTheory "$RCSfile: TCP1_hostTypesScript.sml,v $" "$Revision: 1.161 $" "$Date: 2009/02/17 11:56:46 $";
 *)
 
-open Hol.Finite_map
+open import Pervasives_extra
 open TCP1_lemSupport
 open TCP1_errors
 open TCP1_utils
@@ -157,8 +157,8 @@ also ugly). (and an invariant).
 
 type
    tcpReassSegment
-  = <| seq : tcp_seq_foreign;
-       spliced_urp : option tcp_seq_foreign;
+  = <| tcpReassSegment_seq : tcp_seq_foreign;
+       spliced_urp : maybe tcp_seq_foreign;
        FIN : bool;
        data : list byte
     |>
@@ -194,7 +194,7 @@ type (*: retransmission mode :*)
 (* RTT calculation parameters (level 3 only), stored in a subrecord for convenience *)
 type (*: round-trip time calculation parameters :*)
    rttinf
-  = <| t_rttupdated : num ;                (*: number of times rtt sampled :*)
+  = <| t_rttupdated : nat ;                (*: number of times rtt sampled :*)
        tf_srtt_valid : bool ;              (*: estimate is currently believed to be valid :*)
        t_srtt     : duration ;             (*: smoothed round-trip time :*)
        t_rttvar   : duration ;             (*: variance in round-trip time :*)
@@ -208,7 +208,7 @@ type (*: round-trip time calculation parameters :*)
                                               below. :*)
           (* in BSD, this is the local variable rtt in tcp_xmit_timer(); we put it here
              because we don't want to store rxtcur in the tcpcb *)
-       t_lastshift : num ;                 (*: the last retransmission shift used :*)
+       t_lastshift : nat ;                 (*: the last retransmission shift used :*)
        t_wassyn    : bool                  (*: whether that shift was [[RexmtSyn]] or not :*)
           (* these two also are to avoid storing rxtcur in the tcpcb;
              they are somewhat annoying because they are *only*
@@ -244,16 +244,16 @@ type (*: the TCP control block :*)
    tcpcb = <|
 
   (*: timers :*)
-  tt_rexmt      : option (timed (rexmtmode * num)) ; (*: retransmit timer, with mode and shift; [[NONE]] is idle :*)
+  tt_rexmt      : maybe (timed (rexmtmode * nat)) ; (*: retransmit timer, with mode and shift; [[NONE]] is idle :*)
     (*: see |tcp_output.c:356ff| for more info. :*)
     (*: as in BSD, the shift starts at zero, and is incremented each
         time the timer fires.  So it is zero during the first interval,
         1 after the first retransmit, etc. :*)
-  tt_keep       : option (timed one);         (*: keepalive timer :*)
-  tt_2msl       : option (timed one);         (*: $2*\mathit{MSL}$ [[TIME_WAIT]] timer :*)
-  tt_delack     : option (timed one);         (*: delayed [[ACK]] timer :*)
-  tt_conn_est   : option (timed one);         (*: connection-establishment timer, overlays keep in BSD :*)
-  tt_fin_wait_2 : option (timed one);         (*: [[FIN_WAIT_2]] timer, overlays 2msl in BSD :*)
+  tt_keep       : maybe (timed one);         (*: keepalive timer :*)
+  tt_2msl       : maybe (timed one);         (*: $2*\mathit{MSL}$ [[TIME_WAIT]] timer :*)
+  tt_delack     : maybe (timed one);         (*: delayed [[ACK]] timer :*)
+  tt_conn_est   : maybe (timed one);         (*: connection-establishment timer, overlays keep in BSD :*)
+  tt_fin_wait_2 : maybe (timed one);         (*: [[FIN_WAIT_2]] timer, overlays 2msl in BSD :*)
   t_idletime : stopwatch ;                  (*: time since last segment received :*)
 
   (*: flags, some corresponding to BSD |TF_| flags :*)
@@ -268,12 +268,12 @@ type (*: the TCP control block :*)
   snd_wl1      : tcp_seq_foreign ; (*: seq number of most recent window update segment :*)
   snd_wl2      : tcp_seq_local ;   (*: ack number of most recent window update segment :*)
   iss          : tcp_seq_local ;   (*: initial send sequence number :*)
-  snd_wnd      : num  ;        (*: send window size: always between 0 and 65535*2**14 :*)
-  snd_cwnd     : num  ;        (*: congestion window :*)
-  snd_ssthresh : num  ;        (*: threshold between exponential and linear [[snd_cwnd]] expansion (for slow start):*)
+  snd_wnd      : nat  ;        (*: send window size: always between 0 and 65535*2**14 :*)
+  snd_cwnd     : nat  ;        (*: congestion window :*)
+  snd_ssthresh : nat  ;        (*: threshold between exponential and linear [[snd_cwnd]] expansion (for slow start):*)
 
   (*: receive variables :*)
-  rcv_wnd      : num  ;            (*: receive window size :*)
+  rcv_wnd      : nat  ;            (*: receive window size :*)
   tf_rxwin0sent : bool ;           (*: have advertised a zero window to receiver :*)
   rcv_nxt      : tcp_seq_foreign ; (*: lowest sequence number not yet received :*)
   rcv_up       : tcp_seq_foreign ; (*: received urgent pointer if any, else [[=rcv_nxt]] :*)
@@ -282,12 +282,12 @@ type (*: the TCP control block :*)
   last_ack_sent     : tcp_seq_foreign ;  (*: last acknowledged sequence number :*)
 
   (*: connection parameters :*)
-  t_maxseg   : num ;           (*: maximum segment size on this connection :*)
-  t_advmss   : option num ;    (*: the mss advertisment sent in our initial SYN :*)
+  t_maxseg   : nat ;           (*: maximum segment size on this connection :*)
+  t_advmss   : maybe nat ;    (*: the mss advertisment sent in our initial SYN :*)
   tf_doing_ws       : bool ;     (*: doing window scaling on this connection?  (result of negotiation) :*)
-  request_r_scale   : option num  ;  (*: pending window scaling, if any (used during negotiation) :*)
-  snd_scale         : num  ;     (*: window scaling for send window (0..14), applied to received advertisements (RFC1323) :*)
-  rcv_scale         : num  ;     (*: window scaling for receive window (0..14), applied when we send advertisements (RFC1323) :*)
+  request_r_scale   : maybe nat  ;  (*: pending window scaling, if any (used during negotiation) :*)
+  snd_scale         : nat  ;     (*: window scaling for send window (0..14), applied to received advertisements (RFC1323) :*)
+  rcv_scale         : nat  ;     (*: window scaling for receive window (0..14), applied when we send advertisements (RFC1323) :*)
 
   (*: timestamping :*)
   tf_doing_tstmp : bool;       (*: are we doing timestamps on this connection? (result of negotiation) :*)
@@ -295,19 +295,19 @@ type (*: the TCP control block :*)
   ts_recent         : timewindow ts_seq ;  (*: most recent timestamp received; TimeWindowClosed if invalid.  Timer models the RFC1323 end-\S4.2.3 24-day validity period. :*)
 
   (*: round-trip time estimation :*)
-  t_rttseg   : option (ts_seq * tcp_seq_local) ;  (*: start time and sequence number of segment being timed :*)
+  t_rttseg   : maybe (ts_seq * tcp_seq_local) ;  (*: start time and sequence number of segment being timed :*)
   t_rttinf   : rttinf ;               (*: round-trip time estimator values :*)
 
   (*: retransmission :*)
-  t_dupacks    : num ;                (*: number of consecutive duplicate acks received (typically 0..3ish; should this wrap at 64K/4G ack burst?) :*)
+  t_dupacks    : nat ;                (*: number of consecutive duplicate acks received (typically 0..3ish; should this wrap at 64K/4G ack burst?) :*)
   t_badrxtwin       : timewindow one;   (*: deadline for bad-retransmit recovery :*)
-  snd_cwnd_prev     : num ;            (*: [[snd_cwnd]] prior to retransmit (used in bad-retransmit recovery) :*)
-  snd_ssthresh_prev : num ;            (*: [[snd_ssthresh]] prior to retransmit (used in bad-retransmit recovery) :*)
+  snd_cwnd_prev     : nat ;            (*: [[snd_cwnd]] prior to retransmit (used in bad-retransmit recovery) :*)
+  snd_ssthresh_prev : nat ;            (*: [[snd_ssthresh]] prior to retransmit (used in bad-retransmit recovery) :*)
   snd_recover : tcp_seq_local ;        (*: highest sequence number sent at time of receipt of partial ack (used in RFC2581/RFC2582 fast recovery) :*)
 
   (*: other :*)
   t_segq :  list tcpReassSegment;  (*: segment reassembly queue :*)
-  t_softerror : option error      (*: current transient error; reported only if failure becomes permanent :*)
+  t_softerror : maybe error      (*: current transient error; reported only if failure becomes permanent :*)
   (*: could cut this down to the actually-possible errors? :*)
                |>
 
@@ -356,11 +356,11 @@ type (*: details of a TCP socket :*)
    tcp_socket
      = <| st   : tcpstate;  (*: here rather than in [[tcpcb]] for convenience as heavily used.  Called |t_state| in BSD :*)
           cb   : tcpcb;
-          lis  :  option socket_listen; (*: invariant: [[NONE]] iff not [[LISTEN]] :*)
+          lis  :  maybe socket_listen; (*: invariant: [[NONE]] iff not [[LISTEN]] :*)
           sndq : list byte;
-          sndurp : option num;
+          sndurp : maybe nat;
           rcvq : list byte;
-          rcvurp : option num;  (* was "oobmark" *)
+          rcvurp : maybe nat;  (* was "oobmark" *)
           iobc : iobc
       |>
 
@@ -372,13 +372,13 @@ type (*: protocol-specific socket data :*)
 
 type (*: details of a socket :*)
    socket
-     = <| fid  : option fid;    (*: associated open file description if any :*)
+     = <| fid  : maybe fid;    (*: associated open file description if any :*)
           sf   : sockflags;     (*: socket flags :*)
-          is1  : option ip;     (*: local IP address if any :*)
-          ps1  : option port;   (*: local port if any :*)
-          is2  : option ip;     (*: remote IP address if any :*)
-          ps2  : option port;   (*: remote port if any :*)
-          es   : option error;  (*: pending error if any :*)
+          is1  : maybe ip;     (*: local IP address if any :*)
+          ps1  : maybe port;   (*: local port if any :*)
+          is2  : maybe ip;     (*: remote IP address if any :*)
+          ps2  : maybe port;   (*: remote port if any :*)
+          es   : maybe error;  (*: pending error if any :*)
 	  cantsndmore : bool;   (*: output stream ends at end of send queue :*)
 	  cantrcvmore : bool;   (*: input stream ends at end of receive queue :*)
           pr   : protocol_info  (*: protocol-specific information :*)
@@ -441,7 +441,7 @@ type  (*: host details :*)
                                 privs : bool;  (* whether process has root/CAP_NET_ADMIN privilege *)
                                 ifds  : fmap ifid ifd ; (* interfaces *)
                                 rttab : routing_table;  (* routing table *)
-                                ts    : fmap tid (timed hostThreadState); (* host view of each thread state *)
+                                host_ts    : fmap tid (timed hostThreadState); (* host view of each thread state *)
                                 files : fmap fid file; (* files *)
                                 socks : fmap sid socket; (* sockets *)
                                 listen : list sid; (* list of listening sockets *)
@@ -474,7 +474,7 @@ let
 (*: @mergewithnext :*)
 
 let 
-  ephemeral_ports h = { Port n | n >= h.params.min_eph_port && n <= h.params.max_eph_port }
+  ephemeral_ports h = { Port n | n >= h.params.min_eph_port && (n <= h.params.max_eph_port) }
 
 (*:
 @description
@@ -526,10 +526,10 @@ called "ephemeral".
 
 type tracerecord = traceflavour
                                        * sid
-                                       * option (option ip (* is1 *)
-                                        * option port (* ps1 *)
-                                        * option ip (* is2 *)
-                                        * option port (* ps2 *)
+                                       * maybe (maybe ip (* is1 *)
+                                        * maybe port (* ps1 *)
+                                        * maybe ip (* is2 *)
+                                        * maybe port (* ps2 *)
                                        ) (* not always available! *)
                                        * tcpstate (* st *)
                                        * tcpcb (* cb subset *)
@@ -538,18 +538,20 @@ type tracerecord = traceflavour
 (* TCPCB fields of interest *)
 (* we've tried to pick out the ones that are specified in RFCs *)
 let (*: compare two control blocks for "equality" modulo known issues :*)
-  tracecb_eq (flav:traceflavour) (st:tcpstate) (es:option error) (cb:tcpcb) (cb':tcpcb)
-    = ((                                cb.snd_una       = cb'.snd_una      ) &&
-       (if flav = TA_OUTPUT then T else cb.snd_max       = cb'.snd_max      ) &&
-       (if flav = TA_OUTPUT || (st = SYN_SENT && es <> NONE)
+  tracecb_eq (flav:traceflavour) (st:tcpstate) (es:maybe error) (cb:tcpcb) (cb':tcpcb)
+    = ((                                cb.snd_una       = cb'.snd_una      ) &&       
+((if flav = TA_OUTPUT then T else cb.snd_max       = cb'.snd_max      ) &&       
+((if flav = TA_OUTPUT || (st = SYN_SENT && es /= NONE)
         then T
-        else cb.snd_nxt       = cb'.snd_nxt      ) &&  (* only bad on error *)
-       (                                cb.snd_wl1       = cb'.snd_wl1      ) &&
-       (                                cb.snd_wl2       = cb'.snd_wl2      ) &&
-       (                                cb.iss           = cb'.iss          ) &&
-       (                                cb.snd_wnd       = cb'.snd_wnd      ) &&
-       (if flav = TA_OUTPUT then T else cb.snd_cwnd      = cb'.snd_cwnd     ) &&  (* only bad on error *)
-       (                                cb.snd_ssthresh  = cb'.snd_ssthresh ) &&
+        else cb.snd_nxt       = cb'.snd_nxt      ) &&       
+(  (* only bad on error *)(                                cb.snd_wl1       = cb'.snd_wl1      ) &&       
+((                                cb.snd_wl2       = cb'.snd_wl2      ) &&       
+((                                cb.iss           = cb'.iss          ) &&       
+((                                cb.snd_wnd       = cb'.snd_wnd      ) &&       
+((if flav = TA_OUTPUT then T else cb.snd_cwnd      = cb'.snd_cwnd     ) &&       
+(  (* only bad on error *)(                                cb.snd_ssthresh  = cb'.snd_ssthresh ) &&       
+
+(
 
        (*: Don't check equality of [[rcv_wnd]]: we recalculate [[rcv_wnd]] lazily in [[tcp_output]] instead of after every successful [[recv()]] call, so our value is often out of date. :*)
 
@@ -561,46 +563,44 @@ let (*: compare two control blocks for "equality" modulo known issues :*)
        (* Note: we should check how it ensures that
           a window size it emits on a SYN retransmit is the same as on the initial transmit,
           and how it ensures it does not accidentally shrink the window on the next output
-          segment (ACK of other end's SYN,ACK). *)
-
-       (                                cb.rcv_nxt       = cb'.rcv_nxt      ) &&
-       (                                cb.rcv_up        = cb'.rcv_up       ) &&
-       (                                cb.irs           = cb'.irs          ) &&
-       (if flav = TA_OUTPUT || flav = TA_INPUT then T else cb.rcv_adv       = cb'.rcv_adv      ) &&
-       (if flav = TA_OUTPUT || st = SYN_SENT || st = TIME_WAIT
+          segment (ACK of other end's SYN,ACK). *)(                                cb.rcv_nxt       = cb'.rcv_nxt      ) &&       
+((                                cb.rcv_up        = cb'.rcv_up       ) &&       
+((                                cb.irs           = cb'.irs          ) &&       
+((if flav = TA_OUTPUT || (flav = TA_INPUT) then T else cb.rcv_adv       = cb'.rcv_adv      ) &&       
+((if flav = TA_OUTPUT || (st = SYN_SENT || (st = TIME_WAIT))
            (*: we store our initially-sent MSS in [[t_maxseg]],
               whereas BSD just recalculates it.  This test decouples
               the model from BSD in order to cope with this. :*)
-                            then T else cb.t_maxseg      = cb'.t_maxseg     ) &&  (* only bad on error *)
-       (                                cb.t_dupacks     = cb'.t_dupacks    ) &&
-       (                                cb.snd_scale     = cb'.snd_scale    ) &&
-       (                                cb.rcv_scale     = cb'.rcv_scale    ) &&
-       (* t_rtseq, if t_rtttime <> 0; ignore t_rtttime *)  (* only bad on error *)
-       (if flav = TA_OUTPUT || flav = TA_INPUT then T else
-            OPTION_MAP SND cb.t_rttseg = OPTION_MAP SND cb'.t_rttseg ) &&
-       (                                timewindow_val_of cb.ts_recent = timewindow_val_of cb'.ts_recent) &&
-       (if flav = TA_OUTPUT || flav = TA_INPUT then T else cb.last_ack_sent = cb'.last_ack_sent))
+                            then T else cb.t_maxseg      = cb'.t_maxseg     ) &&       
+(  (* only bad on error *)(                                cb.t_dupacks     = cb'.t_dupacks    ) &&       
+((                                cb.snd_scale     = cb'.snd_scale    ) &&       
+((                                cb.rcv_scale     = cb'.rcv_scale    ) &&       
+(
+       (* t_rtseq, if t_rtttime <> 0; ignore t_rtttime *)  (* only bad on error *)(if flav = TA_OUTPUT || (flav = TA_INPUT) then T else
+            OPTION_MAP SND cb.t_rttseg = OPTION_MAP SND cb'.t_rttseg ) &&       
+((                                timewindow_val_of cb.ts_recent = timewindow_val_of cb'.ts_recent) &&
+       (if flav = TA_OUTPUT || (flav = TA_INPUT) then T else cb.last_ack_sent = cb'.last_ack_sent))))))))))))))))))))
        (*: also ignore, always: [[tt_delack]]; in case of error: [[tt_rexmt]], [[t_softerror]] :*)
 
 
 
 let (*: compare two sockets for "equality" modulo known issues :*)
   tracesock_eq (flav,sid,quad,st,cb) sid' sock
-    = (proto_of sock.pr = PROTO_TCP &&
-       let tcp_sock = tcp_sock_of sock in
-       sid = sid' &&
+    = (proto_of sock.pr = PROTO_TCP &&       
+(let tcp_sock = tcp_sock_of sock in
+       sid = sid' &&       
+(
        (*: If trace is [[TA_DROP]] then the [[is2,ps2]] values in the trace may
           not match those in the socket record --- the segment is
           dropped because it is somehow invalid (and thus not safe to
-          compare) :*)
-       (match quad with
-         Some (is1,ps1,is2,ps2) -> (is1 = sock.is1 &&
-                                   ps1 = sock.ps1 &&
-                                   (if flav = TA_DROP then T else is2 = sock.is2) &&
-                                   (if flav = TA_DROP then T else ps2 = sock.ps2))
-         | None                   -> true end) &&
-       st  = tcp_sock.st &&
-       tracecb_eq flav st sock.es cb tcp_sock.cb)
+          compare) :*)(match quad with
+         Just (is1,ps1,is2,ps2) -> (is1 = sock.is1 &&                                   
+(ps1 = sock.ps1 &&                                   
+((if flav = TA_DROP then T else is2 = sock.is2) &&
+                                   (if flav = TA_DROP then T else ps2 = sock.ps2))))
+         | Nothing                   -> true end) &&       
+(st  = tcp_sock.st &&
+       tracecb_eq flav st sock.es cb tcp_sock.cb))))
 
 
 

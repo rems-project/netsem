@@ -27,6 +27,7 @@ val _ = new_theory "TCP1_params";
 val _ = Version.registerTheory "$RCSfile: TCP1_paramsScript.sml,v $" "$Revision: 1.30 $" "$Date: 2009/02/17 11:56:46 $";
 *)
 
+open import Pervasives_extra
 open TCP1_lemSupport
 open TCP1_utils
 open TCP1_baseTypes
@@ -72,9 +73,9 @@ These types used to be in hostTypes. They should probably be moved to baseTypes.
 TODO3
 :*)
 
-type (*: file ID :*) fid = FID of num(*:@mergewithnext:*)
+type (*: file ID :*) fid = FID of nat(*:@mergewithnext:*)
 
-type (* socket ID *) sid = SID of num(*:
+type (* socket ID *) sid = SID of nat(*:
 @description
 File IDs [[fid]] and socket IDs [[sid]] are really unique, unlike file
 descriptors [[fd]].
@@ -112,7 +113,7 @@ The file flags are defined in TCP1\_baseTypes: see {@link
 (* sockflag types are defined in TCP1_baseTypes *)
 type (*: flags set on a socket :*)
    sockflags = <| b1 : sockbflag -> bool;
-                  n : socknflag -> num;
+                  n : socknflag -> nat;
                   t : socktflag -> time
                |>
  (* removed @mergewithnext *)
@@ -507,7 +508,7 @@ end)
 let
 (*: socket flags defaults :*)
   sf_default arch socktype = <| b1 = sf_default_b;
-                                n = sf_default_n arch socktype;
+                                n = (sf_default_n arch socktype);
                                 t = sf_default_t
                               |>
 
@@ -612,17 +613,17 @@ worthwhile modelling these parameters changing during operation.
 
 let 
 (*: initial [[t_maxseg]], modulo route and link MTUs :*)
-  MSSDFLT = (512 : num)  (* BSD default; RFC1122 sec. 4.2.2.6 says this MUST be 536 *)
+  MSSDFLT = (512 : nat)  (* BSD default; RFC1122 sec. 4.2.2.6 says this MUST be 536 *)
 
 
 let 
 (*: initial [[snd_cwnd]] for local connections :*)
-  SS_FLTSZ_LOCAL = (4 : num)  (* BSD; is a sysctl *)
+  SS_FLTSZ_LOCAL = (4 : nat)  (* BSD; is a sysctl *)
 (*: @mergewithnext :*)
 
 let 
 (*: initial [[snd_cwnd]] for non-local connections :*)
-  SS_FLTSZ = (1 : num)  (* BSD; is a sysctl *)
+  SS_FLTSZ = (1 : nat)  (* BSD; is a sysctl *)
 
 
 let 
@@ -631,11 +632,11 @@ let
 
 
 let 
-  TCP_Q0MINLIMIT = (30 : num)  (* FreeBSD 4.6-RELEASE: tcp_syncache.bucket_limit *)
+  TCP_Q0MINLIMIT = (30 : nat)  (* FreeBSD 4.6-RELEASE: tcp_syncache.bucket_limit *)
 (*: @mergewithnext :*)
 
 let 
-  TCP_Q0MAXLIMIT = (512 * 30 : num)  (* FreeBSD 4.6-RELEASE: tcp_syncache.cache_limit *)
+  TCP_Q0MAXLIMIT = (512 * 30 : nat)  (* FreeBSD 4.6-RELEASE: tcp_syncache.cache_limit *)
 
 (*:
 @description
@@ -647,7 +648,7 @@ length limit.  Connections \emph{may} be dropped once [[q0]] reaches
 
 
 let 
-  backlog_fudge (n:int) = num_MIN (SOMAXCONN:num) (clip_int_to_num n)
+  backlog_fudge (n:int) = num_MIN (SOMAXCONN:nat) (clip_int_to_num n)
 
 (*:
 @description
@@ -724,7 +725,7 @@ let
 (*: @mergewithnext :*)
 
 let 
-  TCPTV_KEEPCNT = (8 : num) (* max number of keepalive probes (+/- a few?): BSD: tcp_timer.h:91 *)
+  TCPTV_KEEPCNT = (8 : nat) (* max number of keepalive probes (+/- a few?): BSD: tcp_timer.h:91 *)
 (*: @mergewithnext :*)
 
 let 
@@ -743,42 +744,42 @@ Parameters relating to TCP's exponential backoff.
 (* ------------------------------------------------------------------ *)
 
 let  (* TCP exponential retransmit backoff: BSD: from source code, tcp_timer.c:155 *)
-  TCP_BSD_BACKOFFS = ([ 1; 2; 4; 8; 16; 32; 64; 64; 64; 64; 64; 64; 64 ] : list num)
+  TCP_BSD_BACKOFFS = ([ 1; 2; 4; 8; 16; 32; 64; 64; 64; 64; 64; 64; 64 ] : list nat)
 (*: @mergewithnext :*)
 
 let  (* TCP exponential retransmit backoff: Linux: experimentally determined *)
-  TCP_LINUX_BACKOFFS = ([ 1; 2; 4; 8; 16; 32; 64; 128; 256; 512; 512 ] : list num) (* Note: the tail may be  incomplete *)
+  TCP_LINUX_BACKOFFS = ([ 1; 2; 4; 8; 16; 32; 64; 128; 256; 512; 512 ] : list nat) (* Note: the tail may be  incomplete *)
 (*: @mergewithnext :*)
 
 let  (* TCP exponential retransmit backoff: WinXP: experimentally determined *)
-  TCP_WINXP_BACKOFFS = ([ 1; 2; 4; 8; 16 ] : list num) (* Note: the tail may be incomplete *)
+  TCP_WINXP_BACKOFFS = ([ 1; 2; 4; 8; 16 ] : list nat) (* Note: the tail may be incomplete *)
 
 
 let 
 (*: TCP maximum retransmit shift :*)
-  TCP_MAXRXTSHIFT = (12 : num)  (* TCPv2p842 *)
+  TCP_MAXRXTSHIFT = (12 : nat)  (* TCPv2p842 *)
 (*: @mergewithnext :*)
 
 let 
 (*: TCP maximum SYNACK retransmit shift :*)
-  TCP_SYNACKMAXRXTSHIFT = (3 : num)  (* FreeBSD 4.6-RELEASE, tcp_syncache.c:SYNCACHE_MAXREXMTS *)
+  TCP_SYNACKMAXRXTSHIFT = (3 : nat)  (* FreeBSD 4.6-RELEASE, tcp_syncache.c:SYNCACHE_MAXREXMTS *)
 
 
 
 let  (* TCP exponential SYN retransmit backoff: BSD: tcp_timer.c:152 *)
-  TCP_SYN_BSD_BACKOFFS = ([ 1; 1; 1; 1; 1; 2; 4; 8; 16; 32; 64; 64; 64 ] : list num) (* Our experimentation shows that this list stops at 8. This will be
+  TCP_SYN_BSD_BACKOFFS = ([ 1; 1; 1; 1; 1; 2; 4; 8; 16; 32; 64; 64; 64 ] : list nat) (* Our experimentation shows that this list stops at 8. This will be
    due to the connection establishment timer firing. Values here are
    obtained from the BSD source *)
 (*: @mergewithnext :*)
 
 let  (* TCP exponential SYN retransmit backoff: Linux: experimentally determined *)
-  TCP_SYN_LINUX_BACKOFFS = ([ 1; 2; 4; 8; 16 ] : list num)  (* This list might be longer. Experimentation does not show further entries, perhaps
+  TCP_SYN_LINUX_BACKOFFS = ([ 1; 2; 4; 8; 16 ] : list nat)  (* This list might be longer. Experimentation does not show further entries, perhaps
    due to the connection establishment timer firing *)
 
 (*: @mergewithnext :*)
 
 let  (* TCP exponential SYN retransmit backoff: WinXP: experimentally determined *)
-  TCP_SYN_WINXP_BACKOFFS = ([ 1; 2 ] : list num)  (* This list might be longer. Experimentation does not show further entries, perhaps
+  TCP_SYN_WINXP_BACKOFFS = ([ 1; 2 ] : list nat)  (* This list might be longer. Experimentation does not show further entries, perhaps
    due to the connection establishment timer firing *)
 
 
