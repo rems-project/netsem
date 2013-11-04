@@ -799,7 +799,7 @@ let (*: update RTT estimators from new measurement :*)
 
 let (*: expand congestion window :*)
   expand_cwnd ssthresh maxseg maxwin cwnd
-    = MIN maxwin (cwnd + (if cwnd > ssthresh then DIV (maxseg * maxseg) cwnd else maxseg))
+    = num_MIN maxwin (cwnd + (if cwnd > ssthresh then DIV (maxseg * maxseg) cwnd else maxseg))
 
 (*:
 @description
@@ -1150,6 +1150,9 @@ let (*: normal sequencing :*)
        else
            (sock' = sock1 && (bndlm' = bndlm1 && (outsegs' = outsegs1 && (continue' = F)))))
 (*:@mergewithnext:*)
+
+(* in order to allow lem to process infix operator andThen, we give it this infix-acceptable syntax *)
+let ( **> ) = andThen
 
 let (*: do nothing, and continue (unit for [[andThen]]) :*)
   cont =

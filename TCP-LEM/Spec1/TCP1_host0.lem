@@ -92,7 +92,7 @@ type
 (*: Host transition labels :*)
         Lhost0 =
          (* library interface *)
-           Lh_call of tid * LIB_interface                      (*[ MODE 0 ]*)  (*: invocation of LIB call, written e.g.~[[Lh_call (tid,(socket (socktype)))]] :*) (*[ MODE straightLH ]*)
+           Lh_call of (tid * LIB_interface)                      (*[ MODE 0 ]*)  (*: invocation of LIB call, written e.g.~[[Lh_call (tid,(socket (socktype)))]] :*) (*[ MODE straightLH ]*)
          | Lh_return of tid * TLang                            (*[ MODE 0 ]*)  (*: return result of LIB call, written [[Lh_return (tid,v) ]] :*) (*[ MODE straightLH ]*)
 
          (* message transmission and receipt *)

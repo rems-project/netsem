@@ -158,3 +158,6 @@ let fold_left = foldl
 
 val domain: forall 'a 'b. fmap 'a 'b -> set 'a
 
+val (|+) : forall 'a 'b. fmap 'a 'b -> 'a * 'b -> fmap 'a 'b
+
+val (|++) : forall 'a 'b. fmap 'a 'b -> list ('a * 'b) -> fmap 'a 'b

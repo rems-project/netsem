@@ -640,6 +640,18 @@ end
 val _ = overload_on("*", ``real_mult_time``) handle e => Raise e;
 *)
 
+val FIXME_time: time
+
+instance (Numeral time)
+  let fromNumeral x = FIXME_time
+end
+
+let time_mult_time t1 t2 = FIXME_time
+
+instance (NumMult time)
+  let ( * ) = time_mult_time
+end
+
 let time_zero = time real_zero
 
 
@@ -676,6 +688,7 @@ end
 (*
 val _ = overload_on("THE", ``the_time``);
 *)
+let time_THE = the_time
 
 (*: @section [[base_net]] TCP Basic network types: sequence numbers
 

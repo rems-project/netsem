@@ -203,6 +203,11 @@ val _ = overload_on ("RES_EXISTS", ``fm_exists``)
 val _ = add_infix ("onlywhen", 460, NONASSOC);  (* slightly tighter than updated_by (=450) *)
 *)
 
+(* for lem *)
+let updated_by_onlywhen v0 v c = if c then v else v0 
+(* ie r with <| f updated_by v onlywhen c |> becomes <| r with f = updated_by_onlywhen r.f v c |>; this is a hard translation because we need to construct r.f, and the expression r may be hard to isolate *)
+
+
 
 let K x y = x
 let I x = x
