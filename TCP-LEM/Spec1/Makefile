@@ -8,7 +8,7 @@ all:
 	$(LEM) $(LEMS)
 
 types:
-	$(LEM) -print_types $(LEMS)
+	$(LEM) -print_env $(LEMS)
 
 clean:
 	rm -f *{.ml,Script.sml}

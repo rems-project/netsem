@@ -305,9 +305,9 @@ Locations.
 ;
 *)
 
-type one = | One
+type one = unit (* | One *)
 
-let one = One
+let one = () (* One *)
 
 type TLang = TL_int of int
          | TL_bool of bool

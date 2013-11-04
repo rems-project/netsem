@@ -528,11 +528,11 @@ end)
 
 let (*: a simple rate-limiting bandlimiter :*)
   bandlim_rst_ok_simple (*(bandlim_rst_ok_simple : tcpSegment # ts_seq # bandlim_reason # bandlim_state -> bool # bandlim_state)*)
-                  (seg,ticks,reason,bndlm)
+                  (seg,(ticks:ts_seq),reason,bndlm)
      = let reasoneq = (fun r0 -> fun (s,t,r) -> r = r0) in
        let ticksgt  = (fun t0 -> fun (s,t,r) -> t > t0)
        in
-       let count = LENGTH (FILTER (reasoneq reason) (TAKEWHILE (ticksgt (ticks - (num_floor (real_times (real_of_num 1) HZ)))) bndlm))
+       let count = LENGTH (FILTER (reasoneq reason) (TAKEWHILE (ticksgt (seq32_minus ticks (num_floor (real_times (real_of_num 1) HZ)))) bndlm))
        in
        ((match simple_limit reason with
             Nothing   -> T
@@ -1921,7 +1921,7 @@ let
 
 
 
-(**
+
 
 (* combine both chunks into something a bit like tcp_output.c; sometimes useful *)
 
@@ -1930,7 +1930,10 @@ let
   tcp_output_perhaps arch ts_val ifds0 sock (sock',outsegs) =
     let (do_output,persist_fun) = tcp_output_required arch ifds0 sock in
     let sock'' =
-      option_case sock (\ f. sock with <| pr = TCP_PROTO(tcp_sock_of sock with cb updated_by f) |>)
+      option_case sock 
+        (fun f -> 
+          let tcp_sock = tcp_sock_of sock in 
+          <| sock with pr = TCP_PROTO(<| tcp_sock with cb = (f tcp_sock.cb) |>) |>)
         persist_fun in
     if do_output then
       tcp_output_really arch F ts_val ifds0 sock'' (sock',outsegs)
@@ -1962,30 +1965,30 @@ let
         [[tf_rxwin0sent]], [[t_rttseg]], [[snd_max]], [[tt_rexmt]] are
         used. :*)
 
-     (choose allocated :: (if INFINITE_RESOURCES then {T} else {T;F}).
+     (mychoose (if INFINITE_RESOURCES then {T} else {T;F}) (fun allocated -> 
       let route = test_outroute (seg,rttab,ifds,arch) in
-      let f0 = \cb. cb with <| (* revert to original values; on ip_output failure *)
+      let f0 = fun cb -> <| cb with (* revert to original values; on ip_output failure *)
                                snd_nxt       = cb0.snd_nxt;
                                tt_delack     = cb0.tt_delack;
                                last_ack_sent = cb0.last_ack_sent;
                                rcv_adv       = cb0.rcv_adv
                             |> in
-      let f1 = \cb. if not rcvdsyn then
+      let f1 = fun cb -> if not rcvdsyn then
                         cb
                     else
-                        cb with <| (* set soft error flag; on ip_output routing failure *)
+                        <| cb with (* set soft error flag; on ip_output routing failure *)
                                    t_softerror = THE route  (* assumes route = Some (Some e) *)
                                 |> in
-      let f2 = \cb. cb with <| (* revert to original values; on early ENOBUFS *)
+      let f2 = fun cb -> <| cb with (* revert to original values; on early ENOBUFS *)
                                tf_rxwin0sent = cb0.tf_rxwin0sent;
                                t_rttseg      = cb0.t_rttseg;
                                snd_max       = cb0.snd_max;
                                tt_rexmt      = cb0.tt_rexmt
                             |> in
-      let f3 = \cb. if is_Some cb.tt_rexmt || is_connect then  (* quench; on ENOBUFS *)
+      let f3 = fun cb -> if is_Some cb.tt_rexmt || is_connect then  (* quench; on ENOBUFS *)
                         cb
                     else
-                        cb with <| (* maybe start rexmt and close down window *)
+                        <| cb with (* maybe start rexmt and close down window *)
                                    tt_rexmt      = start_tt_rexmt arch 0 F cb.t_rttinf;
                                    snd_cwnd      = cb.t_maxseg (* no LAN allowance, by design *)
                                 |> in
@@ -2012,7 +2015,7 @@ let
                cb' = f3 (f0 cb_in) && es' = Some ENOBUFS
            else  (* success *)
                cb' = cb_in && es' = None)
-     )
+     ))
 (* @description
    Attempt to enqueue segments, reverting appropriate socket fields if
    the enqueue fails.  Models failure behaviour of FreeBSD 4.6-RELEASE's
@@ -2048,13 +2051,13 @@ let
 let 
 (*: wrap [[rollback_tcp_output]] together with enqueue :*)
   enqueue_or_fail rcvdsyn arch rttab ifds outsegs oq cb0 cb_in (cb',oq') =
-    (case outsegs of
+    (match outsegs with
         []    -> cb' = cb0 && oq' = oq
      | [seg] -> (exists outsegs' es'.
                   rollback_tcp_output rcvdsyn seg arch rttab ifds F cb0 cb_in (cb',es',outsegs') &&
                   enqueue_oq_list_qinfo (oq,outsegs',oq'))
      | _other84 -> ASSERTION_FAILURE "enqueue_or_fail" (* only 0 or 1 segments at a time *)
-    )
+    end)
 
 
 
@@ -2066,7 +2069,7 @@ let
     let tcp_sock0 = tcp_sock_of sock0 in
     (exists cb'.
      enqueue_or_fail rcvdsyn arch rttab ifds outsegs oq (tcp_sock_of sock0).cb (tcp_sock_of sock).cb (cb',oq') &&
-     sock' = sock with <| pr = TCP_PROTO(tcp_sock_of sock with <|
+     sock' = <| sock with pr = TCP_PROTO(<| tcp_sock_of sock with
                                              cb = cb'
                         |>) |>)
 
@@ -2079,30 +2082,32 @@ let
     enqueue_or_fail rcvdsyn arch rttab ifds outsegs oq cb0 cb_in (cb',oq')
 
 
-let 
+let rec
 (*: version of above that ignores errors and doesn't touch the tcpcb :*)
-  (enqueue_each_and_ignore_fail arch rttab ifds [] oq oq' = (oq = oq')) &&
-  (enqueue_each_and_ignore_fail arch rttab ifds (seg::segs) oq oq''
-     = exists oq'. enqueue_and_ignore_fail arch rttab ifds [seg] oq oq' &&
-             enqueue_each_and_ignore_fail arch rttab ifds segs oq' oq'')
+  enqueue_each_and_ignore_fail arch rttab ifds x oq oq' = (match x with 
+  | [] -> (oq = oq')
+  | (seg::segs) ->
+     exists oq''. enqueue_and_ignore_fail arch rttab ifds [seg] oq oq'' &&
+             enqueue_each_and_ignore_fail arch rttab ifds segs oq'' oq'
+end)
 
 
 
 let 
 (*: do mliftc for function returning at most one segment and not dealing with queueing flag :*)
   mlift_tcp_output_perhaps_or_fail ts_val arch rttab ifds0 =
-    mliftc (\ s (s',outsegs').
+    mliftc (fun s (s',outsegs') ->
               exists s1 segs.
               tcp_output_perhaps arch ts_val ifds0 s (s1,segs) &&
-              case segs of
+              (match segs with
                  []       -> s' = s1 && outsegs' = []
               | [seg]    -> (exists cb' es'.  (* ignore error return *)
                               rollback_tcp_output T seg arch rttab ifds0 F
                                                   (tcp_sock_of s).cb (tcp_sock_of s1).cb (cb',es',outsegs') &&
-                              s' = s1 with <| pr = TCP_PROTO(tcp_sock_of s1 with <| cb = cb' |>) |>)
+                              s' = <| s1 with pr = TCP_PROTO(<| tcp_sock_of s1 with cb = cb' |>) |>)
               | _other58 -> ASSERTION_FAILURE "mlift_tcp_output_perhaps_or_fail"  (* never happen *)
+              end)
            )
-
 
 
 (* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ *)
@@ -2131,7 +2136,6 @@ let
     (t_idletime', tt_keep', tt_fin_wait_2')
 
 
-
 (* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ *)
 (*: @section [[tcp_drop_segment]] TCP Drop Segment Functions
 
@@ -2154,19 +2158,16 @@ let
         (* is segment a (link-layer?) broadcast or multicast? *)
         F ||
         (* is source or destination broadcast or multicast? *)
-        (exists i1. seg.is1 = Some i1 && is_broadormulticast FEMPTY i1) ||
-        (exists i2. seg.is2 = Some i2 && is_broadormulticast ifds0 i2)
+        (exists i1. seg.TCP1_netTypes.is1 = Some i1 && is_broadormulticast (set_of_fmap FEMPTY) i1) ||
+        (exists i2. seg.TCP1_netTypes.is2 = Some i2 && is_broadormulticast (set_of_fmap (ifds0:fmap ifid ifd)) i2)
           (* BSD only checks incoming interface, but should have same effect as long as interfaces don't overlap *)
     then
         outsegs = [] && bndlm' = bndlm
     else
-        (choose seg' :: make_rst_segment_from_seg seg.
+        (mychoose (set_of_bool_fn (make_rst_segment_from_seg seg)) (fun seg' ->
         let (emit,bndlm'') = bandlim_rst_ok(seg',ticks,reason,bndlm) in  (* finally: check if band-limited *)
         bndlm' = bndlm'' &&
-        outsegs = if emit then [TCP seg'] else [])
-
-
-
+        outsegs = if emit then [TCP seg'] else []))
 
 
 
@@ -2180,7 +2181,7 @@ let
      let cb = tcp_sock.cb in
      if tcp_sock.st = SYN_RECEIVED &&
         seg.ACK &&
-        (let ack = tcp_seq_flip_sense seg.ack in
+        (let ack = tcp_seq_foreign_to_local seg.ack in
           (ack < cb.snd_una || cb.snd_max < ack))
      then
          (*: break loop in "LAND" DoS attack, and also prevent ACK
@@ -2196,29 +2197,28 @@ let
           tcp_output_really arch F ticks ifds sock (sock1,[msg]) &&  (*: did set [[tf_acknow]] and call [[tcp_output_perhaps]], which seemed a bit silly :*)
           (*: notice we here bake in the assumption that the timestamps use the same counter as the band limiter; perhaps this is unwise :*)
           rollback_tcp_output T msg arch rttab ifds F tcp_sock.cb tcp_sock1.cb (cb',es',outsegs') &&
-          sock' = sock1 with <| pr = TCP_PROTO(tcp_sock1 with <| cb = cb' |>) |> &&
+          sock' = <| sock1 with pr = TCP_PROTO(<| tcp_sock1 with cb = cb' |>) |> &&
           bndlm' = bndlm))
-
 
 
 let 
 (*: do [[emit_segs_pred]], for function returning at most one seg and not dealing with queueing flag :*)
-  dropwithreset_ignore_fail seg_in arch ifds rttab ticks reason b b' (outsegs':(msg # bool) list) =
+  dropwithreset_ignore_fail seg_in arch ifds rttab ticks reason b b' (outsegs':list (msg * bool)) =
   (*:  No rollback necessary here. :*)
     exists segs.
     dropwithreset seg_in ifds ticks reason b b' segs &&
-    case segs of
+    (match segs with
        []       -> outsegs' = []
-    | [seg]    -> (choose allocated :: if INFINITE_RESOURCES then {T} else {T;F}.
+    | [seg]    -> (mychoose (if INFINITE_RESOURCES then {T} else {T;F}) (fun allocated ->
                     if not allocated then
                         outsegs' = []
                     else
-                        (case test_outroute (seg,rttab,ifds,arch) of
+                        (match test_outroute (seg,rttab,ifds,arch) with
                             None          -> ASSERTION_FAILURE "dropwithreset_ignore_fail:1"  (* never happen *)
                          | Some (Some e) -> outsegs' = []  (* ignore error *)
-                         | Some None     -> exists queued. outsegs' = [(seg,queued)]))
+                         | Some None     -> exists queued. outsegs' = [(seg,queued)] end)))
     | _other57 -> ASSERTION_FAILURE "dropwithreset_ignore_fail:2"  (* never happen *)
-
+    end)
 
 
 (* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ *)
@@ -2233,15 +2233,15 @@ appropriately.
 (* Don't Phase: handled by testEval *)
 let 
 (*: close the socket and remove the TCPCB :*)
-  tcp_close arch sock = sock with
-    <| cantrcvmore = T; (* MF doesn't believe this is correct for Linux or WinXP *)
+  tcp_close arch sock = 
+    <| sock with cantrcvmore = T; (* MF doesn't believe this is correct for Linux or WinXP *)
        cantsndmore = T;
        is1 = if bsd_arch arch then None else sock.is1;
        ps1 = if bsd_arch arch then None else sock.ps1;
-       pr = TCP_PROTO(tcp_sock_of sock with
-         <| st = CLOSED;
-            cb = initial_cb with (* in reality, it's dropped entirely, but we don't do that *)
-                  <| bsd_cantconnect = if bsd_arch arch then T else F |> ;
+       pr = TCP_PROTO(
+         <| tcp_sock_of sock with st = CLOSED;
+            cb = (* in reality, it's dropped entirely, but we don't do that *)
+                  <| initial_cb with bsd_cantconnect = if bsd_arch arch then T else F |> ;
             sndq = [] |>)
      |>
 (*: @description
@@ -2253,16 +2253,15 @@ let
 
 
 
-
 (* Don't Phase: handled by testEval *)
 let 
 (*: drop TCP connection, reporting the specified error.  If synchronised, send RST to peer :*)
   tcp_drop_and_close arch err sock (sock',outsegs) =
     let tcp_sock = tcp_sock_of sock in (
-      (if tcp_sock.st NOTIN {CLOSED;LISTEN;SYN_SENT} then
-         (choose seg :: (make_rst_segment_from_cb tcp_sock.cb
-                          (THE sock.is1, THE sock.is2, THE sock.ps1, THE sock.ps2)).
-          outsegs = [TCP seg])
+      (if  NOTIN tcp_sock.st {CLOSED;LISTEN;SYN_SENT} then
+         (mychoose (set_of_bool_fn (make_rst_segment_from_cb tcp_sock.cb
+                          (THE sock.is1, THE sock.is2, THE sock.ps1, THE sock.ps2))) (fun seg ->
+          outsegs = [TCP seg]))
        else
           outsegs = []) &&
     let es' =
@@ -2274,7 +2273,7 @@ let
       else if err /= None then err
       else sock.es
     in
-      sock' = tcp_close arch (sock with <| es = es' |>))
+      sock' = tcp_close arch (<| sock with es = es' |>))
 (*: @description
  BSD calls this |tcp_drop| :*)
 
@@ -2288,5 +2287,6 @@ let
 
 (* -------------------------------------------------- *)
 
+(**
 val _ = export_theory();
 **)
