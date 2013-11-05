@@ -109,7 +109,7 @@ tcpSegment
        ws  : maybe byte;   (* TCP option: window scaling; typically 0..14 *)
        urp : word16;        (* urgent pointer (unsigned) *)
        mss : maybe word16;             (* TCP option: maximum segment size (unsigned) *)
-       ts  : maybe (ts_seq * ts_seq);  (* TCP option: RFC1323 timestamp value and echo-reply *)
+       tcpSegment_ts  : maybe (ts_seq * ts_seq);  (* TCP option: RFC1323 timestamp value and echo-reply *)
        data : list byte
     |>
 

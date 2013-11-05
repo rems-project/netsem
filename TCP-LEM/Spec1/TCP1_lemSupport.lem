@@ -70,7 +70,7 @@ let NOTIN x xs = not (x IN xs)
 
 (* open Hol.Set_relation *)
 
-val RRESTRICT : forall 'a 'b. fmap 'a 'b -> set 'a -> fmap 'a 'b
+val RRESTRICT : forall 'a 'b. fmap 'a 'b -> set 'b -> fmap 'a 'b
 
 val CARD : forall 'a. set 'a -> nat
 
@@ -161,3 +161,8 @@ val domain: forall 'a 'b. fmap 'a 'b -> set 'a
 val (|+) : forall 'a 'b. fmap 'a 'b -> 'a * 'b -> fmap 'a 'b
 
 val (|++) : forall 'a 'b. fmap 'a 'b -> list ('a * 'b) -> fmap 'a 'b
+
+val MAP2: forall 'a 'b 'c. ('a -> 'b -> 'c) -> list 'a -> list 'b -> list 'c
+
+
+val DRESTRICT: forall 'a 'b. fmap 'a 'b -> set 'a -> fmap 'a 'b

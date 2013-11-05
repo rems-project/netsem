@@ -26,8 +26,8 @@ open HolDoc
 local open TCP1_baseTypesTheory
            TCP1_timersTheory
            TCP1_utilsTheory
-           TCP1_hostTypesTheory
            TCP1_netTypesTheory
+           TCP1_hostTypesTheory
            TCP1_LIBinterfaceTheory
            TCP1_auxFnsTheory
            TCP1_paramsTheory
@@ -132,7 +132,7 @@ let
     let seq = seq32_plus (tcp_seq_local_to_foreign seg.seq) (if seg.SYN then 1 else 0) in
     (*: The sequence number of the byte logically after the last byte of data in the segment :*)
     let rseq = seq32_plus seq (LENGTH seg.TCP1_netTypes.data) in
-    let ts = seg.ts in
+    let ts = seg.tcpSegment_ts in
 
     (*: PAWS (Protection Against Wrapped Sequence numbers) check: If the segment contains a
         timestamp value that is strictly less than [[ts_recent]] then the segment is invalid and
@@ -222,7 +222,7 @@ let
   di3_newackstuff tcp_sock_0 seg ourfinisacked arch rttab ifds ticks =
     (*: Pull some fields out of the segment :*)
     let ack  = tcp_seq_foreign_to_local seg.ack in
-    let ts   = seg.ts in
+    let ts   = seg.tcpSegment_ts in
 
     (*: Get the socket's control block using the monadic state accessor [[get_cb]]. :*)
     (get_cb (fun cb' ->
@@ -1406,137 +1406,6 @@ indreln
 
 r1: forall id proto cat h1 lbl h2. true ==> host_redn id proto cat h1 lbl h2 and
 
-accept_1: forall h lbl rc ts t files socks tid d fds fds'
-     fd fid ff sid sf is1 i1' p1 i2 p2 es cb cb' q
-     fd' fid' sid' sf' es'
-     lis lis' sndq rcvq cantsndmore cantrcvmore cantsndmore' cantrcvmore' sndurp rcvurp iobc.
-
-   prefix_or
-     (t = Run &&
-      lbl = Lh_call (tid,(accept fd)) &&
-      rc = fast succeed &&
-      fid = (FAPPLY fds  fd)  &&
-      fd IN FDOM fds &&
-      FAPPLY files fid = File(FT_Socket(sid),ff)
-      (* TODO: sid does not even have to be in the LISTEN state on FreeBSD :( *)
-     )
-     (t = Accept2(sid) &&
-       lbl = Lh_tau &&
-       rc = slow urgent succeed
-     ) &&
-   (* we add connections to the head of the queue, so want to take the new connection from the tail *)
-   lis.q = APPEND q [sid'] &&
-   lis'.q = q &&
-   lis'.q0 = lis.q0 && lis'.qlimit = lis.qlimit && (* TODO: temporary measure for now, to avoid using
-                                                      'with' with lis type, as per MN's comments *)
-   (sid /= sid') && (* redundant? *)
-   es' /= SOME ECONNABORTED && (* TODO: update this in light of accept_4 *)
-   NOTIN fid'  ((FDOM files) union {fid}) &&
-   nextfd h.arch fds fd' &&
-   fds' = (fds |+ (fd', fid')) &&
-   (forall i1. SOME i1 = is1 --> i1 = i1')
-
-   ==>
-
-  host_redn accept_1 ((* rp *) rp_tcp)  (*: Return new connection; either immediately or from a blocked state. :*) ((* rc *)rc) 
-     ((* h1 *)<| h with host_ts  = FUPDATE ts (tid,Timed(t,d));
-               fds  = fds;
-               files  = files;
-               socks  =
-                 socks |++
-                   [(sid ,Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,cantsndmore,cantrcvmore,
-                               TCP_Sock(LISTEN,cb,SOME lis,
-                                        [],NONE,[],NONE,NO_OOBDATA)));
-                    (sid',Sock(NONE,sf',SOME i1',SOME p1,SOME i2,SOME p2,es',cantsndmore',cantrcvmore',
-                               TCP_Sock(ESTABLISHED,cb',NONE,sndq,sndurp,rcvq,rcvurp,iobc)))] |>)
-   ((* lbl *)lbl)
-     ((* h2 *)<| h with host_ts  = FUPDATE ts (tid,Timed(Ret (OK'_fdipport (fd',(i2,p2))),sched_timer));
-               fds  = fds';
-               files  = files |++ [(fid',File(FT_Socket(sid'),ff_default))];
-               socks  =
-                 socks |++
-                   [(sid ,Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,cantsndmore,cantrcvmore,
-                          TCP_Sock(LISTEN,cb,SOME lis',
-                                   [],NONE,[],NONE,NO_OOBDATA)));
-                    (sid',Sock(SOME fid',sf',SOME i1',SOME p1,SOME i2,SOME p2,es',
-                               cantsndmore',cantrcvmore', TCP_Sock(ESTABLISHED,cb',NONE,sndq,
-                                                                 sndurp,rcvq,rcvurp,iobc)))] |>) (* TODO: reorder to fit description *)
-
-
-   (*:
-
-   @description
-
-   This rule covers two cases: (1) the completed connection queue is non-empty when [[accept(fd)]] is
-   called from a thread [[tid]] in the [[Run]] state, where [[fd]] refers to a TCP socket [[sid]],
-   and (2) a previous call to [[accept(fd)]] on socket [[sid]] blocked, leaving its calling thread
-   [[tid]] in state [[Accept2(sid)]], and a new connection has become available.
-
-   In either case the listening TCP socket [[sid]] has a connection [[sid']] at the head of its
-   completed connections queue [[sid'::q]]. A socket entry for [[sid']] already exists in the host's
-   finite map of sockets, [[socks]]$\oplus\dots$. The socket is [[ESTABLISHED]], is not shutdown for
-   reading, and is only missing a file description association that would make it accessible via the
-   sockets interface.
-
-   A new file description record is created for connection [[sid']], indexed by a new [[fid']], and
-   this is added to the host's finite map of file descriptions [[files]].  It is assigned a default
-   set of file flags, [[ff_default]]. The socket entry [[sid']] is completed with its file
-   association [[SOME fid']] and [[sid']] is removed from the head of the completed connections
-   queue.
-
-   When the listening socket [[sid]] is bound to a local IP address [[i1]], the accepted socket
-   [[sid']] is also bound to it.
-
-   Finally, the new file descriptor [[fd']] is created in an architecture-specific way using the
-   auxiliary {@link [[nextfd]]}, and an entry mapping [[fd']] to [[fid']] is added to the host's finite map
-   of file descriptors.  If the calling thread was previously blocked in state [[Accept2(sid)]] it
-   proceeds via a [[Lh_tau]] transition, otherwise by a [[Lh_call(tid, (accept fd))]] transition.
-   The thread is left in state [[Ret (OK (fd',(i2,p2)))]] to return the file descriptor and remote
-   address of the accepted connection in response to the original [[accept()]] call.
-
-   If the new socket [[sid']] has error [[ECONNABORTED]] pending in its error field [[es']], this is
-   handled by rule [[accept_5]]. All other pending errors on [[sid']] are ignored, but left as the
-   socket's pending error.
-
-   @internal
-
-   If the queue of completed connections is non-empty and the user either calls [[accept()]] or has
-   already made a blocking call to [[accept()]] (and is therefore now in state [[Accept2]]), then a
-   new open file description is allocated for the socket, and a new file descriptor made to point to
-   the open file description.  Pending errors are ignored, except for [[ECONNABORTED]], of the
-   provenance of which the present writer is uncertain (see [[accept_5]]).
-
-   Note that cantsndmore is not constrained, because e.g. under BSD's "can listen() anywhere" feature,
-   could have a listening socket with cantsndmore set that can still accept limited connections.
-
-   This rule is a combination of (the old) [[accept_1]] and [[accept_1a]].  DISCUSSION POINT: is it
-   clear?
-
-   Notice that we require that the source ip and port are the same for the listening socket and the
-   accepted socket.  I cannot see this in POSIX; needs to be checked with BSD and/or Linux.
-
-   POSIX: "shall extract...".
-   POSIX: "until a connection is present...".
-
-   slow version SHOULD BE URGENT.
-
-   Michael points out that we should check if we actually can allocate a fresh fd.
-
-   SB: The linux man page reads: "Linux accept passes already-pending network errors on the new
-   socket as an error code fom accept. This behaviour differs from the other BSD socket
-   implementations..."
-
-   :*)
-   
-
-
-
-
-
-
-
-
-(**
 (*:
 
 @section [[accept]] TCP [[accept()]]
@@ -1666,61 +1535,61 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
 
 :*)
 
-   (!h lbl rc ts t files socks tid d fds fds'
+accept_1: forall h lbl rc ts t files socks tid d fds fds'
      fd fid ff sid sf is1 i1' p1 i2 p2 es cb cb' q
      fd' fid' sid' sf' es'
      lis lis' sndq rcvq cantsndmore cantrcvmore cantsndmore' cantrcvmore' sndurp rcvurp iobc.
 
-   accept_1 /* rp_tcp, rc (*: Return new connection; either immediately or from a blocked state. :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(t,d));
-               fds := fds;
-               files := files;
-               socks :=
+   (||)
+     (t = Run &&
+      lbl = Lh_call (tid,(accept fd)) &&
+      rc = fast succeed &&
+      fid = (FAPPLY fds  fd)  &&
+      fd IN FDOM fds &&
+      FAPPLY files fid = File(FT_Socket(sid),ff)
+      (* TODO: sid does not even have to be in the LISTEN state on FreeBSD :( *)
+     )
+     (t = Accept2(sid) &&
+       lbl = Lh_tau &&
+       rc = slow urgent succeed
+     ) &&
+   (* we add connections to the head of the queue, so want to take the new connection from the tail *)
+   lis.q = APPEND q [sid'] &&
+   lis'.q = q &&
+   lis'.q0 = lis.q0 && lis'.qlimit = lis.qlimit && (* TODO: temporary measure for now, to avoid using
+                                                      'with' with lis type, as per MN's comments *)
+   (sid /= sid') && (* redundant? *)
+   es' /= SOME ECONNABORTED && (* TODO: update this in light of accept_4 *)
+   NOTIN fid'  ((FDOM files) union {fid}) &&
+   nextfd h.arch fds fd' &&
+   fds' = (fds |+ (fd', fid')) &&
+   (forall i1. SOME i1 = is1 --> i1 = i1')
+
+   ==>
+
+  host_redn accept_1 ((* rp *) rp_tcp)  (*: Return new connection; either immediately or from a blocked state. :*) ((* rc *)rc) 
+     ((* h1 *)<| h with ts  = FUPDATE ts (tid,Timed(t,d));
+               fds  = fds;
+               files  = files;
+               socks  =
                  socks |++
                    [(sid ,Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,cantsndmore,cantrcvmore,
                                TCP_Sock(LISTEN,cb,SOME lis,
                                         [],NONE,[],NONE,NO_OOBDATA)));
                     (sid',Sock(NONE,sf',SOME i1',SOME p1,SOME i2,SOME p2,es',cantsndmore',cantrcvmore',
-                               TCP_Sock(ESTABLISHED,cb',NONE,sndq,sndurp,rcvq,rcvurp,iobc)))] |>
-   -- lbl -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK (fd',(i2,p2))),sched_timer));
-               fds := fds';
-               files := files |++ [(fid',File(FT_Socket(sid'),ff_default))];
-               socks :=
+                               TCP_Sock(ESTABLISHED,cb',NONE,sndq,sndurp,rcvq,rcvurp,iobc)))] |>)
+   ((* lbl *)lbl)
+     ((* h2 *)<| h with ts  = FUPDATE ts (tid,Timed(Ret (OK'_fdipport (fd',(i2,p2))),sched_timer));
+               fds  = fds';
+               files  = files |++ [(fid',File(FT_Socket(sid'),ff_default))];
+               socks  =
                  socks |++
                    [(sid ,Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,cantsndmore,cantrcvmore,
                           TCP_Sock(LISTEN,cb,SOME lis',
                                    [],NONE,[],NONE,NO_OOBDATA)));
                     (sid',Sock(SOME fid',sf',SOME i1',SOME p1,SOME i2,SOME p2,es',
                                cantsndmore',cantrcvmore', TCP_Sock(ESTABLISHED,cb',NONE,sndq,
-                                                                 sndurp,rcvq,rcvurp,iobc)))] |>
-
-  <==
-
-   $\/
-     (t = Run /\
-      lbl = Lh_call (tid,(accept fd)) /\
-      rc = fast succeed /\
-      fid = fds ' fd  /\
-      fd IN FDOM fds /\
-      FAPPLY files fid = File(FT_Socket(sid),ff)
-      (* TODO: sid does not even have to be in the LISTEN state on FreeBSD :( *)
-     )
-     (t = Accept2(sid) /\
-       lbl = Lh_tau /\
-       rc = slow urgent succeed
-     ) /\
-   (* we add connections to the head of the queue, so want to take the new connection from the tail *)
-   lis.q = APPEND q [sid'] /\
-   lis'.q = q /\
-   lis'.q0 = lis.q0 /\ lis'.qlimit = lis.qlimit /\ (* TODO: temporary measure for now, to avoid using
-                                                      'with' with lis type, as per MN's comments *)
-   (sid <> sid') /\ (* redundant? *)
-   es' <> SOME ECONNABORTED /\ (* TODO: update this in light of accept_4 *)
-   fid' NOTIN ((FDOM files) UNION {fid}) /\
-   nextfd h.arch fds fd' /\
-   fds' = fds |+ (fd', fid') /\
-   (!i1. SOME i1 = is1 ==> i1 = i1') (* TODO: reorder to fit description *)
+                                                                 sndurp,rcvq,rcvurp,iobc)))] |>) (* TODO: reorder to fit description *)
 
 
    (*:
@@ -1787,29 +1656,28 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    implementations..."
 
    :*)
-   )
+   
+and
 
-/\
-
-   (!h ts tid d
+accept_2: forall h ts tid d
      fd fid ff sid cantrcvmore.
 
-   accept_2 /* rp_tcp, block (*: Block waiting for connection :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
-   -- Lh_call (tid,(accept fd)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Accept2(sid),never_timer)) |>
-
-   <==
-
-   fd IN FDOM h.fds /\
-   fid = h.fds ' fd /\
-   FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
-   ff.b(O_NONBLOCK) = F /\
-   sid IN FDOM h.socks /\
-   (?sf is1 p1 cb lis es.
-       h.socks ' sid = Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,F,cantrcvmore,
-                            TCP_Sock(LISTEN,cb,SOME lis,[],NONE,[],NONE,NO_OOBDATA)) /\
+   fd IN FDOM h.fds &&
+   fid = (FAPPLY h.fds  fd) &&
+   FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
+   ff.b(O_NONBLOCK) = F &&
+   sid IN FDOM h.socks &&
+   (exists sf is1 p1 cb lis es.
+       (FAPPLY h.socks  sid) = Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,F,cantrcvmore,
+                            TCP_Sock(LISTEN,cb,SOME lis,[],NONE,[],NONE,NO_OOBDATA)) &&
        lis.q = [])
+
+   ==>
+
+   host_redn accept_2 ((* rp *) rp_tcp)  (*: Block waiting for connection :*) ((* rc *)block) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d)) |>)
+   ((* lbl *)Lh_call (tid,(accept fd)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Accept2(sid),never_timer)) |>)
 
 
    (*:
@@ -1837,30 +1705,30 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    POSIX: "shall block...".
 
    :*)
-   )
+   
+and
 
-/\
 
-   (!h ts tid d
+accept_3: forall h ts tid d
      fd fid ff sid cantsndmore cantrcvmore.
 
-   accept_3 /* rp_tcp, fast fail (*: Fail with [[EAGAIN]]: no pending connections and non-blocking
-     semantics set :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
-   -- Lh_call (tid,(accept fd)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EAGAIN),sched_timer)) |>
-
-   <==
-
-   fd IN FDOM h.fds /\
-   h.fds ' fd = fid /\
-   FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
-   ff.b(O_NONBLOCK) = T /\
-   sid IN FDOM h.socks /\
-   (?sf is1 p1 cb lis es.
-      h.socks ' sid = Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,cantsndmore,cantrcvmore,
-                           TCP_Sock(LISTEN,cb,SOME lis,[],NONE,[],NONE,NO_OOBDATA)) /\
+   fd IN FDOM h.fds &&
+   (FAPPLY h.fds  fd) = fid &&
+   FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
+   ff.b(O_NONBLOCK) = T &&
+   sid IN FDOM h.socks &&
+   (exists sf is1 p1 cb lis es.
+      (FAPPLY h.socks  sid) = Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,cantsndmore,cantrcvmore,
+                           TCP_Sock(LISTEN,cb,SOME lis,[],NONE,[],NONE,NO_OOBDATA)) &&
       lis.q = [])
+
+   ==>
+
+   host_redn accept_3 ((* rp *) rp_tcp)  (*: Fail with [[EAGAIN]]: no pending connections and non-blocking
+     semantics set :*) ((* rc *)fast fail) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d)) |>)
+   ((* lbl *)Lh_call (tid,(accept fd)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' EAGAIN),sched_timer)) |>)
 
 
    (*:
@@ -1889,46 +1757,46 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    POSIX: "shall fail...".
 
    :*)
-   )
 
-/\
 
-   (!h ts socks tid d t lbl rc
+and
+   
+accept_4: forall h ts socks tid d t lbl rc
      fd fid ff sid sf is1 p1 es st cb lis
      cantsndmore cantrcvmore.
 
-   accept_4 /* rp_tcp, rc (*: Fail with [[ECONNABORTED]]: the listening socket has [[cantsndmore]] set
-     or has become [[CLOSED]]. Returns either immediately or from a blocked state. :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(t,d));
-               socks :=
-                 socks |++
-                   [(sid ,Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,cantsndmore,cantrcvmore,
-                               TCP_Sock(st,cb,SOME lis,[],NONE,[],NONE,NO_OOBDATA)))] |>
-   -- lbl -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL ECONNABORTED),sched_timer));
-               socks :=
-                 socks |++
-                   [(sid ,Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,cantsndmore,cantrcvmore,
-                               TCP_Sock(st,cb,SOME lis,[],NONE,[],NONE,NO_OOBDATA)))] |>
-
-   <==
-
-   $\/
-    (t = Run /\
-     st = LISTEN /\
-     cantsndmore = T /\
-     lbl = Lh_call (tid,accept(fd)) /\
-     rc = fast fail /\
-     fd IN FDOM h.fds /\
-     fid = h.fds ' fd /\
+   prefix_or
+    (t = Run &&
+     st = LISTEN &&
+     cantsndmore = T &&
+     lbl = Lh_call (tid,accept(fd)) &&
+     rc = fast fail &&
+     fd IN FDOM h.fds &&
+     fid = (FAPPLY h.fds  fd) &&
      FAPPLY h.files fid = File(FT_Socket(sid),ff)
     )
-    (t = Accept2(sid) /\
-     ((cantrcvmore = T /\ st = LISTEN) \/
-      (st = CLOSED)) /\
-     lbl = Lh_tau /\
+    (t = Accept2(sid) &&
+     ((cantrcvmore = T && st = LISTEN) ||
+      (st = CLOSED)) &&
+     lbl = Lh_tau &&
      rc = slow urgent fail
     )
+
+   ==>
+
+   host_redn accept_4 ((* rp *) rp_tcp)  (*: Fail with [[ECONNABORTED]]: the listening socket has [[cantsndmore]] set
+     or has become [[CLOSED]]. Returns either immediately or from a blocked state. :*) ((* rc *)rc) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(t,d));
+               socks  =
+                 socks |++
+                   [(sid ,Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,cantsndmore,cantrcvmore,
+                               TCP_Sock(st,cb,SOME lis,[],NONE,[],NONE,NO_OOBDATA)))] |>)
+   ((* lbl *)lbl)
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' ECONNABORTED),sched_timer));
+               socks  =
+                 socks |++
+                   [(sid ,Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,cantsndmore,cantrcvmore,
+                               TCP_Sock(st,cb,SOME lis,[],NONE,[],NONE,NO_OOBDATA)))] |>)
 
 
    (*:
@@ -1982,36 +1850,35 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    Should the CLOSED state really have SOME i1', SOME p1?  Are is2 and ps2 specified too?
 
    :*)
-   )
+   
 
+and
 
-/\
-
-   (!h ts tid d t lbl rc
+accept_5: forall h ts tid d t lbl rc
      fd fid ff sid tcp_sock.
 
-   accept_5 /* rp_tcp, rc (*: Fail with [[EINVAL]]: socket not in LISTEN state :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(t,d)) |>
-   -- lbl -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EINVAL),sched_timer)) |>
-
-   <==
-
-   $\/
-    (t = Run /\
-     lbl = Lh_call (tid,accept(fd)) /\
-     rc = fast fail /\
-     fd IN FDOM h.fds /\
-     fid = h.fds ' fd /\
+   prefix_or
+    (t = Run &&
+     lbl = Lh_call (tid,accept(fd)) &&
+     rc = fast fail &&
+     fd IN FDOM h.fds &&
+     fid = (FAPPLY h.fds  fd) &&
      FAPPLY h.files fid = File(FT_Socket(sid),ff)
     )
-    (t = Accept2(sid) /\
-     lbl = Lh_tau /\
+    (t = Accept2(sid) &&
+     lbl = Lh_tau &&
      rc = slow urgent fail
-     ) /\
-    sid IN FDOM h.socks /\
-    TCP_PROTO(tcp_sock) = (h.socks ' sid).pr /\
-    tcp_sock.st <> LISTEN
+     ) &&
+    sid IN FDOM h.socks &&
+    TCP_PROTO(tcp_sock) = ((FAPPLY h.socks  sid)).pr &&
+    tcp_sock.st /= LISTEN
+
+   ==>
+
+   host_redn accept_5 ((* rp *) rp_tcp)  (*: Fail with [[EINVAL]]: socket not in LISTEN state :*) ((* rc *)rc) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(t,d)) |>)
+   ((* lbl *)lbl)
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' EINVAL),sched_timer)) |>)
 
 
    (*:
@@ -2050,35 +1917,34 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    slow version SHOULD BE URGENT.
 
    :*)
-   )
+   
+and
 
-/\
+accept_6: forall h ts tid d t lbl rc fd fid ff sid sock.
 
-   (!h ts tid d t lbl rc fd fid ff sid sock.
-
-   accept_6 /* rp_tcp, rc (*: Fail with [[EMFILE]]: out of file descriptors :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(t,d)) |>
-   -- lbl -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EMFILE),sched_timer)) |>
-
-   <==
-
-   $\/
-    (t = Run /\
-     lbl = Lh_call (tid,accept(fd)) /\
-     rc = fast fail /\
-     fd IN FDOM h.fds /\
-     fid = h.fds ' fd /\
-     FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
-     sid IN FDOM h.socks /\
-     sock = (h.socks ' sid) /\
+   prefix_or
+    (t = Run &&
+     lbl = Lh_call (tid,accept(fd)) &&
+     rc = fast fail &&
+     fd IN FDOM h.fds &&
+     fid = (FAPPLY h.fds  fd) &&
+     FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
+     sid IN FDOM h.socks &&
+     sock = ((FAPPLY h.socks  sid)) &&
      proto_of sock.pr = PROTO_TCP
     )
-    (t = Accept2(sid) /\
-     lbl = Lh_tau /\
+    (t = Accept2(sid) &&
+     lbl = Lh_tau &&
      rc = slow nonurgent fail
-    ) /\
+    ) &&
     CARD (FDOM h.fds) >= OPEN_MAX
+
+   ==>
+
+   host_redn accept_6 ((* rp *) rp_tcp)  (*: Fail with [[EMFILE]]: out of file descriptors :*) ((* rc *)rc) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(t,d)) |>)
+   ((* lbl *)lbl)
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' EMFILE),sched_timer)) |>)
 
 
    (*:
@@ -2123,27 +1989,26 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    priority over all this error.
 
    :*)
-   )
+   
+and
 
-/\
+accept_7: forall h ts d fd fid sid ff tid err.
 
-   (!h ts d fd fid sid ff tid err.
-
-   accept_7 /* rp_udp, fast fail (*: Fail with [[EOPNOTSUPP]] or [[EINVAL]]: [[accept()]] called on
-     a UDP socket :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
-   -- Lh_call (tid,accept(fd)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL err),sched_timer)) |>
-
-   <==
-
-   fd IN FDOM h.fds /\
-   fid = h.fds ' fd /\
-   FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
-   sid IN FDOM h.socks /\
-   proto_of (h.socks ' sid).pr = PROTO_UDP /\
+   fd IN FDOM h.fds &&
+   fid = (FAPPLY h.fds  fd) &&
+   FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
+   sid IN FDOM h.socks &&
+   proto_of ((FAPPLY h.socks  sid)).pr = PROTO_UDP &&
    (if bsd_arch h.arch then err = EINVAL
     else err = EOPNOTSUPP)
+
+   ==>
+
+   host_redn accept_7 ((* rp *) rp_udp)  (*: Fail with [[EOPNOTSUPP]] or [[EINVAL]]: [[accept()]] called on
+     a UDP socket :*) ((* rc *)fast fail) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d)) |>)
+   ((* lbl *)Lh_call (tid,accept(fd)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' err),sched_timer)) |>)
 
 
    (*:
@@ -2165,10 +2030,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
 
    :*)
 
-   )
-
-/\
-
+and
 
 (*:
 
@@ -2333,39 +2195,38 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
 :*)
 
 
-   (!h h' h0 ts socks tid d
+bind_1: forall h h' h0 ts socks tid d
      fd fid ff sid sf cb es
      is1 ps1 p1 pr cantsndmore cantrcvmore bound.
 
-   bind_1 /* rp_all, fast succeed (*: Successfully assign a local address to a socket (possibly by
-     autobinding the port) :*) */
-     h0
-   -- Lh_call (tid,bind(fd,is1,ps1)) -->
-     h
-
-   <==
-
-     h0 = h' with <| ts := FUPDATE ts (tid,Timed(Run,d));
-                      socks := socks |++
+   h0 = <| h' with  ts  = FUPDATE ts (tid,Timed(Run,d));
+                      socks  = socks |++
                         [(sid ,Sock(SOME fid,sf,NONE,NONE,NONE,NONE,es,cantsndmore,cantrcvmore,pr))]
-                  |> /\
-     h  = h' with <| ts := FUPDATE ts (tid,Timed(Ret (OK ()),sched_timer));
-                     socks := socks |++
+                  |> &&
+     h  = <| h' with  ts  = FUPDATE ts (tid,Timed(Ret (OK'_one ()),sched_timer));
+                     socks  = socks |++
                         [(sid ,Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,cantsndmore,cantrcvmore,pr))];
-                     bound := bound |> /\
-     fd IN FDOM h0.fds /\
-     fid = h0.fds ' fd /\
-     FAPPLY h0.files fid = File(FT_Socket(sid),ff) /\
-     sid NOTIN (FDOM socks) /\
-     (!i1. is1 = SOME i1 ==> i1 IN local_ips(h0.ifds)) /\
-     p1 IN autobind(ps1,(proto_of pr),h,socks) /\
-     bound = sid::h0.bound /\
-     (h0.privs \/ p1 NOTIN privileged_ports h0) /\
-     bound_port_allowed pr (h0.socks \\ sid) sf h0.arch is1 p1 /\
-     (case pr of
-        TCP_PROTO(tcp_sock) -> tcp_sock  = TCP_Sock0(CLOSED,cb,NONE,[],NONE,[],NONE,NO_OOBDATA) /\
-	                       (bsd_arch h0.arch ==> cantsndmore=F /\ cb.bsd_cantconnect = F) ||
-        UDP_PROTO(udp_sock) -> udp_sock = UDP_Sock0([]))
+                     bound  = bound |> &&
+     fd IN FDOM h0.fds &&
+     fid = (FAPPLY h0.fds  fd) &&
+     FAPPLY h0.files fid = File(FT_Socket(sid),ff) &&
+     NOTIN sid  (FDOM socks) &&
+     (forall i1. is1 = SOME i1 --> i1 IN local_ips(h0.ifds)) &&
+     p1 IN autobind(ps1,(proto_of pr),h,socks) &&
+     bound = sid::h0.bound &&
+     (h0.privs || NOTIN p1  (privileged_ports h0)) &&
+     bound_port_allowed pr (DOMSUB h0.socks  sid) sf h0.arch is1 p1 &&
+     (match pr 
+        with TCP_PROTO(tcp_sock) -> (tcp_sock  = TCP_Sock0(CLOSED,cb,NONE,[],NONE,[],NONE,NO_OOBDATA)) &&
+	                       (bsd_arch h0.arch --> cantsndmore=F && cb.bsd_cantconnect = F) |UDP_PROTO(udp_sock) -> (udp_sock = UDP_Sock0([])) end)
+
+     ==>
+
+   host_redn bind_1 ((* rp *) rp_all)  (*: Successfully assign a local address to a socket (possibly by
+     autobinding the port) :*) ((* rc *)fast succeed) 
+     ((* h1 *)h0)
+   ((* lbl *)Lh_call (tid,bind(fd,is1,ps1)))
+     ((* h2 *)h)
 
 
    (*:
@@ -2432,27 +2293,26 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    field to determine if the process has privilege.
 
    :*)
-   )
+   
+and
 
-/\
-
-   (!h ts tid d
+bind_2: forall h ts tid d
      fd fid ff sid
      is1 p1 sock.
 
-   bind_2 /* rp_all, fast fail (*: Fail with [[EADDRINUSE]]: the specified address is already in use :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
-   -- Lh_call (tid,bind(fd,is1,SOME p1)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EADDRINUSE),sched_timer)) |>
+   fd IN FDOM h.fds &&
+     fid = (FAPPLY h.fds  fd) &&
+     FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
+     sock = ((FAPPLY h.socks  sid)) &&
+     not (bound_port_allowed sock.pr (DOMSUB h.socks  sid) sock.sf h.arch is1 p1) &&
+     (option_case T (fun i1-> i1 IN local_ips(h.ifds)) is1  || windows_arch h.arch)
 
-   <==
+     ==>
 
-     fd IN FDOM h.fds /\
-     fid = h.fds ' fd /\
-     FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
-     sock = (h.socks ' sid) /\
-     ~(bound_port_allowed sock.pr (h.socks \\ sid) sock.sf h.arch is1 p1) /\
-     (option_case T (\i1. i1 IN local_ips(h.ifds)) is1  \/ windows_arch h.arch)
+   host_redn bind_2 ((* rp *) rp_all)  (*: Fail with [[EADDRINUSE]]: the specified address is already in use :*) ((* rc *)fast fail) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d)) |>)
+   ((* lbl *)Lh_call (tid,bind(fd,is1,SOME p1)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' EADDRINUSE),sched_timer)) |>)
 
 
    (*:
@@ -2485,25 +2345,26 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    POSIX specifies (by my interpretation!) that we get ENOBUFS if thre are no ports left.
 
    :*)
-   )
+   
 
-/\
+and
 
-   (!h ts tid d
+
+bind_3: forall h ts tid d
      fd fid ff sid
      i1 ps1.
 
-   bind_3 /* rp_all, fast fail (*: Fail with [[EADDRNOTAVAIL]]: the specified IP address is not available on the host :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
-   -- Lh_call (tid,bind(fd,SOME i1,ps1)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EADDRNOTAVAIL),sched_timer)) |>
+   fd IN FDOM h.fds &&
+     fid = (FAPPLY h.fds  fd) &&
+     FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
+     NOTIN i1  (local_ips(h.ifds))
 
-   <==
+     ==>
 
-     fd IN FDOM h.fds /\
-     fid = h.fds ' fd /\
-     FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
-     i1 NOTIN local_ips(h.ifds)
+   host_redn bind_3 ((* rp *) rp_all)  (*: Fail with [[EADDRNOTAVAIL]]: the specified IP address is not available on the host :*) ((* rc *)fast fail) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d)) |>)
+   ((* lbl *)Lh_call (tid,bind(fd,SOME i1,ps1)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' EADDRNOTAVAIL),sched_timer)) |>)
 
 
    (*:
@@ -2535,29 +2396,29 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    This error can only happen if we specify an IP address.
 
    :*)
-   )
+   
+and
 
-/\
 
-   (!h ts tid d
+bind_5: forall h ts tid d
      fd fid ff sid
      is1 ps1 sock tcp_sock.
 
-   bind_5 /* rp_all, fast fail (*: Fail with [[EINVAL]]: the socket is already bound to an address and does not support rebinding; or socket has been shutdown for writing on FreeBSD :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
-   -- Lh_call (tid,bind(fd,is1,ps1)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EINVAL),sched_timer)) |>
-
-   <==
-
-     fd IN FDOM h.fds /\
-     fid = h.fds ' fd /\
-     FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
-     h.socks ' sid = sock /\
-     (sock.ps1 <> NONE \/
-      (bsd_arch h.arch /\ sock.pr = TCP_PROTO(tcp_sock) /\
-       (sock.cantsndmore \/
+   fd IN FDOM h.fds &&
+     fid = (FAPPLY h.fds  fd) &&
+     FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
+     (FAPPLY h.socks  sid) = sock &&
+     (sock.ps1 /= NONE ||
+      (bsd_arch h.arch && sock.pr = TCP_PROTO(tcp_sock) &&
+       (sock.cantsndmore ||
         tcp_sock.cb.bsd_cantconnect) ))
+
+     ==>
+
+   host_redn bind_5 ((* rp *) rp_all)  (*: Fail with [[EINVAL]]: the socket is already bound to an address and does not support rebinding; or socket has been shutdown for writing on FreeBSD :*) ((* rc *)fast fail) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d)) |>)
+   ((* lbl *)Lh_call (tid,bind(fd,is1,ps1)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' EINVAL),sched_timer)) |>)
 
 
    (*:
@@ -2591,25 +2452,24 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    experiment, though. MF: yes on BSD you can call shutdown() on any socket so EINVAL can be returned.
 
    :*)
-   )
+   
+and
 
-/\
-
-   (!h ts tid d
+bind_7: forall h ts tid d
      fd fid ff sid
      is1 p1.
 
-   bind_7 /* rp_all, fast fail (*: Fail with [[EACCES]]: the specified port is priveleged and the current process does not have permission to bind to it :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
-   -- Lh_call (tid,bind(fd,is1,SOME p1)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EACCES),sched_timer)) |>
+   fd IN FDOM h.fds &&
+     fid = (FAPPLY h.fds  fd) &&
+     FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
+     (not h.privs && p1 IN privileged_ports h)
 
-   <==
+     ==>
 
-     fd IN FDOM h.fds /\
-     fid = h.fds ' fd /\
-     FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
-     (~h.privs /\ p1 IN privileged_ports h)
+   host_redn bind_7 ((* rp *) rp_all)  (*: Fail with [[EACCES]]: the specified port is priveleged and the current process does not have permission to bind to it :*) ((* rc *)fast fail) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d)) |>)
+   ((* lbl *)Lh_call (tid,bind(fd,is1,SOME p1)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' EACCES),sched_timer)) |>)
 
 
    (*:
@@ -2642,26 +2502,26 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    field to determine if the process has privilege.
 
    :*)
-   )
+   
+and
 
-/\
-
-(*   (!h ts tid d
+(*   
+bind_8: forall h ts tid d
      fd fid ff sid
      is1 ps1 tcp_sock.
 
-   bind_8 /* rp_tcp, fast fail (*: Fail with [[EISCONN]]: the socket is already connected :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
-   -- Lh_call (tid,bind(fd,is1,ps1)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EISCONN),sched_timer)) |>
-
-   <==
-
-     fd IN FDOM h.fds /\
-     fid = h.fds ' fd /\
-     FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
-     TCP_PROTO(tcp_sock) = (h.socks ' sid).pr /\
+   fd IN FDOM h.fds &&
+     fid = (FAPPLY h.fds  fd) &&
+     FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
+     TCP_PROTO(tcp_sock) = ((FAPPLY h.socks  sid)).pr &&
      tcp_sock.st = ESTABLISHED
+
+     ==>
+
+   host_redn bind_8 ((* rp *) rp_tcp)  (*: Fail with [[EISCONN]]: the socket is already connected :*) ((* rc *)fast fail) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d)) |>)
+   ((* lbl *)Lh_call (tid,bind(fd,is1,ps1)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL EISCONN),sched_timer)) |>)
 
 
    (*:
@@ -2685,27 +2545,27 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    POSIX "shall fail...".
 
    :*)
-   )
+   
 
-/\ *)
+and *)
 
-   (!h ts tid d
+bind_9: forall h ts tid d
      fd fid ff sid
      is1 ps1.
 
-   bind_9 /* rp_all, fast badfail (*: Fail with [[ENOBUFS]]: no ephemeral ports free for autobinding or, on WinXP only, insufficient buffers available. :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
-   -- Lh_call (tid,bind(fd,is1,ps1)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL ENOBUFS),sched_timer)) |>
-
-   <==
-
-     fd IN FDOM h.fds /\
-     fid = h.fds ' fd /\
-     FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
-     ps1 = NONE /\
-     ((autobind(ps1,(proto_of (h.socks ' sid).pr),h,h.socks) = EMPTY) \/
+   fd IN FDOM h.fds &&
+     fid = (FAPPLY h.fds  fd) &&
+     FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
+     ps1 = NONE &&
+     ((autobind(ps1,(proto_of ((FAPPLY h.socks  sid)).pr),h,h.socks) = {}) ||
       windows_arch h.arch)
+
+     ==>
+
+   host_redn bind_9 ((* rp *) rp_all)  (*: Fail with [[ENOBUFS]]: no ephemeral ports free for autobinding or, on WinXP only, insufficient buffers available. :*) ((* rc *)fast badfail) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d)) |>)
+   ((* lbl *)Lh_call (tid,bind(fd,is1,ps1)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' ENOBUFS),sched_timer)) |>)
 
 
    (*:
@@ -2753,12 +2613,10 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    not switched off by turning on [[INFINITE_RESOURCES]].  (not true: EINTR is this also).
 
    :*)
-   )
+   
+and
 
-
-/\
-
-
+   
 (*:
 
 @section [[close]] ALL [[close()]]
@@ -2877,22 +2735,23 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
 :*)
 
 
-   (!h ts tid d fds fds'
+
+close_1: forall h ts tid d fds fds'
      fd fid.
 
-   close_1 /* rp_all, fast succeed (*: Successfully close a file descriptor that is not the last file descriptor for a socket :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d));
-               fds := fds |>
-   -- Lh_call (tid,close(fd)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK ()),sched_timer));
-               fds := fds' |>
+   fd IN FDOM (fds:fmap fd fid) &&
+     (fid:fid) = (FAPPLY fds  fd) &&
+     fid_ref_count(fds,fid) > 1 &&
+     fds' = DOMSUB fds  fd
 
-   <==
+     ==>
 
-     fd IN FDOM fds /\
-     fid = fds ' fd /\
-     fid_ref_count(fds,fid) > 1 /\
-     fds' = fds \\ fd
+   host_redn close_1 ((* rp *) rp_all)  (*: Successfully close a file descriptor that is not the last file descriptor for a socket :*) ((* rc *)fast succeed) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d));
+               fds  = fds |>)
+   ((* lbl *)Lh_call (tid,close(fd)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (OK'_one ()),sched_timer));
+               fds  = fds' |>)
 
 
    (*:
@@ -2924,43 +2783,43 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
     SB: UNPv1p191 is incorrect.
 
    :*)
-   )
+   
 
-/\
+and
 
-   (!h ts tid d fds fds'
+close_2: forall h ts tid d fds fds'
      fd fid files socks
      sid ff sf es st
      i1 p1 i2 p2 cb rcvq sndq cantsndmore cantrcvmore sndurp rcvurp iobc.
 
-   close_2 /* rp_tcp, fast succeed (*: Successfully perform a graceful close on the last file descriptor of a synchronised socket :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d));
-               fds := fds;
-               files := files |++
+   (st IN {ESTABLISHED;FIN_WAIT_1;CLOSING;FIN_WAIT_2;
+             TIME_WAIT;CLOSE_WAIT;LAST_ACK} ||
+      st = SYN_RECEIVED && linux_arch h.arch) && (* earlier states are treated specially *)
+     (sf.t(SO_LINGER) = time_infty ||
+      ff.b(O_NONBLOCK) = T && sf.t(SO_LINGER) /= time_zero && not (linux_arch h.arch)) &&
+     fd IN FDOM fds &&
+     fid = (FAPPLY fds  fd) &&
+     fid_ref_count(fds,fid) = 1 &&
+     fds' = DOMSUB fds  fd &&
+     NOTIN fid  (FDOM files)
+
+     ==>
+
+   host_redn close_2 ((* rp *) rp_tcp)  (*: Successfully perform a graceful close on the last file descriptor of a synchronised socket :*) ((* rc *)fast succeed) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d));
+               fds  = fds;
+               files  = files |++
                         [(fid,File(FT_Socket(sid),ff))];
-               socks := socks |++
+               socks  = socks |++
                         [(sid,Sock(SOME fid,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,cantsndmore,cantrcvmore,
-                                   TCP_Sock(st,cb,NONE,sndq,sndurp,rcvq,rcvurp,iobc)))] |>
-   -- Lh_call (tid,close(fd)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK ()),sched_timer));
-               fds := fds';
-               files := files \\ fid;
-               socks := socks |++
+                                   TCP_Sock(st,cb,NONE,sndq,sndurp,rcvq,rcvurp,iobc)))] |>)
+   ((* lbl *)Lh_call (tid,close(fd)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (OK'_one ()),sched_timer));
+               fds  = fds';
+               files  = DOMSUB files  fid;
+               socks  = socks |++
                         [(sid,Sock(NONE,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,T,T,
-                                   TCP_Sock(st,cb,NONE,sndq,sndurp,[],rcvurp,iobc)))] |>
-
-   <==
-
-     (st IN {ESTABLISHED;FIN_WAIT_1;CLOSING;FIN_WAIT_2;
-             TIME_WAIT;CLOSE_WAIT;LAST_ACK} \/
-      st = SYN_RECEIVED /\ linux_arch h.arch) /\ (* earlier states are treated specially *)
-     (sf.t(SO_LINGER) = time_infty \/
-      ff.b(O_NONBLOCK) = T /\ sf.t(SO_LINGER) <> time_zero /\ ~linux_arch h.arch) /\
-     fd IN FDOM fds /\
-     fid = fds ' fd /\
-     fid_ref_count(fds,fid) = 1 /\
-     fds' = fds \\ fd /\
-     fid NOTIN (FDOM files)
+                                   TCP_Sock(st,cb,NONE,sndq,sndurp,[],rcvurp,iobc)))] |>)
 
 
    (*:
@@ -2977,7 +2836,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
     unconstrained, the call to [[close()]] proceeds successfully without blocking.
 
     On all platforms except for Linux, if the socket is in non-blocking mode [[ff.b(O_NONBLOCK) =
-    T]] the linger option may be set with a positive duration: [[sf.t(SO_LINGER) <> time_zero)]]. In
+    T]] the linger option may be set with a positive duration: [[sf.t(SO_LINGER) <> time_zero]]. In
     this case the option is ignored giving precedence to the socket's non-blocking semantics. The
     [[close()]] call succeeds without blocking.
 
@@ -3039,47 +2898,46 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
     observable.
 
    :*)
-   )
+   
+and
 
-/\
-
-   (!h ts tid d fds fds'
+close_3: forall h ts tid d fds fds'
      fd fid files socks oq oq' seg
      sid ff sf es sock sock'
      i1 p1 i2 p2 st cb rcvq sndq cantsndmore cantrcvmore sndurp rcvurp iobc.
 
-   close_3 /* rp_tcp, fast succeed (*: Successful abortive close of a synchronised socket :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d));
-               fds := fds;
-               files := files |++
-                        [(fid,File(FT_Socket(sid),ff))];
-               socks := socks |++
-                        [(sid,sock)];
-               oq := oq |>
-   -- Lh_call (tid,close(fd)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK ()),sched_timer));
-               fds := fds';
-               files := files;
-               socks := socks |++ [(sid,sock')];
-               oq := oq' |>
-
-   <==
-
-     (st IN {ESTABLISHED;FIN_WAIT_1;CLOSING;FIN_WAIT_2;
-            TIME_WAIT;CLOSE_WAIT;LAST_ACK} \/
-      st = SYN_RECEIVED /\ linux_arch h.arch) /\ (* earlier states are treated specially *)
+   (st IN {ESTABLISHED;FIN_WAIT_1;CLOSING;FIN_WAIT_2;
+            TIME_WAIT;CLOSE_WAIT;LAST_ACK} ||
+      st = SYN_RECEIVED && linux_arch h.arch) && (* earlier states are treated specially *)
      sock = Sock(SOME fid,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,cantsndmore,cantrcvmore,
-                  TCP_Sock(st,cb,NONE,sndq,sndurp,rcvq,rcvurp,iobc)) /\
-     sf.t(SO_LINGER) = time_zero /\  (* [[O_NONBLOCK]] is irrelevant here *)
-     fd IN FDOM fds /\
-     fid = fds ' fd /\
-     fid_ref_count(fds,fid) = 1 /\
-     fds' = fds \\ fd /\
-     fid NOTIN (FDOM files) /\
-     sid NOTIN FDOM socks /\
-     sock' = (tcp_close h.arch sock) with <| fid := NONE |> /\
-     seg IN make_rst_segment_from_cb cb (i1,i2,p1,p2) /\
+                  TCP_Sock(st,cb,NONE,sndq,sndurp,rcvq,rcvurp,iobc)) &&
+     sf.t(SO_LINGER) = time_zero &&  (* [[O_NONBLOCK]] is irrelevant here *)
+     fd IN FDOM fds &&
+     fid = (FAPPLY fds  fd) &&
+     fid_ref_count(fds,fid) = 1 &&
+     fds' = DOMSUB fds  fd &&
+     NOTIN fid  (FDOM files) &&
+     NOTIN sid  (FDOM socks) &&
+     sock' = <| (tcp_close h.arch sock) with  fid  = NONE |> &&
+     seg IN set_of_bool_fn (make_rst_segment_from_cb cb (i1,i2,p1,p2)) &&
      enqueue_and_ignore_fail h.arch h.rttab h.ifds [TCP seg] oq oq'
+
+     ==>
+
+   host_redn close_3 ((* rp *) rp_tcp)  (*: Successful abortive close of a synchronised socket :*) ((* rc *)fast succeed) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d));
+               fds  = fds;
+               files  = files |++
+                        [(fid,File(FT_Socket(sid),ff))];
+               socks  = socks |++
+                        [(sid,sock)];
+               oq  = oq |>)
+   ((* lbl *)Lh_call (tid,close(fd)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (OK'_one ()),sched_timer));
+               fds  = fds';
+               files  = files;
+               socks  = socks |++ [(sid,sock')];
+               oq  = oq' |>)
 
 
    (*:
@@ -3142,43 +3000,45 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
     RST.
 
    :*)
-   )
+   
 
-/\
 
-   (!h ts tid d fds fds'
+and
+
+
+close_4: forall h ts tid d fds fds'
      fd fid files socks
      sid ff sf es
      i1 p1 i2 p2 st cb rcvq sndq cantsndmore cantrcvmore sndurp rcvurp iobc.
 
-   close_4 /* rp_tcp, block (*: Block on a lingering close on the last file descriptor of a synchronised socket :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d));
-               fds := fds;
-               files := files |++
+   (st IN {ESTABLISHED;FIN_WAIT_1;CLOSING;FIN_WAIT_2;
+            TIME_WAIT;CLOSE_WAIT;LAST_ACK} ||
+      st = SYN_RECEIVED && linux_arch h.arch) && (* earlier states are treated specially *)
+     NOTIN (sf.t(SO_LINGER))  {time_zero; time_infty} &&
+     (ff.b(O_NONBLOCK) = F || (ff.b(O_NONBLOCK) = T && linux_arch h.arch)) &&
+     fd IN FDOM fds &&
+     fid = (FAPPLY fds  fd) &&
+     fid_ref_count(fds,fid) = 1 &&
+     fds' = DOMSUB fds  fd &&
+     NOTIN fid  (FDOM files)
+
+     ==>
+
+   host_redn close_4 ((* rp *) rp_tcp)  (*: Block on a lingering close on the last file descriptor of a synchronised socket :*) ((* rc *)block) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d));
+               fds  = fds;
+               files  = files |++
                         [(fid,File(FT_Socket(sid),ff))];
-               socks := socks |++
+               socks  = socks |++
                         [(sid,Sock(SOME fid,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,cantsndmore,cantrcvmore,
-                                   TCP_Sock(st,cb,NONE,sndq,sndurp,rcvq,rcvurp,iobc)))] |>
-   -- Lh_call (tid,close(fd)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Close2(sid),slow_timer (sf.t(SO_LINGER))));
-               fds := fds';
-               files := files;
-               socks := socks |++
+                                   TCP_Sock(st,cb,NONE,sndq,sndurp,rcvq,rcvurp,iobc)))] |>)
+   ((* lbl *)Lh_call (tid,close(fd)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Close2(sid),slow_timer (sf.t(SO_LINGER))));
+               fds  = fds';
+               files  = files;
+               socks  = socks |++
                         [(sid,Sock(NONE,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,T,T,
-                                   TCP_Sock(st,cb,NONE,sndq,sndurp,[],rcvurp,iobc)))] |>
-
-   <==
-
-     (st IN {ESTABLISHED;FIN_WAIT_1;CLOSING;FIN_WAIT_2;
-            TIME_WAIT;CLOSE_WAIT;LAST_ACK} \/
-      st = SYN_RECEIVED /\ linux_arch h.arch) /\ (* earlier states are treated specially *)
-     sf.t(SO_LINGER) NOTIN {time_zero; time_infty} /\
-     (ff.b(O_NONBLOCK) = F \/ (ff.b(O_NONBLOCK) = T /\ linux_arch h.arch)) /\
-     fd IN FDOM fds /\
-     fid = fds ' fd /\
-     fid_ref_count(fds,fid) = 1 /\
-     fds' = fds \\ fd /\
-     fid NOTIN (FDOM files)
+                                   TCP_Sock(st,cb,NONE,sndq,sndurp,[],rcvurp,iobc)))] |>)
 
 
    (*:
@@ -3249,29 +3109,29 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
     RST.
 
    :*)
-   )
+   
+and
 
-/\
 
-   (!h ts tid d
+close_5: forall h ts tid d
      socks
      sid sf es
      i1 p1 i2 p2 st cb sndurp rcvurp iobc.
 
-   close_5 /* rp_tcp, slow urgent succeed (*: Successful completion of a lingering close on a synchronised socket :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Close2(sid),d));
-               socks := socks |++
-                        [(sid,Sock(NONE,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,T,T,
-                              TCP_Sock(st,cb,NONE,[],sndurp,[],rcvurp,iobc)))] |>
-   -- Lh_tau -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK ()),sched_timer));
-               socks := socks |++
-                        [(sid,Sock(NONE,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,T,T,
-                              TCP_Sock(st,cb,NONE,[],sndurp,[],rcvurp,iobc)))] |>
+   st IN {TIME_WAIT;CLOSED;FIN_WAIT_2}
 
-   <==
+     ==>
 
-     st IN {TIME_WAIT;CLOSED;FIN_WAIT_2}
+   host_redn close_5 ((* rp *) rp_tcp)  (*: Successful completion of a lingering close on a synchronised socket :*) ((* rc *)slow urgent succeed) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Close2(sid),d));
+               socks  = socks |++
+                        [(sid,Sock(NONE,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,T,T,
+                              TCP_Sock(st,cb,NONE,[],sndurp,[],rcvurp,iobc)))] |>)
+   ((* lbl *)Lh_tau)
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (OK'_one ()),sched_timer));
+               socks  = socks |++
+                        [(sid,Sock(NONE,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,T,T,
+                              TCP_Sock(st,cb,NONE,[],sndurp,[],rcvurp,iobc)))] |>)
      (* SB: sndq and rcvq should now both be empty *)
 
 
@@ -3316,30 +3176,30 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
     THIS RULE IS URGENT.
 
    :*)
-   )
+   
+and
 
-/\
 
-   (!h ts tid
+close_6: forall h ts tid
      sock socks
      sid sf es
      i1 p1 i2 p2 st cb sndq sndurp rcvurp iobc d.
 
-   close_6 /* rp_tcp, slow nonurgent fail (*: Fail with [[EAGAIN]]: unsuccessful completion of a lingering close on a synchronised socket :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Close2(sid),d));
-               socks := socks |++ [(sid,sock)]
-             |>
-   -- Lh_tau -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EAGAIN),sched_timer));
-               socks := socks |++ [(sid,sock)]
-             |>
+   sock = Sock(NONE,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,T,T,
+                 TCP_Sock(st,cb,NONE,sndq,sndurp,[],rcvurp,iobc)) &&
+     timer_expires d &&
+     NOTIN st  {TIME_WAIT; CLOSED}
 
-   <==
+     ==>
 
-     sock = Sock(NONE,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,T,T,
-                 TCP_Sock(st,cb,NONE,sndq,sndurp,[],rcvurp,iobc)) /\
-     timer_expires d /\
-     st NOTIN {TIME_WAIT; CLOSED}
+   host_redn close_6 ((* rp *) rp_tcp)  (*: Fail with [[EAGAIN]]: unsuccessful completion of a lingering close on a synchronised socket :*) ((* rc *)slow nonurgent fail) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Close2(sid),d));
+               socks  = socks |++ [(sid,sock)]
+             |>)
+   ((* lbl *)Lh_tau)
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' EAGAIN),sched_timer));
+               socks  = socks |++ [(sid,sock)]
+             |>)
 
 
    (*:
@@ -3374,36 +3234,36 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
     it need to have an attached [[fid]] at this point?
 
    :*)
-   )
+   
 
-/\
+and
 
-   (!h ts tid d fds fds'
+close_7: forall h ts tid d fds fds'
      fd fid files socks
      sid ff sock tcp_sock.
 
-   close_7 /* rp_tcp, fast succeed (*: Successfully close the last file descriptor for a socket in the [[CLOSED]], [[SYN_SENT]] or [[SYN_RECEIVED]] states. :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d));
-               fds := fds;
-               files := files |++ [(fid,File(FT_Socket(sid),ff))];
-               socks := socks |++ [(sid,sock)] |>
-   -- Lh_call (tid,close(fd)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK ()), sched_timer));
-               fds := fds';
-               files := files;
-               socks := socks|>
+   (tcp_sock.st IN {CLOSED; SYN_SENT} ||
+      tcp_sock.st = SYN_RECEIVED && not (linux_arch h.arch)) &&
+     TCP_PROTO(tcp_sock) = sock.pr &&
+     NOTIN fid  (FDOM files) &&
+     NOTIN sid  (FDOM socks) &&
+     fd IN FDOM fds &&
+     fid = (FAPPLY fds  fd) &&
+     fid_ref_count(fds,fid) = 1 &&
+     fds' = DOMSUB fds  fd
 
-   <==
+     ==>
 
-     (tcp_sock.st IN {CLOSED; SYN_SENT} \/
-      tcp_sock.st = SYN_RECEIVED /\ ~linux_arch h.arch) /\
-     TCP_PROTO(tcp_sock) = sock.pr /\
-     fid NOTIN (FDOM files) /\
-     sid NOTIN (FDOM socks) /\
-     fd IN FDOM fds /\
-     fid = fds ' fd /\
-     fid_ref_count(fds,fid) = 1 /\
-     fds' = fds \\ fd
+   host_redn close_7 ((* rp *) rp_tcp)  (*: Successfully close the last file descriptor for a socket in the [[CLOSED]], [[SYN_SENT]] or [[SYN_RECEIVED]] states. :*) ((* rc *)fast succeed) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d));
+               fds  = fds;
+               files  = files |++ [(fid,File(FT_Socket(sid),ff))];
+               socks  = socks |++ [(sid,sock)] |>)
+   ((* lbl *)Lh_call (tid,close(fd)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (OK'_one ()), sched_timer));
+               fds  = fds';
+               files  = files;
+               socks  = socks|>)
 
 
    (*:
@@ -3453,68 +3313,70 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
     [[close_2a]]).
 
    :*)
-   )
+   
 
-/\
+and
 
-   (!h ts tid d fds fds'
+
+
+close_8: forall h ts tid d fds fds'
      fd fid files socks socks' listen listen' oq oq' segs
      sid ff sock lis sf is1 p1 es cb sndq sndurp rcvq rcvurp iobc
      socks_to_rst socks_to_rst_list cantsndmore cantrcvmore.
 
-   close_8 /* rp_tcp, fast succeed (*: Successfully close the last file descriptor for a listening TCP socket :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d));
-               fds := fds;
-               files := files |++ [(fid,File(FT_Socket(sid),ff))];
-               socks := socks |++ [(sid,sock)];
-               listen := listen;
-               oq    := oq |>
-   -- Lh_call (tid,close(fd)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK ()), sched_timer));
-               fds := fds';
-               files := files;
-               socks := socks';
-               listen := listen';
-               oq    := oq' |>
-
-   <==
-
-     sock = Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,cantsndmore,cantrcvmore,
-                 TCP_Sock(LISTEN,cb,SOME lis,sndq,sndurp,rcvq,rcvurp,iobc)) /\
-     fd IN FDOM fds /\
-     fid = fds ' fd /\
-     fid_ref_count(fds,fid) = 1 /\
-     fid NOTIN (FDOM files) /\
-     sid NOTIN (FDOM socks) /\
+   sock = Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,cantsndmore,cantrcvmore,
+                 TCP_Sock(LISTEN,cb,SOME lis,sndq,sndurp,rcvq,rcvurp,iobc)) &&
+     fd IN FDOM fds &&
+     fid = (FAPPLY fds  fd) &&
+     fid_ref_count(fds,fid) = 1 &&
+     NOTIN fid  (FDOM files) &&
+     NOTIN (sid:sid)  (FDOM (socks:fmap sid socket)) &&
 
      (*: cantrcvmore/cantsndmore unconstrained under BSD, as may have previously called shutdown :*)
      (*: MS: this is more of an assertion than a condition, so we could get away without it :*)
-     (bsd_arch h.arch \/ (cantsndmore = F /\ cantrcvmore = F)) /\
+     (bsd_arch h.arch || (cantsndmore = F && cantrcvmore = F)) &&
 
      (*: BSD and Linux do not send RSTs to sockets on [[lis.q0]]. :*)
-     socks_to_rst = { (sock',tcp_sock') | ?sid'. sid' IN' lis.q /\
+     socks_to_rst = { (sock',tcp_sock') | exists sid'. IN' sid' lis.q &&
                                                        (* previously: APPEND lis.q0 lis.q *)
-                                                 sock' = socks ' sid' /\
-                                                 TCP_PROTO(tcp_sock') = sock'.pr /\
-                                                 tcp_sock'.st NOTIN {CLOSED;LISTEN;SYN_SENT} } /\
+                                                 sock' = (FAPPLY socks  sid') &&
+                                                 TCP_PROTO(tcp_sock') = sock'.pr &&
+                                                 NOTIN tcp_sock'.st  {CLOSED;LISTEN;SYN_SENT} } &&
 
-     socks_to_rst_list IN ORDERINGS socks_to_rst /\
+     socks_to_rst_list IN set_of_bool_fn (ORDERINGS socks_to_rst) &&
 
-     CARD socks_to_rst = LENGTH segs /\ (* constraint required for MAP2 *)
+     CARD socks_to_rst = LENGTH segs && (* constraint required for MAP2 *)
 
-     (let make_rst_seg = \ (sock',tcp_sock').
+     (let make_rst_seg = fun  (sock',tcp_sock')->
          make_rst_segment_from_cb tcp_sock'.cb (THE sock'.is1,THE sock'.is2,THE sock'.ps1,THE sock'.ps2)
      in
 
-     EVERY I (MAP2 (\ s' seg'. seg' IN make_rst_seg s') socks_to_rst_list segs)) /\
+     EVERY I (MAP2 (fun  s' seg'-> seg' IN set_of_bool_fn (make_rst_seg s')) socks_to_rst_list segs)) &&
 
      (*: Note this is a clear example of where fuzzy timing is needed: should these really all have exactly
         the same time always? :*)
-     enqueue_each_and_ignore_fail h.arch h.rttab h.ifds (MAP TCP segs) oq oq' /\
+     enqueue_each_and_ignore_fail h.arch h.rttab h.ifds (MAP TCP segs) oq oq' &&
 
-     fds' = fds \\ fd /\
-     listen' = FILTER (\sid'. sid' <> sid) listen /\
-     socks' = DRESTRICT socks { sid' |  sid' NOTIN APPEND lis.q0 lis.q}
+     fds' = DOMSUB fds  fd &&
+     listen' = FILTER (fun sid'-> sid' /= sid) listen &&
+     socks' = DRESTRICT socks {} (* { sid' |  notinlist sid'  (APPEND lis.q0 lis.q)} *)
+
+     ==>
+
+   host_redn close_8 ((* rp *) rp_tcp)  (*: Successfully close the last file descriptor for a listening TCP socket :*) ((* rc *)fast succeed) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d));
+               fds  = fds;
+               files  = files |++ [(fid,File(FT_Socket(sid),ff))];
+               socks  = socks |++ [(sid,sock)];
+               listen  = listen;
+               oq     = oq |>)
+   ((* lbl *)Lh_call (tid,close(fd)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (OK'_one ()), sched_timer));
+               fds  = fds';
+               files  = files;
+               socks  = socks';
+               listen  = listen';
+               oq     = oq' |>)
 
 
    (*:
@@ -3582,36 +3444,34 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
     they truly go away.
 
    :*)
-   )
+   
+and
 
 
-/\
-
-
-   (!h ts d fds files fid sid ff fds' tid
+close_10: forall h ts d fds files fid sid ff fds' tid
      socks sf is1 ps1 is2 ps2 es udp fd cantsndmore cantrcvmore.
 
-   close_10 /* rp_udp, fast succeed (*: Successfully close the last file descriptor of a UDP socket :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d));
-               fds := fds;
-               files := files |++ [(fid,File(FT_Socket(sid),ff))];
-               socks := socks |++
+   fd IN FDOM fds &&
+    fid = (FAPPLY fds  fd) &&
+    fid_ref_count(fds,fid) = 1 &&
+    fds' = DOMSUB fds  fd &&
+    NOTIN fid  (FDOM files) &&
+    NOTIN sid  (FDOM socks)
+
+    ==>
+
+  host_redn close_10 ((* rp *) rp_udp)  (*: Successfully close the last file descriptor of a UDP socket :*) ((* rc *)fast succeed) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d));
+               fds  = fds;
+               files  = files |++ [(fid,File(FT_Socket(sid),ff))];
+               socks  = socks |++
                         [(sid,Sock(SOME fid,sf,is1,ps1,is2,ps2,es,cantsndmore,cantrcvmore,
-                                   UDP_PROTO(udp)))] |>
-   -- Lh_call (tid,close(fd)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK ()),sched_timer));
-               fds := fds';
-               files := files;
-               socks := socks |>
-
-  <==
-
-    fd IN FDOM fds /\
-    fid = fds ' fd /\
-    fid_ref_count(fds,fid) = 1 /\
-    fds' = fds \\ fd /\
-    fid NOTIN (FDOM files) /\
-    sid NOTIN (FDOM socks)
+                                   UDP_PROTO(udp)))] |>)
+   ((* lbl *)Lh_call (tid,close(fd)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (OK'_one ()),sched_timer));
+               fds  = fds';
+               files  = files;
+               socks  = socks |>)
 
 
    (*:
@@ -3635,10 +3495,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
 
     :*)
 
-   )
-
-
-/\
+and   
 
 (*:
 
@@ -3845,51 +3702,40 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
 
 :*)
 
-   (!h h0 h' ts_ socks tid d oq oq' cb' cb'' cb''' es es' es'' t'
+connect_1: forall h h0 h' ts_ socks tid d oq oq' cb' cb'' cb''' es es' es'' t'
      fd fid ff sid sf st cantsndmore cantrcvmore bound
      cb is1 ps1 i2 p2 i1' p1' is2 ps2 err rc is2' ps2'
      iss tf_req_tstmp' rcv_wnd request_r_scale advmss advmss' st'.
-   connect_1 /* rp_tcp, rc (*: Begin connection establishment by creating a SYN and trying to enqueue it on host's outqueue :*) */
-     h
-   -- Lh_call (tid,connect(fd,i2,SOME p2)) -->
-     h'
-
-   <==
-
-     (* note that we must write ts_ for the h.ts variable, because ts is used for timestamps *)
-     (* we presume sock.es is NONE both before and after this rule *)
-
-     (*: Thread [[tid]] is in state [[Run]] and TCP socket [[sid]] has binding quad [[(is1,ps1,is2,ps2)]].  :*)
-     h  = h0 with <| ts := FUPDATE ts_ (tid,Timed(Run,d));
-                     socks := socks |++
+   h  = <| h0 with  ts  = FUPDATE ts_ (tid,Timed(Run,d));
+                     socks  = socks |++
                              [(sid,Sock(SOME fid,sf,is1,ps1,is2,ps2,es,cantsndmore,cantrcvmore,
                                TCP_Sock(st,cb,NONE,[],NONE,[],NONE,NO_OOBDATA)))] ;
-                     oq := oq |> /\
+                     oq  = oq |> &&
 
      (*: Thread [[tid]] ends in state [[t']] with updated host sockets and output queue :*)
-     h' = h0 with <| ts := FUPDATE ts_ (tid,t');
-                     socks := socks |++
+     h' = <| h0 with  ts  = FUPDATE ts_ (tid,t');
+                     socks  = socks |++
                               [(sid,Sock(SOME fid,sf,SOME i1',SOME p1',is2',ps2',es'',F,F,
                                 TCP_Sock(st',cb''',NONE,[],NONE,[],NONE,NO_OOBDATA)))] ;
-                     bound := bound;
-                     oq := oq' |> /\
+                     bound  = bound;
+                     oq  = oq' |> &&
 
      (*: File descriptor [[fd]] refers to TCP socket [[sid]] :*)
-     fd IN FDOM h0.fds /\
-     fid = h0.fds ' fd /\
-     h0.files ' fid = File(FT_Socket(sid),ff) /\
+     fd IN FDOM h0.fds &&
+     fid = (FAPPLY h0.fds  fd) &&
+     (FAPPLY h0.files  fid) = File(FT_Socket(sid),ff) &&
 
      (*: Either [[sid]] is bound to a local IP address or one of the host's interface has a route to
      [[i2]] and [[i1']] is one of its IP addresses.  If it is not routable, then we will fail below,
      when we try to enqueue the segment. :*)
 
-     i1' IN auto_outroute(i2,is1,h.rttab,h.ifds) /\
+     i1' IN auto_outroute(i2,is1,h.rttab,h.ifds) &&
        (*: Notice that [[auto_outroute]] never fails if [[is1<>NONE]] (i.e., is specified in the socket). :*)
 
      (*: The socket is either bound to a local port [[p1']] or can be autobound to an ephemeral port [[p1']] :*)
-     p1' IN autobind(ps1,PROTO_TCP,h,h.socks) /\
+     p1' IN autobind(ps1,PROTO_TCP,h,h.socks) &&
      (*: If autobinding occurs then [[sid]] is added to the head of the host's list of bound sockets. :*)
-     (if ps1 = NONE then bound = sid::h.bound else bound = h.bound) /\
+     (if ps1 = NONE then bound = sid::h.bound else bound = h.bound) &&
 
      (*: The socket can be in one of two states: (1) it is in state [[CLOSED]] in which case its
          peer address is not set; it has no pending error; it is not shutdown for writing; and it is
@@ -3900,21 +3746,21 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
        important in the [[cb]].
      :*)
 
-     ((st = CLOSED /\ is2 = NONE /\ ps2 = NONE /\
-       es = NONE /\ cantsndmore = F /\ (cantrcvmore = F \/ bsd_arch h.arch)) \/
-      (bsd_arch h.arch /\ st = TIME_WAIT /\
-       (is2 <> NONE ==> ps2 <> NONE) /\
-         (ps2 <> NONE ==> is2 <> NONE))) /\
+     ((st = CLOSED && is2 = NONE && ps2 = NONE &&
+       es = NONE && cantsndmore = F && (cantrcvmore = F || bsd_arch h.arch)) ||
+      (bsd_arch h.arch && st = TIME_WAIT &&
+       (is2 /= NONE --> ps2 /= NONE) &&
+         (ps2 /= NONE --> is2 /= NONE))) &&
 
      (*: No other TCP sockets on the host have the address quad [[(SOME i1',SOME p1',SOME i2,SOME p2)]]. :*)
-     ~(? (sid', s) :: (h.socks \\ sid).
-                  s.is1 = SOME i1' /\ s.ps1 = SOME p1' /\
-                  s.is2 = SOME i2  /\ s.ps2 = SOME p2  /\
-                  proto_of s.pr = PROTO_TCP) /\
+     not (exists  sid' s. (sid', s) IN (set_of_fmap (DOMSUB h.socks  sid)) &&
+                  s.is1 = SOME i1' && s.ps1 = SOME p1' &&
+                  s.is2 = SOME i2  && s.ps2 = SOME p2  &&
+                  proto_of s.pr = PROTO_TCP) &&
 
      (*: Pick an initial sequence number non-deterministically.
      This allows accidental spoofing of our own connections, but it is unclear how a tighter specification should be expressed. :*)
-     iss IN { n | T } /\
+     iss IN { n | T } &&
 
      (*: If windows-scaling is to be requested for the connection then [[request_r_scale=SOME n]]
      where [[n]] is a valid window scale; otherwise, [[request_r_scale=NONE]]. [[rcv_wnd0]] is a
@@ -3927,15 +3773,15 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
      choose on a per-connection basis whether to do window scaling or
      not. This permits both.
      :*)
-     (request_r_scale:num option) IN {NONE} UNION {SOME n | n >= 0 /\ n <= TCP_MAXWINSCALE } /\
+     (request_r_scale:option num) IN ({NONE} union {SOME n | n >= 0 && n <= TCP_MAXWINSCALE }) &&
 
 (*
-     (rcv_wnd0:num) IN { n | n > 0 /\ n <= TCP_MAXWIN } /\  (* we feel a zero window would be dumb (deaf?) *)
+     (rcv_wnd0:num) IN { n | n > 0 /\ n <= TCP_MAXWIN } /\  ( * we feel a zero window would be dumb (deaf?) * )
      (rcv_wnd:num) = rcv_wnd0 << (option_case 0 I request_r_scale) /\
 *)
-     (rcv_wnd:num) IN { n | n > 0 /\ n <= (TCP_MAXWIN << (option_case 0 I request_r_scale)) } /\
+     (rcv_wnd:num) IN { n | n > 0 && n <= (TCP_MAXWIN << (option_case 0 I request_r_scale)) } &&
 
-     rcv_wnd <= sf.n(SO_RCVBUF) /\
+     rcv_wnd <= sf.n(SO_RCVBUF) &&
 
      (* this late constraint is hard to read, and possibly bogus: why not have low-order bits set in rcv_wnd? *)
      (* NB: Done this way because
@@ -3950,8 +3796,8 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
      (*: Either advertise a maximum segment size, [[advmss]], that is between [[1]] and
      [[65535-40]], or advertise no maximum segment size. If one is advertised, [[advmss'=SOME advmss]]; otherwise, [[advmss'=NONE]]. :*)
 
-     advmss IN { n | n >= 1 /\ n <= (65535 - 40) } /\
-     advmss' IN {NONE;SOME advmss} /\
+     advmss IN { n | n >= 1 && n <= (65535 - 40) } &&
+     advmss' IN {NONE;SOME advmss} &&
         (* we think 0 would be REALLY stupid; the upper limit is the highest physically possible,
            but we're not sure if it should in fact be lower.  Seems credible *)
         (* note, default is 536 ( = 576 - 40).  We probably need to record this,
@@ -3962,13 +3808,13 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
      (*: If time-stamping is to be requested for the connection, then [[tf_req_tstmp'=T]]; otherwise
      [[tf_req_tstmp'=F]]. :*)
 
-     tf_req_tstmp' IN {F; T} /\ (*: do timestamp? :*)
+     tf_req_tstmp' IN {F; T} && (*: do timestamp? :*)
 
      (*: If there is no segment currently being timed for this socket (the expected case) then the SYN segment will be
      timed, with [[t_rttseg']] set to the current time and the initial sequence number for the
      connection, [[iss]]. :*)
 
-     (let t_rttseg' = if IS_NONE cb.t_rttseg then
+     (let t_rttseg' = if IS_None cb.t_rttseg then
                          SOME (ticks_of h.ticks, iss (* = seg.seq *) )
                      else
                          cb.t_rttseg in (* frame *)
@@ -3979,37 +3825,37 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
      [[rcv_wnd]], [[rcv_adv]], and [[tf_rxwin0sent]] fields based on the receive window chosen; (4)
      record whether or not to do windows scaling, time-stamping, and what the advertised maximum
      segment size is; and (5) store the segment to time. :*)
-     cb' = cb with <| tt_rexmt          := start_tt_rexmtsyn h.arch 0 F cb.t_rttinf;
-                      tt_conn_est       := SOME (Timed ((),slow_timer TCPTV_KEEP_INIT));
+     cb' = <| cb with  tt_rexmt           = start_tt_rexmtsyn h.arch 0 F cb.t_rttinf;
+                      tt_conn_est        = SOME (Timed ((),slow_timer TCPTV_KEEP_INIT));
                       (* no other timers, acc cursory TCPv2p817 reading *)
 (*                    t_flags           := \x. F; *) (* no idea! *)
-                      snd_una           := iss;
-                      snd_nxt           := iss + 1;
-                      snd_max           := iss + 1;
-                      iss               := iss;
-                      rcv_wnd           := rcv_wnd;
-                      rcv_adv           := cb.rcv_nxt + rcv_wnd;
+                      snd_una            = iss;
+                      snd_nxt            = seq32_plus iss 1;
+                      snd_max            = seq32_plus iss 1;
+                      iss                = iss;
+                      rcv_wnd            = rcv_wnd;
+                      rcv_adv            = seq32_plus cb.rcv_nxt rcv_wnd;
                       (*: since [[rcv_nxt]] is [[0]] at this point (since we do not yet know), this is a bit
                          odd.  But it models BSD behaviour. :*)
                       (* rcv_scale we have not set yet (until negotiate);  CHECK RIGHT WAY ROUND (passim)
                          snd_scale we cannot know yet because we have not heard *)
-                      tf_rxwin0sent     := (rcv_wnd = 0);   (* = F *)
-                      request_r_scale   := request_r_scale; (*: store whether we requested WS and if so what :*)
-                      t_maxseg          := cb.t_maxseg;     (*: do not change this :*)
-                      t_advmss          := advmss';         (*: store what mss we advertised; [[NONE]] or [[SOME v]] :*)
-                      tf_req_tstmp      := tf_req_tstmp';
-                      last_ack_sent     := tcp_seq_foreign 0w;
-                      t_rttseg          := t_rttseg'
+                      tf_rxwin0sent      = (rcv_wnd = 0);   (* = F *)
+                      request_r_scale    = request_r_scale; (*: store whether we requested WS and if so what :*)
+                      t_maxseg           = cb.t_maxseg;     (*: do not change this :*)
+                      t_advmss           = advmss';         (*: store what mss we advertised; [[NONE]] or [[SOME v]] :*)
+                      tf_req_tstmp       = tf_req_tstmp';
+                      last_ack_sent      = tcp_seq_foreign word_zero;
+                      t_rttseg           = t_rttseg'
                       (* WHAT ELSE HAVE I FORGOTTEN? *)
                       (* BSD allows a TIME_WAIT socket to be reconnected... may have to stomp
                          over a few extra fields here to partially reset the control block.... *)
-                   |>) /\
+                   |>) &&
 
      (*: now build the segment (using an auxiliary, since we might have to retransmit it) :*)
 
      (*: Make a [[SYN]] segment based on the updated control block and the socket's address quad;
      see {@link [[make_syn_segment]]} for details. :*)
-     choose seg :: make_syn_segment cb' (i1',i2,p1',p2) (ticks_of h.ticks).
+     mychoose (set_of_bool_fn (make_syn_segment cb' (i1',i2,p1',p2) (ticks_of h.ticks))) (fun  seg->
 
      (*: and send it out... :*)
 
@@ -4024,16 +3870,16 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
      wire (on WINXP the segment is silently dropped with no error in this case). If an error does
      occur then the socket's control block reverts to [[cb]], the control block when the call was
      made. :*)
-     ?outsegs'.  (* inline enqueue_or_fail because we need the error code *)
+     exists outsegs'.  (* inline enqueue_or_fail because we need the error code *)
      rollback_tcp_output F (TCP seg) h.arch h.rttab h.ifds T
-                         (cb with <| snd_nxt       := iss;
-                                     snd_max       := iss;
-                                     tt_delack     := NONE;
-                                     last_ack_sent := tcp_seq_foreign 0w;
-                                     rcv_adv       := tcp_seq_foreign 0w
-                                  |>) cb' (cb'',es',outsegs') /\
-     cb''' = (if (outsegs' <> [] \/ windows_arch h.arch) then cb'' else cb) /\
-     enqueue_oq_list_qinfo (oq,outsegs',oq') /\
+                         (<| cb with  snd_nxt        = iss;
+                                     snd_max        = iss;
+                                     tt_delack      = NONE;
+                                     last_ack_sent  = tcp_seq_foreign word_zero;
+                                     rcv_adv        = tcp_seq_foreign word_zero
+                                  |>) cb' (cb'',es',outsegs') &&
+     cb''' = (if (outsegs' /= [] || windows_arch h.arch) then cb'' else cb) &&
+     enqueue_oq_list_qinfo (oq,outsegs',oq') &&
 
       (* if nonblocking requested and no prior pending error, "fail" but keep going in background.
         NB. it seems valid to either fail with EAGAIN (or equivalent) or return any fast error
@@ -4063,19 +3909,30 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
          Linux does not exhibit this behaviour.:*)
 
      ((*: blocking socket, or BSD and using loopback interface :*)
-      ((~ff.b(O_NONBLOCK) \/ (bsd_arch h.arch /\ i2 IN local_ips h.ifds)) /\
-          t' = Timed(Connect2(sid),never_timer) /\ rc = block /\
-	  es''=es' /\ st' = SYN_SENT /\ is2' = SOME i2 /\ ps2' = SOME p2) \/
+      ((not (ff.b(O_NONBLOCK)) || (bsd_arch h.arch && i2 IN ((local_ips h.ifds)))) &&
+          t' = Timed(Connect2(sid),never_timer) && rc = block &&
+	  es''=es' && st' = SYN_SENT && is2' = SOME i2 && ps2' = SOME p2) ||
       (*: non-blocking socket :*)
-      (ff.b(O_NONBLOCK) /\
-          es = NONE /\
-          (err = (if windows_arch h.arch then EAGAIN else EINPROGRESS) \/ SOME err = es') /\
-          t' = Timed(Ret(FAIL err),sched_timer) /\ rc = fast fail /\ es''=NONE /\
+      (ff.b(O_NONBLOCK) &&
+          es = NONE &&
+          (err = (if windows_arch h.arch then EAGAIN else EINPROGRESS) || SOME err = es') &&
+          t' = Timed(Ret(FAIL' err),sched_timer) && rc = fast fail && es''=NONE &&
 	  if oq=oq' then
-	      st' = CLOSED /\ is2' = NONE /\ ps2' = NONE
+	      st' = CLOSED && is2' = NONE && ps2' = NONE
 	  else
-	      st' = SYN_SENT /\ is2' = SOME i2 /\ ps2' = SOME p2)
-     )
+	      st' = SYN_SENT && is2' = SOME i2 && ps2' = SOME p2)
+     ))
+
+     (* note that we must write ts_ for the h.ts variable, because ts is used for timestamps *)
+     (* we presume sock.es is NONE both before and after this rule *)
+
+     (*: Thread [[tid]] is in state [[Run]] and TCP socket [[sid]] has binding quad [[(is1,ps1,is2,ps2)]].  :*)
+     ==>
+
+   host_redn connect_1 ((* rp *) rp_tcp)  (*: Begin connection establishment by creating a SYN and trying to enqueue it on host's outqueue :*) ((* rc *)rc) 
+     ((* h1 *)h)
+   ((* lbl *)Lh_call (tid,connect(fd,i2,SOME p2)))
+     ((* h2 *)h')
 
 
    (*:
@@ -4160,7 +4017,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
 
    POSIX: "If the connection cannot be established immediately and O\_NONBLOCK is
    set... [[connect()]] shall fail ... [[EINPROGRESS]], but the connection request shall not be
-   aborted, and the connection shall be established asynchronously.
+   aborted, and the connection shall be established asynchronously."
 
 
    --OLD DESCRIPTION--
@@ -4290,23 +4147,22 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    ephemeral port.
 
    :*)
-   )
+   
+and
 
-/\
+connect_2: forall h ts tid d sid tcp_sock.
 
-   (!h ts tid d sid tcp_sock.
+   TCP_PROTO(tcp_sock) = ((FAPPLY h.socks  sid)).pr &&
+     tcp_sock.st IN {ESTABLISHED;CLOSE_WAIT} &&
+     (not (exists tid' d'. (tid' IN FDOM ts) && (tid' /= tid) &&
+                 (FAPPLY ts  tid') = Timed(Connect2 sid,d')))
 
-   connect_2 /* rp_tcp, slow urgent succeed (*: Successfully return from blocking state after connection is successfully established :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Connect2 sid,d)) |>
-   -- Lh_tau -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK ()),sched_timer)) |>
+     ==>
 
-   <==
-
-     TCP_PROTO(tcp_sock) = (h.socks ' sid).pr /\
-     tcp_sock.st IN {ESTABLISHED;CLOSE_WAIT} /\
-     (~?tid' d'. (tid' IN FDOM ts) /\ (tid' <> tid) /\
-                 ts ' tid' = Timed(Connect2 sid,d'))
+   host_redn connect_2 ((* rp *) rp_tcp)  (*: Successfully return from blocking state after connection is successfully established :*) ((* rc *)slow urgent succeed) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Connect2 sid,d)) |>)
+   ((* lbl *)Lh_tau)
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (OK'_one ()),sched_timer)) |>)
 
 
 
@@ -4338,26 +4194,25 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    is not strong enough to catch this nondeterminism otherwise).
 
    :*)
-   )
+   
+and
 
-/\
+connect_3: forall h ts socks sock tid d sid e tcp_sock.
 
-   (!h ts socks sock tid d sid e tcp_sock.
+   TCP_PROTO(tcp_sock) = sock.pr &&
+     tcp_sock.st = CLOSED &&
+     (bsd_arch h.arch --> tcp_sock.cb.bsd_cantconnect = T)
 
-   connect_3 /* rp_tcp, slow urgent fail (*: Fail with the pending error on a socket in the [[CLOSED]] state :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Connect2 sid,d));
-               socks := socks |++
-                        [(sid,sock with <| es := SOME e |>)] |>
-   -- Lh_tau -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL e),sched_timer));
-               socks := socks |++
-                        [(sid,sock with <| es := NONE |>)] |>
+     ==>
 
-   <==
-
-     TCP_PROTO(tcp_sock) = sock.pr /\
-     tcp_sock.st = CLOSED /\
-     (bsd_arch h.arch ==> tcp_sock.cb.bsd_cantconnect = T)
+   host_redn connect_3 ((* rp *) rp_tcp)  (*: Fail with the pending error on a socket in the [[CLOSED]] state :*) ((* rc *)slow urgent fail) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Connect2 sid,d));
+               socks  = socks |++
+                        [(sid,<| sock with  es  = SOME e |>)] |>)
+   ((* lbl *)Lh_tau)
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' e),sched_timer));
+               socks  = socks |++
+                        [(sid,<| sock with  es  = NONE |>)] |>)
 
 
    (*:
@@ -4420,30 +4275,17 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    distinguished?
 
    :*)
-   )
+   
+and
 
-/\
+connect_4: forall h ts socks sock sock' tid d sid fid sf i1 ps1 i2 p2 err cb cb'.
 
-   (!h ts socks sock sock' tid d sid fid sf i1 ps1 i2 p2 err cb cb'.
-
-   connect_4 /* rp_tcp, slow urgent fail (*: Fail: socket has pending error :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Connect2 sid,d));
-               socks := socks |++
-                        [(sid,sock)] |>
-   -- Lh_tau -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL err),sched_timer));
-               socks := socks |++
-                        [(sid,sock')] |>
-
-
-   <==
-
-     sock = Sock(SOME fid,sf,SOME i1,ps1,SOME i2,SOME p2,SOME err,F,F,
-                TCP_Sock(SYN_SENT,cb,NONE,[],NONE,[],NONE,NO_OOBDATA)) /\
+   sock = Sock(SOME fid,sf,SOME i1,ps1,SOME i2,SOME p2,SOME err,F,F,
+                TCP_Sock(SYN_SENT,cb,NONE,[],NONE,[],NONE,NO_OOBDATA)) &&
     (*: On WinXP if the error is from routing to an unavailable address,
        the error is not returned and the socket is left alone. The
        rexmtsyn timer will retry the SYN transmission and eventually fail. :*)
-    ~(windows_arch h.arch /\ err = EINVAL) /\
+    not (windows_arch h.arch && err = EINVAL) &&
     (if bsd_arch h.arch then
        (if (err = EADDRNOTAVAIL) then
            (* On BSD if the error is from routing to an unavailable address,
@@ -4457,9 +4299,21 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
      else
        (*: close the socket, but do not shutdown for reading/writing :*)
        sock' = Sock(SOME fid,sf,SOME i1,ps1,NONE,NONE,NONE,F,F,
-                TCP_Sock(CLOSED,cb',NONE,[],NONE,[],NONE,NO_OOBDATA)) /\
+                TCP_Sock(CLOSED,cb',NONE,[],NONE,[],NONE,NO_OOBDATA)) &&
        cb' = initial_cb
      )
+
+     ==>
+
+
+   host_redn connect_4 ((* rp *) rp_tcp)  (*: Fail: socket has pending error :*) ((* rc *)slow urgent fail) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Connect2 sid,d));
+               socks  = socks |++
+                        [(sid,sock)] |>)
+   ((* lbl *)Lh_tau)
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' err),sched_timer));
+               socks  = socks |++
+                        [(sid,sock')] |>)
 
 
    (*:
@@ -4499,29 +4353,28 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    investigated.
 
    :*)
-   )
+   
+and
 
-/\
+connect_4a: forall h ts tid d socks sid sock err fd i2 p2 fid ff tcp_sock.
 
-  (!h ts tid d socks sid sock err fd i2 p2 fid ff tcp_sock.
-
-   connect_4a /* rp_tcp, fast fail (*: Fail with pending error :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d));
-               socks := socks |++
-	                [(sid,sock with <| es := SOME err |>)] |>
-   -- Lh_call (tid,connect(fd,i2,SOME p2)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL err),sched_timer)) ;
-               socks := socks |++
-	                [(sid,sock with <| es := NONE |>)] |>
-
-   <==
-
-
-     fd IN FDOM h.fds /\
-     fid = h.fds ' fd /\
-     FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
-     TCP_PROTO(tcp_sock) = sock.pr /\
+   fd IN FDOM h.fds &&
+     fid = (FAPPLY h.fds  fd) &&
+     FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
+     TCP_PROTO(tcp_sock) = sock.pr &&
      tcp_sock.st IN {CLOSED (* any others? *) }
+
+
+     ==>
+
+   host_redn connect_4a ((* rp *) rp_tcp)  (*: Fail with pending error :*) ((* rc *)fast fail) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d));
+               socks  = socks |++
+	                [(sid,<| sock with  es  = SOME err |>)] |>)
+   ((* lbl *)Lh_call (tid,connect(fd,i2,SOME p2)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' err),sched_timer)) ;
+               socks  = socks |++
+	                [(sid,<| sock with  es  = NONE |>)] |>)
 
 
    (*:
@@ -4551,47 +4404,45 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
 
    :*)
 
- )
+and 
 
-/\
-
-   (!h ts tid d
+connect_5: forall h ts tid d
      fd fid ff sid
      i2 p2 err tcp_sock.
 
-   connect_5 /* rp_tcp, fast fail (*: Fail with [[EALREADY]], [[EINVAL]], [[EISCONN]], [[EOPNOTSUPP]]: socket already in use :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
-   -- Lh_call (tid,connect(fd,i2,SOME p2)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL err),sched_timer)) |>
-
-   <==
-
-     fd IN FDOM h.fds /\
-     fid = h.fds ' fd /\
-     FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
-     TCP_PROTO(tcp_sock) = (h.socks ' sid).pr /\
-     case tcp_sock.st of
+   fd IN FDOM h.fds &&
+     fid = (FAPPLY h.fds  fd) &&
+     FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
+     TCP_PROTO(tcp_sock) = ((FAPPLY h.socks  sid)).pr &&
+     match tcp_sock.st with
          SYN_SENT     -> if     ff.b(O_NONBLOCK) = T then err = EALREADY (*: connection already in progress :*)
                          else if windows_arch h.arch then err = EALREADY (*: connection already in progress :*)
                          else if bsd_arch     h.arch then err = EISCONN  (*: connection being established :*)
-                         else ASSERTION_FAILURE "connect_5:1" || (*: never happen :*)
+                         else ASSERTION_FAILURE "connect_5:1" | (*: never happen :*)
          SYN_RECEIVED -> if     ff.b(O_NONBLOCK) = T then err = EALREADY (*: connection already in progress :*)
                          else if windows_arch h.arch then err = EALREADY
                          else if bsd_arch     h.arch then err = EISCONN  (*: connection being established :*)
-                         else ASSERTION_FAILURE "connect_5:2" || (*: never happen :*)
+                         else ASSERTION_FAILURE "connect_5:2" | (*: never happen :*)
          LISTEN      -> if      windows_arch h.arch then err = EINVAL  (*: socket is listening :*)
                         else if bsd_arch     h.arch then err = EOPNOTSUPP
                         else if linux_arch   h.arch then err = EISCONN
-                        else ASSERTION_FAILURE "connect_5:3" || (*: never happen :*)
-         ESTABLISHED -> err = EISCONN ||  (*: socket already connected :*)
-         FIN_WAIT_1 -> err = EISCONN ||   (*: socket already connected :*)
-         FIN_WAIT_2 -> err = EISCONN ||   (*: socket already connected :*)
-         CLOSING -> err = EISCONN ||      (*: socket already connected :*)
-         CLOSE_WAIT -> err = EISCONN ||   (*: socket already connected :*)
-         LAST_ACK -> err = EISCONN ||     (*: socket already connected; seems that fd is valid in this state :*)
-         TIME_WAIT -> (windows_arch h.arch \/ linux_arch h.arch) /\ err = EISCONN ||
+                        else ASSERTION_FAILURE "connect_5:3" | (*: never happen :*)
+         ESTABLISHED -> err = EISCONN |  (*: socket already connected :*)
+         FIN_WAIT_1 -> err = EISCONN |   (*: socket already connected :*)
+         FIN_WAIT_2 -> err = EISCONN |   (*: socket already connected :*)
+         CLOSING -> err = EISCONN |      (*: socket already connected :*)
+         CLOSE_WAIT -> err = EISCONN |   (*: socket already connected :*)
+         LAST_ACK -> err = EISCONN |     (*: socket already connected; seems that fd is valid in this state :*)
+         TIME_WAIT -> (windows_arch h.arch || linux_arch h.arch) && err = EISCONN |
                      (*: BSD allows a [[TIME_WAIT]] socket to be reconnected :*)
-         CLOSED -> err = EINVAL /\ bsd_arch h.arch /\ tcp_sock.cb.bsd_cantconnect = T
+         CLOSED -> (err = EINVAL && bsd_arch h.arch && tcp_sock.cb.bsd_cantconnect = T) end
+
+     ==>
+
+   host_redn connect_5 ((* rp *) rp_tcp)  (*: Fail with [[EALREADY]], [[EINVAL]], [[EISCONN]], [[EOPNOTSUPP]]: socket already in use :*) ((* rc *)fast fail) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d)) |>)
+   ((* lbl *)Lh_call (tid,connect(fd,i2,SOME p2)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' err),sched_timer)) |>)
 
 
    (*:
@@ -4649,39 +4500,39 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    return an appropriate error.
 
    :*)
-   )
+   
+and
 
-/\
 
-   (!h ts tid d ps1 p1'
+connect_5a: forall h ts tid d ps1 p1'
      fd fid ff sid ps1'
      i2 p2 err sock socks bound is1' i1'.
 
-   connect_5a /* rp_all, fast fail (*: Fail: no route to host :*) */
-     h
-   -- Lh_call (tid,connect(fd,i2,SOME p2)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL err),sched_timer));
-               socks := socks |++
-			[(sid,sock with <| is1 := is1'; ps1 := ps1' |>)];
-	       bound := bound |>
+   h.ts = FUPDATE ts (tid,Timed(Run,d)) &&
+     h.socks = (socks |++ [(sid,<| sock with  is1  = NONE; ps1  = ps1 |>)]) &&
 
-   <==
-
-     h.ts = FUPDATE ts (tid,Timed(Run,d)) /\
-     h.socks = socks |++ [(sid,sock with <| is1 := NONE; ps1 := ps1 |>)] /\
-
-     fd IN FDOM h.fds /\
-     fid = h.fds ' fd /\
-     h.files ' fid = File(FT_Socket(sid),ff) /\
-     (if bsd_arch h.arch /\ proto_of sock.pr = PROTO_TCP then
-	  is1' = SOME i1' /\ i1' IN local_primary_ips h.ifds /\
-          ps1' = SOME p1' /\ p1' IN autobind(ps1,PROTO_TCP,h,h.socks) /\
+     fd IN FDOM h.fds &&
+     fid = (FAPPLY h.fds  fd) &&
+     (FAPPLY h.files  fid) = File(FT_Socket(sid),ff) &&
+     (if bsd_arch h.arch && proto_of sock.pr = PROTO_TCP then
+	  is1' = SOME i1' && i1' IN local_primary_ips h.ifds &&
+          ps1' = SOME p1' && p1' IN autobind(ps1,PROTO_TCP,h,h.socks) &&
 	  (if ps1 = NONE then bound = sid::h.bound else bound = h.bound)
-     else is1' = NONE /\ ps1' = ps1 /\ bound = h.bound) /\
-     case test_outroute_ip(i2,h.rttab,h.ifds,h.arch) of
-	 SOME e   -> err = e
-     ||  _other29 -> F  (* other cases not considered in this rule *) /\
-     (proto_of sock.pr = PROTO_UDP ==> ~bsd_arch h.arch)
+     else is1' = NONE && ps1' = ps1 && bound = h.bound) &&
+     (match test_outroute_ip(i2,h.rttab,h.ifds,h.arch) with
+	 Some e   -> err = e
+     |  _other29 -> F end  (* other cases not considered in this rule *)) &&
+     (proto_of sock.pr = PROTO_UDP --> not (bsd_arch h.arch))
+
+     ==>
+
+   host_redn connect_5a ((* rp *) rp_all)  (*: Fail: no route to host :*) ((* rc *)fast fail) 
+     ((* h1 *)h)
+   ((* lbl *)Lh_call (tid,connect(fd,i2,SOME p2)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' err),sched_timer));
+               socks  = socks |++
+			[(sid,<| sock with  is1  = is1'; ps1  = ps1' |>)];
+	       bound  = bound |>)
 
 
    (*:
@@ -4712,41 +4563,40 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    in the socket, we give the appropriate error.
 
    :*)
-   )
+   
+and
 
-/\
-
-   (!h ts tid d
+connect_5b: forall h ts tid d
      fd fid ff sid sock socks is1' is2' ps2'
      i2 p2 i1' p1' bound bound'.
-   connect_5b /* rp_all, fast fail (*: Fail with [[EADDRINUSE]]: address already in use :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d));
-               socks := socks |++
-                        [(sid,sock)];
-               bound := bound |>
-   -- Lh_call (tid,connect(fd,i2,SOME p2)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EADDRINUSE),sched_timer));
-               socks := socks |++
-                        [(sid,sock with <| is1 := is1'; ps1 := SOME p1'; is2 := is2'; ps2 := ps2' |> )];
-               bound := bound' |>
-
-   <==
-
-     fd IN FDOM h.fds /\
-     fid = h.fds ' fd /\
-     FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
-     i1' IN auto_outroute(i2,sock.is1,h.rttab,h.ifds) /\
-     p1' IN autobind(sock.ps1,(proto_of sock.pr),h,h.socks) /\
-     (if sock.ps1 = NONE then bound' = sid::bound else bound' = bound) /\
-     (proto_of sock.pr = PROTO_UDP ==> ~(linux_arch h.arch \/ windows_arch h.arch)) /\
-     (?(sid',s) :: socks \\ sid.
-        s.is1 = SOME i1' /\ s.ps1 = SOME p1' /\
-        s.is2 = SOME i2  /\ s.ps2 = SOME p2  /\
-        proto_eq sock.pr s.pr) /\
+   fd IN FDOM h.fds &&
+     fid = (FAPPLY h.fds  fd) &&
+     FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
+     i1' IN auto_outroute(i2,sock.is1,h.rttab,h.ifds) &&
+     p1' IN autobind(sock.ps1,(proto_of sock.pr),h,h.socks) &&
+     (if sock.ps1 = NONE then bound' = sid::bound else bound' = bound) &&
+     (proto_of sock.pr = PROTO_UDP --> not (linux_arch h.arch || windows_arch h.arch)) &&
+     (exists  sid' s. (sid',s) IN (set_of_fmap (DOMSUB socks  sid)) &&
+        s.is1 = SOME i1' && s.ps1 = SOME p1' &&
+        s.is2 = SOME i2  && s.ps2 = SOME p2  &&
+        proto_eq sock.pr s.pr) &&
      (if proto_of sock.pr = PROTO_UDP then
-	  if sock.is2 = NONE then is1' = sock.is1 /\ is2' = NONE /\ ps2' = NONE
-          else                    is1' = NONE  /\ is2' = NONE /\ ps2' = NONE
-      else is1' = sock.is1 /\ is2' = sock.is2 /\ ps2' = sock.ps2) (* TCP case still to be tested *)
+	  if sock.is2 = NONE then is1' = sock.is1 && is2' = NONE && ps2' = NONE
+          else                    is1' = NONE  && is2' = NONE && ps2' = NONE
+      else is1' = sock.is1 && is2' = sock.is2 && ps2' = sock.ps2)
+
+     ==>
+
+   host_redn connect_5b ((* rp *) rp_all)  (*: Fail with [[EADDRINUSE]]: address already in use :*) ((* rc *)fast fail) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d));
+               socks  = socks |++
+                        [(sid,sock)];
+               bound  = bound |>)
+   ((* lbl *)Lh_call (tid,connect(fd,i2,SOME p2)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' EADDRINUSE),sched_timer));
+               socks  = socks |++
+                        [(sid,<| sock with  is1  = is1'; ps1  = SOME p1'; is2  = is2'; ps2  = ps2' |> )];
+               bound  = bound' |>) (* TCP case still to be tested *)
 
 
    (*:
@@ -4788,26 +4638,26 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    From BSD.  Not in POSIX.
 
    :*)
-   )
+   
+and
 
-/\
 
-   (!h ts tid d
+connect_5c: forall h ts tid d
      fd fid ff sid
      i2 p2.
 
-   connect_5c /* rp_all, fast fail (*: Fail with [[EADDRNOTAVAIL]]: no ephemeral ports left :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
-   -- Lh_call (tid,connect(fd,i2,SOME p2)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EADDRNOTAVAIL),sched_timer)) |>
+   fd IN FDOM h.fds &&
+     fid = (FAPPLY h.fds  fd) &&
+     FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
+     ((FAPPLY h.socks  sid)).ps1 = NONE &&
+     autobind(NONE,(proto_of ((FAPPLY h.socks  sid)).pr),h,h.socks) = {}
 
-   <==
+     ==>
 
-     fd IN FDOM h.fds /\
-     fid = h.fds ' fd /\
-     FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
-     (h.socks ' sid).ps1 = NONE /\
-     autobind(NONE,(proto_of (h.socks ' sid).pr),h,h.socks) = EMPTY
+   host_redn connect_5c ((* rp *) rp_all)  (*: Fail with [[EADDRNOTAVAIL]]: no ephemeral ports left :*) ((* rc *)fast fail) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d)) |>)
+   ((* lbl *)Lh_call (tid,connect(fd,i2,SOME p2)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' EADDRNOTAVAIL),sched_timer)) |>)
 
 
    (*:
@@ -4828,29 +4678,28 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    From BSD.  Not in POSIX.
 
    :*)
-   )
+   
+and
 
 
-/\
-
-   (!h ts tid d
+connect_5d: forall h ts tid d
      fd fid ff sid
      i2 p2 tcp_sock.
 
-   connect_5d /* rp_tcp, block (*: Block, entering state [[Connect2]]: connection attempt already in progress and connect called with blocking semantics :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
-   -- Lh_call (tid,connect(fd,i2,SOME p2)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Connect2(sid),never_timer)) |>
-
-   <==
-
-     fd IN FDOM h.fds /\
-     fid = h.fds ' fd /\
-     FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
-     TCP_PROTO(tcp_sock) = (h.socks ' sid).pr /\
-     ff.b(O_NONBLOCK) = F /\
-     (linux_arch h.arch \/ bsd_arch h.arch) /\
+   fd IN FDOM h.fds &&
+     fid = (FAPPLY h.fds  fd) &&
+     FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
+     TCP_PROTO(tcp_sock) = ((FAPPLY h.socks  sid)).pr &&
+     ff.b(O_NONBLOCK) = F &&
+     (linux_arch h.arch || bsd_arch h.arch) &&
      tcp_sock.st IN {SYN_SENT; SYN_RECEIVED}
+
+     ==>
+
+   host_redn connect_5d ((* rp *) rp_tcp)  (*: Block, entering state [[Connect2]]: connection attempt already in progress and connect called with blocking semantics :*) ((* rc *)block) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d)) |>)
+   ((* lbl *)Lh_call (tid,connect(fd,i2,SOME p2)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Connect2(sid),never_timer)) |>)
 
 
    (*:
@@ -4881,27 +4730,27 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    This only applies to Linux. BSD and WinXP get it right and fail with EALREADY, cf [[connect_5]].
 
    :*)
-   )
+   
+and
 
-/\
 
-   (!h ts tid d socks sid sock tcp fd i2 p2 fid ff.
+connect_6: forall h ts tid d socks sid sock tcp fd i2 p2 fid ff.
 
-   connect_6 /* rp_tcp, fast fail (*: Fail with [[EINVAL]]: socket has been shutdown for writing :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d));
-               socks := socks |++
-                        [(sid,sock with <| cantsndmore := T; pr := TCP_PROTO(tcp with <| st := CLOSED |>) |>)] |>
-   -- Lh_call (tid,connect(fd,i2,SOME p2)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EINVAL),sched_timer));
-               socks := socks |++
-                        [(sid,sock with <| cantsndmore := T; pr := TCP_PROTO(tcp with <| st := CLOSED |>) |> )] |>
+   bsd_arch h.arch &&
+     fd IN FDOM h.fds &&
+     fid = (FAPPLY h.fds  fd) &&
+     (FAPPLY h.files  fid) = File(FT_Socket(sid),ff)
 
-   <==
+     ==>
 
-     bsd_arch h.arch /\
-     fd IN FDOM h.fds /\
-     fid = h.fds ' fd /\
-     h.files ' fid = File(FT_Socket(sid),ff)
+   host_redn connect_6 ((* rp *) rp_tcp)  (*: Fail with [[EINVAL]]: socket has been shutdown for writing :*) ((* rc *)fast fail) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d));
+               socks  = socks |++
+                        [(sid,<| sock with  cantsndmore  = T; pr  = TCP_PROTO(<| tcp with  st  = CLOSED |>) |>)] |>)
+   ((* lbl *)Lh_call (tid,connect(fd,i2,SOME p2)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' EINVAL),sched_timer));
+               socks  = socks |++
+                        [(sid,<| sock with  cantsndmore  = T; pr  = TCP_PROTO(<| tcp with  st  = CLOSED |>) |> )] |>)
 
 
    (*:
@@ -4929,42 +4778,40 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
 
    :*)
 
-   )
+and  
 
-/\
-
-   (!h h0 ts tid d sid fid sf es ff socks bound
+connect_7: forall h h0 ts tid d sid fid sf es ff socks bound
      udp ps1 fd i2 ps2 i1' p1' cantsndmore cantrcvmore cantsndmore'.
 
-   connect_7 /* rp_udp, fast succeed (*: Set peer address on socket with binding quad [[NONE,ps1,NONE,NONE]] :*) */
-     h0
-   -- Lh_call (tid,connect(fd,i2,ps2)) -->
-     h0 with <| ts := FUPDATE ts (tid, Timed(Ret (OK ()),sched_timer));
-               socks := socks |++
-                        [(sid,Sock(SOME fid,sf,SOME i1',SOME p1',SOME i2,ps2,es,cantsndmore',cantrcvmore,UDP_PROTO(udp)))];
-               bound := bound
-            |>
-
-   <==
-
-     h0 = h with <| ts := FUPDATE ts (tid, Timed(Run,d));
-                    socks := socks |++
+   h0 = <| h with  ts  = FUPDATE ts (tid, Timed(Run,d));
+                    socks  = socks |++
                                [(sid,Sock(SOME fid,sf,NONE,ps1,NONE,NONE,es,cantsndmore,cantrcvmore,UDP_PROTO(udp)))]
-          |> /\
-     fd IN FDOM h.fds /\
-     fid = h.fds ' fd /\
-     h0.files ' fid = File(FT_Socket(sid),ff) /\
-     p1' IN autobind(ps1,PROTO_UDP,h0,h0.socks) /\
-     (if ps1 = NONE then bound = sid::h0.bound else bound = h0.bound) /\
-     i1' IN auto_outroute(i2,NONE,h0.rttab,h0.ifds) /\
-     ~(? (sid', s) :: (h0.socks \\ sid).
-              s.is1 = SOME i1' /\ s.ps1 = SOME p1' /\
-              s.is2 = SOME i2  /\ s.ps2 = ps2 /\
-              proto_of s.pr = PROTO_UDP /\
-              bsd_arch h.arch) /\
-     (bsd_arch h.arch ==> ps2 <> NONE /\ es = NONE) /\
+          |> &&
+     fd IN FDOM h.fds &&
+     fid = (FAPPLY h.fds  fd) &&
+     (FAPPLY h0.files  fid) = File(FT_Socket(sid),ff) &&
+     p1' IN autobind(ps1,PROTO_UDP,h0,h0.socks) &&
+     (if ps1 = NONE then bound = sid::h0.bound else bound = h0.bound) &&
+     i1' IN auto_outroute(i2,NONE,h0.rttab,h0.ifds) &&
+     not (exists  sid' s. (sid', s) IN (set_of_fmap (DOMSUB h0.socks  sid)) && 
+              s.is1 = SOME i1' && s.ps1 = SOME p1' &&
+              s.is2 = SOME i2  && s.ps2 = ps2 &&
+              proto_of s.pr = PROTO_UDP &&
+              bsd_arch h.arch) &&
+     (bsd_arch h.arch --> ps2 /= NONE && es = NONE) &&
      (if windows_arch h.arch then cantsndmore' = F
       else                        cantsndmore' = cantsndmore)
+
+     ==>
+
+   host_redn connect_7 ((* rp *) rp_udp)  (*: Set peer address on socket with binding quad [[NONE,ps1,NONE,NONE]] :*) ((* rc *)fast succeed) 
+     ((* h1 *)h0)
+   ((* lbl *)Lh_call (tid,connect(fd,i2,ps2)))
+     ((* h2 *)<| h0 with  ts  = FUPDATE ts (tid, Timed(Ret (OK'_one ()),sched_timer));
+               socks  = socks |++
+                        [(sid,Sock(SOME fid,sf,SOME i1',SOME p1',SOME i2,ps2,es,cantsndmore',cantrcvmore,UDP_PROTO(udp)))];
+               bound  = bound
+            |>)
 
 
      (*:
@@ -4996,36 +4843,34 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
 
       :*)
 
-   )
+and   
 
-/\
-
-   (!h ts tid d sid fid sf es ff socks h0
+connect_8: forall h ts tid d sid fid sf es ff socks h0
      udp i1 p1 is2 ps2 fd i ps cantsndmore cantrcvmore cantsndmore'.
 
-   connect_8 /* rp_udp, fast succeed (*: Set peer address on socket with local address set :*) */
-     h0
-   -- Lh_call (tid,connect(fd,i,ps)) -->
-     h with <| ts := FUPDATE ts (tid, Timed(Ret (OK ()),sched_timer));
-               socks := socks |++
-                        [(sid,Sock(SOME fid,sf,SOME i1,SOME p1,SOME i,ps,es,cantsndmore',cantrcvmore,UDP_PROTO(udp)))] |>
-
-   <==
-
-     h0 =  h with <| ts := FUPDATE ts (tid, Timed(Run,d));
-                     socks := socks |++
-                              [(sid,Sock(SOME fid,sf,SOME i1,SOME p1,is2,ps2,es,cantsndmore,cantrcvmore,UDP_PROTO(udp)))] |> /\
-     fd IN FDOM h.fds /\
-     fid = h.fds ' fd /\
-     FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
-     (bsd_arch h.arch ==> ps <> NONE /\ es = NONE) /\
+   h0 =  <| h with  ts  = FUPDATE ts (tid, Timed(Run,d));
+                     socks  = socks |++
+                              [(sid,Sock(SOME fid,sf,SOME i1,SOME p1,is2,ps2,es,cantsndmore,cantrcvmore,UDP_PROTO(udp)))] |> &&
+     fd IN FDOM h.fds &&
+     fid = (FAPPLY h.fds  fd) &&
+     FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
+     (bsd_arch h.arch --> ps /= NONE && es = NONE) &&
      (if windows_arch h.arch then cantsndmore' = F
-      else                        cantsndmore' = cantsndmore) /\
-     ~(? (sid',s) :: (h0.socks \\ sid).
-              s.is1 = SOME i1 /\ s.ps1 = SOME p1 /\
-              s.is2 = SOME i  /\ s.ps2 = ps /\
-              proto_of s.pr = PROTO_UDP /\
+      else                        cantsndmore' = cantsndmore) &&
+     not (exists  sid' s. (sid',s) IN (set_of_fmap (DOMSUB h0.socks  sid)) &&
+              s.is1 = SOME i1 && s.ps1 = SOME p1 &&
+              s.is2 = SOME i  && s.ps2 = ps &&
+              proto_of s.pr = PROTO_UDP &&
 	      bsd_arch h.arch)
+
+     ==>
+
+   host_redn connect_8 ((* rp *) rp_udp)  (*: Set peer address on socket with local address set :*) ((* rc *)fast succeed) 
+     ((* h1 *)h0)
+   ((* lbl *)Lh_call (tid,connect(fd,i,ps)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid, Timed(Ret (OK'_one ()),sched_timer));
+               socks  = socks |++
+                        [(sid,Sock(SOME fid,sf,SOME i1,SOME p1,SOME i,ps,es,cantsndmore',cantrcvmore,UDP_PROTO(udp)))] |>)
 
 
     (*:
@@ -5059,30 +4904,28 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
 
      :*)
 
+and
+   
 
-   )
-
-/\
-
-   (!h ts tid d socks sid
+connect_9: forall h ts tid d socks sid
      sock udp fd i fid ff is1.
 
-   connect_9 /* rp_udp, fast fail (*: Fail with [[EADDRNOTAVAIL]]: port must be specified in [[connect()]] call on FreeBSD :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d));
-               socks := socks |++
-                        [(sid,sock with <| pr := UDP_PROTO(udp) |>)] |>
-   -- Lh_call (tid,connect(fd,i,NONE)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EADDRNOTAVAIL),sched_timer));
-               socks := socks |++
-                        [(sid,sock with <| is1 := is1; is2 := NONE; ps2 := NONE; pr := UDP_PROTO(udp) |> )] |>
+   bsd_arch h.arch &&
+     fd IN FDOM h.fds &&
+     fid = (FAPPLY h.fds  fd) &&
+     FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
+     (if sock.is2 /= NONE then is1 = NONE else is1 = sock.is1)
 
-   <==
+     ==>
 
-     bsd_arch h.arch /\
-     fd IN FDOM h.fds /\
-     fid = h.fds ' fd /\
-     FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
-     (if sock.is2 <> NONE then is1 = NONE else is1 = sock.is1)
+   host_redn connect_9 ((* rp *) rp_udp)  (*: Fail with [[EADDRNOTAVAIL]]: port must be specified in [[connect()]] call on FreeBSD :*) ((* rc *)fast fail) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d));
+               socks  = socks |++
+                        [(sid,<| sock with  pr  = UDP_PROTO(udp) |>)] |>)
+   ((* lbl *)Lh_call (tid,connect(fd,i,NONE)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' EADDRNOTAVAIL),sched_timer));
+               socks  = socks |++
+                        [(sid,<| sock with  is1  = is1; is2  = NONE; ps2  = NONE; pr  = UDP_PROTO(udp) |> )] |>)
 
 
 
@@ -5119,33 +4962,31 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
 
    :*)
 
-   )
+and
 
-/\
+connect_10: forall h ts tid d socks sid sock err udp fd i ps fid ff h0.
 
-  (!h ts tid d socks sid sock err udp fd i ps fid ff h0.
-
-  connect_10 /* rp_udp, fast fail (*: Fail with pending error on FreeBSD, but still set peer address :*) */
-    h0
-  -- Lh_call (tid,connect(fd,i,ps)) -->
-    h0 with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL err),sched_timer));
-              socks := socks |++
-                       [(sid,sock with <| is2 := SOME i; ps2 := ps; es := NONE; pr := UDP_PROTO(udp) |>)] |>
-
-  <==
-
-    bsd_arch h.arch /\
-    h0 =  h with <| ts := FUPDATE ts (tid,Timed(Run,d));
-                    socks := socks |++
-                             [(sid,sock with <| es := SOME err; pr := UDP_PROTO(udp) |>)] |> /\
-    fd IN FDOM h.fds /\
-    fid = h.fds ' fd /\
-    FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
-    ps <> NONE /\
-    ~(?(sid',s) :: (h0.socks \\ sid).
-              s.is1 = sock.is1 /\ s.ps1 = sock.ps1 /\
-              s.is2 = SOME i  /\ s.ps2 = ps /\
+  bsd_arch h.arch &&
+    h0 =  <| h with  ts  = FUPDATE ts (tid,Timed(Run,d));
+                    socks  = socks |++
+                             [(sid,<| sock with  es  = SOME err; pr  = UDP_PROTO(udp) |>)] |> &&
+    fd IN FDOM h.fds &&
+    fid = (FAPPLY h.fds  fd) &&
+    FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
+    ps /= NONE &&
+    not (exists  sid' s. (sid',s) IN (set_of_fmap  (DOMSUB h0.socks  sid)) && 
+              s.is1 = sock.is1 && s.ps1 = sock.ps1 &&
+              s.is2 = SOME i  && s.ps2 = ps &&
               proto_of s.pr = PROTO_UDP)
+
+    ==>
+
+  host_redn connect_10 ((* rp *) rp_udp)  (*: Fail with pending error on FreeBSD, but still set peer address :*) ((* rc *)fast fail) 
+    ((* h1 *)h0)
+  ((* lbl *)Lh_call (tid,connect(fd,i,ps)))
+    ((* h2 *)<| h0 with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' err),sched_timer));
+              socks  = socks |++
+                       [(sid,<| sock with  is2  = SOME i; ps2  = ps; es  = NONE; pr  = UDP_PROTO(udp) |>)] |>)
 
 
     (*:
@@ -5171,9 +5012,8 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
      This rule does not apply.
 
      :*)
-  )
 
-/\
+and  
 
 (*:
 
@@ -5265,35 +5105,36 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
 
 :*)
 
-   (!h ts tid d fd fid sid ff tcp_sock err.
 
-   disconnect_4 /* rp_tcp, fast fail (*: Fail with [[EAFNOSUPPORT]]: address family not supported; [[EOPNOTSUPP]]: operation not supported; [[EALREADY]]: connection already in progress; or [[EISCONN]]: socket already connected :*) */
-     h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
-   -- Lh_call (tid,disconnect(fd)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL err),sched_timer)) |>
+disconnect_4: forall h ts tid d fd fid sid ff tcp_sock err.
 
-   <==
-
-     fd IN FDOM h.fds /\
-     fid = h.fds ' fd /\
-     FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
-     TCP_PROTO(tcp_sock) = (h.socks ' sid).pr /\
-     ~(linux_arch h.arch) /\
-     case tcp_sock.st of
+   fd IN FDOM h.fds &&
+     fid = (FAPPLY h.fds  fd) &&
+     FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
+     TCP_PROTO(tcp_sock) = ((FAPPLY h.socks  sid)).pr &&
+     not (linux_arch h.arch) &&
+     match tcp_sock.st with
          CLOSED      -> if bsd_arch h.arch then
 	                    if tcp_sock.cb.bsd_cantconnect = T then err = EINVAL
 			    else  err = EAFNOSUPPORT
-                        else err = EAFNOSUPPORT ||
+                        else err = EAFNOSUPPORT |
          LISTEN      -> if      windows_arch h.arch then err = EAFNOSUPPORT  (*: socket is listening :*)
                         else if bsd_arch     h.arch then err = EOPNOTSUPP
-                        else ASSERTION_FAILURE "disconnect_4:1" || (*: never happen :*)
-         SYN_SENT    -> err = EALREADY || (*: connection already in progress :*)
-         SYN_RECEIVED -> err = EALREADY || (*: connection already in progress :*)
-         ESTABLISHED  -> err = EISCONN ||  (*: socket already connected :*)
+                        else ASSERTION_FAILURE "disconnect_4:1" | (*: never happen :*)
+         SYN_SENT    -> err = EALREADY | (*: connection already in progress :*)
+         SYN_RECEIVED -> err = EALREADY | (*: connection already in progress :*)
+         ESTABLISHED  -> err = EISCONN |  (*: socket already connected :*)
          TIME_WAIT    -> if windows_arch h.arch then err = EISCONN
                          else if bsd_arch h.arch then err = EAFNOSUPPORT
-                         else ASSERTION_FAILURE "disconnect_4:2" || (*: never happen :*)
-         _1           -> err = EISCONN (*: all other states :*)
+                         else ASSERTION_FAILURE "disconnect_4:2" | (*: never happen :*)
+         _1           -> (err = EISCONN) end
+
+     ==>
+
+   host_redn disconnect_4 ((* rp *) rp_tcp)  (*: Fail with [[EAFNOSUPPORT]]: address family not supported; [[EOPNOTSUPP]]: operation not supported; [[EALREADY]]: connection already in progress; or [[EISCONN]]: socket already connected :*) ((* rc *)fast fail) 
+     ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d)) |>)
+   ((* lbl *)Lh_call (tid,disconnect(fd)))
+     ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' err),sched_timer)) |>) (*: all other states :*)
 
 
    (*:
@@ -5324,7 +5165,11 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
 
    :*)
 
-   )
+   
+
+
+
+(**
 
 /\
 
@@ -5417,7 +5262,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
     FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
     (if linux_arch h.arch then ret = OK()
      else if windows_arch h.arch /\ ?i2'.is2=SOME i2' then ret = OK()
-     else                      ret = FAIL EAFNOSUPPORT)
+     else                      ret = FAIL' EAFNOSUPPORT)
 
 
    (*:
@@ -5481,7 +5326,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
      FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
      (ps1 = NONE \/ (ps1 = SOME p1 /\ p1 IN autobind(NONE,PROTO_UDP,h0,h0.socks))) /\
      (if linux_arch h.arch then ret = OK()
-      else                      ret = (FAIL EAFNOSUPPORT))
+      else                      ret = (FAIL' EAFNOSUPPORT))
 
 
    (*:
@@ -5530,7 +5375,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    disconnect_3 /* rp_udp, fast fail (*: Fail with [[EAGAIN]], [[EADDRNOTAVAIL]], or [[ENOBUFS]]: there are no ephemeral ports left :*) */
      h0
    -- Lh_call (tid,disconnect fd) -->
-     h0 with <| ts := FUPDATE ts (tid, Timed(Ret (FAIL e),sched_timer)) |>
+     h0 with <| ts := FUPDATE ts (tid, Timed(Ret (FAIL' e),sched_timer)) |>
 
    <==
 
@@ -5676,7 +5521,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    dup_2 /* rp_all, fast fail (*: Fail with [[EMFILE]]: no more file descriptors available :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,dup(fd)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EMFILE),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' EMFILE),sched_timer)) |>
 
    <==
 
@@ -5836,7 +5681,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    dupfd_3 /* rp_all, fast fail (*: Fail with [[EINVAL]]: [[n]] is negative or greater than the maximum allowed file descriptor :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,dupfd(fd,n)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL err),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' err),sched_timer)) |>
 
    <==
 
@@ -5882,7 +5727,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    dupfd_4 /* rp_all, fast fail (*: Fail with [[EMFILE]]: no more file descriptors available :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,dupfd(fd,n)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EMFILE),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' EMFILE),sched_timer)) |>
 
    <==
 
@@ -6334,7 +6179,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    getpeername_2 /* rp_all, fast fail (*: Fail with [[ENOTCONN]]: socket not connected to a peer :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,getpeername(fd)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL ENOTCONN),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' ENOTCONN),sched_timer)) |>
 
    <==
 
@@ -6556,7 +6401,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
                 socks := socks |++
                          [(sid, sock with <| pr := UDP_PROTO(udp) |>)] |>
     -- Lh_call (tid,getsockbopt(fd,f)) -->
-      h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL ENOPROTOOPT),sched_timer));
+      h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' ENOPROTOOPT),sched_timer));
                 socks := socks |++
                          [(sid,sock with <| pr := UDP_PROTO(udp) |>)] |>
 
@@ -6685,7 +6530,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    getsockerr_1 /* rp_all, fast succeed (*: Return successfully: no pending error :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,getsockerr(fd)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK ()),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK'_one ()),sched_timer)) |>
 
    <==
 
@@ -6723,7 +6568,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
      h with <| ts := FUPDATE ts (tid,Timed(Run,d));
                socks := socks |++ [(sid,sock)] |>
    -- Lh_call (tid,getsockerr(fd)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL e),sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' e),sched_timer));
                socks := socks |++ [(sid,sock')] |>
 
    <==
@@ -6894,7 +6739,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    getsocklistening_3 /* rp_tcp, fast fail (*: Fail with [[ENOPROTOOPT]]: on FreeBSD operation not supported :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,getsocklistening(fd)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL ENOPROTOOPT),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' ENOPROTOOPT),sched_timer)) |>
 
    <==
 
@@ -6947,7 +6792,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
      fid = h.fds ' fd /\
      FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
      if linux_arch h.arch then rc = fast succeed /\ ret = OK F
-     else                      rc = fast fail    /\ ret = FAIL ENOPROTOOPT
+     else                      rc = fast fail    /\ ret = FAIL' ENOPROTOOPT
 
 
    (*:
@@ -7147,7 +6992,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
      h with <| ts := FUPDATE ts (tid,Timed(Run,d));
                socks := socks |++ [(sid,sock)] |>
    -- Lh_call (tid,getsockname(fd)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL ECONNRESET),sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' ECONNRESET),sched_timer));
                socks := socks |++ [(sid,sock)] |>
 
    <==
@@ -7201,7 +7046,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
                socks := socks |++
                         [(sid,sock with <| is1 := NONE; ps1 := NONE |>)] |>
    -- Lh_call (tid,getsockname(fd)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EINVAL),sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' EINVAL),sched_timer));
                socks := socks |++
                         [(sid,sock with <| is1 := NONE; ps1 := NONE |>)] |>
 
@@ -7392,7 +7237,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    getsocknopt_4 /* rp_all, fast fail (*: Fail with [[ENOPROTOOPT]]: value of [[SO_RCVLOWAT]] and [[SO_SNDLOWAT]] not retrievable :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,getsocknopt(fd,f)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL ENOPROTOOPT),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' ENOPROTOOPT),sched_timer)) |>
 
    <==
 
@@ -7590,7 +7435,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    getsocktopt_4 /* rp_all, fast fail (*: Fail with [[ENOPROTOOPT]]: on WinXP [[SO_LINGER]] not retrievable for UDP sockets :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,getsocktopt(fd,f)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL ENOPROTOOPT),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' ENOPROTOOPT),sched_timer)) |>
 
    <==
 
@@ -7740,7 +7585,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
 				   TCP_Sock(CLOSED,cb,NONE,[],NONE,[],NONE,NO_OOBDATA)))] ;
                listen := listen0 |>
    -- Lh_call (tid,listen(fd,n)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK ()),sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK'_one ()),sched_timer));
                socks := socks |++
                         [(sid,Sock(SOME fid,sf,is1,SOME p1,is2,ps2,es,F,cantrcvmore,
                               TCP_Sock(LISTEN,cb,SOME lis,[],NONE,[],NONE,NO_OOBDATA)))] ;
@@ -7829,7 +7674,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
                                    TCP_Sock(LISTEN,cb,SOME lis,[],NONE,[],NONE,NO_OOBDATA)))] ;
                listen := listen0 |>
    -- Lh_call (tid,listen(fd,n)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK ()),sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK'_one ()),sched_timer));
                socks := socks |++
                         [(sid,Sock(SOME fid,sf,is1,ps1,is2,ps2,es,F,cantrcvmore,
                                    TCP_Sock(LISTEN,cb,SOME lis',[],NONE,[],NONE,NO_OOBDATA)))] ;
@@ -7886,7 +7731,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
                         [(sid,sock)];
                listen := listen0 |>
    -- Lh_call (tid,listen(fd,n)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK ()),sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK'_one ()),sched_timer));
                socks := socks |++
                         [(sid,sock')];
                listen := sid :: listen0 |>
@@ -7930,7 +7775,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    listen_2 /* rp_tcp, fast fail (*: Fail with [[EINVAL]] on WinXP: socket not bound to local port :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,listen(fd,n)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EINVAL),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' EINVAL),sched_timer)) |>
 
    <==
 
@@ -7982,7 +7827,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    listen_3 /* rp_tcp, fast fail (*: Fail with [[EINVAL]] on Linux or [[EISCONN]] on WinXP: socket not in [[CLOSED]] or [[LISTEN]] state :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,listen(fd,n)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL err),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' err),sched_timer)) |>
 
    <==
 
@@ -8042,7 +7887,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    listen_4 /* rp_tcp, fast fail (*: Fail with [[EADDRINUSE]] on Linux: another socket already listening on local port :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,listen(fd,n)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EADDRINUSE), sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' EADDRINUSE), sched_timer)) |>
 
    <==
 
@@ -8102,7 +7947,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
                socks := socks |++
 	                [(sid,sock with <| cantsndmore := cantsndmore; pr := TCP_PROTO(tcp_sock with <| st := st |>) |>)] |>
    -- Lh_call (tid,listen(fd,n)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EINVAL), sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' EINVAL), sched_timer));
                socks := socks |++
                         [(sid,sock with <| cantsndmore := cantsndmore; pr := TCP_PROTO(tcp_sock with <| st := st |>) |>)] |>
 
@@ -8156,7 +8001,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    listen_7 /* rp_udp, fast fail (*: Fail with [[EOPNOTSUPP]]: [[listen()]] called on UDP socket :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,listen(fd,n)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EOPNOTSUPP),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' EOPNOTSUPP),sched_timer)) |>
 
    <==
 
@@ -8644,7 +8489,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    pselect_4 /* rp_all, fast fail (*: Fail with [[EINVAL]]: Timeout not well-formed :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,pselect(readfds,writefds,exceptfds,timeout,sigmask)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EINVAL),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' EINVAL),sched_timer)) |>
 
    <==
 
@@ -8686,7 +8531,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    pselect_5 /* rp_all, fast fail (*: Fail with [[EINVAL]]: File descriptor out of range :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,pselect(readfds,writefds,exceptfds,timeout,sigmask)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EINVAL),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' EINVAL),sched_timer)) |>
 
    <==
 
@@ -8739,7 +8584,7 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    pselect_6 /* rp_all, fast fail (*: Fail with [[EBADF]] or [[ENOTSOCK]]: Bad file descriptor :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,pselect(readfds,writefds,exceptfds,timeout,sigmask)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL err),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' err),sched_timer)) |>
 
    <==
 
@@ -9268,7 +9113,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
    recv_4 /* rp_tcp, fast fail (*: Fail with [[EAGAIN]]: non-blocking call would block waiting for data :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,recv(fd,n0,opts0)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EAGAIN),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' EAGAIN),sched_timer)) |>
 
    <==
 
@@ -9469,7 +9314,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
    recv_6 /* rp_tcp, fast fail (*: Fail with [[EAGAIN]] or [[EINVAL]]: [[recv()]] called with [[MSG_OOB]] set and out-of-band data is not available  :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,recv(fd,n0,opts0)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL e),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' e),sched_timer)) |>
 
    <==
 
@@ -9545,7 +9390,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
    recv_7 /* rp_tcp, fast fail (*: Fail with [[ENOTCONN]]: socket not connected :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,recv(fd,n0,opts0)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL ENOTCONN),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' ENOTCONN),sched_timer)) |>
 
    <==
 
@@ -9590,7 +9435,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
                socks := socks |++
                         [(sid,Sock(SOME fid,sf,is1,ps1,is2,ps2,SOME e,cantsndmore,cantrcvmore,TCP_PROTO(tcp_sock)))] |>
    -- Lh_call (tid,recv(fd,n0,opts0)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL e),sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' e),sched_timer));
                socks := socks |++
                         [(sid,Sock(SOME fid,sf,is1,ps1,is2,ps2,es,cantsndmore,cantrcvmore,TCP_PROTO(tcp_sock)))] |>
 
@@ -9682,7 +9527,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
                 socks := socks |++
                          [(sid, sock with <| es := SOME e; pr := TCP_PROTO(tcp_sock) |>)] |>
     -- Lh_tau -->
-      h with <| ts := FUPDATE ts (tid, Timed(Ret (FAIL e),sched_timer));
+      h with <| ts := FUPDATE ts (tid, Timed(Ret (FAIL' e),sched_timer));
                 socks := socks |++
                          [(sid, sock with <| es := es; pr := TCP_PROTO(tcp_sock) |>)] |>
 
@@ -9717,7 +9562,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
     set in [[opts]]; and (3) there is no urgent data ahead in the socket's receive queue.
 
     The thread returns from the blocked state, returning the pending error. A [[Lh_tau]] transition
-    is made, leaving the thread state [[Ret (FAIL e)]]. If the [[MSG_PEEK]] flag was set in
+    is made, leaving the thread state [[Ret (FAIL' e)]]. If the [[MSG_PEEK]] flag was set in
     [[opts]] then the socket's pending error remains, otherwise it is cleared.
 
     @variation FreeBSD
@@ -9744,7 +9589,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
                 socks := socks |++
 		         [(sid,sock with <| cantrcvmore := T; pr := TCP_PROTO(tcp_sock) |>)] |>
     -- Lh_call(tid,recv(fd,n,opts)) -->
-      h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL ESHUTDOWN),sched_timer));
+      h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' ESHUTDOWN),sched_timer));
                 socks := socks |++
 		         [(sid,sock with <| cantrcvmore := T; pr := TCP_PROTO(tcp_sock) |>)] |>
 
@@ -10141,7 +9986,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
     recv_13 /* rp_udp, fast fail (*: Fail with [[EAGAIN]]: call would block and socket is non-blocking or, on Linux, non-blocking behaviour has been requested with the [[MSG_DONTWAIT]] flag :*) */
       h0
     -- Lh_call (tid,recv(fd,n,opts0)) -->
-      h with <| ts := FUPDATE ts (tid, Timed(Ret (FAIL EAGAIN),sched_timer));
+      h with <| ts := FUPDATE ts (tid, Timed(Ret (FAIL' EAGAIN),sched_timer));
                 socks := socks |++
                          [(sid,s with <| es := NONE; pr := UDP_Sock([]) |>)] |>
 
@@ -10199,7 +10044,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
     recv_14 /* rp_udp, fast fail (*: Fail with [[EAGAIN]], [[EADDRNOTAVAIL]], or [[ENOBUFS]]: there are no ephemeral ports left :*) */
       h0
     -- Lh_call (tid,recv(fd,n,opts)) -->
-      h0 with <| ts := FUPDATE ts (tid, Timed(Ret (FAIL e),sched_timer)) |>
+      h0 with <| ts := FUPDATE ts (tid, Timed(Ret (FAIL' e),sched_timer)) |>
 
     <==
 
@@ -10297,7 +10142,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
                socks := socks |++
                         [(sid,sock with <| pr := UDP_PROTO(udp) |>)] |>
    -- Lh_call (tid,recv(fd,n0,opts0)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EOPNOTSUPP),sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' EOPNOTSUPP),sched_timer));
                socks := socks |++
                         [(sid,sock with <| pr := UDP_PROTO(udp) |>)] |>
 
@@ -10366,7 +10211,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
     fd IN FDOM h.fds /\
     fid = h.fds ' fd /\
     FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
-    if      windows_arch h.arch then ret = FAIL(ESHUTDOWN) /\ rc = fast fail
+    if      windows_arch h.arch then ret = FAIL'(ESHUTDOWN) /\ rc = fast fail
     else if bsd_arch     h.arch then ret = OK("",SOME((NONE,NONE),b)) /\ rc = fast succeed /\
     sock.es = NONE
     else if linux_arch   h.arch then
@@ -10577,7 +10422,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
                socks := socks |++
                         [(sid,sock with <| ps1 := NONE; pr := UDP_PROTO(udp) |> )] |>
    -- Lh_call (tid,recv(fd,n0,opts0)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EINVAL),sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' EINVAL),sched_timer));
                socks := socks |++
                         [(sid,sock with <| ps1 := NONE; pr := UDP_PROTO(udp) |> )] |>
 
@@ -10626,7 +10471,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
                socks := socks |++
                         [(sid,sock with <| pr := UDP_Sock(rcvq) |>)] |>
    -- lbl -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL err), sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' err), sched_timer));
                socks := socks |++
                         [(sid,sock with <| pr := UDP_Sock(rcvq') |>)] |>
 
@@ -10687,7 +10532,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
                 socks := socks |++
                  [(sid,Sock(SOME fid,sf,SOME i1,SOME p1,is2,ps2,SOME e,cantsndmore,cantrcvmore,UDP_PROTO(udp)))] |>
     -- Lh_call (tid,recv(fd,n0,opts0)) -->
-      h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL e),sched_timer));
+      h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' e),sched_timer));
                 socks := socks |++
                  [(sid,Sock(SOME fid,sf,SOME i1,SOME p1,is2,ps2,es,cantsndmore,cantrcvmore,UDP_PROTO(udp)))] |>
 
@@ -11210,7 +11055,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
    send_4 /* rp_tcp, fast fail (*: Fail with [[EAGAIN]]: non-blocking semantics requested and call would block :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,send(fd,NONE,IMPLODE str,opts0)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EAGAIN),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' EAGAIN),sched_timer)) |>
 
    <==
 
@@ -11293,7 +11138,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
                socks := socks |++
                         [(sid,sock with <| es := SOME e |>)] |>
    -- Lh_call (tid,send(fd,addr,IMPLODE str,opts0)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL e),sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' e),sched_timer));
                socks := socks |++
                         [(sid,sock with <| es := NONE |>)] |>
 
@@ -11352,7 +11197,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
                socks := socks |++
                         [(sid,sock with <| es := SOME e |>)] |>
    -- Lh_tau -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL e),sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' e),sched_timer));
                socks := socks |++
                         [(sid,sock with <| es := NONE |>)] |>
 
@@ -11396,7 +11241,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
    send_6 /* rp_tcp, fast fail (*: Fail with [[ENOTCONN]] or [[EPIPE]]: socket not connected :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,send(fd,NONE,IMPLODE str,opts0)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL err),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' err),sched_timer)) |>
 
 
    <==
@@ -11472,7 +11317,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
                socks := socks |++
                         [(sid,Sock(SOME fid,sf,is1,ps1,is2,ps2,es,T,cantrcvmore,TCP_PROTO(tcp)))] |>
    -- lbl -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL err),sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' err),sched_timer));
                socks := socks |++
                         [(sid,Sock(SOME fid,sf,is1,ps1,is2,ps2,es,T,cantrcvmore,TCP_PROTO(tcp)))] |>
 
@@ -11544,6 +11389,8 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
    :*)
    )
 
+(**
+
 /\
 
    (!h ts tid d
@@ -11552,7 +11399,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
    send_8 /* rp_tcp, fast fail (*: Fail with [[EOPNOTSUPP]]:  message flag not valid :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,send(fd,NONE,IMPLODE str,opts0)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EOPNOTSUPP),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' EOPNOTSUPP),sched_timer)) |>
 
    <==
 
@@ -11985,7 +11832,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
     send_11 /* rp_udp, fast fail (*: Fail with [[EAGAIN]]: call would block and non-blocking behaviour has been requested :*) */
       h0
     -- Lh_call (tid,send(fd,addr,IMPLODE str,opts0)) -->
-      h with <| ts := FUPDATE ts (tid, Timed(Ret (FAIL EAGAIN),sched_timer));
+      h with <| ts := FUPDATE ts (tid, Timed(Ret (FAIL' EAGAIN),sched_timer));
                 socks := socks |++
                          [(sid,sock with <| es := es; ps1 := SOME p1'; pr := UDP_PROTO(udp) |>)];
                 bound := bound;
@@ -12065,7 +11912,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
     send_12 /* rp_udp, fast fail (*: Fail with [[ENOTCONN]]: no peer address set in socket and no destination address provided :*) */
       h0
     -- Lh_call (tid,send(fd,NONE,IMPLODE str,opts0)) -->
-      h with <| ts := FUPDATE ts (tid, Timed(Ret (FAIL err), sched_timer));
+      h with <| ts := FUPDATE ts (tid, Timed(Ret (FAIL' err), sched_timer));
                 socks := socks |++
                          [(sid,Sock(SOME fid,sf,is1,ps1',NONE,NONE,es,cantsndmore,cantrcvmore,UDP_PROTO(udp)))];
                 bound := bound |>
@@ -12136,7 +11983,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
     send_13 /* rp_udp, fast fail (*: Fail with [[EMSGSIZE]]: string to be sent is bigger than [[UDPpayloadMax]] :*) */
       h0
     -- Lh_call (tid,send(fd,addr,IMPLODE str,opts0)) -->
-      h with <| ts := FUPDATE ts (tid, Timed(Ret (FAIL EMSGSIZE), sched_timer));
+      h with <| ts := FUPDATE ts (tid, Timed(Ret (FAIL' EMSGSIZE), sched_timer));
                 socks := socks |++
                          [(sid,sock with <| ps1 := ps1'; pr := UDP_PROTO(udp) |>)];
                 bound := bound |>
@@ -12208,7 +12055,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
                 socks := socks |++
                          [(sid,Sock(SOME fid,sf,NONE,NONE,NONE,NONE,es,cantsndmore,cantrcvmore,UDP_PROTO(udp)))] |>
     -- Lh_call (tid,send(fd,addr,IMPLODE str,opts0)) -->
-      h with <| ts := FUPDATE ts (tid, Timed(Ret (FAIL e), sched_timer));
+      h with <| ts := FUPDATE ts (tid, Timed(Ret (FAIL' e), sched_timer));
                 socks := socks |++
                          [(sid,Sock(SOME fid,sf,NONE,NONE,NONE,NONE,es,cantsndmore,cantrcvmore,UDP_PROTO(udp)))] |>
 
@@ -12323,7 +12170,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
                 socks := socks |++
                          [(sid,sock with <| es := SOME e; pr := UDP_PROTO(udp) |>)] |>
     -- Lh_tau -->
-      h with <| ts := FUPDATE ts (tid, Timed(Ret (FAIL e),sched_timer));
+      h with <| ts := FUPDATE ts (tid, Timed(Ret (FAIL' e),sched_timer));
                 socks := socks |++
                 [(sid,sock with <| es := NONE; pr := UDP_PROTO(udp) |>)] |>
 
@@ -12364,7 +12211,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
                 socks := socks |++
                          [(sid,sock with <| sf := sf; es := es; pr := UDP_PROTO(udp) |>)] |>
     -- Lh_tau -->
-      h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL e),sched_timer));
+      h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' e),sched_timer));
                 socks := socks |++
                          [(sid,sock with <| sf := sf; es := es; pr := UDP_PROTO(udp) |>)] |>
 
@@ -12439,7 +12286,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
    send_18 /* rp_udp, fast fail (*: Fail with [[EOPNOTSUPP]]: [[MSG_PEEK]] flag not supported for [[send()]] calls on WinXP; or [[MSG_OOB]] flag not supported on WinXP and Linux  :*) */
     h0
    -- Lh_call (tid,send(fd,addr,IMPLODE str,opts0)) -->
-    h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EOPNOTSUPP),sched_timer));
+    h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' EOPNOTSUPP),sched_timer));
               socks := socks |++
                        [(sid,sock with <| ps1 := ps1'; pr := UDP_PROTO(udp) |>)];
               bound := bound |>
@@ -12507,7 +12354,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
    send_19 /* rp_udp, fast fail (*: Fail with [[EADDRINUSE]]: on FreeBSD, local and destination address quad in use by another socket :*) */
      h0
    -- Lh_call (tid,send(fd,SOME (i2,p2),IMPLODE str,opts0)) -->
-     h with <| ts := FUPDATE ts (tid, Timed(Ret (FAIL EADDRINUSE),sched_timer));
+     h with <| ts := FUPDATE ts (tid, Timed(Ret (FAIL' EADDRINUSE),sched_timer));
                socks := socks |++
                         [(sid,sock)];
                bound := bound |>
@@ -12581,7 +12428,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
                socks := socks |++
                         [(sid,sock with <| es := NONE; is2 := SOME i2; ps2 := SOME p2; pr := UDP_PROTO(udp)  |>)] |>
    -- Lh_call (tid,send(fd,SOME(i3,p3),IMPLODE str,opts0)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EISCONN),sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' EISCONN),sched_timer));
                socks := socks |++
                         [(sid,sock with <| es := NONE; is2 := SOME i2; ps2 := SOME p2; pr := UDP_PROTO(udp)  |>)] |>
 
@@ -12644,7 +12491,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
                 socks := socks |++
                          [(sid,Sock(SOME fid,sf,is1,ps1,is2,ps2,es,T,cantrcvmore,UDP_PROTO(udp)))] |>
     -- Lh_call(tid,send(fd,addr,IMPLODE str,opts0)) -->
-      h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL err),sched_timer));
+      h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' err),sched_timer));
                 socks := socks |++
                          [(sid,Sock(SOME fid,sf,is1,ps1,is2,ps2,es,T,cantrcvmore,UDP_PROTO(udp)))] |>
 
@@ -12687,7 +12534,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
                socks := socks |++
                         [(sid,sock with <| es := SOME e |>)] |>
    -- Lh_call (tid,send(fd,addr,IMPLODE str,opts0)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL e),sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' e),sched_timer));
                socks := socks |++
                         [(sid,sock with <| es := NONE |>)] |>
 
@@ -12807,7 +12654,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
      h with <| ts := FUPDATE ts (tid,Timed(Run,d));
                files := files |++ [(fid,File(ft,ff with <| b:=ffb |>))] |>
    -- Lh_call (tid,setfileflags(fd,flags)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK ()),sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK'_one ()),sched_timer));
                files := files |++ [(fid,File(ft,ff with <| b:=ffb' |>))] |>
 
    <==
@@ -12965,7 +12812,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
      h with <| ts := FUPDATE ts (tid,Timed(Run,d));
                socks := socks |++ [(sid,sock)] |>
    -- Lh_call (tid,setsockbopt(fd,f,b)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK ()),sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK'_one ()),sched_timer));
                socks := socks |++ [(sid,sock')] |>
 
    <==
@@ -13018,7 +12865,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
                socks := socks |++
                         [(sid,sock with <| pr := UDP_PROTO(udp) |>)] |>
    -- Lh_call (tid,setsockbopt(fd,f,b)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL ENOPROTOOPT),sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' ENOPROTOOPT),sched_timer));
                socks := socks |++
                         [(sid,sock with <| pr := UDP_PROTO(udp) |>)] |>
 
@@ -13166,7 +13013,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
      h with <| ts := FUPDATE ts (tid,Timed(Run,d));
                socks := socks |++ [(sid,sock)] |>
    -- Lh_call (tid,setsocknopt(fd,f,n)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK ()),sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK'_one ()),sched_timer));
                socks := socks |++ [(sid,sock')] |>
 
    <==
@@ -13224,7 +13071,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
    setsocknopt_2 /* rp_all, fast fail (*: Fail with [[EINVAL]]: on FreeBSD numeric socket flags cannot be set to zero :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,setsocknopt(fd,f,n)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EINVAL),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' EINVAL),sched_timer)) |>
 
    <==
 
@@ -13271,7 +13118,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
    setsocknopt_4 /* rp_all, fast fail (*: Fail with [[ENOPROTOOPT]]: [[SO_SNDLOWAT]] not settable on Linux :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,setsocknopt(fd,f,n)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL ENOPROTOOPT),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' ENOPROTOOPT),sched_timer)) |>
 
    <==
 
@@ -13437,7 +13284,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
      h with <| ts := FUPDATE ts (tid,Timed(Run,d));
                socks := socks |++ [(sid,sock)] |>
    -- Lh_call (tid,setsocktopt(fd,f,t)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK ()),sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK'_one ()),sched_timer));
                socks := socks |++ [(sid,sock')] |>
 
    <==
@@ -13507,7 +13354,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
    setsocktopt_4 /* rp_all, fast fail (*: Fail with [[ENOPROTOOPT]]: on WinXP [[SO_LINGER]] not settable for a UDP socket :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,setsocktopt(fd,f,t)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL ENOPROTOOPT),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' ENOPROTOOPT),sched_timer)) |>
 
    <==
 
@@ -13560,7 +13407,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
    setsocktopt_5 /* rp_all, fast fail (*: Fail with [[EDOM]]:  timeout value too long to fit in socket structure :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,setsocktopt(fd,f,t)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EDOM),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' EDOM),sched_timer)) |>
 
    <==
 
@@ -13704,7 +13551,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
                socks := socks |++
                         [(sid,sock)] |>
    -- Lh_call (tid,shutdown(fd,r,w)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK ()),sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (OK'_one ()),sched_timer));
                socks := socks |++
                         [(sid,sock')] |>
 
@@ -13839,7 +13686,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
    shutdown_3 /* rp_tcp, fast fail (*: Fail with [[ENOTCONN]]: cannot shutdown a socket that is not connected on Linux and WinXP :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,shutdown(fd,r,w)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL ENOTCONN),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' ENOTCONN),sched_timer)) |>
 
    <==
 
@@ -13889,7 +13736,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
                socks := socks |++
                         [(sid,sock with <| is2 := NONE; pr := UDP_PROTO(udp) |> ) ] |>
    -- Lh_call (tid,shutdown(fd,r,w)) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL ENOTCONN),sched_timer));
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' ENOTCONN),sched_timer));
                socks := socks |++
                         [(sid,sock with <| is2 := NONE;
                                            cantsndmore := (w \/ sock.cantsndmore);
@@ -14094,7 +13941,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
      fid = h.fds ' fd /\
      FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
      if bsd_arch h.arch then rc = fast succeed /\ ret = OK(F)
-     else                    rc = fast fail    /\ ret = FAIL EINVAL
+     else                    rc = fast fail    /\ ret = FAIL' EINVAL
 
 
    (*:
@@ -14302,7 +14149,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
    socket_2 /* rp_all, fast fail (*: Fail with [[EMFILE]]: out of file descriptors for this process :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,(socket (s))) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EMFILE),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' EMFILE),sched_timer)) |>
 
    <==
 
@@ -14402,7 +14249,7 @@ Common errors.
    badf_1 /* rp_all, fast fail (*: Fail with [[EBADF]]: not a valid file descriptor :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,opn) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL e),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' e),sched_timer)) |>
 
    <==
 
@@ -14461,7 +14308,7 @@ Common errors.
    notsock_1 /* rp_all, fast fail (*: Fail with [[ENOTSOCK]]: file descriptor not a valid socket :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call (tid,opn) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL ENOTSOCK),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' ENOTSOCK),sched_timer)) |>
 
    <==
 
@@ -14508,7 +14355,7 @@ Common errors.
      signal :*) */
      h with <| ts := FUPDATE ts (tid,Timed(st,d)) |>
    -- Lh_tau -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL EINTR),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' EINTR),sched_timer)) |>
 
 
    <==
@@ -14574,7 +14421,7 @@ Common errors.
      of resources :*) */
      h with <| ts := FUPDATE ts (tid,Timed(Run,d)) |>
    -- Lh_call(tid, call) -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL e),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' e),sched_timer)) |>
 
    <==
 
@@ -14655,7 +14502,7 @@ Common errors.
      [[ENOMEM]]: from a blocked state with out of resources :*) */
      h with <| ts := FUPDATE ts (tid,Timed(t,d)) |>
    -- Lh_tau -->
-     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL e),sched_timer)) |>
+     h with <| ts := FUPDATE ts (tid,Timed(Ret (FAIL' e),sched_timer)) |>
 
    <==
 

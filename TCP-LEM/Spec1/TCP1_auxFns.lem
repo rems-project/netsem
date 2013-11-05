@@ -129,7 +129,7 @@ a socket of the given protocol binding that port.
 (* DON'T phase: in betters *)
 let (*: is it permitted to bind the given (IP,port) pair? :*)
   bound_port_allowed pr socks sf arch is p = (
-    p NOTIN
+    NOTIN (p:port) 
      {port | exists s (*s:socket*).
         s IN FRANGE socks && (s.ps1 = SOME port &&        
 (proto_eq s.pr pr &&
@@ -1316,7 +1316,7 @@ let
               TCP1_netTypes.ws   = ws;
               TCP1_netTypes.urp  = urp_any;
               TCP1_netTypes.mss  = mss;
-              TCP1_netTypes.ts   = ts;
+              TCP1_netTypes.tcpSegment_ts   = ts;
               TCP1_netTypes.data = []
            |>))))
     )))
@@ -1366,7 +1366,7 @@ let
               TCP1_netTypes.ws   = ws;
               TCP1_netTypes.urp  = urp_any;
               TCP1_netTypes.mss  = mss;
-              TCP1_netTypes.ts   = ts;
+              TCP1_netTypes.tcpSegment_ts   = ts;
               TCP1_netTypes.data = []  (*: see below :*)
            |>)))))
 (*: No [[data]] can be send here using the BSD sockets API, although
@@ -1407,7 +1407,7 @@ let
               TCP1_netTypes.ws   = Nothing;
               TCP1_netTypes.urp  = urp_garbage;
               TCP1_netTypes.mss  = Nothing;
-              TCP1_netTypes.ts   = ts;
+              TCP1_netTypes.tcpSegment_ts   = ts;
               TCP1_netTypes.data = [] (*: Note that if there is data in [[sndq]] then it
                             should always appear in a seperate segment after the connnection
                             establishment handshake, but this needs to be verified. :*)
@@ -1450,7 +1450,7 @@ let
               TCP1_netTypes.ws   = Nothing;
               TCP1_netTypes.urp  = urp_garbage;
               TCP1_netTypes.mss  = Nothing;
-              TCP1_netTypes.ts   = ts;
+              TCP1_netTypes.tcpSegment_ts   = ts;
               TCP1_netTypes.data = [] (*: sndq always empty in this situation :*)
            |>))))
 
@@ -1487,7 +1487,7 @@ let
               TCP1_netTypes.ws   = Nothing;
               TCP1_netTypes.urp  = urp_garbage;  (*: expect: [[0w]] :*)
               TCP1_netTypes.mss  = Nothing;
-              TCP1_netTypes.ts   = Nothing;  (*: RFC1323 S4.2 recommends no TS on RST, and BSD follows this :*)
+              TCP1_netTypes.tcpSegment_ts   = Nothing;  (*: RFC1323 S4.2 recommends no TS on RST, and BSD follows this :*)
               TCP1_netTypes.data = data_garbage  (*: expect: [[ [] ]] :*)
            |>)))))))
 
@@ -1541,7 +1541,7 @@ let
               TCP1_netTypes.ws   = Nothing;
               TCP1_netTypes.urp  = urp_garbage;  (*: expect: [[0w]] :*)
               TCP1_netTypes.mss  = Nothing;
-              TCP1_netTypes.ts   = Nothing;  (*: RFC1323 S4.2 recommends no TS on RST, and BSD follows this :*)
+              TCP1_netTypes.tcpSegment_ts   = Nothing;  (*: RFC1323 S4.2 recommends no TS on RST, and BSD follows this :*)
               TCP1_netTypes.data = data_garbage  (*: expect: [[ [] ]] :*)
            |>)
     )))))))))
@@ -1818,7 +1818,7 @@ let
                  TCP1_netTypes.ws   = None;
                  TCP1_netTypes.urp  = urp_;
                  TCP1_netTypes.mss  = None;
-                 TCP1_netTypes.ts   = ts;
+                 TCP1_netTypes.tcpSegment_ts   = ts;
                  TCP1_netTypes.data = data_to_send
                |> in
 

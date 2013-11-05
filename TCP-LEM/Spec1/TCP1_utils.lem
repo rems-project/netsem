@@ -63,6 +63,8 @@ val _ = overload_on("NOTIN", ``notinlist``)
    rewriting; it's handled specially elsewhere *)
 *)
 
+let notinlist x l = not (List.elem x l)
+
 
 (*: update one point of a function:*)
 let funupd f x y = fun x' -> if Basic_classes.(=) x' x then y else f x

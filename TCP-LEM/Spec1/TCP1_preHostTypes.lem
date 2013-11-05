@@ -665,7 +665,7 @@ descriptor.
 
 (* DON'T phase: in betters *)
 let (*: count references to given [[fid]] :*)
-   fid_ref_count (fds (*fds:fd |-> fid*),fid) = CARD (FDOM (RRESTRICT fds {fid}))
+   fid_ref_count (fds (*fds:fd |-> fid*),fid) = CARD (FDOM (RRESTRICT (fds:fmap fd fid) {(fid:fid)}))
 
 (*:
 @description
