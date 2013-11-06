@@ -197,10 +197,10 @@ type (*: state of host wrt a thread :*)
                     | Accept2 of sid   (*: blocked in [[accept]] :*)
                     | Close2 of sid    (*: blocked in [[close]] :*)
                     | Connect2 of sid  (*: blocked in [[connect]] :*)
-                    | Recv2 of sid * nat * set msgbflag  (*: blocked in [[recv]] :*)
-                    | Send2 of sid *  maybe (maybe (ip * port) * maybe ip * maybe port * maybe ip * maybe port)
-                        * list byte * set msgbflag  (*: blocked in [[send]] :*)
-                    | PSelect2 of list fd * list fd * list fd  (*: blocked in [[pselect]] :*)
+                    | Recv2 of (sid * nat * set msgbflag)  (*: blocked in [[recv]] :*)
+                    | Send2 of (sid *  maybe (maybe (ip * port) * maybe ip * maybe port * maybe ip * maybe port)
+                        * list byte * set msgbflag)  (*: blocked in [[send]] :*)
+                    | PSelect2 of (list fd * list fd * list fd)  (*: blocked in [[pselect]] :*)
 (*:
 @description
 Host threads are either [[Run]]ning or executing a sockets call.  The latter can either be about to return a value to the thread (state [[Ret]]) or blocked; the remaining states capture the data required for the unblock processing for each slow call.

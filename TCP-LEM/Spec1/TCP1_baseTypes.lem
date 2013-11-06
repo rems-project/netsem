@@ -592,6 +592,7 @@ let time_min x y = match (x,y) with
 end
 (*: @mergewithnext :*) 
 
+let time_MIN = time_min
 
 let time_max x y = match (x,y) with
  (*: written [[MAX x y]] :*)
@@ -601,6 +602,8 @@ let time_max x y = match (x,y) with
   | ( time_infty, time_infty ) -> time_infty
 end
 (*: @mergewithnext :*) 
+
+let time_MAX = time_max
 
 (* FIXME
 val _ = overload_on("MIN", ``time_min``);

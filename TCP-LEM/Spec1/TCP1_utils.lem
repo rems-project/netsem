@@ -389,7 +389,7 @@ let ORDERINGS s l = (LIST_TO_SET l = s &&
 
 (*: insert ordered:*)
 let INSERT_ORDERED new old bad =
-     FILTER (fun fd -> fd IN' new || fd IN' bad) old
+     FILTER (fun fd -> IN' fd new || IN' fd bad) old
 
 
 (* -------------------------------------------------- *)
