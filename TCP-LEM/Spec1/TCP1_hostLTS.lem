@@ -14428,6 +14428,7 @@ resourcefail_2: forall h ts tid d t sid e sock n opts.
 
   :*)
   
+and
 
 (* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ *)
 (*: @chapter [[tcp_input_processing]] Host LTS: TCP Input Processing
@@ -14454,9 +14455,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
 
 :*)
 
-
-(**
-  (!h socks socks'
+deliver_in_1: forall h socks socks'
     fid sid sf es is1 is2 ps2 p1 cb lis seg iq iq' oq oq' cantsndmore cantrcvmore
     i1 i2 p2 win ws mss seq ts advmss
     bw_delay_product_for_rt
@@ -14465,89 +14464,64 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
     rcvbufsize' sndbufsize' req_ws snd_cwnd'
     t_maxseg' tf_doing_tstmp' tf_rcvd_tstmp' q0' sock.
 
-  deliver_in_1 /* rp_tcp, network nonurgent (*: Passive open: receive SYN, send SYN,ACK :*) */
-     h with <| socks := socks |++ [(sid,sock)];
-               iq := iq ;
-               oq := oq |>
-   -- Lh_tau -->
-     h with <| socks := socks' |++
-                  (*: Listening socket :*)
-                 [(sid,Sock(Some fid,sf,is1,Some p1,is2,ps2,es,cantsndmore,cantrcvmore,
-                             TCP_Sock(LISTEN,cb,Some lis',[],None,[],None,NO_OOBDATA)));
-                  (*: New socket formed by the incoming SYN :*)
-                  (sid',Sock(None,sf',Some i1,Some p1,Some i2,Some p2,None,cantsndmore,cantrcvmore,
-                             TCP_Sock(SYN_RECEIVED,cb'',None,[],None,[],None,NO_OOBDATA)))] ;
-               iq := iq' ;
-               oq := oq' |>
-
-   <==
-
-    (*: \textbf{Summary:} A host [[h]] with listening socket [[sock]] referenced by index [[sid]] receives a valid and
-    well-formed [[SYN]] segment [[seg]] addressed to socket [[sock]]. A new socket in the
-    [[SYN_RECEIVED]] state is constructed, referenced by [[sid' (<> sid)]], is added to the queue of
-    incomplete incoming connection attempts [[q]], and a [[SYN]],[[ACK]] segment is generated in
-    reply with some field values being chosen or negotiated. The reply segment is finally queued on
-    the host's output queue for transmission, ignoring any errors upon queueing failure.
-    :*)
-
-    sid NOTIN (FDOM socks) /\
-    sid' NOTIN (FDOM socks) /\
-    sid <> sid' /\
+  NOTIN sid  (FDOM socks) &&
+    NOTIN sid'  (FDOM socks) &&
+    sid /= sid' &&
 
     (*: Take TCP segment [[seg]] from the head of the host's input queue :*)
-    dequeue_iq(iq,iq',Some (TCP seg)) /\
+    dequeue_iq(iq,iq',Some (TCP seg)) &&
 
     (*: The segment must be of an acceptable form :*)
     (*: Note: some segment fields are ignored during TCP connection establishment and as such may
         contain arbitrary values. These are equal to the identifiers postfixed with
         [[_discard]] below, which are otherwise unconstrained. :*)
-    (?win_ ws_  mss_ PSH_discard URG_discard FIN_discard urp_discard data_discard ack_discard.
+    (exists win_ ws_  mss_ PSH_discard URG_discard FIN_discard urp_discard data_discard ack_discard.
        seg =
-         <| is1  := Some i2;
-            is2  := Some i1;
-            ps1  := Some p2;
-            ps2  := Some p1;
-            seq  := tcp_seq_flip_sense (seq:tcp_seq_foreign);
-            ack  := tcp_seq_flip_sense (ack_discard:tcp_seq_local);
-            URG  := URG_discard;
-            ACK  := F;           (*: [[ACK]] must be [[F]] in a SYN segment :*)
-            PSH  := PSH_discard;
-            RST  := F;           (*: Valid SYN segments never have [[RST]] set :*)
-            SYN  := T;           (*: Is a SYN segment! :*)
-            FIN  := FIN_discard;
-            win  := win_;
-            ws   := ws_;
-            urp  := urp_discard;
-            mss  := mss_;
-            ts   := ts;
-            data := data_discard
-          |> /\
+         <| TCP1_netTypes.is1   = Some i2;
+            TCP1_netTypes.is2   = Some i1;
+            TCP1_netTypes.ps1   = Some p2;
+            TCP1_netTypes.ps2   = Some p1;
+            TCP1_netTypes.seq   = tcp_seq_foreign_to_local (seq:tcp_seq_foreign);
+            TCP1_netTypes.ack   = tcp_seq_local_to_foreign (ack_discard:tcp_seq_local);
+            TCP1_netTypes.URG   = URG_discard;
+            TCP1_netTypes.ACK   = F;           (*: [[ACK]] must be [[F]] in a SYN segment :*)
+            TCP1_netTypes.PSH   = PSH_discard;
+            TCP1_netTypes.RST   = F;           (*: Valid SYN segments never have [[RST]] set :*)
+            TCP1_netTypes.SYN   = T;           (*: Is a SYN segment! :*)
+            TCP1_netTypes.FIN   = FIN_discard;
+            TCP1_netTypes.win   = win_;
+            TCP1_netTypes.ws    = ws_;
+            TCP1_netTypes.urp   = urp_discard;
+            TCP1_netTypes.mss   = mss_;
+            TCP1_netTypes.tcpSegment_ts    = ts;
+            TCP1_netTypes.data  = data_discard
+          |> &&
 
       (*: Equality of some type casts :*)
-      w2n win_ = win /\
-      OPTION_MAP ORD ws_ = ws /\
+      w2n win_ = win &&
+      OPTION_MAP ORD ws_ = ws &&
       OPTION_MAP w2n mss_ = mss
-    ) /\
+    ) &&
 
     (*: The segment is addressed to an [[IP]] address belonging to one of the interfaces of host
         [[h]] and is not addressed from or to a link-layer multicast or an IP-layer broadcast
         address :*)
-    i1 IN local_ips h.ifds /\
-    ~(is_broadormulticast h.ifds i1) /\
-    ~(is_broadormulticast h.ifds i2) /\
+    i1 IN (local_ips h.ifds) &&
+    not (is_broadormulticast (set_of_fmap h.ifds) i1) &&
+    not (is_broadormulticast (set_of_fmap h.ifds) i2) &&
 
     (*: Find the socket [[sock]] that has the best match for the address quad in segment
         [[seg]], see {@link [[tcp_socket_best_match]]}. Socket [[sock]] must have a form matching the patten [[Sock]](\dots). :*)
-    tcp_socket_best_match socks (sid,sock) seg h.arch /\
+    tcp_socket_best_match socks (sid,sock) seg h.arch &&
     sock = Sock(Some fid,sf,is1,Some p1,is2,ps2,es,cantsndmore,cantrcvmore,
-                TCP_Sock(LISTEN,cb,Some lis,[],None,[],None,NO_OOBDATA)) /\
+                TCP_Sock(LISTEN,cb,Some lis,[],None,[],None,NO_OOBDATA)) &&
 
     (* BSD listen bug *)
     (*: A BSD socket in the [[LISTEN]] state may have its peer's [[IP]] address [[is2]] and port
         [[ps2]] set because [[listen()]] can be called from any TCP state. On other architectures
         they are both constrained to [[None]]. :*)
-    ((is2 = None /\ ps2 = None) \/
-     (bsd_arch h.arch /\ is2 = Some i2 /\ ps2 = Some p2)) /\
+    ((is2 = None && ps2 = None) ||
+     (bsd_arch h.arch && is2 = Some i2 && ps2 = Some p2)) &&
 
     (*: If socket [[sid]] has a local [[IP]] address specified it should be the same as the
         destination [[IP]] address of the segment [[seg]], otherwise the [[seg]] is not
@@ -14555,20 +14529,20 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
         acceptable because the socket is listening on all local [[IP]] addresses. The segment must
         not have been sent by socket [[sock]].  Note: a socket is permitted to connect to itself by
         a simultaneous open. This is handled by {@link [[deliver_in_2]]} and not here. :*)
-    (case is1 of Some i1' -> i1' = i1 || None -> T) /\
-    ~(i1 = i2 /\ p1 = p2) /\
+    (match is1 with Some i1' -> i1' = i1 | None -> T end) &&
+    not (i1 = i2 && p1 = p2) &&
 
     (*: If another socket in the [[TIME_WAIT]] state matches the address quad of the SYN segment
         then only proceed with the new incoming connection attempt if the sequence number of the
         segment [[seq]] is strictly greater than the next expected sequence number on the
         [[TIME_WAIT]] socket, [[rcv_nxt]]. This prevents old or duplicate SYN segments from previous
         incarnations of the connection from inadvertently creating new connections. :*)
-     ~(? (sid, sock) :: socks.
-       ? tcp_sock.
-        sock.pr = TCP_PROTO(tcp_sock) /\
-        tcp_sock.st = TIME_WAIT /\
-        sock.is1 = Some i1 /\ sock.ps1 = Some p1 /\ sock.is2 = Some i2 /\ sock.ps2 = Some p2 /\
-        seq <= tcp_sock.cb.rcv_nxt ) /\
+     not (exists  sid sock. (sid,sock) IN (set_of_fmap socks) &&
+       exists  tcp_sock.
+        sock.pr = TCP_PROTO(tcp_sock) &&
+        tcp_sock.st = TIME_WAIT &&
+        sock.is1 = Some i1 && sock.ps1 = Some p1 && sock.is2 = Some i2 && sock.ps2 = Some p2 &&
+        seq <= tcp_sock.cb.rcv_nxt ) &&
 
     (*: Otherwise, the [[TIME_WAIT]] sock is completely defunct because there is a new connection
         attempt from the same remote end-point. Close it completely. :*)
@@ -14577,35 +14551,35 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
         connection, \ie, reuse the socket for the new connection changing out of the [[TIME_WAIT]]
         state. This is modelled by closing the existing [[TIME_WAIT]] socket and creating the new
         socket from scratch. :*)
-    socks' = $o_f (\sock.
-        if ?tcp_sock. sock.pr = TCP_PROTO(tcp_sock) /\
-           tcp_sock.st = TIME_WAIT /\
-           sock.is1 = Some i1 /\ sock.ps1 = Some p1 /\
-           sock.is2 = Some i2 /\ sock.ps2 = Some p2
+    socks' = o_f (fun sock->
+        if exists tcp_sock. sock.pr = TCP_PROTO(tcp_sock) &&
+           tcp_sock.st = TIME_WAIT &&
+           sock.is1 = Some i1 && sock.ps1 = Some p1 &&
+           sock.is2 = Some i2 && sock.ps2 = Some p2
         then
-	    tcp_close h.arch sock
+	    tcp_close h.arch (sock:socket)
 	else
 	    sock
-    ) socks /\
+    ) socks &&
 
     (*: Accept the new connection attempt to the incomplete connection queue if the queue of
         completed (established) connections is not already full :*)
-    accept_incoming_q0 lis T /\
+    accept_incoming_q0 lis T &&
 
     (*: Possibly drop an arbitrary connection from the queue of incomplete connection
         attempts -- this covers the behaviour of FreeBSD when the oldest connection in the SYN bucket
         or in the whole SYN cache is dropped, depending upon which became full. :*)
-    (choose drop :: drop_from_q0 lis.
+    (mychoose (set_of_bool_fn (drop_from_q0 lis)) (fun  drop-> 
        if drop then
-         ?q0L sid'' q0R.
-           lis.q0 = APPEND q0L (sid'' :: q0R) /\
+         exists q0L sid'' q0R.
+           lis.q0 = APPEND q0L (sid'' :: q0R) &&
            q0' = APPEND q0L q0R
        else
          q0' = lis.q0
-     ) /\
+     )) &&
 
     (*: Put the new incomplete connection on the (possibly pruned) incomplete connections queue. :*)
-    lis' = lis with <| q0 := sid' :: q0' |> /\
+    lis' = <| lis with  q0  = sid' :: q0' |> &&
 
     (*: Create a SYN,ACK segment in reply: :*)
 
@@ -14613,50 +14587,50 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
         \ie, less than the maximum IP segment size minus the space consumed by IP and TCP
         headers. This is deliberately non-deterministic: an implementation would query the
         interface's MTU and subtract the header space required. :*)
-    advmss IN { n | n >= 1 /\ n <= (65535 - 40) } /\
+    advmss IN { n | n >= 1 && n <= (65535 - 40) } &&
 
     (*: Be non-deterministic in deciding whether to transmit a maximum segment size option. A host
         either supports the maximum segment size option or not -- here the specfication permits
         either sending the option or not, but if the option is sent it must contain
         the advertised mss chosen previously by the host. This captures all acceptable
         behaviour. :*)
-    advmss' IN {None; Some advmss} /\
+    advmss' IN {None; Some advmss} &&
 
     (*: If a timestamp option was present in the received segment and a non-deterministic choice is
         made to do timestamping on this connection (\ie, the host supports timestamping), then
         timestamping is being used for this connection.  Otherwise, timestamping is not used because
         one or both hosts do not support it. A real host would either do timestamping or not
         depending on its configuration. Here all acceptable behaviour must be permitted. :*)
-     tf_rcvd_tstmp' = IS_Some ts /\
-     (choose want_tstmp :: {F; T}.
-       tf_doing_tstmp' = (tf_rcvd_tstmp' /\ want_tstmp)
-     ) /\
+     tf_rcvd_tstmp' = is_Some ts &&
+     (mychoose {F; T} (fun  want_tstmp->
+       tf_doing_tstmp' = (tf_rcvd_tstmp' && want_tstmp)
+     )) &&
 
     (*: Lookup the bandwidth delay product from the route metric cache and calculate the size of the
         receive and send buffers, the maximum segment size and the initial congestion window. :*)
     (* Note that for test generation we clear the route metric cache so this will always be None. *)
-    bw_delay_product_for_rt = None /\
+    bw_delay_product_for_rt = None &&
     (rcvbufsize',sndbufsize',t_maxseg',snd_cwnd') =
       calculate_buf_sizes advmss mss bw_delay_product_for_rt (is_localnet h.ifds i2)
-                          (sf.n(SO_RCVBUF)) (sf.n(SO_SNDBUF)) tf_doing_tstmp' h.arch /\
+                          (sf.n(SO_RCVBUF)) (sf.n(SO_SNDBUF)) tf_doing_tstmp' h.arch &&
 
     (*: Store the new receive and send buffer sizes :*)
-    sf' = sf with <| n := funupd_list sf.n [(SO_RCVBUF,rcvbufsize'); (SO_SNDBUF,sndbufsize')] |> /\
+    sf' = <| sf with  n  = funupd_list sf.n [(SO_RCVBUF,rcvbufsize'); (SO_SNDBUF,sndbufsize')] |> &&
 
     (*: Non-deterministically choose to do window scaling (\ie, choose whether this host supports
         window scaling or not). Do window scaling on the new connection if the received SYN segment
         contained a window scaling option and this host supports it. A real host would either be
         configured to do window scaling or not (provided it supported window scaling). Here all
         acceptable behaviour must be permitted. :*)
-    req_ws IN {F;T} /\
-    tf_doing_ws' = (req_ws /\ IS_Some ws) /\
+    req_ws IN {F;T} &&
+    tf_doing_ws' = (req_ws && is_Some ws) &&
     (if tf_doing_ws' then (*: Doing window scaling :*)
        (*: Constrain the receive scale to be within the correct range and the send scale to be that
            received from the remote host :*)
-       rcv_scale' IN { n | n >= 0 /\ n <= TCP_MAXWINSCALE } /\ snd_scale' = option_case 0 I ws
+       rcv_scale' IN { n | n >= 0 && n <= TCP_MAXWINSCALE } && snd_scale' = option_case 0 I ws
      else
        (*: Otherwise, turn off scaling :*)
-       rcv_scale' = 0 /\ snd_scale' = 0) /\
+       rcv_scale' = 0 && snd_scale' = 0) &&
 
     (*: Constrain the receive window for the new connection -- this is advertised in the
         [[SYN]],[[ACK]] reply. No scaling is performed here as scaling is not applied to segments
@@ -14667,52 +14641,52 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
        which may lead to windows shrinking as well as growing, unpredictably.  <intellectual unease>
        thus cb.rcv_adv serves no purpose other than to allow us easily to express the well-behaviour
        (non)invariant that we never shrink the window (i.e., rcv_adv never decreases) *)
-    rcv_window IN { n | n >= 0 /\
-                        n <= TCP_MAXWIN (* << rcv_scale' ... NOT; see below *) /\
-                        n <= sf.n(SO_RCVBUF) } /\
+    rcv_window IN { n | n >= 0 &&
+                        n <= TCP_MAXWIN (* << rcv_scale' ... NOT; see below *) &&
+                        n <= sf.n(SO_RCVBUF) } &&
 
     (*: Time the SYN,ACK reply segment. This is a new connection thus no previous timers can be
         running. :*)
     (let t_rttseg' = Some (ticks_of h.ticks, cb.snd_nxt (* = seg.seq *) ) in
 
     (*: Initial sequence number of [[SYN]],[[ACK]] reply segment is unconstrained. :*)
-    iss IN { n | T } /\
+    iss IN { n | T } &&
     (*: The [[ack]] value in the reply segment must acknowledge the remote host's initial [[SYN]]. :*)
     let ack' = seq + 1 in
 
     (*: Update the new connection's control block in light of above. :*)
-    cb' = cb with <|
+    cb' = <| cb with 
               (* guessing here (with aid of TCPv2), 'cos BSD does it all with syncaches *)
-              tt_keep           := Some (Timed((),slow_timer TCPTV_KEEP_IDLE));
-              tt_rexmt          := start_tt_rexmt h.arch 0 F cb.t_rttinf;
-              iss               := iss;
-              irs               := seq;
-              rcv_wnd           := rcv_window;
-              tf_rxwin0sent     := (rcv_window = 0);
-              rcv_adv           := ack' + rcv_window;
-              rcv_nxt           := ack';
-              snd_una           := iss;
-              snd_max           := iss + 1;   (*: [[SYN]] consumes one-byte of sequence space :*)
-              snd_nxt           := iss + 1;   (*: [[SYN]] consumes one-byte of sequence space :*)
-              snd_cwnd          := snd_cwnd';
-              rcv_up            := seq + 1;   (*: Pull along with left edge of unused window :*)
-              t_maxseg          := t_maxseg'; (*: The negotiated mss, with options removed :*)
-              t_advmss          := advmss';   (*: Remember the mss advertised (if any) by this socket in case the [[SYN]] segment is retransmitted :*)
-              rcv_scale         := rcv_scale';
-              snd_scale         := snd_scale';
-              tf_doing_ws       := tf_doing_ws';
-              ts_recent         := case ts of
-                                       None -> cb.ts_recent ||
-                                       Some (ts_val,ts_ecr) -> TimeWindow(ts_val,kern_timer dtsinval);
-              last_ack_sent     := ack';
-              t_rttseg          := t_rttseg';
-              tf_req_tstmp      := tf_doing_tstmp';
-              tf_doing_tstmp    := tf_doing_tstmp'
-           |>) /\
+              tt_keep            = Some (Timed((),slow_timer TCPTV_KEEP_IDLE));
+              tt_rexmt           = start_tt_rexmt h.arch 0 F cb.t_rttinf;
+              iss                = iss;
+              irs                = seq;
+              rcv_wnd            = rcv_window;
+              tf_rxwin0sent      = (rcv_window = 0);
+              rcv_adv            = seq32_plus ack' rcv_window;
+              rcv_nxt            = ack';
+              snd_una            = iss;
+              snd_max            = iss + 1;   (*: [[SYN]] consumes one-byte of sequence space :*)
+              snd_nxt            = iss + 1;   (*: [[SYN]] consumes one-byte of sequence space :*)
+              snd_cwnd           = snd_cwnd';
+              rcv_up             = seq + 1;   (*: Pull along with left edge of unused window :*)
+              t_maxseg           = t_maxseg'; (*: The negotiated mss, with options removed :*)
+              t_advmss           = advmss';   (*: Remember the mss advertised (if any) by this socket in case the [[SYN]] segment is retransmitted :*)
+              rcv_scale          = rcv_scale';
+              snd_scale          = snd_scale';
+              tf_doing_ws        = tf_doing_ws';
+              ts_recent          = match ts with
+                                       None -> cb.ts_recent |
+                                       Some (ts_val,ts_ecr) -> TimeWindow(ts_val,kern_timer dtsinval) end;
+              last_ack_sent      = ack';
+              t_rttseg           = t_rttseg';
+              tf_req_tstmp       = tf_doing_tstmp';
+              tf_doing_tstmp     = tf_doing_tstmp'
+           |>) &&
 
      (*: Construct the SYN,ACK segment using the values stored in the updated control block for the
          new connection. See {@link [[make_syn_ack_segment]]}. :*)
-     choose seg' :: make_syn_ack_segment cb' (i1,i2,p1,p2) (ticks_of h.ticks).
+     (mychoose (set_of_bool_fn (make_syn_ack_segment cb' (i1,i2,p1,p2) (ticks_of h.ticks))) (fun  seg'->
 
      (*: Add the SYN,ACK reply segment to the host's output queue, ignoring failure. Constrain the
          new connection's initial control block [[cb]] to have just the right values in case
@@ -14720,13 +14694,38 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
          state has to be rolled back. See {@link [[rollback_tcp_output]]} and {@link
          [[enqueue_or_fail]]} for more detail. :*)
      enqueue_or_fail T h.arch h.rttab h.ifds [TCP seg'] oq
-       (cb with
-         <| snd_nxt := iss; (*: If queueing fails, need to retransmit the [[SYN]] :*)
-            snd_max := iss; (*: If queueing fails, need to retransmit the [[SYN]] :*)
-            t_maxseg := t_maxseg';
-            last_ack_sent := tcp_seq_foreign 0w;
-            rcv_adv := tcp_seq_foreign 0w
-          |>) cb' (cb'',oq')
+       (<| cb with
+          snd_nxt  = iss; (*: If queueing fails, need to retransmit the [[SYN]] :*)
+            snd_max  = iss; (*: If queueing fails, need to retransmit the [[SYN]] :*)
+            t_maxseg  = t_maxseg';
+            last_ack_sent  = tcp_seq_foreign word_zero;
+            rcv_adv  = tcp_seq_foreign word_zero
+          |>) cb' (cb'',oq')))
+
+    (*: \textbf{Summary:} A host [[h]] with listening socket [[sock]] referenced by index [[sid]] receives a valid and
+    well-formed [[SYN]] segment [[seg]] addressed to socket [[sock]]. A new socket in the
+    [[SYN_RECEIVED]] state is constructed, referenced by [[sid' (<> sid)]], is added to the queue of
+    incomplete incoming connection attempts [[q]], and a [[SYN]],[[ACK]] segment is generated in
+    reply with some field values being chosen or negotiated. The reply segment is finally queued on
+    the host's output queue for transmission, ignoring any errors upon queueing failure.
+    :*)
+
+    ==>
+
+   host_redn deliver_in_1 ((* rp *) rp_tcp)  (*: Passive open: receive SYN, send SYN,ACK :*) ((* rc *)network nonurgent) 
+     ((* h1 *)<| h with  socks  = socks |++ [(sid,sock)];
+               iq  = iq ;
+               oq  = oq |>)
+   ((* lbl *)Lh_tau)
+     ((* h2 *)<| h with  socks  = socks' |++
+                  (*: Listening socket :*)
+                 [(sid,Sock(Some fid,sf,is1,Some p1,is2,ps2,es,cantsndmore,cantrcvmore,
+                             TCP_Sock(LISTEN,cb,Some lis',[],None,[],None,NO_OOBDATA)));
+                  (*: New socket formed by the incoming SYN :*)
+                  (sid',Sock(None,sf',Some i1,Some p1,Some i2,Some p2,None,cantsndmore,cantrcvmore,
+                             TCP_Sock(SYN_RECEIVED,cb'',None,[],None,[],None,NO_OOBDATA)))] ;
+               iq  = iq' ;
+               oq  = oq' |>)
 
   (*
 
@@ -14821,7 +14820,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
 
     data OK, although it looks like BSD's syncachey impl just drops it silently: should allow
     (nondet) anything between dropping and accepting, including accepting only n bytes (recall that
-    we have not been able yet to advertise a window, so the remote end is guessing (unless it's less
+    we have not been able yet to advertise a window, so the remote end is guessing) (unless it's less
     than 536 bytes? 235 bytes? which it has a right to expect is OK if you're doing that) (OTOH,
     what about a syncache that stores only say 16 bytes?? it's at least conceivable)
 
@@ -14866,27 +14865,90 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
     connection goes) and is closed.
 
    :*)
-   )
+   
+and
 
-/\
-   (!h iq iq' socks seg sock bndlm bndlm' sid fid sf i1 p1 i2 p2
+deliver_in_1b: forall h iq iq' socks seg sock bndlm bndlm' sid fid sf i1 p1 i2 p2
      cb lis es sndq rcvq cantsndmore cantrcvmore sndurp rcvurp iobc
      ACK SYN is1 is2 ps2 oq oq' outsegs.
 
-   deliver_in_1b /* rp_tcp, network nonurgent (*: For a listening socket, receive and drop a bad
-     datagram and either generate a RST segment or ignore it. Drop the incoming segment if the socket's
-     queue of incomplete connections is full. :*) */
-     h with <| socks := socks |++ [(sid,sock)] ;
-               iq := iq;
-               oq := oq;
-               bndlm := bndlm |>
-   -- Lh_tau -->
-     h with <| socks := socks |++ [(sid,sock)] ;
-               iq := iq';
-               oq := oq';
-               bndlm := bndlm' |>
+   dequeue_iq(iq,iq',Some (TCP seg)) &&
 
-   <==
+    (*: The segment must be of an acceptable form :*)
+    (*: Note: some segment fields are ignored during TCP connection establishment and as such may
+        contain arbitrary values. These are equal to the identifiers postfixed with
+        [[_discard]] below, which are otherwise unconstrained. :*)
+    (exists seq_discard ack_discard URG_discard PSH_discard FIN_discard
+      win_discard ws_discard urp_discard mss_discard ts_discard data_discard.
+     seg = <|
+            TCP1_netTypes.is1   = Some i2;
+            TCP1_netTypes.is2   = Some i1;
+            TCP1_netTypes.ps1   = Some p2;
+            TCP1_netTypes.ps2   = Some p1;
+            TCP1_netTypes.seq   = tcp_seq_foreign_to_local (seq_discard:tcp_seq_foreign);
+            TCP1_netTypes.ack   = tcp_seq_local_to_foreign (ack_discard:tcp_seq_local);
+            TCP1_netTypes.URG   = URG_discard;
+            TCP1_netTypes.ACK   = ACK;         (*: might be set in a bad SYN segment :*)
+            TCP1_netTypes.PSH   = PSH_discard;
+            TCP1_netTypes.RST   = F;           (*: SYN segments never have [[RST]] set :*)
+            TCP1_netTypes.SYN   = SYN;         (*: might not be set in a bad segment to a listening socket :*)
+            TCP1_netTypes.FIN   = FIN_discard;
+            TCP1_netTypes.win   = win_discard;
+            TCP1_netTypes.ws    = ws_discard;
+            TCP1_netTypes.urp   = urp_discard;
+            TCP1_netTypes.mss   = mss_discard;
+            TCP1_netTypes.tcpSegment_ts    = ts_discard;
+            TCP1_netTypes.data  = data_discard
+           |>
+     ) &&
+
+    (*: Segment is addressed to an IP address belonging to one of the interfaces of host [[h]] and is
+        not a link-layer multicast or IP-layer broadcast address :*)
+    i1 IN (local_ips h.ifds) &&
+    not (is_broadormulticast (set_of_fmap h.ifds) i1) &&  (*: very unlikely, since [[i1 IN local_ips h.ifds]] :*)
+    not (is_broadormulticast (set_of_fmap h.ifds) i2) &&
+
+    (*: Find the socket [[sock]] that has the best match for the address quad in segment
+        [[seg]], see {@link [[tcp_socket_best_match]]}. Socket [[sock]] must have a form matching the patten [[Sock]](\dots). :*)
+    tcp_socket_best_match (DOMSUB socks  sid) (sid,sock) seg h.arch &&
+    sock = Sock(Some fid,sf,is1,Some p1,is2,ps2,es,cantsndmore,cantrcvmore,
+                TCP_Sock(LISTEN,cb,Some lis,sndq,sndurp,rcvq,rcvurp,iobc)) &&
+
+    (*: If socket [[sock]] has a local IP address specified it should be the same as the destination
+        IP address of segment [[seg]]. :*)
+    (match is1 with Some i1' -> i1' = i1 | None -> T end) &&
+
+    (*: A BSD socket in the [[LISTEN]] state may have its peer's IP address [[is2]] and port [[ps2]]
+       set because [[listen()]] can be called from any TCP state. On other architectures they are
+       both constrained to [[None]]. :*)
+    ((is2 = None && ps2 = None) ||
+     (bsd_arch h.arch && is2 = Some i2 && ps2 = Some p2)) &&
+
+    (*: Check that either:
+        (a) the [[SYN]], [[ACK]] flag combination is bad, or
+        (b) the socket is illegally connecting to itself  (Note: it is not possible to perform a
+            self-connect once a socket is in the [[LISTEN]] state by using the sockets interface
+            alone -- it can only be achieved by a forged incoming segment. It is possible for a
+            TCP socket to connect to itself but this is achieved through a sequence of socket calls
+            that avoids entering the [[LISTEN]] state), or
+        (c) the new incomplete connection can not be added to the incomplete connections queue because
+            the queue of complete connections is full. :*)
+    (ACK ||
+     (not SYN && not ACK) ||
+     (SYN && not ACK && i1 = i2 && p1 = p2) ||
+      accept_incoming_q0 lis F
+     ) &&
+
+    (*: If an ACK with no SYN has been received send a RST segment, else just silently drop
+        everything else. See {@link [[dropwithreset]]}. :*)
+    (if not SYN && ACK then
+       dropwithreset seg h.ifds (ticks_of h.ticks) BANDLIM_RST_OPENPORT bndlm bndlm' outsegs
+     else
+       outsegs = [] && bndlm' = bndlm) &&
+
+    (*: Add  the RST segment (if any) to the host's output queue, ignoring failure.
+    See {@link [[enqueue_and_ignore_fail]]}. :*)
+    enqueue_and_ignore_fail h.arch h.rttab h.ifds outsegs oq oq'
 
     (*: \textbf{Summary}:
     A host [[h]] with listening socket [[sock]] referenced by index [[sid]] receives a segment
@@ -14898,83 +14960,20 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
     host's output queue [[oq]] for transmission.    :*)
 
     (*: Take TCP segment [[seg]] from the head of the host's input queue :*)
-    dequeue_iq(iq,iq',Some (TCP seg)) /\
+    ==>
 
-    (*: The segment must be of an acceptable form :*)
-    (*: Note: some segment fields are ignored during TCP connection establishment and as such may
-        contain arbitrary values. These are equal to the identifiers postfixed with
-        [[_discard]] below, which are otherwise unconstrained. :*)
-    (?seq_discard ack_discard URG_discard PSH_discard FIN_discard
-      win_discard ws_discard urp_discard mss_discard ts_discard data_discard.
-     seg = <|
-            is1  := Some i2;
-            is2  := Some i1;
-            ps1  := Some p2;
-            ps2  := Some p1;
-            seq  := tcp_seq_flip_sense (seq_discard:tcp_seq_foreign);
-            ack  := tcp_seq_flip_sense (ack_discard:tcp_seq_local);
-            URG  := URG_discard;
-            ACK  := ACK;         (*: might be set in a bad SYN segment :*)
-            PSH  := PSH_discard;
-            RST  := F;           (*: SYN segments never have [[RST]] set :*)
-            SYN  := SYN;         (*: might not be set in a bad segment to a listening socket :*)
-            FIN  := FIN_discard;
-            win  := win_discard;
-            ws   := ws_discard;
-            urp  := urp_discard;
-            mss  := mss_discard;
-            ts   := ts_discard;
-            data := data_discard
-           |>
-     ) /\
-
-    (*: Segment is addressed to an IP address belonging to one of the interfaces of host [[h]] and is
-        not a link-layer multicast or IP-layer broadcast address :*)
-    i1 IN local_ips h.ifds /\
-    ~(is_broadormulticast h.ifds i1) /\  (*: very unlikely, since [[i1 IN local_ips h.ifds]] :*)
-    ~(is_broadormulticast h.ifds i2) /\
-
-    (*: Find the socket [[sock]] that has the best match for the address quad in segment
-        [[seg]], see {@link [[tcp_socket_best_match]]}. Socket [[sock]] must have a form matching the patten [[Sock]](\dots). :*)
-    tcp_socket_best_match (socks \\ sid) (sid,sock) seg h.arch /\
-    sock = Sock(Some fid,sf,is1,Some p1,is2,ps2,es,cantsndmore,cantrcvmore,
-                TCP_Sock(LISTEN,cb,Some lis,sndq,sndurp,rcvq,rcvurp,iobc)) /\
-
-    (*: If socket [[sock]] has a local IP address specified it should be the same as the destination
-        IP address of segment [[seg]]. :*)
-    (case is1 of Some i1' -> i1' = i1 || None -> T) /\
-
-    (*: A BSD socket in the [[LISTEN]] state may have its peer's IP address [[is2]] and port [[ps2]]
-       set because [[listen()]] can be called from any TCP state. On other architectures they are
-       both constrained to [[None]]. :*)
-    ((is2 = None /\ ps2 = None) \/
-     (bsd_arch h.arch /\ is2 = Some i2 /\ ps2 = Some p2)) /\
-
-    (*: Check that either:
-        (a) the [[SYN]], [[ACK]] flag combination is bad, or
-        (b) the socket is illegally connecting to itself  (Note: it is not possible to perform a
-            self-connect once a socket is in the [[LISTEN]] state by using the sockets interface
-            alone -- it can only be achieved by a forged incoming segment. It is possible for a
-            TCP socket to connect to itself but this is achieved through a sequence of socket calls
-            that avoids entering the [[LISTEN]] state), or
-        (c) the new incomplete connection can not be added to the incomplete connections queue because
-            the queue of complete connections is full. :*)
-    (ACK \/
-     (~SYN /\ ~ACK) \/
-     (SYN /\ ~ACK /\ i1 = i2 /\ p1 = p2) \/
-      accept_incoming_q0 lis F
-     ) /\
-
-    (*: If an ACK with no SYN has been received send a RST segment, else just silently drop
-        everything else. See {@link [[dropwithreset]]}. :*)
-    (if ~SYN /\ ACK then
-       dropwithreset seg h.ifds (ticks_of h.ticks) BANDLIM_RST_OPENPORT bndlm bndlm' outsegs
-     else
-       outsegs = [] /\ bndlm' = bndlm) /\
-
-    (*: Add  the RST segment (if any) to the host's output queue, ignoring failure.
-    See {@link [[enqueue_and_ignore_fail]]}. :*)
-    enqueue_and_ignore_fail h.arch h.rttab h.ifds outsegs oq oq'
+   host_redn deliver_in_1b ((* rp *) rp_tcp)  (*: For a listening socket, receive and drop a bad
+     datagram and either generate a RST segment or ignore it. Drop the incoming segment if the socket's
+     queue of incomplete connections is full. :*) ((* rc *)network nonurgent) 
+     ((* h1 *)<| h with  socks  = socks |++ [(sid,sock)] ;
+               iq  = iq;
+               oq  = oq;
+               bndlm  = bndlm |>)
+   ((* lbl *)Lh_tau)
+     ((* h2 *)<| h with  socks  = socks |++ [(sid,sock)] ;
+               iq  = iq';
+               oq  = oq';
+               bndlm  = bndlm' |>)
 
 
  (*:
@@ -14989,62 +14988,46 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
     "this socket", since they "must be forged" (tcp\_input.c:789).
 
  :*)
-)
 
-/\
-   (!h socks iq iq' oq oq' seg sid fid sf i1 p1 i2 p2 cb es cantsndmore cantrcvmore
+and
+
+deliver_in_2: forall h socks iq iq' oq oq' seg sid fid sf i1 p1 i2 p2 cb es cantsndmore cantrcvmore
     sf' st' cb' cb'' rcvq' rcvurp' iobc' ACK FIN URG win ws urp mss data ts seq ack
     rcv_scale' snd_scale' tf_rcvd_tstmp' tf_doing_tstmp' t_maxseg''
     bw_delay_product_for_rt rcvbufsize' sndbufsize' rcv_window data_deoobed
     data' rcv_nxt' rcv_wnd' rcv_up' tcp_sock FIN' cantrcvmore' snd_cwnd'
     tf_doing_ws'.
 
-   deliver_in_2 /* rp_tcp, network nonurgent (*: Completion of active open (in [[SYN_SENT]] receive SYN,ACK and send ACK) or simultaneous open (in [[SYN_SENT]] receive SYN and send SYN,ACK) :*) */
-     h with <| socks := socks |++
-                        [(sid,Sock(Some fid,sf,Some i1,Some p1,Some i2,Some p2,es,
-				   cantsndmore,cantrcvmore,TCP_PROTO tcp_sock))] ;
-               iq := iq ;
-               oq := oq |>
-   -- Lh_tau -->
-     h with <| socks := socks |++
-                        [(sid,Sock(Some fid,sf',Some i1,Some p1,Some i2,Some p2,es,
-				   cantsndmore,cantrcvmore',
-				   TCP_Sock(st',cb'',None,[],None,rcvq',rcvurp',iobc')))] ;
-               iq := iq' ;
-               oq := oq' |>
-
-  <==
-
-    tcp_sock = TCP_Sock0(SYN_SENT,cb,None,[],None,[],None,NO_OOBDATA) /\
+   tcp_sock = TCP_Sock0(SYN_SENT,cb,None,[],None,[],None,NO_OOBDATA) &&
 
     (*: Take TCP segment [[seg]] from the head of the host's input queue :*)
-    dequeue_iq(iq,iq',Some (TCP seg)) /\
+    dequeue_iq(iq,iq',Some (TCP seg)) &&
 
-    (?win_ ws_ urp_ mss_ PSH_discard.
-     win = w2n win_ /\
-     ws = OPTION_MAP ORD ws_ /\
-     urp = w2n urp_ /\
-     mss = OPTION_MAP w2n mss_ /\
+    (exists win_ ws_ urp_ mss_ PSH_discard.
+     win = w2n win_ &&
+     ws = OPTION_MAP ORD ws_ &&
+     urp = w2n urp_ &&
+     mss = OPTION_MAP w2n mss_ &&
      seg = <|
-            is1  := Some i2;
-            is2  := Some i1;
-            ps1  := Some p2;
-            ps2  := Some p1;
-            seq  := tcp_seq_flip_sense (seq:tcp_seq_foreign);
-            ack  := tcp_seq_flip_sense (ack:tcp_seq_local);
-            URG  := URG;
-            ACK  := ACK;
-            PSH  := PSH_discard;
-            RST  := F;
-            SYN  := T;
-            FIN  := FIN;
-            win  := win_;
-            ws   := ws_;
-            urp  := urp_;
-            mss  := mss_;
-            ts   := ts;
-            data := data
-           |>) /\
+            TCP1_netTypes.is1   = Some i2;
+            TCP1_netTypes.is2   = Some i1;
+            TCP1_netTypes.ps1   = Some p2;
+            TCP1_netTypes.ps2   = Some p1;
+            TCP1_netTypes.seq   = tcp_seq_foreign_to_local (seq:tcp_seq_foreign);
+            TCP1_netTypes.ack   = tcp_seq_local_to_foreign (ack:tcp_seq_local);
+            TCP1_netTypes.URG   = URG;
+            TCP1_netTypes.ACK   = ACK;
+            TCP1_netTypes.PSH   = PSH_discard;
+            TCP1_netTypes.RST   = F;
+            TCP1_netTypes.SYN   = T;
+            TCP1_netTypes.FIN   = FIN;
+            TCP1_netTypes.win   = win_;
+            TCP1_netTypes.ws    = ws_;
+            TCP1_netTypes.urp   = urp_;
+            TCP1_netTypes.mss   = mss_;
+            TCP1_netTypes.tcpSegment_ts    = ts;
+            TCP1_netTypes.data  = data
+           |>) &&
 
      (*: Note that there does not exist a better socket match to which the segment should be sent,
      as the whole quad is matched exactly :*)
@@ -15052,40 +15035,40 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
      (*: The ACK must be acceptable, else send RST. Typically (no data on active open), this is the same
                            as [[ack = iss + 1]] :*)
 
-     (ACK ==> (cb.iss < ack /\ ack <= cb.snd_max)) /\
+     (ACK --> (cb.iss < ack && ack <= cb.snd_max)) &&
 
      (*: resolve negotiated window scaling :*)
-     (case (cb.request_r_scale, ws) of
-         (Some rs, Some ss) -> rcv_scale' = rs /\
-                               snd_scale' = ss /\
-                               tf_doing_ws' = T ||
-         _15432             -> rcv_scale' = 0 /\
-                               snd_scale' = 0 /\
-                               tf_doing_ws' = F) /\
+     (match (cb.request_r_scale, ws) with
+         (Some rs, Some ss) -> rcv_scale' = rs &&
+                               snd_scale' = ss &&
+                               tf_doing_ws' = T |
+         _15432             -> (rcv_scale' = 0 &&
+                               snd_scale' = 0 &&
+                               tf_doing_ws' = F) end) &&
 
      (*: resolve negotiated timestamping :*)
-     tf_rcvd_tstmp' = IS_Some ts /\
-     tf_doing_tstmp' = (tf_rcvd_tstmp' /\ cb.tf_req_tstmp) /\
+     tf_rcvd_tstmp' = is_Some ts &&
+     tf_doing_tstmp' = (tf_rcvd_tstmp' && cb.tf_req_tstmp) &&
 
      (*: Note that for test generation at present we clear the route metric cache so this will always be None.  BSD reads from the routing cache if there is an entry, otherwise passes None here. :*)
-     bw_delay_product_for_rt = None /\
+     bw_delay_product_for_rt = None &&
 
-     let ourmss = (case cb.t_advmss of
+     let ourmss = (match cb.t_advmss with
                       None   -> cb.t_maxseg (*: we did not advertise an MSS, so use the default value :*)
-                   || Some v -> v) in
+                   | Some v -> v end) in
 
      ((rcvbufsize',sndbufsize',t_maxseg'',snd_cwnd') =
-         if mss <> None \/ ~(bsd_arch h.arch) then
+         if mss /= None || not (bsd_arch h.arch) then
             calculate_buf_sizes ourmss mss bw_delay_product_for_rt
                                 (is_localnet h.ifds i2) (sf.n(SO_RCVBUF))
                                 (sf.n(SO_SNDBUF)) tf_doing_tstmp' h.arch
          else
             (*: Note that since |tcp_mss()| is not called |snd_cwnd| remains at its initial (stupidly high) value. :*)
             (sf.n(SO_RCVBUF),sf.n(SO_SNDBUF),cb.t_maxseg,cb.snd_cwnd)
-     ) /\
+     ) &&
 
-     sf' = sf with <| n := funupd_list sf.n [(SO_RCVBUF,rcvbufsize');
-                                             (SO_SNDBUF,sndbufsize')] |> /\
+     sf' = <| sf with  n  = funupd_list sf.n [(SO_RCVBUF,rcvbufsize');
+                                             (SO_SNDBUF,sndbufsize')] |> &&
 
     (* MS: the below is unconstraining the advertised receive window, which allows it to account for
            BSD behaviour of increasing the window from 57344 (default; tcp_recvspace) to 57920 after
@@ -15138,7 +15121,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
                   on the basis of this value. Note that sf' is used, rather than sf, since we need
                   to know the correct value of the receive buffer from calculate_buf_sizes. *)
 
-    rcv_window = calculate_bsd_rcv_wnd sf' tcp_sock /\
+    rcv_window = calculate_bsd_rcv_wnd sf' tcp_sock &&
 
      let (t_softerror',t_rttseg',t_rttinf',tt_rexmt')
        = (if ACK then
@@ -15146,21 +15129,21 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
               copied verbatim from [[deliver_in_3]]. :*)
 
               (*: update RTT estimators from timestamp or roundtrip time :*)
-              let emission_time = case ts of
-                                      Some (ts_val,ts_ecr) -> Some (ts_ecr - 1)
-                                  || None ->
-                                  (case cb.t_rttseg of
+              let emission_time = match ts with
+                                      Some (ts_val,ts_ecr) -> Some FIXME_num (* (ts_ecr - 1) *)
+                                  | None ->
+                                  (match cb.t_rttseg with
                                        Some (ts0,seq0) -> if ack > seq0
                                                           then Some ts0
                                                           else None
-                                    || None            -> None) in
+                                    | None            -> None end) end in
 
               (*: clear soft error, cancel timer, and update estimators if we successfully timed a segment round-trip :*)
               let (t_softerror',t_rttseg',t_rttinf')
-                = if IS_Some emission_time then
+                = if is_Some emission_time then
                       (None,
                        None,
-                       update_rtt (real_of_int (ticks_of h.ticks - THE emission_time) / HZ)
+                       update_rtt (real_of_int (seq32_diff (ticks_of h.ticks) (THE emission_time)) / HZ)
                                   cb.t_rttinf)
                   else
                       (cb.t_softerror,
@@ -15182,11 +15165,11 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
                else if mode_of cb.tt_rexmt IN {None; Some Rexmt} then
                    (*: ditto :*)
                    start_tt_rexmt h.arch 0 T t_rttinf'
-               else if emission_time <> None then
-                   case cb.tt_rexmt of
+               else if emission_time /= None then
+                   match cb.tt_rexmt with
                        (*: bizarre but true. |tcp_input.c:1766| says c.f.~Phil Karn's retransmit algorithm :*)
                        None -> None
-                    || Some (Timed((mode,shift),d)) -> Some (Timed((mode,0),d))
+                    | Some (Timed((mode,shift),d)) -> Some (Timed((mode,0),d)) end
                else
                    (*: do nothing :*)
                    cb.tt_rexmt
@@ -15210,96 +15193,96 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
      (* NB: we know there's no data in the socket yet *)
      (* NB: believe this is copy-n-pasted from deliver_in_3; check they're the same! *)
      (*: urgent pointer processing.  See [[deliver_in_3]] for discussion (these conditions are originally copied verbatim from there). :*)
-     (?iobc rcvurp.
-     iobc = NO_OOBDATA /\  (*: we know the initial state has no OOB data :*)
-     rcvurp = None /\ (* ditto *)
-     (if URG /\
-         urp > 0 /\
+     (exists iobc rcvurp.
+     iobc = NO_OOBDATA &&  (*: we know the initial state has no OOB data :*)
+     rcvurp = None && (* ditto *)
+     (if URG &&
+         (urp:nat) > 0 &&
          (* certainly true: st NOTIN {CLOSE_WAIT;CLOSING;LAST_ACK;TIME_WAIT} *)
          urp + 0 (* LENGTH rcvq *) <= SB_MAX
       then
-          (if seq + urp > cb.rcv_up then
-               rcv_up' = seq + 1 + urp /\ (* BSD advances seq by 1 for the SYN before setting
+          (if seq32_plus seq urp > cb.rcv_up then
+               rcv_up' = seq32_plus (seq + 1) urp && (* BSD advances seq by 1 for the SYN before setting
                                              rcv_up, so the effect is that rcv_up points from
                                              the first byte of data, and cannot point to the SYN. *)
                                            (* proof obligation: the Num is nonnegative! *)
-               rcvurp' = Some (0 (* LENGTH rcvq *) + Num (seq + urp - cb.rcv_nxt))
+               (rcvurp':maybe nat) = Some (0 (* LENGTH rcvq *) + num_of_int FIXME_int (* (seq32_diff (seq32_plus seq urp) cb.rcv_nxt) *))
            else
-               rcv_up' = cb.rcv_nxt /\ (*: pull along with window :*)
-               rcvurp' = rcvurp) /\
-          (if urp <= LENGTH data /\ sf.b1(SO_OOBINLINE) = F then
-               iobc' = OOBDATA (EL (urp - 1) data) /\
+               rcv_up' = cb.rcv_nxt && (*: pull along with window :*)
+               rcvurp' = rcvurp) &&
+          (if urp <= LENGTH data && sf.b1(SO_OOBINLINE) = F then
+               iobc' = OOBDATA (EL (urp - 1) data) &&
                data_deoobed = APPEND (TAKE (urp - 1) data) (DROP urp data)
            else
-               iobc' = (if seq + urp > cb.rcv_up then NO_OOBDATA else iobc) /\
+               iobc' = (if seq32_plus seq urp > cb.rcv_up then NO_OOBDATA else iobc) &&
                data_deoobed = data)
       else
-          rcv_up' = seq + 1 (* pull along with window *) /\
-          rcvurp' = rcvurp /\
-          iobc' = iobc /\
+          rcv_up' = seq + 1 (* pull along with window *) &&
+          rcvurp' = rcvurp &&
+          iobc' = iobc &&
           data_deoobed = data)
-     ) /\
+     ) &&
 
      (*: data processing is much simpler here than in [[deliver_in_3]] because we know
      we will only ever receive the one [[SYN,ACK]] datagram (duplicates will
      be rejected, and there's only one datagram and so cannot be
      reordered). :*)
-     data' = TAKE rcv_window data_deoobed /\
-     FIN' = (if data' = data_deoobed then FIN else F) /\
-     rcvq' = data' /\  (*: because [[rcvq]] is empty initially :*)
-     rcv_nxt' = seq + 1 (* for SYN *) + LENGTH data' + (if FIN' then 1 else 0) /\
-     rcv_wnd' = rcv_window - LENGTH data' /\ (* MS: do not need to subtract 1 for SYN here, as does not
+     data' = TAKE rcv_window data_deoobed &&
+     FIN' = (if data' = data_deoobed then FIN else F) &&
+     rcvq' = data' &&  (*: because [[rcvq]] is empty initially :*)
+     rcv_nxt' = FIXME_seq32 (*seq + 1 (* for SYN *) + LENGTH data' + (if FIN' then 1 else 0)*) &&
+     rcv_wnd' = rcv_window - LENGTH data' && (* MS: do not need to subtract 1 for SYN here, as does not
                                                     take up space in rcvq. *)
 
-     cb' = cb with <|
-              tt_rexmt    := tt_rexmt';
+     cb' = <| cb with 
+              tt_rexmt     = tt_rexmt';
               (*: not persist, because we do not have any data to send :*)
-              t_idletime  := stopwatch_zero;  (*: just received a segment :*)
-              tt_keep     := Some (Timed((),slow_timer TCPTV_KEEP_IDLE));  (* 2 hours *)
-              tt_conn_est := None;
-              tt_delack   := None;
+              t_idletime   = stopwatch_zero;  (*: just received a segment :*)
+              tt_keep      = Some (Timed((),slow_timer TCPTV_KEEP_IDLE));  (* 2 hours *)
+              tt_conn_est  = None;
+              tt_delack    = None;
               (* flags? what flags?! *)
-              snd_una     updated_by ack onlywhen ACK;  (*: = cb.iss + 1, or +2 if full ack of SYN,FIN :*)
-              snd_nxt     updated_by ack onlywhen (ACK /\ cantsndmore);  (*: prepare for possible outbound FIN :*)
-              snd_max     updated_by ack onlywhen (ACK /\ cantsndmore /\ ack > cb.snd_max);
+              snd_una      = updated_by_onlywhen cb.snd_una ack ACK;  (*: = cb.iss + 1, or +2 if full ack of SYN,FIN :*)
+              snd_nxt      = updated_by_onlywhen cb.snd_nxt ack (ACK && cantsndmore);  (*: prepare for possible outbound FIN :*)
+              snd_max      = updated_by_onlywhen cb.snd_max ack (ACK && cantsndmore && ack > cb.snd_max);
               (*: we doubt [[snd_max]] can ever increase here, but put this in for safety :*)
-              snd_wl1     := if ACK then seq + 1 else seq;    (*: must update window. c.f.~TCPv2p951, TCPv2p981f, and |tcp_input.c:1824| :*)
-              snd_wl2     updated_by ack onlywhen ACK;
-              snd_wnd     := win (*<< snd_scale'*);
+              snd_wl1      = if ACK then seq + 1 else seq;    (*: must update window. c.f.~TCPv2p951, TCPv2p981f, and |tcp_input.c:1824| :*)
+              snd_wl2      = updated_by_onlywhen cb.snd_wl2 ack ACK;
+              snd_wnd      = win (*<< snd_scale'*);
                  (* this is a SYN segment, so window scaling is ignored *)
-              snd_cwnd    := if ACK /\ ack > cb.iss + 1 then
+              snd_cwnd     = if ACK && ack > cb.iss + 1 then
                                (*: BSD clamps |snd_cwnd| to the maximum window size (65535), but only if
                                   we received an ack for data other than the initial SYN. See |tcp_input.c::1791| :*)
-                               MIN (snd_cwnd') (TCP_MAXWIN << snd_scale')
+                               num_MIN (snd_cwnd') (shift_left TCP_MAXWIN snd_scale')
                              else
                                snd_cwnd';
-              rcv_scale   := rcv_scale';
-              snd_scale   := snd_scale';
-              tf_doing_ws := tf_doing_ws';
-              irs         := seq;
-              rcv_nxt     := rcv_nxt';
-              rcv_wnd     := rcv_wnd';
-              tf_rxwin0sent := (rcv_wnd' = 0);
-              rcv_adv     := rcv_nxt' + (rcv_wnd' >> rcv_scale') << rcv_scale';
-              rcv_up      := rcv_up';
-              t_maxseg    := t_maxseg'';
-              ts_recent     := case ts of
+              rcv_scale    = rcv_scale';
+              snd_scale    = snd_scale';
+              tf_doing_ws  = tf_doing_ws';
+              irs          = seq;
+              rcv_nxt      = rcv_nxt';
+              rcv_wnd      = rcv_wnd';
+              tf_rxwin0sent  = (rcv_wnd' = 0);
+              rcv_adv      = FIXME_seq32 (* rcv_nxt' + (shift_left (shift_right rcv_wnd' rcv_scale') rcv_scale') *); 
+              rcv_up       = rcv_up';
+              t_maxseg     = t_maxseg'';
+              ts_recent      = match ts with
                                (*: record irrespective of whether we negotiated to do this or not, like BSD :*)
-                                  None -> cb.ts_recent ||
-                                  Some (ts_val,ts_ecr) -> TimeWindow(ts_val,kern_timer dtsinval);
+                                  None -> cb.ts_recent |
+                                  Some (ts_val,ts_ecr) -> TimeWindow(ts_val,kern_timer dtsinval) end;
                                   (*: timestamp will become invalid in 24 days :*)
-              last_ack_sent := rcv_nxt';
-              t_softerror   := t_softerror';
-              t_rttseg      := t_rttseg';
-              t_rttinf      := t_rttinf';
-              tf_req_tstmp  := tf_doing_tstmp';  (* hmm, maybe this member should be called that not that *)
-              tf_doing_tstmp := tf_doing_tstmp' (* hmm, maybe this member should be called that not that *)
-           |> /\
+              last_ack_sent  = rcv_nxt';
+              t_softerror    = t_softerror';
+              t_rttseg       = t_rttseg';
+              t_rttinf       = t_rttinf';
+              tf_req_tstmp   = tf_doing_tstmp';  (* hmm, maybe this member should be called that not that *)
+              tf_doing_tstmp  = tf_doing_tstmp' (* hmm, maybe this member should be called that not that *)
+           |> &&
 
      (*: now generate [[seg']], unless we're delaying the ACK :*)
-     (choose seg' :: (if ACK then
+     (mychoose (set_of_bool_fn (if ACK then
                           (*: completion of active open :*)
-                         make_ack_segment cb' (cantsndmore /\ ack < cb.iss + 2) (i1,i2,p1,p2) (ticks_of h.ticks)
+                         make_ack_segment cb' (cantsndmore && ack < cb.iss + 2) (i1,i2,p1,p2) (ticks_of h.ticks)
                       else
                           (*: simultaneous open :*)
                           (* Note that this resends the same SYN we sent earlier (modulo window scaling
@@ -15317,9 +15300,9 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
                                  broken *)
 
                            let cb''' =
-                             (if ((linux_arch h.arch) /\ cb.tf_req_tstmp) then
-                               cb' with <| tf_req_tstmp := T;
-                                           tf_doing_tstmp := T |>
+                             (if ((linux_arch h.arch) && cb.tf_req_tstmp) then
+                               <| cb' with  tf_req_tstmp  = T;
+                                           tf_doing_tstmp  = T |>
                               else
                                cb') in
 
@@ -15329,7 +15312,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
                            (if bsd_arch h.arch then
                               make_ack_segment cb''' F(* do not emit FIN yet*) (i1,i2,p1,p2) (ticks_of h.ticks)
                             else
-                              make_syn_ack_segment cb''' (i1,i2,p1,p2) (ticks_of h.ticks))).
+                              make_syn_ack_segment cb''' (i1,i2,p1,p2) (ticks_of h.ticks)))) (fun  seg'->
 
       (* OLD COMMENT by MS below.  KW is not sure what the bug referred to is, but has moved the
          logic for properly handling FIN emission into make_ack_segment, rather than the hack
@@ -15343,32 +15326,32 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
      (*: Add  the segment to the host's output queue.   See {@link [[enqueue_or_fail]]}. :*)
 
       enqueue_or_fail T h.arch h.rttab h.ifds [TCP seg'] oq
-             (cb with <| t_rttinf      := cb'.t_rttinf;
-                         t_maxseg      := t_maxseg'';
-                         snd_nxt       := cb.snd_nxt;
-                         tt_delack     := cb.tt_delack;
-                         last_ack_sent := cb.last_ack_sent;
-                         rcv_adv       := cb.rcv_adv
+             (<| cb with  t_rttinf       = cb'.t_rttinf;
+                         t_maxseg       = t_maxseg'';
+                         snd_nxt        = cb.snd_nxt;
+                         tt_delack      = cb.tt_delack;
+                         last_ack_sent  = cb.last_ack_sent;
+                         rcv_adv        = cb.rcv_adv
                        |>) cb' (cb'',oq')
-     ) /\
+     )) &&
 
      (*: Note that we change state even if enqueuing or routing returned an error,
             trusting to retransmit to solve our problem. :*)
      (if ACK then
           (*: completion of active open :*)
-          (if ~FIN' then
-              (cantrcvmore' = cantrcvmore /\
+          (if not FIN' then
+              (cantrcvmore' = cantrcvmore &&
                st' =
                 (if cantsndmore = F then
   		   ESTABLISHED  (* MS: BSD only sets to F if received a FIN *)
-                 else if cb.snd_max > cb.iss + 1 /\ ack >= cb.snd_max then (*: our [[FIN]] is [[ACK]]ed :*)
+                 else if cb.snd_max > cb.iss + 1 && ack >= cb.snd_max then (*: our [[FIN]] is [[ACK]]ed :*)
    		   FIN_WAIT_2
                  else
     		   FIN_WAIT_1)) (*: we were trying to send a FIN from [[SYN_SENT]], so move straight
                                                   to [[FIN_WAIT_2]]. Definitely the case with BSD; should also be
                                                   true for other archs. :*)
            else
-              (cantrcvmore' = T /\
+              (cantrcvmore' = T &&
                st' =
                  (if cantsndmore = F then
                     CLOSE_WAIT
@@ -15377,15 +15360,31 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
                                                   FIN, so we move straight into [[LAST_ACK]]. :*)
       else
           (*: simultaneous open :*)
-          (if ~FIN' then
-             (st' = SYN_RECEIVED /\
+          (if not FIN' then
+             (st' = SYN_RECEIVED &&
               cantrcvmore' = cantrcvmore)
             else
               (* should go to "SYN_RECEIVED*", i.e., remember we want to go to CLOSE_WAIT not ESTABLISHED later *)
-             (st' = CLOSE_WAIT /\  (*: yes, really! (in BSD) even though we've not yet had our initial SYN acknowledged! See |tcp_input.c:2065 +/-2000| :*)
+             (st' = CLOSE_WAIT &&  (*: yes, really! (in BSD) even though we've not yet had our initial SYN acknowledged! See |tcp_input.c:2065 +/-2000| :*)
                                     (* MS: incorrect behaviour; we think this could be exploited as a BSD DoS attack *)
               cantrcvmore' = T))
      )
+
+    ==>
+
+  host_redn deliver_in_2 ((* rp *) rp_tcp)  (*: Completion of active open (in [[SYN_SENT]] receive SYN,ACK and send ACK) or simultaneous open (in [[SYN_SENT]] receive SYN and send SYN,ACK) :*) ((* rc *)network nonurgent) 
+     ((* h1 *)<| h with  socks  = socks |++
+                        [(sid,Sock(Some fid,sf,Some i1,Some p1,Some i2,Some p2,es,
+				   cantsndmore,cantrcvmore,TCP_PROTO tcp_sock))] ;
+               iq  = iq ;
+               oq  = oq |>)
+   ((* lbl *)Lh_tau)
+     ((* h2 *)<| h with  socks  = socks |++
+                        [(sid,Sock(Some fid,sf',Some i1,Some p1,Some i2,Some p2,es,
+				   cantsndmore,cantrcvmore',
+				   TCP_Sock(st',cb'',None,[],None,rcvq',rcvurp',iobc')))] ;
+               iq  = iq' ;
+               oq  = oq' |>)
 
 
   (*:
@@ -15425,192 +15424,179 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
 
   :*)
 
-)
 
-/\
-   (!h iq iq' socks seg sock sock' bndlm bndlm'
+and
+
+deliver_in_2a: forall h iq iq' socks seg sock sock' bndlm bndlm'
      sid fid sf i1 p1 i2 p2 cb es sndq rcvq cantsndmore cantrcvmore sndurp rcvurp iobc
      ack ACK SYN
      oq oq' outsegs.
 
-   deliver_in_2a /* rp_tcp, network nonurgent (*: Receive bad or boring datagram and RST or ignore for [[SYN_SENT]] socket :*) */
-     h with <| socks := socks |++
-                        [(sid,sock)] ;
-               iq := iq;
-               oq := oq;
-               bndlm := bndlm |>
-   -- Lh_tau -->
-     h with <| socks := socks |++
-                        [(sid,sock')] ;
-               iq := iq';
-               oq := oq';
-               bndlm := bndlm' |>
-
-   <==
-
-   (*:
-   \textbf{Summary:} For a [[SYN_SENT]] socket unacceptable acks get RSTed; boring but otherwise OK segments are ignored.   :*)
-
-     sock = Sock(Some fid,sf,Some i1,Some p1,Some i2,Some p2,es,cantsndmore,cantrcvmore,
-                 TCP_Sock(SYN_SENT,cb,None,sndq,sndurp,rcvq,rcvurp,iobc)) /\
+   sock = Sock(Some fid,sf,Some i1,Some p1,Some i2,Some p2,es,cantsndmore,cantrcvmore,
+                 TCP_Sock(SYN_SENT,cb,None,sndq,sndurp,rcvq,rcvurp,iobc)) &&
 
     (*: Take TCP segment [[seg]] from the head of the host's input queue :*)
-     dequeue_iq(iq,iq',Some (TCP seg)) /\
+     dequeue_iq(iq,iq',Some (TCP seg)) &&
 
-     (?seq_discard URG_discard PSH_discard FIN_discard
+     (exists seq_discard URG_discard PSH_discard FIN_discard
        win_discard ws_discard urp_discard mss_discard ts_discard data_discard.
      seg = <|
-            is1  := Some i2;
-            is2  := Some i1;
-            ps1  := Some p2;
-            ps2  := Some p1;
-            seq  := tcp_seq_flip_sense (seq_discard:tcp_seq_foreign);
-            ack  := tcp_seq_flip_sense (ack:tcp_seq_local);
-            URG  := URG_discard;
-            ACK  := ACK;
-            PSH  := PSH_discard;
-            RST  := F;
-            SYN  := SYN;
-            FIN  := FIN_discard;
-            win  := win_discard;
-            ws   := ws_discard;
-            urp  := urp_discard;
-            mss  := mss_discard;
-            ts   := ts_discard;
-            data := data_discard
+            TCP1_netTypes.is1   = Some i2;
+            TCP1_netTypes.is2   = Some i1;
+            TCP1_netTypes.ps1   = Some p2;
+            TCP1_netTypes.ps2   = Some p1;
+            TCP1_netTypes.seq   = tcp_seq_foreign_to_local (seq_discard:tcp_seq_foreign);
+            TCP1_netTypes.ack   = tcp_seq_local_to_foreign (ack:tcp_seq_local);
+            TCP1_netTypes.URG   = URG_discard;
+            TCP1_netTypes.ACK   = ACK;
+            TCP1_netTypes.PSH   = PSH_discard;
+            TCP1_netTypes.RST   = F;
+            TCP1_netTypes.SYN   = SYN;
+            TCP1_netTypes.FIN   = FIN_discard;
+            TCP1_netTypes.win   = win_discard;
+            TCP1_netTypes.ws    = ws_discard;
+            TCP1_netTypes.urp   = urp_discard;
+            TCP1_netTypes.mss   = mss_discard;
+            TCP1_netTypes.tcpSegment_ts    = ts_discard;
+            TCP1_netTypes.data  = data_discard
            |>
-     ) /\
+     ) &&
 
      (*: Note that there does not exist a better socket match to which the segment should be sent, as the whole quad is matched exactly. :*)
 
-     ((ACK /\ ~(cb.iss < ack /\ ack <= cb.snd_max)) \/
-      (~SYN /\ (~ACK \/ (ACK /\ cb.iss < ack /\ ack <= cb.snd_max)))) /\
+     ((ACK && not (cb.iss < ack && ack <= cb.snd_max)) ||
+      (not SYN && (not ACK || (ACK && cb.iss < ack && ack <= cb.snd_max)))) &&
 
-     (if ACK /\ ~(cb.iss < ack /\ ack <= cb.snd_max) then
+     (if ACK && not (cb.iss < ack && ack <= cb.snd_max) then
           dropwithreset seg h.ifds (ticks_of h.ticks) BANDLIM_UNLIMITED bndlm bndlm' outsegs
-      else if ~SYN /\ (~ACK \/ (ACK /\ cb.iss < ack /\ ack <= cb.snd_max)) then
-          outsegs = [] /\ bndlm' = bndlm
+      else if not SYN && (not ACK || (ACK && cb.iss < ack && ack <= cb.snd_max)) then
+          outsegs = [] && bndlm' = bndlm
       else
-          F) /\
+          F) &&
     let tcp_sock = tcp_sock_of sock in
     (*: BSD |rcv_wnd| bug: the receive window updated code in |tcp_input| gets executed \emph{before} the segment is
        processed, so even for bad segments, it gets updated. :*)
     let rcv_window = calculate_bsd_rcv_wnd sf tcp_sock in
-    sock' = sock with <| pr := TCP_PROTO(tcp_sock with
-                               <|cb := tcp_sock.cb with
-                                       <| rcv_wnd := if bsd_arch h.arch then rcv_window else tcp_sock.cb.rcv_wnd;
-                                          rcv_adv := if bsd_arch h.arch then tcp_sock.cb.rcv_nxt + rcv_window
+    sock' = <| sock with  pr  = TCP_PROTO(<| tcp_sock with
+                               cb  = <| tcp_sock.cb with
+                                        rcv_wnd  = if bsd_arch h.arch then rcv_window else tcp_sock.cb.rcv_wnd;
+                                          rcv_adv  = if bsd_arch h.arch then seq32_plus tcp_sock.cb.rcv_nxt rcv_window
                                                                         else tcp_sock.cb.rcv_adv;
-                                          t_idletime := stopwatch_zero; (* just received segment *)
-                                          tt_keep := Some (Timed((),slow_timer TCPTV_KEEP_IDLE)) (* 2 hours *)
-                                          |> |>) |> /\
+                                          t_idletime  = stopwatch_zero; (* just received segment *)
+                                          tt_keep  = Some (Timed((),slow_timer TCPTV_KEEP_IDLE)) (* 2 hours *)
+                                          |> |>) |> &&
     enqueue_and_ignore_fail h.arch h.rttab h.ifds outsegs oq oq'
 
+   (*:
+   \textbf{Summary:} For a [[SYN_SENT]] socket unacceptable acks get RSTed; boring but otherwise OK segments are ignored.   :*)
 
-)
+     ==>
+
+   host_redn deliver_in_2a ((* rp *) rp_tcp)  (*: Receive bad or boring datagram and RST or ignore for [[SYN_SENT]] socket :*) ((* rc *)network nonurgent) 
+     ((* h1 *)<| h with  socks  = socks |++
+                        [(sid,sock)] ;
+               iq  = iq;
+               oq  = oq;
+               bndlm  = bndlm |>)
+   ((* lbl *)Lh_tau)
+     ((* h2 *)<| h with  socks  = socks |++
+                        [(sid,sock')] ;
+               iq  = iq';
+               oq  = oq';
+               bndlm  = bndlm' |>)
 
 
-/\
-   (!h socks socks' iq iq' oq oq' seg sid sock sock' outsegs bndlm bndlm'
+(**
+and
+
+
+deliver_in_3: forall h socks socks' iq iq' oq oq' seg sid sock sock' outsegs bndlm bndlm'
     i1 p1 i2 p2 win urp seq ack SYN URG ACK PSH FIN ts data continue' tcp_sock tcp_sock'.
 
-   deliver_in_3 /* rp_tcp, network nonurgent (*: Receive data, FINs, and ACKs in a connected state :*) */
-     h with <| socks := socks |++ [(sid, sock)];
-               iq := iq ;
-               oq := oq ;
-               bndlm := bndlm |>
-   -- Lh_tau -->
-     h with <| socks := socks';
-               iq := iq' ;
-               oq := oq' ;
-               bndlm := bndlm' |>
-
-   <==
-
-    sid NOTIN (FDOM socks) /\
-    sock.pr = TCP_PROTO(tcp_sock)  /\
+   NOTIN sid  (FDOM socks) &&
+    sock.pr = TCP_PROTO(tcp_sock)  &&
 
     (*: Assert that the socket meets some sanity properties. This is logically superfluous  but
         aids semi-automatic model checking. See {@link [[sane_socket]]} for further details. :*)
-    sane_socket sock /\
+    sane_socket sock &&
 
     (*: Take TCP segment [[seg]] from the head of the host's input queue :*)
-    dequeue_iq(iq,iq',Some (TCP seg)) /\
+    dequeue_iq(iq,iq',Some (TCP seg)) &&
 
     (*: The segment must be of an acceptable form :*)
     (*: Note: some segment fields (namely TCP options [[ws]] and [[mss]]), are only used during
         connection establishment and any values assigned to them in segments during a connection are
         simply ignored. They are equal to the identifiers [[ws_discard]] and
         [[mss_discard]] respectively, which are otherwise unconstrained. :*)
-    (?win_ urp_ ws_discard mss_discard.
+    (exists win_ urp_ ws_discard mss_discard.
       seg = <|
-              is1  := Some i2;
-              is2  := Some i1;
-              ps1  := Some p2;
-              ps2  := Some p1;
-              seq  := tcp_seq_flip_sense (seq:tcp_seq_foreign);
-              ack  := tcp_seq_flip_sense (ack:tcp_seq_local);
-              URG  := URG;  (*: Urgent/OOB data is processed by this rule :*)
-              ACK  := ACK;  (*: Acknowledgements are processed :*)
-              PSH  := PSH;  (*: Push flag maybe set on an incoming data segment :*)
-              RST  := F;    (*: [[RST]] segments are not handled by this rule :*)
-              SYN  := SYN;  (*: [[SYN]] flag set may be set in the final segment of a simultaneous open :*)
-              FIN  := FIN;  (*: Processing of FIN flag handled :*)
-              win  := win_;
-              ws   := ws_discard;
-              urp  := urp_;
-              mss  := mss_discard;
-              ts   := ts;
-              data := data  (*: Segment may have data :*)
-           |> /\
+              TCP1_netTypes.is1   = Some i2;
+              TCP1_netTypes.is2   = Some i1;
+              TCP1_netTypes.ps1   = Some p2;
+              TCP1_netTypes.ps2   = Some p1;
+              TCP1_netTypes.seq   = tcp_seq_foreign_to_local (seq:tcp_seq_foreign);
+              TCP1_netTypes.ack   = tcp_seq_local_to_foreign (ack:tcp_seq_local);
+              TCP1_netTypes.URG   = URG;  (*: Urgent/OOB data is processed by this rule :*)
+              TCP1_netTypes.ACK   = ACK;  (*: Acknowledgements are processed :*)
+              TCP1_netTypes.PSH   = PSH;  (*: Push flag maybe set on an incoming data segment :*)
+              TCP1_netTypes.RST   = F;    (*: [[RST]] segments are not handled by this rule :*)
+              TCP1_netTypes.SYN   = SYN;  (*: [[SYN]] flag set may be set in the final segment of a simultaneous open :*)
+              TCP1_netTypes.FIN   = FIN;  (*: Processing of FIN flag handled :*)
+              TCP1_netTypes.win   = win_;
+              TCP1_netTypes.ws    = ws_discard;
+              TCP1_netTypes.urp   = urp_;
+              TCP1_netTypes.mss   = mss_discard;
+              TCP1_netTypes.tcpSegment_ts    = ts;
+              TCP1_netTypes.data  = data  (*: Segment may have data :*)
+           |> &&
 
       (*: Equality of some type casts, and application of the socket's send window scaling to the
           received window advertisment :*)
-      win = w2n win_ << tcp_sock.cb.snd_scale /\
+      win = (shift_left (w2n win_) tcp_sock.cb.snd_scale) &&
       urp = w2n urp_
-    ) /\
+    ) &&
 
     (*: The socket is fully connected so its complete address quad must match the address
         quad of the segment [[seg]]. By definition, [[sock]] is the socket with the best address
         match thus the auxiliary function [[tcp_socket_best_match]] is not required here. :*)
-    sock.is1 = Some i1 /\ sock.ps1 = Some p1 /\
-    sock.is2 = Some i2 /\ sock.ps2 = Some p2 /\
+    sock.is1 = Some i1 && sock.ps1 = Some p1 &&
+    sock.is2 = Some i2 && sock.ps2 = Some p2 &&
 
     (*: The socket must be in a connected state, or is in the [[SYN_RECEIVED]] state and
         [[seg]] is the final segment completing a passive or simultaneous open. :*)
-    tcp_sock.st NOTIN {CLOSED;LISTEN;SYN_SENT} /\
+    NOTIN tcp_sock.st  {CLOSED;LISTEN;SYN_SENT} &&
     tcp_sock.st IN {SYN_RECEIVED;ESTABLISHED;CLOSE_WAIT;FIN_WAIT_1;FIN_WAIT_2;
-                    CLOSING;LAST_ACK;TIME_WAIT} /\
+                    CLOSING;LAST_ACK;TIME_WAIT} &&
 
     (*: For a socket in the [[SYN_RECEIVED]] state check that the ACK is valid (the acknowledge
         value [[ack]] is not outside the range of sequence numbers that have been transmitted to the
         remote socket) and that the segment is not a LAND DoS attack (the segment's sequence number
         is not smaller than the remote socket's (the receiver from this socket's perspective)
         initial sequence number) :*)  (* Note it might be better to put the [[SYN_RECEIVED]] case into its own rule *)
-    ~(tcp_sock.st = SYN_RECEIVED /\
-      ((ACK /\ (ack <= tcp_sock.cb.snd_una \/ ack > tcp_sock.cb.snd_max)) \/
-       seq < tcp_sock.cb.irs)) /\
+    not (tcp_sock.st = SYN_RECEIVED &&
+      ((ACK && (ack <= tcp_sock.cb.snd_una || ack > tcp_sock.cb.snd_max)) ||
+       seq < tcp_sock.cb.irs)) &&
 
     (*: If socket [[sock]] has previously emitted a [[FIN]] segment check that a thread is still
         associated with the socket, i.e.~check that the socket still has a valid file identifier
         [[fid <> None]]. If not, and the segment contains new data, the segment should not be
         processed by this rule as there is no thread to read the data from the socket after
         processing.  Query: how does this [[st]] condition relate to [[wesentafin]] below? :*)
-    ~(tcp_sock.st IN {FIN_WAIT_1; CLOSING; LAST_ACK; FIN_WAIT_2; TIME_WAIT} /\
-      sock.fid = None /\  (* why not check cantrcvmore instead?? *)
-      seq + LENGTH data > tcp_sock.cb.rcv_nxt) /\  (* data remaining after trimming? *)
+    not (tcp_sock.st IN {FIN_WAIT_1; CLOSING; LAST_ACK; FIN_WAIT_2; TIME_WAIT} &&
+      sock.fid = None &&  (* why not check cantrcvmore instead?? *)
+      seq32_plus seq (LENGTH data) > tcp_sock.cb.rcv_nxt) &&  (* data remaining after trimming? *)
 
     (*: A [[SYN]] should be received only in the [[SYN_RECEIVED]] state. :*)
-    (SYN ==> tcp_sock.st = SYN_RECEIVED) /\
+    (SYN --> tcp_sock.st = SYN_RECEIVED) &&
 
     (*: Socket [[sock]] has previously sent a [[FIN]] segment iff [[snd_max]] is strictly greater
         than the sequence number of the byte after the last byte in the send queue [[sndq]]. :*)
-    let wesentafin = tcp_sock.cb.snd_max > tcp_sock.cb.snd_una + LENGTH tcp_sock.sndq in
+    let wesentafin = tcp_sock.cb.snd_max > seq32_plus tcp_sock.cb.snd_una (LENGTH tcp_sock.sndq) in
 
     (*: If the socket [[sock]] has previously sent a [[FIN]] segment it has been acknowledged by
         segment [[seg]] if the segment has the [[ACK]] flag set and an acknowledgment number [[ack
         >= cb.snd_max]]. :*)
-    let ourfinisacked = (wesentafin /\ ACK /\ ack >= tcp_sock.cb.snd_max) in
+    let ourfinisacked = (wesentafin && ACK && ack >= tcp_sock.cb.snd_max) in
 
     (*: Process the segment and return an updated socket state :*)
     (*: The segment processing is performed by the four relations below, \ie, [[di3_topstuff]],
@@ -15628,25 +15614,26 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
             ensure segment is not entirely off the right hand edge of the window; timer updates,
             etc.\ For further information see {@link [[di3_topstuff]]}.:*)
         di3_topstuff seg h.arch h.rttab h.ifds (ticks_of h.ticks)
-    and ackstuff =
+    in
+    let ackstuff =
         (*: Process the segment's acknowledgement number and do congestion control. See {@link
             [[di3_ackstuff]]}.:*)
         di3_ackstuff tcp_sock seg ourfinisacked h.arch h.rttab h.ifds (ticks_of h.ticks)
-    and datastuff theststuff =
+    in let datastuff theststuff =
         (*: Extract and reassemble data (including urgent data). See {@link [[di3_datastuff]]}. :*)
         di3_datastuff theststuff tcp_sock seg ourfinisacked h.arch
-    and ststuff FIN_reass =
+    in let ststuff FIN_reass =
         (*: Possibly change the socket's state (especially on receipt of a valid [[FIN]]). See
             {@link [[di3_ststuff]]}. :*)
         di3_ststuff FIN_reass ourfinisacked ack
     in
-      (topstuff      andThen
-       ackstuff      andThen
+      (topstuff      **>
+       ackstuff      **>
        datastuff ststuff)
       (sock,bndlm) (*: state before :*)
-      ((sock',bndlm',outsegs),continue') /\ (*: state after :*)
+      ((sock',bndlm',outsegs),continue') && (*: state after :*)
 
-    sock'.pr = TCP_PROTO(tcp_sock') /\
+    sock'.pr = TCP_PROTO(tcp_sock') &&
 
     (*: If socket [[sock]] was initially in the [[SYN_RECEIVED]] state and after processing [[seg]]
         is in the [[ESTABLISHED]] state (or if the segment contained a [[FIN]] and the socket is in one of the
@@ -15659,14 +15646,14 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
         segment in a simultaneous open in which case no other sockets are updated.  The auxiliary
         function {@link [[di3_socks_update]]} does all the hard work, updating the relevant
         sockets in the finite map [[socks]] to yield [[socks']]. :*)
-    (if tcp_sock.st = SYN_RECEIVED /\
+    (if tcp_sock.st = SYN_RECEIVED &&
         tcp_sock'.st IN {ESTABLISHED; FIN_WAIT_1; FIN_WAIT_2; CLOSE_WAIT} then
           di3_socks_update sid (socks |+ (sid,sock')) socks'
      else
         (*: If the socket was not initially in the [[SYN_RECEIVED]] state, \ie [[seg]] was processed
             by an already connected socket, ensure the updated socket is in the final finite
             maps of sockets. :*)
-        socks' = socks |+ (sid,sock')) /\
+        socks' = socks |+ (sid,sock')) &&
 
     (*: Queue any segments for output on the host's output queue. In the common case there are no
         segments to be output as output is handled by [[deliver_out_1]] etc. The exception is
@@ -15674,6 +15661,19 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
         emitted under certain congestion control conditions. See {@link [[di3_ackstuff]]} and {@link
         [[di3_newackstuff]]} for further details. :*)
     enqueue_oq_list_qinfo(oq,outsegs,oq')
+
+    ==>
+
+   host_redn deliver_in_3 ((* rp *) rp_tcp)  (*: Receive data, FINs, and ACKs in a connected state :*) ((* rc *)network nonurgent) 
+     ((* h1 *)<| h with  socks  = socks |++ [(sid, sock)];
+               iq  = iq ;
+               oq  = oq ;
+               bndlm  = bndlm |>)
+   ((* lbl *)Lh_tau)
+     ((* h2 *)<| h with  socks  = socks';
+               iq  = iq' ;
+               oq  = oq' ;
+               bndlm  = bndlm' |>)
 
 
  (*:
@@ -15713,7 +15713,8 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
     must be rolled back to account for the queueing failure.
 
  :*)
-)
+
+
 
 /\
    (!h socks iq iq' seg sid sock_0
@@ -15969,9 +15970,9 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
       ~( (* condition from deliver_in_1 (should not this only apply when the quad matches
             a socket in listen?)  I think BSD only checks on matching -RST SYN -ACK segs: *)
         T /\  (*: placeholder for not a link-layer multicast or broadcast :*)
-        ~(is_broadormulticast h.ifds i2) /\  (*: seems unlikely, since [[i1 IN local_ips h.ifds]] :*)
+        ~(is_broadormulticast (set_of_fmap h.ifds) i2) /\  (*: seems unlikely, since [[i1 IN local_ips h.ifds]] :*)
         ~(is1 = None) /\
-        ~is_broadormulticast h.ifds (THE is1)
+        ~is_broadormulticast (set_of_fmap h.ifds) (THE is1)
       )
      )
 
@@ -16274,8 +16275,8 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
      i1 IN local_ips h.ifds /\
      T /\  (*: placeholder for not a link-layer multicast or broadcast :*)
      (*: seems unlikely, since [[i1 IN local_ips h.ifds]] :*)
-     ~(is_broadormulticast h.ifds i1) /\
-     ~(is_broadormulticast h.ifds i2) /\
+     ~(is_broadormulticast (set_of_fmap h.ifds) i1) /\
+     ~(is_broadormulticast (set_of_fmap h.ifds) i2) /\
      (case is1 of
           Some i1' -> i1' = i1 ||
           None -> T) /\
@@ -16619,6 +16620,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
 
    )
 
+(**
 
 /\
 
@@ -17403,8 +17405,8 @@ TODO3
       (? (ifid,ifd) :: (h0.ifds). i4 IN ifd.ipset ) /\
       sid IN lookup_udp h0.socks (i3,ps3,i4,ps4) h0.bound h0.arch /\
       T /\  (*: placeholder for  "not a link-layer multicast or broadcast" :*)
-      ~(is_broadormulticast h0.ifds i4) /\  (*: seems unlikely, since [[i1 IN local_ips h.ifds]] :*)
-      ~(is_broadormulticast h0.ifds i3)
+      ~(is_broadormulticast (set_of_fmap h0.ifds) i4) /\  (*: seems unlikely, since [[i1 IN local_ips h.ifds]] :*)
+      ~(is_broadormulticast (set_of_fmap h0.ifds) i3)
 
 
     (*:
@@ -17446,8 +17448,8 @@ TODO3
       (enqueue_oq(h.oq,icmp,oq',T) \/ icmp_to_go = F) (*: non-deterministic ICMP generation :*) /\
       i4 IN local_ips h.ifds /\
       T /\  (*: placeholder for  "not a link-layer multicast or broadcast" :*)
-      ~(is_broadormulticast h.ifds i4) /\  (*: seems unlikely, since [[i1 IN local_ips h.ifds]] :*)
-      ~(is_broadormulticast h.ifds i3)
+      ~(is_broadormulticast (set_of_fmap h.ifds) i4) /\  (*: seems unlikely, since [[i1 IN local_ips h.ifds]] :*)
+      ~(is_broadormulticast (set_of_fmap h.ifds) i3)
 
 
     (*:
@@ -17496,9 +17498,9 @@ TODO3
      i2 IN local_ips(h.ifds) /\
      (F \/                  (* TODO: seg checksum and offset field not sensible *)
       ~(T /\  (* not a link-layer multicast or broadcast *)
-        ~(is_broadormulticast h.ifds i2) /\  (*: seems unlikely, since [[i1 IN local_ips h.ifds]] :*)
+        ~(is_broadormulticast (set_of_fmap h.ifds) i2) /\  (*: seems unlikely, since [[i1 IN local_ips h.ifds]] :*)
         ~(is1 = None) /\
-        ~is_broadormulticast h.ifds (THE is1)
+        ~is_broadormulticast (set_of_fmap h.ifds) (THE is1)
       )
      )
 
@@ -17647,7 +17649,7 @@ TODO3
      (case sock.pr of
           TCP_PROTO(tcp_sock) ->
             (?icmp_seq. icmp.seq = Some icmp_seq /\
-            if IS_Some icmp.is3 then
+            if is_Some icmp.is3 then
                (if tcp_sock.cb.snd_una <= icmp_seq /\ icmp_seq < tcp_sock.cb.snd_max then (* tcp_mtudisc() *)
                    if nextmtu = None then
                        sock' = sock with <| pr := TCP_PROTO(tcp_sock with
@@ -18251,12 +18253,12 @@ val Time_Pass_tcpcb_def = Define`
      and t_badrxtwin's = Time_Pass_timewindow dur cb.t_badrxtwin
      and t_idletime's   = Time_Pass_stopwatch dur cb.t_idletime
      in
-     if IS_Some tt_rexmt' /\
-        IS_Some tt_keep' /\
-        IS_Some tt_2msl' /\
-        IS_Some tt_delack' /\
-        IS_Some tt_conn_est' /\
-        IS_Some tt_fin_wait_2'
+     if is_Some tt_rexmt' /\
+        is_Some tt_keep' /\
+        is_Some tt_2msl' /\
+        is_Some tt_delack' /\
+        is_Some tt_conn_est' /\
+        is_Some tt_fin_wait_2'
      then
         Some (\cb'.
               choose ts_recent' :: ts_recent's.
@@ -18286,7 +18288,7 @@ val Time_Pass_socket_def = Define`
      || TCP_PROTO(tcp_s) ->
        let cb's = Time_Pass_tcpcb dur tcp_s.cb
        in
-       if IS_Some cb's
+       if is_Some cb's
        then
           Some (\s'.
                 choose cb' :: THE cb's.
@@ -18333,10 +18335,10 @@ val Time_Pass_host_def = Define`
      and oq'     = Time_Pass_timed dur h.oq
      and ticks's = Time_Pass_ticker dur h.ticks
      in
-     if IS_Some ts' /\
-        IS_Some socks's /\
-        IS_Some iq' /\
-        IS_Some oq'
+     if is_Some ts' /\
+        is_Some socks's /\
+        is_Some iq' /\
+        is_Some oq'
      then
         Some (\h'.
               choose socks' :: THE socks's.
@@ -18386,7 +18388,7 @@ val (host_redn_rules, host_redn_ind, host_redn_cases) =
    <==
 
      let hs' = Time_Pass_host dur h in
-         IS_Some hs' /\
+         is_Some hs' /\
          h' IN (THE hs') /\
          ~(?rn rp rc lbl h'. rn /* rp, rc */ h -- lbl --> h' /\ is_urgent rc)
 

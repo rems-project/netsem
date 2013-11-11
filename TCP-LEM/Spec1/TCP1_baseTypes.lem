@@ -836,6 +836,13 @@ instance forall 'a. (Numeral (seq32 'a))
   let fromNumeral = FIXME_w2n
 end
 
+let seq32_plus_seq32 a b = a (* FIXME *)
+
+(* FIXME this is potentially dangerous with the Numerall instance above, because we aren't sure that the coercions will preserve semantics... think about this more! *)
+instance forall 'a. (NumAdd (seq32 'a))
+  let (+) = seq32_plus_seq32
+end
+
 
 
 (* -------------------------------------------------- *)

@@ -260,11 +260,12 @@ let (*: the set of sockets matching a quad, for TCP :*)
   tcp_socket_best_match socks (*socks : sid |-> socket*) (sid,sock) seg (*seg : tcpSegment*) arch =
     (* is the socket sid the best match for segment segexists  *)
     let s = sock in
+    let seg = (seg:tcpSegment) in
     let score = match_score (s.is1, s.ps1, s.is2, s.ps2)
-                            (THE seg.is1, seg.ps1, THE seg.is2, seg.ps2) in
-    not(exists sid' s'. (sid',s') IN (set_of_fmap (DOMSUB socks sid)) &&                
+                            (THE seg.TCP1_netTypes.is1, seg.TCP1_netTypes.ps1, THE seg.TCP1_netTypes.is2, seg.TCP1_netTypes.ps2) in
+    not(exists sid' s'. (sid',s') IN (set_of_fmap (DOMSUB (socks:fmap sid socket) sid)) &&                
 (match_score (s'.is1, s'.ps1, s'.is2, s'.ps2)
-                            (THE seg.is1, seg.ps1, THE seg.is2, seg.ps2) > score))
+                            (THE seg.TCP1_netTypes.is1, seg.TCP1_netTypes.ps1, THE seg.TCP1_netTypes.is2, seg.TCP1_netTypes.ps2) > score))
 
 (*:
 

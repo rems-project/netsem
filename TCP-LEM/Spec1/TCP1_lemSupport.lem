@@ -126,11 +126,13 @@ type real = Real of (nat -> bool)
 
 val real_from_numeral : numeral -> real
 
+let FIXME_real = Real (fun x -> true)
+
+
 instance (Numeral real)
   let fromNumeral = real_from_numeral
 end
 
-let FIXME_real = Real (fun x -> true)
 
 val real_MAX: real -> real -> real
 
@@ -139,6 +141,15 @@ val real_MIN: real -> real -> real
 val real_neg: real -> real
 
 val real_gte: real -> real -> bool
+
+let FIXME_real_div a b = FIXME_real
+
+instance (NumDivision real)
+  let (/) = FIXME_real_div
+end
+
+
+
 
 val int_neg: int -> int
 
@@ -174,3 +185,5 @@ val IMPLODE: string -> string
 val string_of_char_list: list char -> string
 
 val STRLEN: string -> nat
+
+val o_f: forall 'a 'b 'c. ('b -> 'c) -> (fmap 'a 'b) -> (fmap 'a 'c)
