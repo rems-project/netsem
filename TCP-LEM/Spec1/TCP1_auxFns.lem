@@ -889,6 +889,7 @@ are completely nondeterministic, and allow any legal reassembly.
 (* ------------------------------------------------------------------ *)
 
 (* DON'T phase: handled by betters *)
+val tcp_reass: tcp_seq_foreign -> list tcpReassSegment -> set (list byte * nat * bool) (* FIXME *)
 (* FIXME
 let (*: perform TCP segment reassembly :*)
   tcp_reass seq (*seq:tcp_seq_foreign?*) (rsegq : list tcpReassSegment) =

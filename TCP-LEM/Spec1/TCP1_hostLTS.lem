@@ -436,14 +436,13 @@ TODO3
 
 :*)
 
-(** FIXME di3 stuff
+
 let 
   (*: [[deliver_in_3]] ACK processing :*)
   di3_ackstuff tcp_sock_0 seg ourfinisacked arch rttab ifds ticks =
-    (*: Pull some fields out of the segment :*)
-    let ack  = tcp_seq_flip_sense seg.ack in
-    let seq  = tcp_seq_flip_sense seg.seq in
-    let data = seg.data in
+    let ack  = tcp_seq_foreign_to_local seg.ack in
+    let seq  = tcp_seq_local_to_foreign seg.seq in
+    let data = seg.TCP1_netTypes.data in
 
     (*: Pull out senders advertised window from the segment, applying the sender's scaling :*)
     let win  = w2n seg.win << tcp_sock_0.cb.snd_scale in
@@ -451,16 +450,16 @@ let
     (*: Get the socket's control block using the monadic state accessor [[get_cb]]. Process the
         acknowledgement data in the segment, do some congestion control calculations and finally
         update the control blocks :*)
-    (get_cb \ cb.
+    (get_cb (fun  cb->
        (*: The segment is possibly a duplicate ack if it contains no data, does not contain a window
          update and the socket has unacknowledged data (the retransmit timer is still active).  The
          no data condition is important: if this socket is sending little or no data at present and is
          waiting for some previous data to be acknowledged, but is receiving data filled segments
          from the other end, these may all contain the same acknowledgement number and trigger the
          retransmit logic erroneously. :*)
-      let has_data = (data <> [] &&
-          (bsd_arch arch ==> (cb.rcv_nxt < seq + LENGTH data && seq < cb.rcv_nxt + cb.rcv_wnd))) in
-      let maybe_dup_ack = (~has_data && win = cb.snd_wnd && mode_of cb.tt_rexmt = SOME Rexmt) in
+      let has_data = (data /= [] &&
+          (bsd_arch arch --> (cb.rcv_nxt < seq32_plus seq (LENGTH data) && seq < seq32_plus cb.rcv_nxt cb.rcv_wnd))) in
+      let maybe_dup_ack = (not has_data && win = cb.snd_wnd && mode_of cb.tt_rexmt = SOME Rexmt) in
 
       if ack <= cb.snd_una && maybe_dup_ack then
         (*: Received a duplicate acknowledgement: it is an old acknowledgement (strictly less than
@@ -474,7 +473,7 @@ let
           if t_dupacks' < 3  then
             (*: Fewer than three duplicate acks received so far. Just increment the duplicate ack
                 counter.  We must continue processing, in case [[FIN]] is set. :*)
-            modify_cb (\cb'.cb' with <| t_dupacks = t_dupacks' |>) andThen
+            modify_cb (fun cb'-> <| cb' with  t_dupacks  = t_dupacks' |>) **>
             cont
 
           else if t_dupacks' > 3 || (t_dupacks' = 3 && TCP_DO_NEWRENO && ack < cb.snd_recover) then
@@ -492,69 +491,70 @@ let
                 window by a maximum segment size (for the same reason as before) and attempt to output
                 another segment. NB: this will not cause a cycle to develop! The retransmission
                 timer will eventually fire if recovery does not happen "fast". :*)
-            modify_cb (\cb'.cb' with <| t_dupacks = if t_dupacks' = 3 then 0 (*: false retransmit,
+            (modify_cb (fun cb'-> <| cb' with  t_dupacks  = if t_dupacks' = 3 then 0 (*: false retransmit,
             or further loss or delay :*)
                                                      else t_dupacks';
-                                        snd_cwnd = cb.snd_cwnd + cb.t_maxseg |> ) andThen
-            mlift_tcp_output_perhaps_or_fail ticks arch rttab ifds andThen
+                                        snd_cwnd  = cb.snd_cwnd + cb.t_maxseg |> )) **>
+            (mlift_tcp_output_perhaps_or_fail ticks arch rttab ifds) **>
             stop (*: no need to process the segment any further :*)
 
-          else if t_dupacks' = 3 && ~(TCP_DO_NEWRENO && ack < cb.snd_recover) then
+          else if t_dupacks' = 3 && not (TCP_DO_NEWRENO && ack < cb.snd_recover) then
            (*: If this is the 3rd duplicate segment and if the host supports NewReno extensions, a
                NewReno-style Fast Retransmit is not already in progress, then do a Fast Retransmit :*)
 
             (*: Update the control block before the retransmit to reflect which data requires
                 retransmission :*)
-            modify_cb (\cb'.cb' with <| t_dupacks    = t_dupacks';  (*: increment the counter :*)
+            (modify_cb (fun cb'-> <| cb' with  t_dupacks     = t_dupacks';  (*: increment the counter :*)
 
                                         (*: Set to half the current flight size as per RFC2581/2582 :*)
-                                        snd_ssthresh = MAX 2 ((MIN cb.snd_wnd cb.snd_cwnd) DIV 2
-                                                        DIV cb.t_maxseg) * cb.t_maxseg;
+                                        snd_ssthresh  = FIXME_num (*num_MAX 2 ((num_MIN cb.snd_wnd cb.snd_cwnd) DIV 2
+                                                        DIV cb.t_maxseg) * cb.t_maxseg *);
 
 					(*: If doing NewReno-style Fast Retransmit set to the
                                             highest sequence number transmitted so far [[snd_max]]. :*)
-                                        snd_recover  updated_by cb.snd_max onlywhen TCP_DO_NEWRENO;
+                                        snd_recover = updated_by_onlywhen cb'.snd_recover cb.snd_max TCP_DO_NEWRENO;
 
 					(*: Clear the retransmit timer and round-trip time
                                             measurement timer. These will be started by
                                             [[tcp_output_really]] when the retransmit is
                                             actioned. :*)
-                                        tt_rexmt     = NONE;
-                                        t_rttseg     = NONE;
+                                        tt_rexmt      = NONE;
+                                        t_rttseg      = NONE;
 
                                         (*: Sequence number to retransmit---this is equal to the
                                         [[ack]] value in the duplicate [[ACK]] segment :*)
-                                        snd_nxt      = ack;
+                                        snd_nxt       = ack;
                                         (*: Ensure the congestion window is large enough to allow
                                             one segment to be emitted :*)
-                                        snd_cwnd     = cb.t_maxseg  |>) andThen
+                                        snd_cwnd      = cb.t_maxseg  |>)) **>
 
             (*: Attempt to create a segment for output using the modified control block (this is all
                 a relational monad idiom) :*)
-            mlift_tcp_output_perhaps_or_fail ticks arch rttab ifds andThen
+            (mlift_tcp_output_perhaps_or_fail ticks arch rttab ifds) **>
 
             (*: Finally, update the congestion window to [[snd_ssthresh]] plus 3 maximum segment
                 sizes (this is the artificial inflation of RFC2581/2582 because it is known that the
                 3 segments that generated the 3 duplicate acknowledgments are received and no longer
-                consuming network resource. Also put [[snd_nxt]] back to its previous value. :*)
-            modify_cb (\cb'.cb' with <| snd_cwnd     = cb'.snd_ssthresh + cb.t_maxseg * t_dupacks';
-                                        snd_nxt      = MAX cb.snd_nxt cb'.snd_nxt |>) andThen
+                consuming network resource). Also put [[snd_nxt]] back to its previous value. :*)
+            (modify_cb (fun cb'-> <| cb' with  snd_cwnd      = cb'.snd_ssthresh + cb.t_maxseg * t_dupacks';
+                                        snd_nxt       = seq32_MAX cb.snd_nxt cb'.snd_nxt |>)) **>
             stop (*: no need to process the segment any further :*)
 
           else assert_failure "di3_ackstuff" (*: Believed to be impossible---here for completion and safety :*)
 
 
-        else if ack <= cb.snd_una && ~maybe_dup_ack then
+        else if ack <= cb.snd_una && not maybe_dup_ack then
           (*: Have received an old (would use the word "duplicate" if it did not have a special
               meaning) [[ACK]] and it is neither a duplicate [[ACK]] nor the [[ACK]] of a new
               sequence number thus just clear the duplicate [[ACK]] counter. :*)
-          modify_cb (\cb'.cb' with <| t_dupacks = 0 |>)
+          (modify_cb (fun cb'-> <| cb' with  t_dupacks  = 0 |>))
 
         else (*: Must be: [[ack > cb.snd_una]] :*)
           (*: This is the [[ACK]] of a new sequence number---this case is handled by the auxiliary
               function {@link [[di3_newackstuff]]} :*)
           di3_newackstuff tcp_sock_0 seg ourfinisacked arch rttab ifds ticks
-    )
+    ))
+
 
 (*: @description
 
@@ -576,28 +576,26 @@ let
   same, but they are not duplicates!
 
 :*)
-;
 
 
 let 
   (*: [[deliver_in_3]] data processing :*)
   di3_datastuff_really the_ststuff tcp_sock_0 seg bsd_fast_path arch =
-     (*: Pull some fields out of the segment :*)
-     let ACK  = seg.ACK in
-     let FIN  = seg.FIN in
-     let PSH  = seg.PSH in
-     let URG  = seg.URG in
-     let ack  = tcp_seq_flip_sense seg.ack in
-     let urp  = w2n seg.urp in
-     let data = seg.data in
-     let seq  = tcp_seq_flip_sense seg.seq + (if seg.SYN then 1 else 0) in
+     let ACK  = seg.TCP1_netTypes.ACK in
+     let FIN  = seg.TCP1_netTypes.FIN in
+     let PSH  = seg.TCP1_netTypes.PSH in
+     let URG  = seg.TCP1_netTypes.URG in
+     let ack  = tcp_seq_foreign_to_local seg.ack in
+     let urp  = w2n seg.TCP1_netTypes.urp in
+     let data = seg.TCP1_netTypes.data in
+     let seq  = tcp_seq_local_to_foreign seg.TCP1_netTypes.seq + (if seg.SYN then 1 else 0) in
 
      (*: Pull out the senders advertised window and apply the sender's scale factor :*)
      let win  = w2n seg.win << (tcp_sock_0).cb.snd_scale in
 
      (*: Get the socket's control block using the monadic state accessor [[get_cb]]. Process the
          segments data and possibly update the send window :*)
-     (get_sock \ sock.
+     (get_sock (fun  sock->
      let tcp_sock = tcp_sock_of sock in
      let cb = tcp_sock.cb in
 
@@ -609,12 +607,12 @@ let
          pointer always points to the byte immediately following the urgent byte and is relative
          to the start of the segment's data. An urgent pointer of zero signifies that there is no
          urgent data in the segment. :*)
-     let trim_amt_left = if cb.rcv_nxt > seq then MIN (Num (cb.rcv_nxt - seq)) (LENGTH data)
+     let trim_amt_left = if cb.rcv_nxt > seq then FIXME_num (* MIN (Num (cb.rcv_nxt - seq)) (LENGTH data) *)
                          else 0 in
      let data_trimmed_left = DROP trim_amt_left data in
-     let seq_trimmed = seq + trim_amt_left in (*: Trimmed data starts at [[seq_trimmed]] :*)
+     let seq_trimmed = seq32_plus seq trim_amt_left in (*: Trimmed data starts at [[seq_trimmed]] :*)
      let urp_trimmed = if urp > trim_amt_left then urp - trim_amt_left else 0 in
-     let URG_trimmed = if urp_trimmed <> 0 then URG else F in
+     let URG_trimmed = if urp_trimmed /= 0 then URG else F in
 
      (*: Trim any data outside the receive window from the right hand edge. If all the data is
          within the window and the [[FIN]] flag is set then the [[FIN]] flag is valid and should
@@ -634,21 +632,21 @@ let
 
      (*: This is a new urgent pointer, \ie, it is greater than any previous one stored in
         [[cb.rcv_up]]. Note: the urgent pointer is relative to the sequence number of a segment :*)
-     let urp_advanced = (urp_valid && (seq_trimmed + urp_trimmed > cb.rcv_up)) in
+     let urp_advanced = (urp_valid && (seq32_plus seq_trimmed urp_trimmed > cb.rcv_up)) in
 
      (*: The urgent pointer lies within segment [[seg]] and the socket is not set to do inline delivery,
          therefore it is possible to pull out the urgent byte from the stream :*)
      let can_pull = (urp_valid &&
-         urp_trimmed <= LENGTH data_trimmed_left_right && sock.sf.b(SO_OOBINLINE) = F) in
+         urp_trimmed <= LENGTH data_trimmed_left_right && sock.sf.b1(SO_OOBINLINE) = F) in
 
      (*: Build trimmed segment to place on reassembly queue.  If urgent data is in this segment and
          the socket is not doing inline delivery (and hence the urgent byte is stored in [[iobc]]),
          remove the urgent byte from the segment's data so that it does not get placed in the
          receive queue, and set [[spliced_urp]] to the sequence number of the urgent byte. :*)
-     let rseg = <| seq  = seq_trimmed;
-                   spliced_urp = if can_pull then SOME(cb.rcv_nxt + urp_trimmed - 1) else NONE;
-                   FIN  = FIN_trimmed;
-                   data = if can_pull then
+     let rseg = <| tcpReassSegment_seq   = FIXME_seq32 (* seq_trimmed *);
+                   spliced_urp  = if can_pull then SOME(FIXME_seq32 (*cb.rcv_nxt + urp_trimmed - 1*)) else NONE;
+                   FIN   = FIN_trimmed;
+                   data  = if can_pull then
                              APPEND (TAKE (urp - 1) data_trimmed_left_right)
                                     (DROP urp data_trimmed_left_right)
                            else data_trimmed_left_right
@@ -656,9 +654,9 @@ let
 
 
      (*: Perform a monadic socket state update :*)
-     modify_tcp_sock (\s.s with
-                     <| cb = s.cb with
-                          <| (*: If the segment's urgent pointer is valid and advances the urgent
+     modify_tcp_sock (fun s-> <| s with
+                      cb  = (<| s.cb with
+                           (*: If the segment's urgent pointer is valid and advances the urgent
                                  pointer, update [[rcv_up]] with the new absolute pointer,
                                  otherwise just pull it along with the left hand edge of the
                                  receive window. Note: an earlier segment may have set [[rcv_up]]
@@ -666,9 +664,9 @@ let
                                  ensures that the pointer is not accidentally overwritten until the
                                  future segment arrives. :*)
                              (*: FreeBSD does not pull [[rcv_up]] along in the fast path; this is a bug :*)
-                             rcv_up updated_by (if urp_advanced then seq_trimmed + urp_trimmed
-                                                       else MAX cb.rcv_up cb.rcv_nxt)
-                                    onlywhen ~(bsd_arch arch && bsd_fast_path) |>;
+                             rcv_up = updated_by_onlywhen s.cb.rcv_up  FIXME_seq32 (* (if urp_advanced then seq_trimmed + urp_trimmed
+                                                       else MAX cb.rcv_up cb.rcv_nxt) *)
+                                    (not (bsd_arch arch && bsd_fast_path)) |>);
                           (*: If the urgent pointer is valid and advances the urgent pointer,
                               update [[rcvurp]]---the socket's receive queue urgent data index---to
                               be the index into the receive queue where the new urgent data will
@@ -676,24 +674,24 @@ let
                               points to the location where the urgent byte is stored not the byte
                               immediately following the urgent byte (as is the convention for the
                               [[urp]] field in the TCP header). :*)
-                          rcvurp updated_by (SOME (LENGTH tcp_sock.rcvq +
-                                                    Num(seq_trimmed + urp_trimmed - cb.rcv_nxt - 1)))
-                                 onlywhen urp_advanced;
+                          rcvurp = updated_by_onlywhen s.rcvurp (SOME FIXME_num (*(LENGTH tcp_sock.rcvq +
+                                                    Num(seq_trimmed + urp_trimmed - cb.rcv_nxt - 1)) *))
+                                  urp_advanced;
                           (*: If the segment's urgent pointer is valid, the urgent data is within
                               this segment and the socket is not doing inline delivery of
                               urgent data, pull out the urgent byte into [[iobc]]. If the urgent
                               data is within a future segment set [[iobc]] to [[NO_OOBDATA]] to
                               signify that the urgent data is not available yet, otherwise leave
                               [[iobc]] alone if the urgent pointer is not valid. :*)
-                          iobc updated_by (if can_pull then OOBDATA (EL (urp - 1)
+                          iobc = updated_by_onlywhen s.iobc (if can_pull then OOBDATA (EL (urp - 1)
                                                               data_trimmed_left_right)
                                                        else NO_OOBDATA)
-                               onlywhen urp_valid
-                     |>) andThen
+                                urp_valid
+                     |>) **>
 
      (*: Processing of non-urgent data. There are 6 cases to consider: :*)
 
-     (chooseM {F;T} \ FIN_reass.
+     (chooseM {F;T} (fun  FIN_reass->
 
      (*: Case (1) The segment contains new in-order, in-window data possibly with a [[FIN]] and the
              receive window is not closed. Note: it is possible that the segment contains just one
@@ -704,12 +702,12 @@ let
              [[data_trimmed_left_right]] is used rather than [[data_deoobed]] in some of the
              conditions below. :*)
      (if seq_trimmed = cb.rcv_nxt &&
-         seq_trimmed + LENGTH data_trimmed_left_right + (if FIN_trimmed then 1 else 0) > cb.rcv_nxt &&
+         FIXME_seq32 (* seq_trimmed + LENGTH data_trimmed_left_right + (if FIN_trimmed then 1 else 0)*) > cb.rcv_nxt &&
          cb.rcv_wnd > 0 then
 
         (*: Only need to acknowledge the segment if there is new in-window data (including urgent
             data) or a valid [[FIN]] :*)
-        let have_stuff_to_ack = (data_trimmed_left_right <> [] || FIN_trimmed) in
+        let have_stuff_to_ack = (data_trimmed_left_right /= [] || FIN_trimmed) in
 
         (*: If the socket is connected, has data to [[ACK]] but no [[FIN]] to [[ACK]], the
             reassembly queue is empty, the socket is not currently within a bad retransmit window
@@ -717,9 +715,9 @@ let
         let delay_ack = (tcp_sock.st IN {ESTABLISHED;CLOSE_WAIT;FIN_WAIT_1;
                                          CLOSING;LAST_ACK;FIN_WAIT_2} &&
                          have_stuff_to_ack &&
-                         ~FIN_trimmed &&
+                         not FIN_trimmed &&
                          cb.t_segq = [] &&
-                        ~cb.tf_rxwin0sent &&
+                        not cb.tf_rxwin0sent &&
                          cb.tt_delack = NONE ) in
 
         (*: Check to see whether any data or a [[FIN]] can be reassembled. [[tcp_reass]] returns
@@ -732,7 +730,7 @@ let
             by the amount of data (whether urgent or not) received successfully by the socket. See
             {@link [[tcp_reass]]} for further details. :*)
         let rsegq = rseg :: cb.t_segq in
-        (chooseM (tcp_reass cb.rcv_nxt rsegq) \ (data_reass,len,FIN_reass0).
+        (chooseM (tcp_reass cb.rcv_nxt rsegq) (fun  (data_reass,(len:nat),FIN_reass0)->
 
         (*: Length (in sequence space) of reassembled data, counting a [[FIN]] as one byte and
             including any out-of-line urgent data previously removed :*)
@@ -741,7 +739,7 @@ let
         (*: Add the reassembled data to the receive queue and increment [[rcv_nxt]] to mark the
             sequence number of the byte past the last byte in the receive queue:*)
         let rcvq' = APPEND tcp_sock.rcvq data_reass in
-        let rcv_nxt' = cb.rcv_nxt + len_reass in (* includes oob bytes as they occupy sequence space *)
+        let rcv_nxt' = seq32_plus cb.rcv_nxt len_reass in (* includes oob bytes as they occupy sequence space *)
 
         (*: Prune the receive queue of any data or [[FIN]]s that were reassembled, keeping all
             segments that contain data at or past sequence number [[cb.rcv_nxt + len_reass]]. :*)
@@ -752,39 +750,39 @@ let
         let rcv_wnd' = cb.rcv_wnd - LENGTH data_reass in
 
         (*: Hack: assertion used to share values with later conditions :*)
-        assert (FIN_reass = FIN_reass0) andThen
+        (myassert (FIN_reass = FIN_reass0)) **>
 
         (*: Update the socket state :*)
-        modify_tcp_sock (\s.s with
-                        <| rcvq = rcvq';  (*: the updated receive queue :*)
-                           cb = s.cb with
-                             <| (*: Start the delayed ack timer if decided to earlier, \ie,
+        modify_tcp_sock (fun s-> <| s with
+                         rcvq  = rcvq';  (*: the updated receive queue :*)
+                           cb  = <| s.cb with
+                              (*: Start the delayed ack timer if decided to earlier, \ie,
                                     [[delay_ack = T]]. :*)
-                                tt_delack updated_by SOME (Timed((),fast_timer TCPTV_DELACK)) onlywhen delay_ack;
+                                tt_delack = updated_by_onlywhen s.cb.tt_delack (SOME (Timed((),fast_timer TCPTV_DELACK))) delay_ack;
                                 (*: Set if not delaying an [[ACK]] and have stuff to [[ACK]] :*)
-                                tf_shouldacknow updated_by ~delay_ack onlywhen have_stuff_to_ack;
-                                t_segq = t_segq';   (*: updated reassembly queue, post-pruning :*)
-                                rcv_nxt = rcv_nxt';
-                                rcv_wnd = rcv_wnd'
+                                tf_shouldacknow = updated_by_onlywhen s.cb.tf_shouldacknow (not delay_ack) have_stuff_to_ack;
+                                t_segq  = t_segq';   (*: updated reassembly queue, post-pruning :*)
+                                rcv_nxt  = rcv_nxt';
+                                rcv_wnd  = rcv_wnd'
                               |>
                         |>)
-        ) (* chooseM *)
+        )) (* chooseM *)
 
       (*: Case (2) The segment contains new out-of-order in-window data, possibly with a [[FIN]], and the
               receive window is not closed. Note: it may also contain in-window urgent data that may
               have been pulled out-of-line but still require processing to keep reassembly happy. :*)
-      else if seq_trimmed > cb.rcv_nxt && seq_trimmed < cb.rcv_nxt + cb.rcv_wnd &&
+      else if seq_trimmed > cb.rcv_nxt && seq_trimmed < seq32_plus cb.rcv_nxt cb.rcv_wnd &&
               LENGTH data_trimmed_left_right + (if FIN_trimmed then 1 else 0) > 0 &&
               cb.rcv_wnd > 0 then
 
         (*: Hack: assertion used to share values with later conditions :*)
-        assert (FIN_reass = F) andThen
+        (myassert (FIN_reass = F)) **>
 
         (*: Update the socket's TCP control block state :*)
-        modify_cb (\cb. cb with <| (*: Add the segment to the reassembly queue :*)
-                                   t_segq = rseg :: cb.t_segq;
+        modify_cb (fun cb-> <| cb with  (*: Add the segment to the reassembly queue :*)
+                                   t_segq  = rseg :: cb.t_segq;
                                    (*: Acknowledge out-of-order data immediately (per RFC2581 Ch4.2) :*)
-                                   tf_shouldacknow = T
+                                   tf_shouldacknow  = T
        			  |>)
 
       (*: Case (3) The segment is a pure [[ACK]] segment (contains no data) (and must be in-order). :*)
@@ -794,7 +792,7 @@ let
       else if ACK && seq_trimmed = cb.rcv_nxt && LENGTH data + (if FIN then 1 else 0) = 0 then
 
         (*: Hack: assertion used to share values with later conditions :*)
-        assert (FIN_reass = F) (*: Have not received a FIN :*)
+        (myassert (FIN_reass = F)) (*: Have not received a FIN :*)
 
       (*: Case (4) Segment contained no useful data---was a completely old segment. Note: the original
           fields from the segment, \ie, [[seq]], [[data]] and [[FIN]] are used in the guard
@@ -802,29 +800,30 @@ let
       (*: Case (5) Segment is a window probe.  Note: the original fields from the segment, \ie, [[data]]
           and [[FIN]] are used in the guard below---the trimmed variants are useless here! :*)
       (*: Case (6) Segment is completely beyond the window and is not a window probe :*)
-      else if (seq < cb.rcv_nxt && seq + LENGTH data + (if FIN then 1 else 0) <= cb.rcv_nxt) || (*: (4) :*)
+      else if (seq < cb.rcv_nxt && FIXME_seq32 (* seq + LENGTH data + (if FIN then 1 else 0) *) <= cb.rcv_nxt) || (*: (4) :*)
               (seq_trimmed = cb.rcv_nxt && cb.rcv_wnd = 0 &&
                  LENGTH data + (if FIN then 1 else 0) > 0) || (*: (5) :*)
               T then (*: (6) :*)
 
         (*: Hack: assertion used to share values with later conditions :*)
-        assert (FIN_reass = F) andThen  (* Definitely false---segment is outside window *)
+        (myassert (FIN_reass = F)) **>  (* Definitely false---segment is outside window *)
 
         (*: Update socket's control block to assert that an [[ACK]] segment should be sent now. :*)
         (*: Source: TCPIPv2p959 says "segment is discarded and an ack is sent as a reply" :*)
-        modify_cb (\cb. cb with <| tf_shouldacknow = T |>)
+        modify_cb (fun cb-> <| cb with  tf_shouldacknow  = T |>)
 
       else
           assert_failure "di3_datastuff"  (* impossible *)
 
-     ) andThen
+     ) **>
 
      (*: Finished processing the segment's data :*)
      (*: Thread the reassembled [[FIN]] flag through to [[di3_ststuff]] :*)
      the_ststuff FIN_reass
 
-     ) (* chooseM FIN_reass *)
-     ) (* get_sock \sock *)
+     )) (* chooseM FIN_reass *)
+     ))
+
 
 (*: @description
 
@@ -876,23 +875,22 @@ TODO3
     A: if we're in TIME_WAIT, then it gets ignored.  Dunno about other cases.
 
 :*)
-;
 
 let 
   (*: [[deliver_in_3]] data processing :*)
   di3_datastuff the_ststuff tcp_sock_0 seg ourfinisacked arch =
      (*: Pull some fields out of the segment :*)
-     let ACK  = seg.ACK in
-     let FIN  = seg.FIN in
-     let PSH  = seg.PSH in
-     let URG  = seg.URG in
-     let ack  = tcp_seq_flip_sense seg.ack in
+     let ACK  = seg.TCP1_netTypes.ACK in
+     let FIN  = seg.TCP1_netTypes.FIN in
+     let PSH  = seg.TCP1_netTypes.PSH in
+     let URG  = seg.TCP1_netTypes.URG in
+     let ack  = tcp_seq_foreign_to_local seg.ack in
      let urp  = w2n seg.urp in
-     let data = seg.data in
-     let seq  = tcp_seq_flip_sense seg.seq + (if seg.SYN then 1 else 0) in
-     let win  = w2n seg.win << (tcp_sock_0).cb.snd_scale in
+     let data = seg.TCP1_netTypes.data in
+     let seq  = tcp_seq_local_to_foreign seg.seq + (if seg.SYN then 1 else 0) in
+     let win  = shift_left (w2n seg.win) (tcp_sock_0).cb.snd_scale in
 
-     get_sock \ sock.
+     get_sock (fun  sock->
      let tcp_sock = tcp_sock_of sock in
      let cb = tcp_sock.cb in
 
@@ -908,8 +906,8 @@ let
              reassembly queue is empty and there is space for the segment's data in the socket's
              receive buffer.
      :*)
-     let bsd_fast_path = ((tcp_sock.st = ESTABLISHED) && ~seg.SYN && ~FIN && ~seg.RST &&
-                           ~URG && ACK && seq = cb.rcv_nxt && cb.snd_wnd = win &&
+     let bsd_fast_path = ((tcp_sock.st = ESTABLISHED) && not seg.SYN && not FIN && not seg.RST &&
+                           not URG && ACK && seq = cb.rcv_nxt && cb.snd_wnd = win &&
                            cb.snd_max = cb.snd_nxt && (
                            (ack > cb.snd_una && ack <= cb.snd_max &&
                             cb.snd_cwnd >= cb.snd_wnd && cb.t_dupacks < 3)
@@ -935,29 +933,30 @@ let
 
         (d) this segment is the third segment during connection establishement (state is
             [[SYN_RECEIVED]]) and does not have the [[FIN]] flag set. :*)
-     let update_send_window = (~bsd_fast_path && seg.ACK && seq <= cb.rcv_nxt + cb.rcv_wnd &&
+     let update_send_window = (not bsd_fast_path && seg.ACK && seq <= seq32_plus cb.rcv_nxt cb.rcv_wnd &&
                                (cb.snd_wl1 < seq ||
                                 (cb.snd_wl1 = seq &&
                                  (cb.snd_wl2 < ack || cb.snd_wl2 = ack && win > cb.snd_wnd)) ||
-                                (tcp_sock.st = SYN_RECEIVED && ~FIN))) in  (*: This replaces BSD's |snd_wl1 = seq-1| hack; should perhaps be [[~FIN_reass]] :*)
+                                (tcp_sock.st = SYN_RECEIVED && not FIN))) in  (*: This replaces BSD's |snd_wl1 := seq-1| hack; should perhaps be [[~FIN_reass]] :*)
 
-     let seq_trimmed = MAX seq (MIN cb.rcv_nxt (seq + LENGTH data)) in
+     let seq_trimmed = FIXME_num (*MAX seq (MIN cb.rcv_nxt (seq + LENGTH data))*) in
 
      (*: Write back the window updates :*)
-     modify_cb (fun cb -> <| cb with snd_wnd = updated_by_only_when cb.snd_wnd win update_send_window;
-                                snd_wl1 = updated_by_only_when cb.snd_wl1 seq_trimmed update_send_window;
-                                snd_wl2 = updated_by_only_when cb.snd_wl2 ack update_send_window
+     modify_cb (fun cb-> <| cb with  snd_wnd = updated_by_onlywhen cb.snd_wnd win update_send_window;
+                                snd_wl1 = updated_by_onlywhen cb.snd_wl1 seq_trimmed update_send_window;
+                                snd_wl2 = updated_by_onlywhen cb.snd_wl2 ack update_send_window
                                 (*: persist timer will be set by [[deliver_out_1]] if this updates the window to zero and there is data to send :*)
-                             |>) andThen
+                             |>) **> (
 
     (*: If in [[TIME_WAIT]] or will transition to it from [[CLOSING]], ignore any URG, data, or FIN.
         Note that in [[FIN_WAIT_1]] or [[FIN_WAIT_2]], we still process data, even if [[ourfinisacked]].  :*)
-    if tcp_sock.st = TIME_WAIT || (tcp_sock.st = CLOSING && ourfinisacked) then
+    if (tcp_sock.st = TIME_WAIT || (tcp_sock.st = CLOSING && ourfinisacked)) then
         (*: pull along urgent pointer :*)
-        modify_cb (\cb. cb with <| rcv_up = MAX cb.rcv_up cb.rcv_nxt |>) andThen
+        modify_cb (fun cb-> <| cb with  rcv_up  = FIXME_num (* MAX cb.rcv_up cb.rcv_nxt*) |>) **>
         the_ststuff F
     else
-        di3_datastuff_really the_ststuff tcp_sock_0 seg bsd_fast_path arch
+        di3_datastuff_really the_ststuff tcp_sock_0 seg bsd_fast_path arch))
+
 
 (*: @description
 
@@ -966,11 +965,10 @@ TODO3
 @toafter [[deliver_in_3]]
 
 :*)
-;
 
 let 
   (*: [[deliver_in_3]] TCP state change processing :*)
-  di3_ststuff FIN_reass ourfinisacked ack =
+  di3_ststuff FIN_reass ourfinisacked ack = (
 
     (*: The entirety of this function is an encoding of the TCP State Transition Diagram (as it is, not as it is traditionally depicted)
         post-[[SYN_SENT]] state. It specifies for given start state and set of conditions (all or
@@ -978,7 +976,7 @@ let
         socket should be moved into next :*)
 
     (*: Get the TCP socket using the monadic state accessor [[get_cb]]. :*)
-    (get_sock \ sock.
+    (get_sock (fun  sock->
        let cb = (tcp_sock_of sock).cb in (*: ...and its control block :*)
 
        (*: Several of the encoded transitions (below) require the socket to be moved into the
@@ -986,15 +984,15 @@ let
            are cancelled and the socket's state is changed to [[TIME_WAIT]]. This common idiom is
            defined monadically as a function here :*)
        let enter_TIME_WAIT =
-         modify_tcp_sock (\s.s with
-                           <| st = TIME_WAIT;
-                              cb = s.cb with
-                                <| tt_2msl = SOME (Timed((),slow_timer (2*TCPTV_MSL)));
-                                   tt_rexmt = NONE;
-                                   tt_keep = NONE;
-                                   tt_delack = NONE;
-                                   tt_conn_est = NONE;
-                                   tt_fin_wait_2 = NONE
+         modify_tcp_sock (fun s-> <| s with
+                            st  = TIME_WAIT;
+                              cb  = <| s.cb with
+                                 tt_2msl  = SOME (Timed((),slow_timer (2*TCPTV_MSL)));
+                                   tt_rexmt  = NONE;
+                                   tt_keep  = NONE;
+                                   tt_delack  = NONE;
+                                   tt_conn_est  = NONE;
+                                   tt_fin_wait_2  = NONE
                                  |>
                            |>) in
 
@@ -1003,19 +1001,19 @@ let
           the final [[FIN]] flag. The socket should have its read-half flagged as shut down, \ie,
           [[cantrcvmore = T]], otherwise the socket is not modified. :*)
       (if FIN_reass then
-         modify_sock (\s.s with <| cantrcvmore = T |>)
-       else cont) andThen
+         modify_sock (fun s-> <| s with  cantrcvmore  = T |>)
+       else cont) **>
 
       (*: State Transition Diagram encoding: :*)
       (*: The state transition encoding, case-split on the current state and whether a [[FIN]] from
           the remote end has been reassembled :*)
-      case ((tcp_sock_of sock).st, FIN_reass) of
+      match ((tcp_sock_of sock).st, FIN_reass) with
 
        (SYN_RECEIVED,F) -> (*: In [[SYN_RECEIVED]] and have not received a [[FIN]] :*)
           if ack >= cb.iss + 1 then
             (*: This socket's initial [[SYN]] has been acknowledged :*)
-            modify_tcp_sock (\s. s with
-                <| st = if ~sock.cantsndmore then
+            modify_tcp_sock (fun s-> <| s with
+                 st  = if not sock.cantsndmore then
                            ESTABLISHED (*: socket is now fully connected :*)
                          else
                            (*: The connecting socket had it's write-half shutdown by [[shutdown()]]
@@ -1029,20 +1027,20 @@ let
                |>)
           else
             (*: Not a valid path :*)
-            stop ||
+            stop |
 
        (SYN_RECEIVED,T) ->  (*: In [[SYN_RECEIVED]] and have received a [[FIN]] :*)
           (*: Enter the [[CLOSE_WAIT]] state, missing out [[ESTABLISHED]] :*)
-          modify_tcp_sock (\s.s with <| st = CLOSE_WAIT |>) ||
+          modify_tcp_sock (fun s-> <| s with  st  = CLOSE_WAIT |>) |
 
        (ESTABLISHED,F)  ->  (*: In [[ESTABLISHED]] and have not received a [[FIN]] :*)
           (*: Doing common-case data delivery and acknowledgements. Remain in [[ESTABLISHED]]. :*)
-          cont ||
+          cont |
 
 
        (ESTABLISHED,T)  ->  (*: In [[ESTABLISHED]] and received a [[FIN]] :*)
           (*: Move into the [[CLOSE_WAIT]] state :*)
-          modify_tcp_sock (\s.s with <| st = CLOSE_WAIT |>) ||
+          modify_tcp_sock (fun s-> <| s with  st  = CLOSE_WAIT |>) |
 
 
        (CLOSE_WAIT,F)   ->  (*: In [[CLOSE_WAIT]] and have not received a [[FIN]] :*)
@@ -1050,14 +1048,14 @@ let
              the [[FIN]] it received previously from the remote end. It can continue to emit
              segments containing data and receive acknowledgements back until such a time that it
              closes down and emits a [[FIN]] :*)
-         cont ||
+         cont |
 
        (CLOSE_WAIT,T)   ->  (*: In [[CLOSE_WAIT]] and received (another) [[FIN]] :*)
          (*: The duplicate [[FIN]] will have had a new sequence number to be valid and reach this
              point; RFC793 says "ignore" it so do not change state! If it were a duplicate with the
              same sequence number as the previously accepted [[FIN]], then the [[deliver_in_3]]
              acknowledgement processing function [[di3_ackstuff]] would have dropped it. :*)
-         cont ||
+         cont |
 
        (FIN_WAIT_1,F)   ->  (*: In [[FIN_WAIT_1]] and have not received a [[FIN]] :*)
           (*: This socket will have emitted a [[FIN]] to enter [[FIN_WAIT_1]]. :*)
@@ -1066,17 +1064,17 @@ let
                 the [[FIN_WAIT_2]] timer. The timer ensures that if the other end has gone away
                 without emitting a [[FIN]] and does not transmit any more data the socket is closed
                 rather left dangling. :*)
-            modify_tcp_sock (\s.s with
-                  <| st = FIN_WAIT_2;
-                     cb = s.cb with
-                       <| tt_fin_wait_2 updated_by SOME (Timed((),slow_timer TCPTV_MAXIDLE))
-                                        onlywhen sock.cantrcvmore (*: believe always true :*)
+            modify_tcp_sock (fun s-> <| s with
+                   st  = FIN_WAIT_2;
+                     cb  = <| s.cb with
+                        tt_fin_wait_2 = updated_by_onlywhen s.cb.tt_fin_wait_2 (SOME (Timed((),slow_timer TCPTV_MAXIDLE)))
+                                        sock.cantrcvmore (*: believe always true :*)
                        |>
                   |>)
 
           else
             (*: If this socket's [[FIN]] has not been acknowledged then remain in [[FIN_WAIT_1]] :*)
-            cont ||
+            cont |
 
        (FIN_WAIT_1,T)   ->  (*: In [[FIN_WAIT_1]] and received a [[FIN]] :*)
           if ourfinisacked then
@@ -1089,7 +1087,7 @@ let
             (*: If this socket's [[FIN]] has not been acknowledged then the other end is attempting
                 to close the connection simultaneously (a simultaneous close). Move to the
                 [[CLOSING]] state :*)
-            modify_tcp_sock (\s.s with <| st = CLOSING |>) ||
+            modify_tcp_sock (fun s-> <| s with  st  = CLOSING |>) |
 
        (FIN_WAIT_2,F)   ->  (*: In [[FIN_WAIT_2]] and have not received a [[FIN]] :*)
           (*: This socket has previously emitted a [[FIN]] which has already been acknowledged. It
@@ -1097,11 +1095,11 @@ let
               this time the socket should remain in [[FIN_WAIT_2]] until such a time that it
               receives a valid [[FIN]] from the remote end, or if no activity occurs on the
               connection the [[FIN_WAIT_2]] timer will fire, eventually closing the socket :*)
-         cont ||
+         cont |
 
        (FIN_WAIT_2,T)   ->  (*: In [[FIN_WAIT_2]] and have received a [[FIN]] :*)
           (*: Connection has been shutdown so enter [[TIME_WAIT]] :*)
-          enter_TIME_WAIT ||
+          enter_TIME_WAIT |
 
 
        (CLOSING,F)      ->   (*: In [[CLOSING]] and have not received a [[FIN]] :*)
@@ -1114,7 +1112,7 @@ let
                 this socket. Remain in the [[CLOSING]] state until it does so. Note: if the
                 previosuly emitted [[FIN]] is not acknowledged this socket's retransmit timer will
                 eventually fire causing retransmission of the [[FIN]]. :*)
-            cont ||
+            cont |
 
        (CLOSING,T)      ->  (*: In [[CLOSING]] and have received a [[FIN]] :*)
           (*: The received [[FIN]] is a duplicate [[FIN]] with a new sequence number so as per RFC793 is
@@ -1127,26 +1125,28 @@ let
               enter_TIME_WAIT
            else
              (*: Otherwise, ignore the new [[FIN]] and remain in the same state :*)
-             cont ||
+             cont |
 
        (LAST_ACK,F)     ->  (*: In [[LAST_ACK]] and have not received a [[FIN]] :*)
           (*: Remain in [[LAST_ACK]] until this socket's [[FIN]] is acknowledged. Note: eventually
               the retransmit timer will fire forcing the [[FIN]] to be retransmitted. :*)
-          cont ||
+          cont |
 
        (LAST_ACK,T)     ->  (*: In [[LAST_ACK]] and have received a [[FIN]] :*)
           (*: This transition is handled specially at the end of [[di3_newackstuff]] at which point
               processing stops, thus this transition is not possible :*)
-          assert_failure "di3_ststuff" (*: impossible :*) ||
+          assert_failure "di3_ststuff" (*: impossible :*) |
 
        (TIME_WAIT,F)    ->  (*: In [[TIME_WAIT]] and have not received a [[FIN]] :*)
           (*: Remaining in [[TIME_WAIT]] until the \wasverb{2MSL} timer expires :*)
-          cont ||
+          cont |
 
        (TIME_WAIT,T)    ->  (*: In [[TIME_WAIT]] and have received a [[FIN]] :*)
           (*: Remaining in [[TIME_WAIT]] until the \wasverb{2MSL} timer expires :*)
-          cont
-    )
+          cont end
+    )))
+
+
 
 (*: @description
 
@@ -1155,13 +1155,12 @@ TODO3
 @toafter [[deliver_in_3]]
 
 :*)
-;
 
 let 
   (*: [[deliver_in_3]] socket update processing :*)
-  di3_socks_update sid socks socks' =
+  di3_socks_update sid socks socks' = (
 
-   let sock_1 = socks ' sid in
+   let sock_1 = (FAPPLY socks  sid) in
    exists tcp_sock_1.
    TCP_PROTO(tcp_sock_1) = sock_1.pr &&
 
@@ -1171,37 +1170,37 @@ let
       of a simultaneous open. See the inline comment in {@link [[deliver_in_3]]} for further
       details. :*)
 
-   let interesting = \sid'.
-         sid' <> sid &&
-         case (socks ' sid').pr of
+   let interesting = fun sid'->
+         sid' /= sid &&
+         match ((FAPPLY socks  sid')).pr with
             UDP_PROTO udp_sock -> F
-         || TCP_PROTO(tcp_sock') ->
-              case tcp_sock'.lis of
+         | TCP_PROTO(tcp_sock') -> (
+              (match tcp_sock'.lis with
                  NONE -> F
-              || SOME lis ->
-                   sid IN' lis.q0 in
+              | Some lis ->
+                   IN' sid  lis.q0 end)) end in
 
-   let interesting_sids = (FDOM socks) INTER interesting in
+   let interesting_sids = (FDOM socks) inter (set_of_bool_fn interesting) in
 
-   if interesting_sids <> {} then
+   if interesting_sids /= {} then
       (*: There exists another socket [[sock']] that is listening and has socket [[sock_1]] referenced by
           [[sid]] on its queue of incomplete connections [[lis.q0]]. :*)
       exists sid' sock' tcp_sock' lis q0L q0R.
       sid' IN interesting_sids &&
-      sock' = socks ' sid' &&
+      sock' = (FAPPLY socks  sid') &&
       sock'.pr = TCP_PROTO tcp_sock' &&
-      sid' <> sid &&
-      tcp_sock'.lis = SOME lis &&
+      sid' /= sid &&
+      tcp_sock'.lis = Some lis &&
       lis.q0 = APPEND q0L (sid :: q0R) &&
 
       (*: Choose non-deterministically whether there is room on the queue of completed connections :*)
-      choose ok :: accept_incoming_q lis.
+      mychoose (set_of_bool_fn (accept_incoming_q lis)) (fun  ok->
 
       if ok then
         (*: If there is room, then remove socket [[sid]] from the queue of incomplete connections
             and add it to the queue of completed connections. :*)
-        let lis' = lis with <| q0 = APPEND q0L q0R;
-                               q = sid :: lis.q |> in
+        let lis' = <| lis with  q0  = APPEND q0L q0R;
+                               q  = sid :: lis.q |> in
 
         (*: Update the newly connected sockets receive window :*)
         let rcv_window = calculate_bsd_rcv_wnd sock_1.sf tcp_sock_1 in
@@ -1210,13 +1209,13 @@ let
                      takes place. Note that we have the following:
                      |SYN_SENT->ESTABLISHED =>| update [[rcv_wnd]] then [[rcv_adv]]
                      |SYN_RCVD->ESTABLISHED =>| update [[rcv_adv]] then [[rcv_wnd]] :*)
-        let cb' = tcp_sock_1.cb with <| rcv_wnd = rcv_window;
-                                        rcv_adv = tcp_sock_1.cb.rcv_nxt + tcp_sock_1.cb.rcv_wnd |> in
+        let cb' = <| tcp_sock_1.cb with  rcv_wnd  = rcv_window;
+                                        rcv_adv  = FIXME_seq32 (*tcp_sock_1.cb.rcv_nxt + tcp_sock_1.cb.rcv_wnd*) |> in
 
         (*: Update both the newly connected socket and the listening socket :*)
-        socks' = socks |++
-                       [(sid, sock_1 with <| pr = TCP_PROTO(tcp_sock_1 with <| cb = cb' |>) |>);
-                        (sid', sock' with <| pr = TCP_PROTO(tcp_sock' with <| lis = SOME lis' |>) |>)]
+        socks' = (socks |++
+                       [(sid, <| sock_1 with  pr  = TCP_PROTO(<| tcp_sock_1 with  cb  = cb' |>) |>);
+                        (sid', <| sock' with  pr  = TCP_PROTO(<| tcp_sock' with  lis  = Some lis' |>) |>)])
       else
         (*: ...otherwise there is no room on the listening socket's completed connections queue, so
            drop the newly connected socket and remove it from the listening socket's queue of
@@ -1224,13 +1223,15 @@ let
            is sent upon receipt of further segments from the other end as the socket entry has gone
            away. :*)
         (* Note that the above note needs to be verified by testing. *)
-        let lis' = lis with <| q0 = APPEND q0L q0R |> in
-        socks' = socks |+ (sid', sock' with <| pr = TCP_PROTO(tcp_sock' with <| lis = SOME lis' |>) |>)
+        let lis' = <| lis with  q0  = APPEND q0L q0R |> in
+        socks' = (socks |+ (sid', <| sock' with  pr  = TCP_PROTO(<| tcp_sock' with  lis  = Some lis' |>) |>)))
 
    else
      (*: There is no such socket with socket [[sid]] on its queue of incomplete connections, thus
          socket [[sid]] was involved in a simultaneous open. Do not update any socket. :*)
-      socks' = socks
+      socks' = socks)
+
+
 
 
 (*: @description
@@ -1240,9 +1241,6 @@ TODO3
 @toafter [[deliver_in_3]]
 
 :*)
-;
-
-**)
 
 
 (* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ *)
