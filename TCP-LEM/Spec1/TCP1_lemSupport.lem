@@ -172,3 +172,5 @@ val EMPTY: forall 'a. set 'a
 val IMPLODE: string -> string
 
 val string_of_char_list: list char -> string
+
+val STRLEN: string -> nat

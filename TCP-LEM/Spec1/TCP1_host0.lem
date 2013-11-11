@@ -93,7 +93,7 @@ type
         Lhost0 =
          (* library interface *)
            Lh_call of (tid * LIB_interface)                      (*[ MODE 0 ]*)  (*: invocation of LIB call, written e.g.~[[Lh_call (tid,(socket (socktype)))]] :*) (*[ MODE straightLH ]*)
-         | Lh_return of tid * TLang                            (*[ MODE 0 ]*)  (*: return result of LIB call, written [[Lh_return (tid,v) ]] :*) (*[ MODE straightLH ]*)
+         | Lh_return of (tid * TLang)                            (*[ MODE 0 ]*)  (*: return result of LIB call, written [[Lh_return (tid,v) ]] :*) (*[ MODE straightLH ]*)
 
          (* message transmission and receipt *)
          | Lh_senddatagram of msg                              (*[ MODE 0 ]*) (*: output of message to the network, written [[Lh_senddatagram msg]] :*) (*[ MODE straightLH ]*)
@@ -101,7 +101,7 @@ type
          | Lh_loopdatagram of msg                              (*[ MODE 0 ]*) (*: loopback output/input, written [[Lh_loopdatagram msg]] :*) (*[ MODE straightLH ]*)
 
          (* connectivity changes *)
-         | Lh_interface of ifid * bool                         (*[ MODE 0 ]*)(*: set interface status to boolean [[up]], written [[Lh_interface (ifid,up)]] :*) (*[ MODE straightLH ]*)
+         | Lh_interface of (ifid * bool)                         (*[ MODE 0 ]*)(*: set interface status to boolean [[up]], written [[Lh_interface (ifid,up)]] :*) (*[ MODE straightLH ]*)
 
          (* miscellaneous *)
          | Lh_tau                                              (*[ MODE 0 ]*)(*: internal transition, written [[Lh_tau]] :*) (*[ MODE straightLH ]*)
