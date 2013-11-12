@@ -210,13 +210,13 @@ type
   | FILTER_PROHIB
   | PREC_VIOLATION
   | PREC_CUTOFF
-  | OTHER of byte * word32  (* really want this not to overlap *)
+  | OTHER of (byte * word32)  (* really want this not to overlap *)
 (* BSD drops ICMPs on the floor if their code is unrecognised, even if the type *is* recognised. *)
 
 type 
   icmp_source_quench_code =
     QUENCH
-  | SQ_OTHER of byte * word32 (*: writen [[OTHER]] :*)
+  | SQ_OTHER of (byte * word32) (*: writen [[OTHER]] :*)
 
 (* FIXME val _ = overload_on("OTHER", ``SQ_OTHER``); *)
 
@@ -226,7 +226,7 @@ type
   | RD_HOST                    (*: written [[HOST]] :*)
   | RD_TOSNET                  (*: written [[TOSNET]] :*)
   | RD_TOSHOST                 (*: written [[TOSHOST]] :*)
-  | RD_OTHER of byte * word32  (*: written [[OTHER]] :*)
+  | RD_OTHER of (byte * word32)  (*: written [[OTHER]] :*)
 
 (* FIXME
 val _ = overload_on("NET",     ``RD_NET``);
@@ -240,7 +240,7 @@ type
   icmp_time_exceeded_code =
     INTRANS
   | REASS
-  | TX_OTHER of byte * word32  (*: written [[OTHER]] :*)
+  | TX_OTHER of (byte * word32)  (*: written [[OTHER]] :*)
 
 (* FIXME val _ = overload_on("OTHER", ``TX_OTHER``); *)
 
@@ -248,7 +248,7 @@ type
   icmp_paramprob_code =
     BADHDR
   | NEEDOPT
-  | PP_OTHER of byte * word32  (*: written [[OTHER]] :*)
+  | PP_OTHER of (byte * word32)  (*: written [[OTHER]] :*)
 
 (* FIXME val _ = overload_on("OTHER", ``PP_OTHER``); *)
 

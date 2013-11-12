@@ -835,7 +835,7 @@ however, TCP uses the next lower MTU in the table below.
 
 
 let (*: find next-smaller element of a set :*)
-  next_smalle (*(next_smaller:(num->bool) -> num -> num)*) xs y = SET_CHOOSE { x | elem x xs && (x < y && (forall x'. (elem x' xs && (x' > x)) --> (x' >= y)))}
+  next_smaller (*(next_smaller:(num->bool) -> num -> num)*) xs y = SET_CHOOSE { x | x IN (xs:set nat) && (x < y && (forall x'. (x' IN xs && (x' > x)) --> (x' >= y)))}
 (*:@mergewithnext:*)
 
 let (*: path MTU plateaus to try :*)

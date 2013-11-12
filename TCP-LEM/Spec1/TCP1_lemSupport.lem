@@ -148,6 +148,11 @@ instance (NumDivision real)
   let (/) = FIXME_real_div
 end
 
+instance (NumAdd real)
+  let (+) = fun x -> fun y -> FIXME_real
+end
+
+
 
 
 
@@ -156,6 +161,8 @@ val int_neg: int -> int
 val FIXME: forall 'a. 'a
 
 val word_zero: word32
+
+val word16_zero: word16
 
 val duration_zero:real
 
@@ -187,3 +194,5 @@ val string_of_char_list: list char -> string
 val STRLEN: string -> nat
 
 val o_f: forall 'a 'b 'c. ('b -> 'c) -> (fmap 'a 'b) -> (fmap 'a 'c)
+
+val set_of_list: forall 'a. list 'a -> set 'a
