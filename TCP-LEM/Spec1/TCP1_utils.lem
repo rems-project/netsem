@@ -74,12 +74,12 @@ let funupd f x y = fun x' -> if Basic_classes.(=) x' x then y else f x
 let  funupd_list f xys = fold_left (fun f (x,y) -> funupd f x y) f xys
 (*: @mergewithnext :*)
 
-let clip (i:int) = if Basic_classes.(<) i int_zero then 0 else 0
+let clip (i:int) = if i < int_zero then (0:int) else 0
 
 (* let tmp = (Int.int 0) = int_zero *)
 
 (*: clip [[int]] to [[num]] :*)
-let clip_int_to_num (i:int) = if Basic_classes.(<) i i then 0 else 0
+let clip_int_to_num (i:int) = if i < 0 then 0 else num_of_int i
 (*: @mergewithnext :*)
 
 (* shifts on naturals (only defined on words so far) *)
@@ -104,7 +104,7 @@ let  rounddown bs v = if v < bs then v else (DIV v bs) * bs
 
 (* Don't Phase: handled by testEval *)
   (*: round [[v]] up to next multiple of [[bs]]; if [[v = k*bs]] then no change :*)
-let  roundup   bs v = (DIV (v + (bs - 1)) bs) * bs
+let  roundup   bs v = (DIV ((v:nat) + (bs - 1)) bs) * bs
 (*: @mergewithnext :*) 
 
 
@@ -127,18 +127,12 @@ val _ = add_bare_numeral_form (#"w", SOME "n2w")
 (*                   REAL                             *)
 (* -------------------------------------------------- *)
 
-
-let MIN = fun x y -> FIXME_real
-let MAX = fun x y -> FIXME_real
-
-let real_of_num = fun x -> FIXME_real
-
-let real_zero = FIXME_real
+(*
+let MIN = fun (x:real) (y:real) -> FIXME_real
+let MAX = fun (x:real) (y:real) -> FIXME_real
+*)
 
 let Num (x:int) = FIXME_num
-
-
-let~ = real_neg (* FIXME *)
 
 (* this definition really should be built in... *)
 (* ... doesn't need phasing; handled specially in testEval *)
@@ -147,24 +141,14 @@ let  real_of_int (i:int) = if Basic_classes.(<) i int_zero then ~(real_of_num (N
                                  else real_of_num (Num i)
 (*: @mergewithnext :*)
 
-let FIXME_bool = true
-let real_gt x y = FIXME_bool
-let real_lt x y = FIXME_bool
-let real_lte x y = real_lt x y || (x=y)
 
 (* let FIXME_least s d = Set.choose s d *)
-
-let FIXME_num = 0
 
 (*: [[num]] floor of [[real]] :*)
 let num_floor (x:real) = FIXME_num (*FIXME_least { (n:num) | real_gt (real_of_num (n+1)) x } FIXME_num *)
 (*: @mergewithnext :*) (* better version proved in TCP1_timerProps, though could/should be here
       really *)
 
-let real_minus x y = FIXME_real
-let real_plus x y = FIXME_real
-let real_div x y = FIXME_real
-let real_times x y = FIXME_real
 
 (*: [[num]] floor and fractional part of [[real]] :*)
 let  num_floor_and_frac (x:real)
@@ -377,7 +361,7 @@ let CONCAT_OPTIONAL xs = MAP_OPTIONAL I xs
 
 let LIST_TO_SET xs = fromList xs
 
-val CARD : forall 'a. Ord 'a => set 'a -> nat 
+val CARD : forall 'a. SetType 'a => set 'a -> nat 
 let CARD x = Set.size x
 
 let LENGTH = List.length

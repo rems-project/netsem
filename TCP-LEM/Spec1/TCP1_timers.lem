@@ -170,16 +170,17 @@ beyond the maximum expiry time.
 (* building block for deadline timer and time-window timer *)
 type timer = Timer of (duration * time * time)  (* elapsed, min, max *)
 
+val fuzzy_timer : time -> duration -> duration -> timer
 let 
   (*: timer that goes off in the interval [[ [d-eps,d+fuz] ]], like a BSD ticks-based timer :*)
   (*: [[fuz]] is some fuzziness added to mask the atomic nature of the model. :*)
 
   fuzzy_timer (* fuzzy_timer : time -> duration -> duration -> timer *)
-               d eps fuz = Timer(real_zero,time_minus_dur d eps,time_plus_dur d fuz)
+               d eps fuz = Timer(real_zero,time_minus_dur (d:time) (eps:duration),time_plus_dur d (fuz:duration))
 
 let 
 (*: timer that goes off at exactly [[d]] after now :*)
-  sharp_timer d = fuzzy_timer d time_zero time_zero
+  sharp_timer d = fuzzy_timer (d:time) 0 0
  (*: @mergewithnext :*) 
 let 
 (*: timer that never goes off :*)

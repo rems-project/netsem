@@ -43,7 +43,7 @@ val _ = Version.registerTheory "$RCSfile: TCP1_hostLTSScript.sml,v $" "$Revision
 *)
 
 open import Pervasives_extra
-open import Transform
+(*open import Transform*)
 open TCP1_lemSupport
 open TCP1_errors
 open TCP1_utils
@@ -457,7 +457,7 @@ let
          waiting for some previous data to be acknowledged, but is receiving data filled segments
          from the other end, these may all contain the same acknowledgement number and trigger the
          retransmit logic erroneously. :*)
-      let has_data = (data /= [] &&
+      let has_data = (data <> [] &&
           (bsd_arch arch --> (cb.rcv_nxt < seq32_plus seq (LENGTH data) && seq < seq32_plus cb.rcv_nxt cb.rcv_wnd))) in
       let maybe_dup_ack = (not has_data && win = cb.snd_wnd && mode_of cb.tt_rexmt = SOME Rexmt) in
 
@@ -612,7 +612,7 @@ let
      let data_trimmed_left = DROP trim_amt_left data in
      let seq_trimmed = seq32_plus seq trim_amt_left in (*: Trimmed data starts at [[seq_trimmed]] :*)
      let urp_trimmed = if urp > trim_amt_left then urp - trim_amt_left else 0 in
-     let URG_trimmed = if urp_trimmed /= 0 then URG else F in
+     let URG_trimmed = if urp_trimmed <> 0 then URG else F in
 
      (*: Trim any data outside the receive window from the right hand edge. If all the data is
          within the window and the [[FIN]] flag is set then the [[FIN]] flag is valid and should
@@ -707,7 +707,7 @@ let
 
         (*: Only need to acknowledge the segment if there is new in-window data (including urgent
             data) or a valid [[FIN]] :*)
-        let have_stuff_to_ack = (data_trimmed_left_right /= [] || FIN_trimmed) in
+        let have_stuff_to_ack = (data_trimmed_left_right <> [] || FIN_trimmed) in
 
         (*: If the socket is connected, has data to [[ACK]] but no [[FIN]] to [[ACK]], the
             reassembly queue is empty, the socket is not currently within a bad retransmit window
@@ -939,7 +939,7 @@ let
                                  (cb.snd_wl2 < ack || cb.snd_wl2 = ack && win > cb.snd_wnd)) ||
                                 (tcp_sock.st = SYN_RECEIVED && not FIN))) in  (*: This replaces BSD's |snd_wl1 := seq-1| hack; should perhaps be [[~FIN_reass]] :*)
 
-     let seq_trimmed = FIXME_num (*MAX seq (MIN cb.rcv_nxt (seq + LENGTH data))*) in
+     let seq_trimmed = FIXME_tcp_seq_foreign (*MAX seq (MIN cb.rcv_nxt (seq + LENGTH data))*) in
 
      (*: Write back the window updates :*)
      modify_cb (fun cb-> <| cb with  snd_wnd = updated_by_onlywhen cb.snd_wnd win update_send_window;
@@ -952,7 +952,7 @@ let
         Note that in [[FIN_WAIT_1]] or [[FIN_WAIT_2]], we still process data, even if [[ourfinisacked]].  :*)
     if (tcp_sock.st = TIME_WAIT || (tcp_sock.st = CLOSING && ourfinisacked)) then
         (*: pull along urgent pointer :*)
-        modify_cb (fun cb-> <| cb with  rcv_up  = FIXME_num (* MAX cb.rcv_up cb.rcv_nxt*) |>) **>
+        modify_cb (fun cb-> <| cb with  rcv_up  = FIXME_tcp_seq_foreign (* MAX cb.rcv_up cb.rcv_nxt*) |>) **>
         the_ststuff F
     else
         di3_datastuff_really the_ststuff tcp_sock_0 seg bsd_fast_path arch))
@@ -1171,7 +1171,7 @@ let
       details. :*)
 
    let interesting = fun sid'->
-         sid' /= sid &&
+         sid' <> sid &&
          match ((FAPPLY socks  sid')).pr with
             UDP_PROTO udp_sock -> F
          | TCP_PROTO(tcp_sock') -> (
@@ -1182,14 +1182,14 @@ let
 
    let interesting_sids = (FDOM socks) inter (set_of_bool_fn interesting) in
 
-   if interesting_sids /= {} then
+   if interesting_sids <> {} then
       (*: There exists another socket [[sock']] that is listening and has socket [[sock_1]] referenced by
           [[sid]] on its queue of incomplete connections [[lis.q0]]. :*)
       exists sid' sock' tcp_sock' lis q0L q0R.
       sid' IN interesting_sids &&
       sock' = (FAPPLY socks  sid') &&
       sock'.pr = TCP_PROTO tcp_sock' &&
-      sid' /= sid &&
+      sid' <> sid &&
       tcp_sock'.lis = Some lis &&
       lis.q0 = APPEND q0L (sid :: q0R) &&
 
@@ -1264,7 +1264,7 @@ let
                lis.q <> []) ||
         sock.es <> NONE) |
       UDP_PROTO(udp) ->
-       (udp.udp_rcvq /= [] || sock.es /= NONE || (sock.cantrcvmore && not (windows_arch arch))) end)
+       (udp.udp_rcvq <> [] || sock.es <> NONE || (sock.cantrcvmore && not (windows_arch arch))) end)
 
 (*:
 
@@ -1301,7 +1301,7 @@ let
           sock.sf.n(SO_SNDBUF) - LENGTH tcp.sndq  >= sock.sf.n(SO_SNDLOWAT)) || (* change to send_buffer_space *)
         (if linux_arch arch then not sock.cantsndmore else sock.cantsndmore) ||
         (linux_arch arch && tcp.st = CLOSED) ||
-        sock.es /= NONE) |
+        sock.es <> NONE) |
       UDP_PROTO(udp) -> T end)
 
 (*:
@@ -1556,8 +1556,8 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
    lis'.q = q &&
    lis'.q0 = lis.q0 && lis'.qlimit = lis.qlimit && (* TODO: temporary measure for now, to avoid using
                                                       'with' with lis type, as per MN's comments *)
-   (sid /= sid') && (* redundant? *)
-   es' /= SOME ECONNABORTED && (* TODO: update this in light of accept_4 *)
+   (sid <> sid') && (* redundant? *)
+   es' <> SOME ECONNABORTED && (* TODO: update this in light of accept_4 *)
    NOTIN fid'  ((FDOM files) union {fid}) &&
    nextfd h.arch fds fd' &&
    fds' = (fds |+ (fd', fid')) &&
@@ -1869,7 +1869,7 @@ accept_5: forall h ts tid d t lbl rc
      ) &&
     sid IN FDOM h.socks &&
     TCP_PROTO(tcp_sock) = ((FAPPLY h.socks  sid)).pr &&
-    tcp_sock.st /= LISTEN
+    tcp_sock.st <> LISTEN
 
    ==>
 
@@ -2406,7 +2406,7 @@ bind_5: forall h ts tid d
      fid = (FAPPLY h.fds  fd) &&
      FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
      (FAPPLY h.socks  sid) = sock &&
-     (sock.ps1 /= NONE ||
+     (sock.ps1 <> NONE ||
       (bsd_arch h.arch && sock.pr = TCP_PROTO(tcp_sock) &&
        (sock.cantsndmore ||
         tcp_sock.cb.bsd_cantconnect) ))
@@ -2794,7 +2794,7 @@ close_2: forall h ts tid d fds fds'
              TIME_WAIT;CLOSE_WAIT;LAST_ACK} ||
       st = SYN_RECEIVED && linux_arch h.arch) && (* earlier states are treated specially *)
      (sf.t(SO_LINGER) = time_infty ||
-      ff.b(O_NONBLOCK) = T && sf.t(SO_LINGER) /= time_zero && not (linux_arch h.arch)) &&
+      ff.b(O_NONBLOCK) = T && sf.t(SO_LINGER) <> time_zero && not (linux_arch h.arch)) &&
      fd IN FDOM fds &&
      fid = (FAPPLY fds  fd) &&
      fid_ref_count(fds,fid) = 1 &&
@@ -3356,7 +3356,7 @@ close_8: forall h ts tid d fds fds'
      enqueue_each_and_ignore_fail h.arch h.rttab h.ifds (MAP TCP segs) oq oq' &&
 
      fds' = DOMSUB fds  fd &&
-     listen' = FILTER (fun sid'-> sid' /= sid) listen &&
+     listen' = FILTER (fun sid'-> sid' <> sid) listen &&
      socks' = DRESTRICT socks {} (* { sid' |  notinlist sid'  (APPEND lis.q0 lis.q)} *)
 
      ==>
@@ -3747,8 +3747,8 @@ connect_1: forall h h0 h' ts_ socks tid d oq oq' cb' cb'' cb''' es es' es'' t'
      ((st = CLOSED && is2 = NONE && ps2 = NONE &&
        es = NONE && cantsndmore = F && (cantrcvmore = F || bsd_arch h.arch)) ||
       (bsd_arch h.arch && st = TIME_WAIT &&
-       (is2 /= NONE --> ps2 /= NONE) &&
-         (ps2 /= NONE --> is2 /= NONE))) &&
+       (is2 <> NONE --> ps2 <> NONE) &&
+         (ps2 <> NONE --> is2 <> NONE))) &&
 
      (*: No other TCP sockets on the host have the address quad [[(SOME i1',SOME p1',SOME i2,SOME p2)]]. :*)
      not (exists  sid' s. (sid', s) IN (set_of_fmap (DOMSUB h.socks  sid)) &&
@@ -3771,13 +3771,13 @@ connect_1: forall h h0 h' ts_ socks tid d oq oq' cb' cb'' cb''' es es' es'' t'
      choose on a per-connection basis whether to do window scaling or
      not. This permits both.
      :*)
-     (request_r_scale:option num) IN ({NONE} union {SOME n | n >= 0 && n <= TCP_MAXWINSCALE }) &&
+     (request_r_scale:option nat) IN ({NONE} union {SOME n | n >= 0 && n <= TCP_MAXWINSCALE }) &&
 
 (*
-     (rcv_wnd0:num) IN { n | n > 0 /\ n <= TCP_MAXWIN } /\  ( * we feel a zero window would be dumb (deaf?) * )
-     (rcv_wnd:num) = rcv_wnd0 << (option_case 0 I request_r_scale) /\
+     (rcv_wnd0:nat) IN { n | n > 0 /\ n <= TCP_MAXWIN } /\  ( * we feel a zero window would be dumb (deaf?) * )
+     (rcv_wnd:nat) = rcv_wnd0 << (option_case 0 I request_r_scale) /\
 *)
-     (rcv_wnd:num) IN { n | n > 0 && n <= (TCP_MAXWIN << (option_case 0 I request_r_scale)) } &&
+     (rcv_wnd:nat) IN { n | n > 0 && n <= (TCP_MAXWIN << (option_case 0 I request_r_scale)) } &&
 
      rcv_wnd <= sf.n(SO_RCVBUF) &&
 
@@ -3876,7 +3876,7 @@ connect_1: forall h h0 h' ts_ socks tid d oq oq' cb' cb'' cb''' es es' es'' t'
                                      last_ack_sent  = tcp_seq_foreign word_zero;
                                      rcv_adv        = tcp_seq_foreign word_zero
                                   |>) cb' (cb'',es',outsegs') &&
-     cb''' = (if (outsegs' /= [] || windows_arch h.arch) then cb'' else cb) &&
+     cb''' = (if (outsegs' <> [] || windows_arch h.arch) then cb'' else cb) &&
      enqueue_oq_list_qinfo (oq,outsegs',oq') &&
 
       (* if nonblocking requested and no prior pending error, "fail" but keep going in background.
@@ -4152,7 +4152,7 @@ connect_2: forall h ts tid d sid tcp_sock.
 
    TCP_PROTO(tcp_sock) = ((FAPPLY h.socks  sid)).pr &&
      tcp_sock.st IN {ESTABLISHED;CLOSE_WAIT} &&
-     (not (exists tid' d'. (tid' IN FDOM ts) && (tid' /= tid) &&
+     (not (exists tid' d'. (tid' IN FDOM ts) && (tid' <> tid) &&
                  (FAPPLY ts  tid') = Timed(Connect2 sid,d')))
 
      ==>
@@ -4796,7 +4796,7 @@ connect_7: forall h h0 ts tid d sid fid sf es ff socks bound
               s.is2 = SOME i2  && s.ps2 = ps2 &&
               proto_of s.pr = PROTO_UDP &&
               bsd_arch h.arch) &&
-     (bsd_arch h.arch --> ps2 /= NONE && es = NONE) &&
+     (bsd_arch h.arch --> ps2 <> NONE && es = NONE) &&
      (if windows_arch h.arch then cantsndmore' = F
       else                        cantsndmore' = cantsndmore)
 
@@ -4852,7 +4852,7 @@ connect_8: forall h ts tid d sid fid sf es ff socks h0
      fd IN FDOM h.fds &&
      fid = (FAPPLY h.fds  fd) &&
      FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
-     (bsd_arch h.arch --> ps /= NONE && es = NONE) &&
+     (bsd_arch h.arch --> ps <> NONE && es = NONE) &&
      (if windows_arch h.arch then cantsndmore' = F
       else                        cantsndmore' = cantsndmore) &&
      not (exists  sid' s. (sid',s) IN (set_of_fmap (DOMSUB h0.socks  sid)) &&
@@ -4912,7 +4912,7 @@ connect_9: forall h ts tid d socks sid
      fd IN FDOM h.fds &&
      fid = (FAPPLY h.fds  fd) &&
      FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
-     (if sock.is2 /= NONE then is1 = NONE else is1 = sock.is1)
+     (if sock.is2 <> NONE then is1 = NONE else is1 = sock.is1)
 
      ==>
 
@@ -4971,7 +4971,7 @@ connect_10: forall h ts tid d socks sid sock err udp fd i ps fid ff h0.
     fd IN FDOM h.fds &&
     fid = (FAPPLY h.fds  fd) &&
     FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
-    ps /= NONE &&
+    ps <> NONE &&
     not (exists  sid' s. (sid',s) IN (set_of_fmap  (DOMSUB h0.socks  sid)) && 
               s.is1 = sock.is1 && s.ps1 = sock.ps1 &&
               s.is2 = SOME i  && s.ps2 = ps &&
@@ -5229,6 +5229,7 @@ disconnect_5: forall h ts tid d sid fd fid ff socks sock sock' oq oq' outsegs tc
 
    :*)
 
+
 and   
 
 
@@ -5291,6 +5292,7 @@ disconnect_1: forall h ts_ tid d sid fid sf is1 ff ret
     Note that this leaves the local port in place, perhaps surprisingly.
 
    :*)
+
 
 and
 
@@ -5496,7 +5498,7 @@ dup_1: forall h ts tid d
    This call does not exist in Windows.
 
    :*)
-   
+
 and
 
 dup_2: forall h ts tid d fd.
@@ -5975,7 +5977,7 @@ getifaddrs_1: forall h ts tid d iflist ifidset ifidlist.
      wanted otherwise,  [[ifds]] and [[iset]] should be lists.
      :*)
 
-    
+
 and
 
 (*:
@@ -6155,8 +6157,8 @@ getpeername_2: forall h ts tid d
      fid = (FAPPLY h.fds  fd) &&
      FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
      sock = (FAPPLY h.socks  sid) &&
-     not (sock.is2 /= NONE &&
-       (sock.ps2 /= NONE || (windows_arch h.arch && proto_of sock.pr = PROTO_UDP)) &&
+     not (sock.is2 <> NONE &&
+       (sock.ps2 <> NONE || (windows_arch h.arch && proto_of sock.pr = PROTO_UDP)) &&
        (forall tcp_sock. sock.pr = TCP_PROTO(tcp_sock) -->
             tcp_sock.st IN {ESTABLISHED; CLOSE_WAIT; LAST_ACK; FIN_WAIT_1; CLOSING (* SYN_RECEIVED ??*)} ||
             (not sock.cantrcvmore && tcp_sock.st = FIN_WAIT_2) ||
@@ -6904,7 +6906,7 @@ getsockname_1: forall h ts tid d
         TCP_PROTO(tcp_sock) ->
           bsd_arch h.arch --> not (tcp_sock.cb.bsd_cantconnect = T && sock.ps1 = NONE) |
         UDP_PROTO(_444) -> T end) &&
-     (windows_arch h.arch --> sock.is1 /= NONE || sock.ps1 /= NONE)
+     (windows_arch h.arch --> sock.is1 <> NONE || sock.ps1 <> NONE)
 
      ==>
 
@@ -7532,6 +7534,7 @@ and
 
 :*)
 
+
 listen_1: forall h ts socks listen0 tid d
      fd n fid ff sid sf es cb lis cantrcvmore
      is1 ps1 p1 is2 ps2 bound.
@@ -7848,7 +7851,7 @@ listen_4: forall h ts d fd fid sid ff n tid sock tcp_sock p1.
      sock.ps1 = SOME p1 &&
      (exists sid' sock' tcp_sock'. (FAPPLY h.socks  sid') = sock' && sock'.pr = TCP_PROTO(tcp_sock') &&
       	                     tcp_sock'.st = LISTEN && sock'.ps1 = sock.ps1 &&
-                             not (exists i1 i1'. i1 /= i1' && sock.is1 = SOME i1 && sock'.is1 = SOME i1'))
+                             not (exists i1 i1'. i1 <> i1' && sock.is1 = SOME i1 && sock'.is1 = SOME i1'))
 
      ==>
 
@@ -8204,8 +8207,8 @@ pselect_1: forall h ts tid readfds writefds exceptfds timeout sigmask readfds' w
        FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
        sock = (FAPPLY h.socks  sid) &&
        soexceptional h.arch sock) exceptfds &&
-     (windows_arch h.arch --> readfds /= [] && writefds /= [] && exceptfds /= []) &&
-     (readfds' /= [] || writefds' /= [] || exceptfds' /= [] || timeout=SOME(0,0)) &&
+     (windows_arch h.arch --> readfds <> [] && writefds <> [] && exceptfds <> []) &&
+     (readfds' <> [] || writefds' <> [] || exceptfds' <> [] || timeout=SOME(0,0)) &&
      if windows_arch  h.arch then
 	 readfds''=readfds' && writefds''=writefds' && exceptfds''=exceptfds'
      else
@@ -8280,7 +8283,7 @@ pselect_2: forall h ts tid d
 	      n >= FD_SETSIZE h.arch) &&
      not (exists fd.   (IN' fd  readfds || IN' fd  writefds || IN' fd  exceptfds) &&
               NOTIN fd  (FDOM h.fds)) &&
-     (windows_arch h.arch --> readfds /= [] && writefds /= [] && exceptfds /= [])
+     (windows_arch h.arch --> readfds <> [] && writefds <> [] && exceptfds <> [])
 
      ==>
 
@@ -8354,7 +8357,7 @@ pselect_3: forall h ts tid d
        FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
        sock = (FAPPLY h.socks  sid) &&
        soexceptional h.arch sock) exceptfds &&
-     (readfds' /= [] || writefds' /= [] || exceptfds' /= [] || timer_expires d) &&
+     (readfds' <> [] || writefds' <> [] || exceptfds' <> [] || timer_expires d) &&
      badreadfds = FILTER (fun fd-> NOTIN fd  (FDOM h.fds)) readfds &&
      badwritefds = FILTER (fun fd-> NOTIN fd  (FDOM h.fds)) writefds &&
      badexceptfds = FILTER (fun fd-> NOTIN fd  (FDOM h.fds)) exceptfds &&
@@ -10002,7 +10005,7 @@ recv_14: forall h ts tid d socks h0
 
      :*)
 
-    
+
 and
 
 recv_15: forall h ts tid sid n opts d socks sock data'
@@ -11223,7 +11226,7 @@ send_7: forall h ts tid d
 	lbl = Lh_call(tid,send(fd,None,IMPLODE (string_of_char_list str),opts0)) &&
 	rc = fast fail &&
 	is2 = Some i2 && ps2 = Some p2 &&
-        (if tcp.st /= CLOSED then
+        (if tcp.st <> CLOSED then
            exists i1 p1.is1 = Some i1 && ps1 = Some p1
          else T)
        )
@@ -11558,7 +11561,7 @@ send_9: forall h ts tid d socks sid sock fd udp h0 bound
       FAPPLY h0.files fid = File(FT_Socket(sid),ff) &&
       sock.cantsndmore = F &&
       STRLEN (IMPLODE (string_of_char_list str)) <= UDPpayloadMax h0.arch &&
-      ((addr /= None) || (sock.is2 /= None)) &&
+      ((addr <> None) || (sock.is2 <> None)) &&
       p1' IN autobind(sock.ps1,PROTO_UDP,h0,h0.socks) &&
       (if sock.ps1 = None then bound = sid::h0.bound else bound = h0.bound) &&
       dosend(h.ifds,h.rttab,(addr,str),(sock.is1,Some p1',sock.is2,sock.ps2),h0.oq,oq',T) &&
@@ -11655,7 +11658,7 @@ send_10: forall h ts tid d socks sid udp fd addr sock bound
       p1' IN autobind(sock.ps1,PROTO_UDP,h0,h0.socks) &&
       (if sock.ps1 = None then bound = sid::h0.bound else bound = h0.bound) &&
       dosend(h0.ifds,h0.rttab,(addr,str),(sock.is1,Some p1',sock.is2,sock.ps2),h0.oq,oq',F) &&
-      ((addr /= None) || (sock.is2 /= None))
+      ((addr <> None) || (sock.is2 <> None))
 
       ==>
 
@@ -11738,7 +11741,7 @@ send_11: forall h ts tid d socks sid sock udp fd addr
       (not (windows_arch h.arch) --> es = None) &&
       p1' IN autobind(sock.ps1,PROTO_UDP,h0,h0.socks) &&
       (if sock.ps1 = None then bound = sid::h0.bound else bound = h0.bound) &&
-      ((addr /= None) || (sock.is2 /= None)) &&
+      ((addr <> None) || (sock.is2 <> None)) &&
       opts = LIST_TO_SET opts0 &&
       ((not (bsd_arch h.arch) && MSG_DONTWAIT IN opts) || ff.b(O_NONBLOCK)) &&
       dosend(h0.ifds,h0.rttab,(addr,str),(sock.is1,sock.ps1,sock.is2,sock.ps2),h0.oq,oq',F)
@@ -11886,8 +11889,8 @@ send_13: forall h ts tid d socks sid fid ff h0
       FAPPLY h0.files fid = File(FT_Socket(sid),ff) &&
       (STRLEN (IMPLODE (string_of_char_list str)) > UDPpayloadMax h0.arch ||
          (bsd_arch h.arch && STRLEN (IMPLODE (string_of_char_list str)) > ((FAPPLY h0.socks  sid)).sf.n(SO_SNDBUF))) &&
-      ps1' IN {sock.ps1} union (map (Some) (autobind(sock.ps1,PROTO_UDP,h0,h0.socks))) &&
-      (if sock.ps1 = None && ps1' /= None then bound = sid::h0.bound else bound = h0.bound)
+      ps1' IN {sock.ps1} union (Set.map (Some) (autobind(sock.ps1,PROTO_UDP,h0,h0.socks))) &&
+      (if sock.ps1 = None && ps1' <> None then bound = sid::h0.bound else bound = h0.bound)
 
       ==>
 
@@ -12005,7 +12008,7 @@ send_15: forall h ts addr is1 ps1 is2 ps2 es
       STRLEN (IMPLODE (string_of_char_list str)) <= UDPpayloadMax h.arch &&
       (dosend(h.ifds,h.rttab,(addr,str),(is1,ps1,is2,ps2),h.oq,oq',T) ||
        dosend(h.ifds,h.rttab,(addr,str),(sock.is1,sock.ps1,sock.is2,sock.ps2),h.oq,oq',T)) &&
-      (addr /= None || sock.is2 /= None || is2 /= None)
+      (addr <> None || sock.is2 <> None || is2 <> None)
 
       ==>
 
@@ -13512,7 +13515,7 @@ shutdown_2: forall h ts d tid sid sock socks cantrcvmore
    fd IN (FDOM h.fds) &&
      fid = (FAPPLY h.fds  fd) &&
      FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
-     (linux_arch h.arch --> sock.is2 /= None)
+     (linux_arch h.arch --> sock.is2 <> None)
 
      ==>
 
@@ -13559,7 +13562,7 @@ shutdown_3: forall h ts tid d
      fid = (FAPPLY h.fds  fd) &&
      FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
      TCP_PROTO(tcp_sock) = ((FAPPLY h.socks  sid)).pr &&
-     tcp_sock.st /= ESTABLISHED &&
+     tcp_sock.st <> ESTABLISHED &&
      not (bsd_arch h.arch)
 
      ==>
@@ -14464,7 +14467,7 @@ deliver_in_1: forall h socks socks'
 
   NOTIN sid  (FDOM socks) &&
     NOTIN sid'  (FDOM socks) &&
-    sid /= sid' &&
+    sid <> sid' &&
 
     (*: Take TCP segment [[seg]] from the head of the host's input queue :*)
     dequeue_iq(iq,iq',Some (TCP seg)) &&
@@ -15056,7 +15059,7 @@ deliver_in_2: forall h socks iq iq' oq oq' seg sid fid sf i1 p1 i2 p2 cb es cant
                    | Some v -> v end) in
 
      ((rcvbufsize',sndbufsize',t_maxseg'',snd_cwnd') =
-         if mss /= None || not (bsd_arch h.arch) then
+         if mss <> None || not (bsd_arch h.arch) then
             calculate_buf_sizes ourmss mss bw_delay_product_for_rt
                                 (is_localnet h.ifds i2) (sf.n(SO_RCVBUF))
                                 (sf.n(SO_SNDBUF)) tf_doing_tstmp' h.arch
@@ -15128,7 +15131,7 @@ deliver_in_2: forall h socks iq iq' oq oq' seg sid fid sf i1 p1 i2 p2 cb es cant
 
               (*: update RTT estimators from timestamp or roundtrip time :*)
               let emission_time = match ts with
-                                      Some (ts_val,ts_ecr) -> Some FIXME_num (* (ts_ecr - 1) *)
+                                      Some (ts_val,ts_ecr) -> Some FIXME_seq32 (* (ts_ecr - 1) *)
                                   | None ->
                                   (match cb.t_rttseg with
                                        Some (ts0,seq0) -> if ack > seq0
@@ -15163,7 +15166,7 @@ deliver_in_2: forall h socks iq iq' oq oq' seg sid fid sf i1 p1 i2 p2 cb es cant
                else if mode_of cb.tt_rexmt IN {None; Some Rexmt} then
                    (*: ditto :*)
                    start_tt_rexmt h.arch 0 T t_rttinf'
-               else if emission_time /= None then
+               else if emission_time <> None then
                    match cb.tt_rexmt with
                        (*: bizarre but true. |tcp_input.c:1766| says c.f.~Phil Karn's retransmit algorithm :*)
                        None -> None
@@ -15986,7 +15989,7 @@ deliver_in_5: forall h iq iq' oq oq' seg outsegs' bndlm bndlm'
 
      seg.TCP1_netTypes.is2 = Some i1 &&  i1 IN local_ips(h.ifds) &&  (* IP matches this host *)
      seg.TCP1_netTypes.ps2 = Some p1 &&
-     seg.TCP1_netTypes.is1 /= None && seg.TCP1_netTypes.ps1 /= None &&
+     seg.TCP1_netTypes.is1 <> None && seg.TCP1_netTypes.ps1 <> None &&
 
      T &&                                              (*: placeholder for segment checksum and offset field sensible :*)
 
@@ -16484,7 +16487,7 @@ deliver_in_8: forall h iq iq' socks seg sock sock' bndlm bndlm' tcp_sock
 
      sock.pr = TCP_PROTO(tcp_sock) &&
      let t_idletime' = stopwatch_zero in
-     let tt_keep' = if tcp_sock.st /= SYN_RECEIVED then
+     let tt_keep' = if tcp_sock.st <> SYN_RECEIVED then
                         Some (Timed((),slow_timer TCPTV_KEEP_IDLE))
                     else
                         tcp_sock.cb.tt_keep in
@@ -16718,7 +16721,7 @@ deliver_out_1: forall h socks oq oq' sid sock sock' sock''
     (*: and either is in a synchronised state with initial [[SYN]] acknowledged\dots :*)
     ( (st IN {ESTABLISHED;CLOSE_WAIT;FIN_WAIT_1;FIN_WAIT_2;CLOSING;
               LAST_ACK;TIME_WAIT} &&
-        cb.snd_una /= cb.iss) ||
+        cb.snd_una <> cb.iss) ||
     (*: \dots{}or is in the [[SYN_SENT]] or [[SYN_RECEIVED]] state and a [[FIN]] needs to be emitted :*)
       (st IN {SYN_SENT; SYN_RECEIVED} && cantsndmore && cb.tf_shouldacknow)
     ) &&
@@ -16728,7 +16731,7 @@ deliver_out_1: forall h socks oq oq' sid sock sock' sock''
         persist timer ([[persist_fun]]), then this does not of itself mean that a segment is
         required, however [[deliver_out_1]] should still fire to allow the update to take place. :*)
     let (do_output,persist_fun) = tcp_output_required h.arch h.ifds sock in
-    (do_output || persist_fun /= None) &&
+    (do_output || persist_fun <> None) &&
 
     (*: Apply any persist timer side-effect from [[tcp_output_required]] :*)
     let sock0 = option_case sock (fun  f-> <| sock with
@@ -17535,8 +17538,8 @@ deliver_in_icmp_1: forall h iq iq' oq oq' socks icmp sid sock sock'
                   sock' = sock &&  (*: ignore transient error while connected :*)
                   oq' = oq
               else if tcp_sock.st IN {CLOSED;LISTEN;SYN_SENT;SYN_RECEIVED} &&
-                      tcp_sock.cb.tt_rexmt /= None && shift_of tcp_sock.cb.tt_rexmt > 3 &&
-                      tcp_sock.cb.t_softerror /= None then
+                      tcp_sock.cb.tt_rexmt <> None && shift_of tcp_sock.cb.tt_rexmt > 3 &&
+                      tcp_sock.cb.t_softerror <> None then
                   tcp_drop_and_close h.arch (Some EHOSTUNREACH) sock (sock',outsegs) &&
                   enqueue_and_ignore_fail h.arch h.rttab h.ifds outsegs oq oq'
               else
@@ -17554,7 +17557,7 @@ deliver_in_icmp_1: forall h iq iq' oq oq' socks icmp sid sock sock'
                                   udp_rcvq  = APPEND udp_sock.udp_rcvq [(Dgram_error(<| TCP1_preHostTypes.e  = ECONNRESET |>))] |>) |>) && oq' = oq
            else
                sock' = <| sock with es= updated_by_onlywhen sock.es (Some ECONNREFUSED)
-                                        ((sock.is2 /= None) || not (SO_BSDCOMPAT IN (set_of_bool_fn sock.sf.b1))) |> && oq' = oq) end)
+                                        ((sock.is2 <> None) || not (SO_BSDCOMPAT IN (set_of_bool_fn sock.sf.b1))) |> && oq' = oq) end)
 
      ==>
 
@@ -17706,7 +17709,7 @@ deliver_in_icmp_3: forall h iq iq' oq oq' socks icmp sid sock sock'
                    oq' = oq
                else (* bsd_arch \/ linux_arch *)
                    sock' = <| sock with es = updated_by_onlywhen sock.es (Some (ECONNREFUSED))
-                                            ((sock.is2 /= None) || not (SO_BSDCOMPAT IN (set_of_bool_fn sock.sf.b1))) |> && oq' = oq) end)
+                                            ((sock.is2 <> None) || not (SO_BSDCOMPAT IN (set_of_bool_fn sock.sf.b1))) |> && oq' = oq) end)
 
      ==>
 
@@ -17755,8 +17758,8 @@ deliver_in_icmp_4: forall h iq iq' oq oq' socks icmp sid sock sock'
             (exists icmp_seq. icmp.icmp_seq = Some icmp_seq &&
             if tcp_sock.cb.snd_una <= icmp_seq && icmp_seq < tcp_sock.cb.snd_max then (* tcp_notify() *)
                 if tcp_sock.st IN {CLOSED;LISTEN;SYN_SENT;SYN_RECEIVED} &&
-                   tcp_sock.cb.tt_rexmt /= None && shift_of tcp_sock.cb.tt_rexmt > 3 &&
-                   tcp_sock.cb.t_softerror /= None then
+                   tcp_sock.cb.tt_rexmt <> None && shift_of tcp_sock.cb.tt_rexmt > 3 &&
+                   tcp_sock.cb.t_softerror <> None then
                     tcp_drop_and_close h.arch (Some ENOPROTOOPT) sock (sock',outsegs) &&
                     enqueue_and_ignore_fail h.arch h.rttab h.ifds outsegs oq oq'
                 else
@@ -18414,7 +18417,7 @@ host_redn0:
 
    
 
-(**
+
 
 (*
 
@@ -18435,7 +18438,7 @@ val _ = overload_on ("transition3", ``host_redn'``);
 *)
 
 (* -------------------------------------------------- *)
-
+(**
 val _ = export_theory();
 
 (* Local Variables: *)

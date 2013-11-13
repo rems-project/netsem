@@ -33,7 +33,7 @@ val _ = Version.registerTheory "$RCSfile: TCP1_auxFnsScript.sml,v $" "$Revision:
 *)
 
 open import Pervasives_extra
-open import Transform
+(* open import Transform *)
 open TCP1_lemSupport
 open TCP1_errors
 open TCP1_utils
@@ -184,7 +184,7 @@ end)
 
 let (*: score the match against the given pattern of the given quadruple :*)
   match_score x y = (match (x,y) with
-    | ((_(*:ip option*),Nothing(*:option port*),_(*:ip option*),_(*:port option*)),_) -> 0
+    | ((_(*:ip option*),Nothing(*:option port*),_(*:ip option*),_(*:port option*)),_) -> (0:nat)
     | ((Nothing, Just p1, Nothing, Nothing), (i3,ps3,i4,ps4)) ->
        if ps4 = Just p1 then 1 else 0 
     | ((Just i1, Just p1, Nothing, Nothing), (i3,ps3,i4,ps4)) -> 
@@ -364,7 +364,7 @@ let
 let 
 (*: Calculate the length consumed by the TCP options in a real TCP segment :*)
   calculate_tcp_options_len cb_tf_doing_tstmp =
-    if cb_tf_doing_tstmp then 12 else 0 (*: num*)
+    if cb_tf_doing_tstmp then 12 else (0:nat) (*: num*)
 
 (*: @description
 This calculation omits
@@ -522,11 +522,12 @@ let (*: simple-bandlimiter rate settings :*)
   simple_limit x = (match x with
   (*simple_limit : bandlim_reason -> num option*)
     BANDLIM_UNLIMITED      -> Nothing 
-  | BANDLIM_RST_CLOSEDPORT -> Just 200 
+  | BANDLIM_RST_CLOSEDPORT -> Just (200:nat)
   | BANDLIM_RST_OPENPORT   -> Just 200
 end)
 (*:@mergewithnext:*)
 
+val bandlim_rst_ok_simple : tcpSegment * ts_seq * bandlim_reason * bandlim_state -> bool * bandlim_state
 let (*: a simple rate-limiting bandlimiter :*)
   bandlim_rst_ok_simple (*(bandlim_rst_ok_simple : tcpSegment # ts_seq # bandlim_reason # bandlim_state -> bool # bandlim_state)*)
                   (seg,(ticks:ts_seq),reason,bndlm)
@@ -1629,9 +1630,9 @@ let
       ) in
 
     let persist_fun =
-      let cant_send = (not do_output && tcp_sock.sndq /= [] && mode_of cb.tt_rexmt = None) in
+      let cant_send = (not do_output && tcp_sock.sndq <> [] && mode_of cb.tt_rexmt = None) in
       let window_shrunk = (win = 0 && snd_wnd_unused < 0 && (*: [[win = 0]] if in [[SYN_SENT]], but still may send FIN :*)
-                           (bsd_arch arch --> tcp_sock.st /= SYN_SENT)) in
+                           (bsd_arch arch --> tcp_sock.st <> SYN_SENT)) in
 
       if cant_send then  (* takes priority over window_shrunk; note this needs to be checked *)
         (*: Can not transmit a segment despite a non-empty send queue and no running persist or
@@ -1647,8 +1648,8 @@ let
         (* Window shrunk: |tcp_output.c:250ff| *)
         Some (fun cb ->
          <| cb with tt_rexmt = (match cb.tt_rexmt with
-                        Some (Timed((Persist,shift),d)) -> Some (Timed((Persist,0),d))
-                        | _593 -> start_tt_persist 0 cb.t_rttinf arch end);
+                        None -> start_tt_persist 0 cb.t_rttinf arch 
+                        | Some (Timed((Persist,shift),d)) -> Some (Timed((Persist,0),d)) end);
                     snd_nxt = cb.snd_una |>)
       else
         (*: Otherwise, leave the persist timer alone :*)
@@ -1717,10 +1718,10 @@ let
     let cb = tcp_sock.cb in
 
     (*: Assert that the socket is fully bound and connected :*)
-    sock.is1 /= None &&
-    sock.is2 /= None &&
-    sock.ps1 /= None &&
-    sock.ps2 /= None &&
+    sock.is1 <> None &&
+    sock.is2 <> None &&
+    sock.ps1 <> None &&
+    sock.ps2 <> None &&
 
     (*: Note this does not deal with |TF_LASTIDLE| and |PRU_MORETOCOME| :*)
     let snd_cwnd' =
@@ -1757,15 +1758,15 @@ let
 
     (*: If this socket has previously sent a [[FIN]] which has not yet been acked, and [[snd_nxt]]
         is past the [[FIN]]'s sequence number, then [[snd_nxt]] should be set to the sequence number
-        of the [[FIN]] flag, i.e. a retransmission. Check that [[snd_una /= iss]] as in this case no
+        of the [[FIN]] flag, i.e. a retransmission. Check that [[snd_una <> iss]] as in this case no
         data has yet been sent over the socket  :*)
     let snd_nxt' = if FIN && (seq32_plus cb.snd_nxt (LENGTH data_to_send) = seq32_plus last_sndq_data_seq 1 &&
-                      cb.snd_una  /= cb.iss || num_of_int(seq32_diff cb.snd_nxt cb.iss) = 2) then
+                      cb.snd_una  <> cb.iss || num_of_int(seq32_diff cb.snd_nxt cb.iss) = 2) then
 		     seq32_minus cb.snd_nxt 1
                    else
 		     cb.snd_nxt in
     (*: The BSD way: set [[PSH]] whenever sending the last byte of data in the send queue :*)
-    let PSH = (data_to_send /= [] && seq32_plus cb.snd_nxt (LENGTH data_to_send) = last_sndq_data_seq) in
+    let PSH = (data_to_send <> [] && seq32_plus cb.snd_nxt (LENGTH data_to_send) = last_sndq_data_seq) in
 
     (*: If sending urgent data, set the [[URG]] and [[urp]] fields appropriately :*)
     let (URG,urp) = (match tcp_sock.sndurp with
@@ -1853,7 +1854,7 @@ let
                            retransmit timer. Note: if the persist timer is running it will be
                            implicitly stopped :*)
                        start_tt_rexmt arch 0 F cb.t_rttinf
-		    else if (window_probe || (is_Some tcp_sock.sndurp)) && win0 /= 0 &&
+		    else if (window_probe || (is_Some tcp_sock.sndurp)) && win0 <> 0 &&
                        mode_of cb.tt_rexmt = Some(Persist) then
                        (*: If the segment is a window probe or urgent data is being sent, and in
                            either case the send window is not closed, stop any running persist
@@ -1868,7 +1869,7 @@ let
     (*: Time this segment if it is sensible to do so, i.e.~the following conditions hold : (a) a
         segment is not already being timed, and (b) data or a FIN are being sent, and (c) the
         segment being emitted is not a retransmit, and (d) the segment is not a window probe :*)
-    let t_rttseg' = if IS_None cb.t_rttseg && (data_to_send /= [] || FIN) &&
+    let t_rttseg' = if IS_None cb.t_rttseg && (data_to_send <> [] || FIN) &&
                        snd_nxt'' > cb.snd_max && not window_probe
 		    then
                        Some(ts_val', snd_nxt')
@@ -2271,11 +2272,11 @@ let
           outsegs = []) &&
     let es' =
       if err = Some ETIMEDOUT then
-       (if tcp_sock.cb.t_softerror /= None then
+       (if tcp_sock.cb.t_softerror <> None then
           tcp_sock.cb.t_softerror
         else
           Some ETIMEDOUT)
-      else if err /= None then err
+      else if err <> None then err
       else sock.es
     in
       sock' = tcp_close arch (<| sock with es = es' |>))

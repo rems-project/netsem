@@ -541,7 +541,7 @@ let (*: compare two control blocks for "equality" modulo known issues :*)
   tracecb_eq (flav:traceflavour) (st:tcpstate) (es:maybe error) (cb:tcpcb) (cb':tcpcb)
     = ((                                cb.snd_una       = cb'.snd_una      ) &&       
 ((if flav = TA_OUTPUT then T else cb.snd_max       = cb'.snd_max      ) &&       
-((if flav = TA_OUTPUT || (st = SYN_SENT && es /= NONE)
+((if flav = TA_OUTPUT || (st = SYN_SENT && es <> NONE)
         then T
         else cb.snd_nxt       = cb'.snd_nxt      ) &&       
 (  (* only bad on error *)(                                cb.snd_wl1       = cb'.snd_wl1      ) &&       

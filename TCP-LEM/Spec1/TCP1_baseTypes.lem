@@ -89,6 +89,29 @@ integer; on Windows it is an arbitrary handle.
      and so can't by definition be negative.
 :*)
 
+let (*: [[<]] comparison on file descriptors :*)
+  fdlt (FD n) (FD m) = n < m
+(*: @mergewithnext :*)
+
+let (*: [[<=]] comparison on file descriptors :*)
+  fdle (FD n) (FD m) = n <= m
+(*:@mergewithnext:*)
+
+(* FIXME 
+val _ = overload_on ("<", ``fdlt``);
+val _ = overload_on ("<=", ``fdle``);
+*)
+
+let dest_FD x = match x with | FD y -> y end
+
+instance (Ord fd)
+  let compare x y = natCompare (dest_FD x) (dest_FD y)
+  let (<) = fun x y -> (dest_FD x) < (dest_FD y)
+  let (<=) = fun x y -> (dest_FD x) <= (dest_FD y)
+  let (>) = fun x y -> (dest_FD x) > (dest_FD y)
+  let (>=) = fun x y -> (dest_FD x) >= (dest_FD y)
+end
+
 
 
 (*: @section [[base_flags]] ALL File and socket flags
@@ -583,6 +606,16 @@ val _ = overload_on(">" , ``time_gt`` );
 val _ = overload_on(">=", ``time_gte``);
 *)
 
+let timeCompare x y = if time_lt x y then LT else if time_lt y x then GT else EQ
+
+instance (Ord time)
+  let compare x y = timeCompare x y
+  let (<) = time_lt
+  let (<=) = time_lte
+  let (>) = time_gt
+  let (>=) = time_gte
+end
+
 let time_min x y = match (x,y) with
  (*: written [[MIN x y]] :*)
   | ( (time x), (time y) ) -> time (MIN x y) 
@@ -613,7 +646,7 @@ val _ = overload_on("MAX", ``time_max``);
 (* adding a duration to a time *)
 let time_plus_dur t d = match (t,d) with
  (*: written [[+]] :*)
-  | ((time x), y) -> time (real_plus x y)
+  | ((time x), y) -> time (real_plus x (y:duration))
   | (time_infty,    y) -> time_infty
 end
 (*: @mergewithnext :*)
@@ -659,7 +692,7 @@ let time_zero = time real_zero
 
 
 (* construct a duration from two naturals *)
-let duration (* (duration : num -> num -> duration) *) sec usec = real_plus (real_of_num sec) (real_div (real_of_num usec) 1000000)
+let duration (* (duration : num -> num -> duration) *) sec usec = real_plus (real_of_num sec) (real_div (real_of_num usec) (1000000:real))
 
 (*: @description
 Some durations may be represented as [[duration sec usec]], where [[sec]]
@@ -668,7 +701,7 @@ and [[usec]] are both natural numbers.
 
 
 (* absolute time - constructed from two naturals, time since the epoch *)
-let abstime (* (abstime : num -> num -> duration) *) sec usec =  real_plus (real_of_num sec) (real_div (real_of_num usec) 1000000)
+let abstime (* (abstime : num -> num -> duration) *) sec usec =  real_plus (real_of_num sec) (real_div (real_of_num usec) (1000000:real))
 
 (*: @description
 Some times may be represented as [[duration sec usec]], where [[sec]]
@@ -750,6 +783,8 @@ let
  (*: written [[-]] :*)
   seq32_minus' (SEQ32 a n) (m:int) = SEQ32 a (w_minus n (i2w m))
 (*: @mergewithnext :*)
+
+
 
 (* FIXME
 val _ = overload_on("+", ``seq32_plus``  );
@@ -843,6 +878,18 @@ instance forall 'a. (NumAdd (seq32 'a))
   let (+) = seq32_plus_seq32
 end
 
+(* ordering *)
+
+let seq32_compare (x:seq32 'a) (y:seq32 'a) = if x=y then EQ else if seq32_lt x y then LT else GT
+
+instance forall 'a. (Ord (seq32 'a))
+  let compare = seq32_compare
+  let (<) = seq32_lt
+  let (<=) = seq32_leq
+  let (>) = seq32_gt
+  let (>=) = seq32_geq
+end
+
 
 
 (* -------------------------------------------------- *)
@@ -859,6 +906,7 @@ type tcp_seq_local = seq32 tcpLocal
 type tcp_seq_foreign = seq32 tcpForeign
 
 val FIXME_tcp_seq_local : tcp_seq_local
+val FIXME_tcp_seq_foreign : tcp_seq_foreign
 
 (* TCP constructors *)
 let tcp_seq_local   (n:word32) = SEQ32 TcpLocal   n (*: @mergewithnext :*)

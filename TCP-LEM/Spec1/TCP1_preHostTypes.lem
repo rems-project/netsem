@@ -622,18 +622,6 @@ end)
    to a much nicer finite map representation. A lot of the auxiliaries
    that were here became inlined into the hostLTS side conditions. *)
 
-let (*: [[<]] comparison on file descriptors :*)
-  fdlt (FD n) (FD m) = n < m
-(*: @mergewithnext :*)
-
-let (*: [[<=]] comparison on file descriptors :*)
-  fdle (FD n) (FD m) = n <= m
-(*:@mergewithnext:*)
-
-(* FIXME 
-val _ = overload_on ("<", ``fdlt``);
-val _ = overload_on ("<=", ``fdle``);
-*)
 
 let (*: least [[fd]] satisfying predicate [[P]] :*)
   leastfd P = FD (LEAST { n | (FD n) IN P })

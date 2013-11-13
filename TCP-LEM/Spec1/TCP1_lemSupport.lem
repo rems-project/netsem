@@ -5,26 +5,98 @@ let MAP = List.map
 
 open import Pervasives_extra
 
+val FIXME: forall 'a. 'a
+
+
+let FIXME_num = (0:nat)
+
+let FIXME_bool = true
+
+let T = true
+let F = false
+
+val is_Some: forall 'a. maybe 'a -> bool
+
+val IS_None: forall 'a. maybe 'a -> bool
+
+val FST : forall 'a 'b. ('a * 'b) -> 'a
+
+val SND : forall 'a 'b. ('a * 'b) -> 'b
+
+val num_MIN: nat -> nat -> nat
+
+val num_MAX: nat -> nat -> nat
+
+val ARB: forall 'a. 'a
+
+val I: forall 'a. 'a -> 'a
+
+let MAX = max
+let MIN = min
+
+
+(******************************************************************************)
+(* options maybe *)
+
+val THE: forall 'a. maybe 'a -> 'a
+
+val option_case: forall 'a 'b. 'b -> ('a -> 'b) -> maybe 'a -> 'b
+
+type option 'a = maybe 'a
+declare lem target_rep type option = `maybe` 
+
+let lem_transform None = Nothing
+let lem_transform Some = Just
+
+declare pattern_match exhaustive maybe 'a = [ None; Some ; ]
+
+
+(******************************************************************************)
+(* nats *)
+
+val shift_left: nat -> nat -> nat
+
+val shift_right: nat -> nat -> nat
+
+
+
+
+(******************************************************************************)
+(* ints *)
+
 type int = integer
+
+let int_zero = (0:int) (* Int.int 0 *) (* FIXME remove this defn and occurrences in following *)
+
+let FIXME_int = int_zero
+
+val int_geq : int -> int -> bool
+
+val int_lt : int -> int -> bool
+
+let rec EXP n m = if m = (0:nat) then (1:nat) else n * (EXP n (m-1))
+
+val int_of_num : nat -> int
+
+val num_of_int: int -> nat
+
+val int_neg: int -> int
+
+val int_DIV: int -> int -> int
+
+val int_min: int -> int -> int
+
+
+
+(******************************************************************************)
+(* words *)
 
 (* contains defns available in HOL but not available in LEM, such as
 word32; this comes before all other TCP1_xxx files; many FIXMEs *)
 
-type char = string (* FIXME FIXME *)
-
-val CHR: nat -> char
-val ORD: char -> nat
-
 type word32 = WORD32 of nat (* FIXME *)
 
 type word16 = WORD16 of nat (* FIXME *)
-
-let int_zero = 0 (* Int.int 0 *) (* FIXME remove this defn and occurrences in following *)
-
-val int_geq : int -> int -> bool
-val int_lt : int -> int -> bool
-
-let FIXME_int = int_zero
 
 let w2i w = FIXME_int
 
@@ -40,86 +112,19 @@ let w_minus x y = FIXME_word32
 
 let w_plus x y = FIXME_word32
 
-let FIXME_num = 0
-
 let w2n w = FIXME_num  (* FIXME needs a more specific type! *)
 
 let INT32_SIGNED_MAX = FIXME_word32
 
-let LENGTH = List.length
+val word_zero: word32
 
-let T = true
-let F = false
-
-let rec EXP n m = if m = 0 then 1 else n * (EXP n (m-1))
-
-let BIGUNION s = { x | exists t. x IN t && (t IN s) }
-
-type fmap 'a 'b
-val FEMPTY : forall 'a 'b. fmap 'a 'b
-val FUPDATE : forall 'a 'b. fmap 'a 'b -> ('a * 'b) -> fmap 'a 'b
-val FAPPLY : forall 'a 'b. fmap 'a 'b -> 'a -> 'b
-val FDOM : forall 'a 'b. fmap 'a 'b -> set 'a
-
-val FRANGE : forall 'a 'b. fmap 'a 'b -> set 'b 
-
-val LEAST : set nat -> nat
-
-let NOTIN x xs = not (x IN xs)
-
-
-(* open Hol.Set_relation *)
-
-val RRESTRICT : forall 'a 'b. fmap 'a 'b -> set 'b -> fmap 'a 'b
-
-val CARD : forall 'a. set 'a -> nat
-
-val SET_CHOOSE : forall 'a. set 'a -> 'a
-
-val int_of_num : nat -> int
-
-val FST : forall 'a 'b. ('a * 'b) -> 'a
-
-val SND : forall 'a 'b. ('a * 'b) -> 'b
-
-val EVERY : forall 'a. ('a -> bool) -> list 'a -> bool
-
-
-val num_MIN: nat -> nat -> nat
-
-val num_MAX: nat -> nat -> nat
-
-val int_DIV: int -> int -> int
-
-val int_min: int -> int -> int
-
-val ARB: forall 'a. 'a
-
-val shift_left: nat -> nat -> nat
-
-val shift_right: nat -> nat -> nat
-
-val set_of_bool_fn: forall 'a. ('a -> bool) -> set 'a
-
-val DIFF: forall 'a. set 'a -> set 'a -> set 'a
-
-val DOMSUB: forall 'a 'b. fmap 'a 'b -> 'a -> fmap 'a 'b
-
-val set_of_fmap: forall 'a 'b. fmap 'a 'b -> set ('a * 'b)
-
-val THE: forall 'a. maybe 'a -> 'a
-
-val option_case: forall 'a 'b. 'b -> ('a -> 'b) -> maybe 'a -> 'b
-
-val I: forall 'a. 'a -> 'a
+val word16_zero: word16
 
 let zero_w32 = WORD32 0
 
-(* shadowed by definition elsewhere val Num: int -> num (* undefiend if int < 0*) *)
 
-val num_of_int: int -> nat
-
-val EL: forall 'a. nat -> list 'a -> 'a
+(******************************************************************************)
+(* reals *)
 
 (* FIXME this is a hack just to get a type for real *)
 type real = Real of (nat -> bool)
@@ -139,13 +144,23 @@ val real_MAX: real -> real -> real
 val real_MIN: real -> real -> real
 
 val real_neg: real -> real
+let ~ = real_neg (* FIXME *)
+
 
 val real_gte: real -> real -> bool
 
-let FIXME_real_div a b = FIXME_real
+let real_minus (x:real) (y:real) = FIXME_real
+let real_plus (x:real) (y:real) = FIXME_real
+let real_div (x:real) (y:real) = FIXME_real
+let real_times (x:real) (y:real) = FIXME_real
+
+let real_gt (x:real) (y:real) = FIXME_bool
+let real_lt (x:real) (y:real) = FIXME_bool
+let real_lte (x:real) (y:real) = real_lt x y || (x=y)
+
 
 instance (NumDivision real)
-  let (/) = FIXME_real_div
+  let (/) = real_div
 end
 
 instance (NumAdd real)
@@ -153,26 +168,51 @@ instance (NumAdd real)
 end
 
 
-
-
-
-val int_neg: int -> int
-
-val FIXME: forall 'a. 'a
-
-val word_zero: word32
-
-val word16_zero: word16
-
 val duration_zero:real
 
-val UNIV: forall 'a. set 'a
 
-val is_Some: forall 'a. maybe 'a -> bool
+let real_zero = FIXME_real
 
-val IS_None: forall 'a. maybe 'a -> bool
+let real_of_num = fun (x:nat) -> FIXME_real
+
+let real_compare (x:real) (y:real) = if real_lt x y then LT else if real_gt x y then GT else EQ
+
+instance (Ord real)
+  let compare = real_compare
+  let (<) = real_lt
+  let (<=) = real_lte
+  let (>) = real_gt
+  let (>=) = real_gte
+end
+
+
+
+
+(******************************************************************************)
+(* lists *)
+
+let LENGTH = List.length
 
 let fold_left = foldl
+
+val MAP2: forall 'a 'b 'c. ('a -> 'b -> 'c) -> list 'a -> list 'b -> list 'c
+
+val EVERY : forall 'a. ('a -> bool) -> list 'a -> bool
+
+val EL: forall 'a. nat -> list 'a -> 'a
+
+
+
+(******************************************************************************)
+(* fmaps *)
+
+type fmap 'a 'b
+val FEMPTY : forall 'a 'b. fmap 'a 'b
+val FUPDATE : forall 'a 'b. fmap 'a 'b -> ('a * 'b) -> fmap 'a 'b
+val FAPPLY : forall 'a 'b. fmap 'a 'b -> 'a -> 'b
+val FDOM : forall 'a 'b. fmap 'a 'b -> set 'a
+
+val FRANGE : forall 'a 'b. fmap 'a 'b -> set 'b 
 
 val domain: forall 'a 'b. fmap 'a 'b -> set 'a
 
@@ -180,12 +220,53 @@ val (|+) : forall 'a 'b. fmap 'a 'b -> 'a * 'b -> fmap 'a 'b
 
 val (|++) : forall 'a 'b. fmap 'a 'b -> list ('a * 'b) -> fmap 'a 'b
 
-val MAP2: forall 'a 'b 'c. ('a -> 'b -> 'c) -> list 'a -> list 'b -> list 'c
-
 
 val DRESTRICT: forall 'a 'b. fmap 'a 'b -> set 'a -> fmap 'a 'b
 
+val o_f: forall 'a 'b 'c. ('b -> 'c) -> (fmap 'a 'b) -> (fmap 'a 'c)
+
+val RRESTRICT : forall 'a 'b. fmap 'a 'b -> set 'b -> fmap 'a 'b
+
+val DOMSUB: forall 'a 'b. fmap 'a 'b -> 'a -> fmap 'a 'b
+
+val set_of_fmap: forall 'a 'b. fmap 'a 'b -> set ('a * 'b)
+
+
+
+(******************************************************************************)
+(* sets *)
+
+
+val LEAST : set nat -> nat
+
+let NOTIN x xs = not (x IN xs)
+
+let BIGUNION s = { x | exists t. x IN t && (t IN s) }
+
 val EMPTY: forall 'a. set 'a
+
+val set_of_list: forall 'a. list 'a -> set 'a
+
+val CARD : forall 'a. set 'a -> nat
+
+val SET_CHOOSE : forall 'a. set 'a -> 'a
+
+val UNIV: forall 'a. set 'a
+
+val set_of_bool_fn: forall 'a. ('a -> bool) -> set 'a
+
+val DIFF: forall 'a. set 'a -> set 'a -> set 'a
+
+
+
+(******************************************************************************)
+(* strings *)
+
+type char = string (* FIXME FIXME *)
+
+val CHR: nat -> char
+
+val ORD: char -> nat
 
 val IMPLODE: string -> string
 
@@ -193,6 +274,3 @@ val string_of_char_list: list char -> string
 
 val STRLEN: string -> nat
 
-val o_f: forall 'a 'b 'c. ('b -> 'c) -> (fmap 'a 'b) -> (fmap 'a 'c)
-
-val set_of_list: forall 'a. list 'a -> set 'a

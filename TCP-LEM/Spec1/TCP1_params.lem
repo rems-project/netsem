@@ -208,7 +208,7 @@ Parameters controlling the timing of the OS scheduler.
 (* ------------------------------------------------------------------ *)
 
 (* maximum host op scheduling delay: *)
-let dschedmax = time (real_div 1000 1000) (* make large for now, tighten when better understood *)(*: @mergewithnext :*)
+let dschedmax = time (real_div (1000:real) (1000:real)) (* make large for now, tighten when better understood *)(*: @mergewithnext :*)
 
 
 (* maximum inqueue scheduling delay: *)
@@ -337,7 +337,7 @@ file descriptors and sockets.
 (* ------------------------------------------------------------------ *)
 
 let 
-  OPEN_MAX = 957  (*: typical value of |kern.maxfilesperproc| on one of our BSD boxen :*)
+  OPEN_MAX = (957:nat)  (*: typical value of |kern.maxfilesperproc| on one of our BSD boxen :*)
 (*: @mergewithnext :*)
 
 let 
@@ -352,7 +352,7 @@ architectures, and so the first forbidden file descriptor is [[OPEN_MAX_FD]].
 
 
 let FD_SETSIZE x = (match x with
-   | Linux_2_4_20_8 -> 1024
+   | Linux_2_4_20_8 -> (1024:nat)
    | WinXP_Prof_SP1 -> 64
    | FreeBSD_4_6_RELEASE -> 1024 end)
 
@@ -370,7 +370,7 @@ file descriptor set.
 
 
 let 
-  SOMAXCONN = 128 
+  SOMAXCONN = (128:nat)
 
 (*:
 @description
@@ -390,7 +390,7 @@ UDP-specific parameters.
 (* ------------------------------------------------------------------ *)
 
 let UDPpayloadMax x = (match x with
-    | Linux_2_4_20_8 -> 65507
+    | Linux_2_4_20_8 -> (65507:nat)
     | WinXP_Prof_SP1 -> 65507
     | FreeBSD_4_6_RELEASE -> 9216 end)
 
@@ -412,19 +412,19 @@ Parameters to the buffer size computation.
 (* ------------------------------------------------------------------ *)
 
 let 
-  MCLBYTES = 2048  (* BSD default on i386; really, just needs to be >=1500 to fit an etherseg *)
+  MCLBYTES = (2048:nat)  (* BSD default on i386; really, just needs to be >=1500 to fit an etherseg *)
 (*: @mergewithnext :*)
 
 let 
-  MSIZE = 256  (* BSD default on i386; really, size of an mbuf *)
+  MSIZE = (256:nat)  (* BSD default on i386; really, size of an mbuf *)
 (*: @mergewithnext :*)
 
 let 
-  SB_MAX = 256 * 1024  (* BSD *)
+  SB_MAX = (256:nat) * 1024  (* BSD *)
 (*: @mergewithnext :*)
 
 let 
-  oob_extra_sndbuf = 1024 
+  oob_extra_sndbuf = (1024:nat)
 
 
 
@@ -461,7 +461,7 @@ let
 (*: [[num]] socket flags defaults :*)
   sf_default_n (* sf_default_n : arch -> socktype -> socknflag -> num *)
     x y z = (match (x,y,z) with
-    (Linux_2_4_20_8,SOCK_STREAM,SO_SNDBUF     ) -> 16384  (* from tests *)
+    (Linux_2_4_20_8,SOCK_STREAM,SO_SNDBUF     ) -> (16384:nat)  (* from tests *)
   | (WinXP_Prof_SP1,SOCK_STREAM,SO_SNDBUF     ) -> 8192  (* from tests *)
   | (FreeBSD_4_6_RELEASE,SOCK_STREAM,SO_SNDBUF) -> 32*1024  (* from code*)
     
@@ -516,7 +516,7 @@ let
 (*: minimum values of [[num]] socket flags :*)
   sf_min_n  (* sf_min_n : arch -> socknflag -> num *)
     x y = (match (x,y) with
-  | (Linux_2_4_20_8,SO_SNDBUF     ) -> 2048  (* from tests *)
+  | (Linux_2_4_20_8,SO_SNDBUF     ) -> (2048:nat)  (* from tests *)
   | (WinXP_Prof_SP1,SO_SNDBUF     ) -> 0  (* from tests *)
   | (FreeBSD_4_6_RELEASE,SO_SNDBUF) -> 1  (* from code *)
   | (Linux_2_4_20_8,SO_RCVBUF     ) -> 256  (* from tests *)
@@ -534,7 +534,7 @@ end)
 let
 (*: maximum values of [[num]] socket flags :*)
   sf_max_n (* sf_max_n : arch -> socknflag -> num *) x y = (match (x,y) with
-  | (Linux_2_4_20_8,SO_SNDBUF     ) -> 131070  (* from tests *)
+  | (Linux_2_4_20_8,SO_SNDBUF     ) -> (131070:nat)  (* from tests *)
   | (WinXP_Prof_SP1,SO_SNDBUF     ) -> 131070  (* from tests *)
   | (FreeBSD_4_6_RELEASE,SO_SNDBUF) ->
        DIV (SB_MAX * MCLBYTES) (MCLBYTES + MSIZE)  (* from code *)
@@ -583,12 +583,12 @@ RFC1323 s4.2.3: timestamp validity period.
 
 let 
 (*: maximum (scaled) window size :*)
-  TCP_MAXWIN = 65535 
+  TCP_MAXWIN = (65535:nat)
 (*: @mergewithnext :*)
 
 let
 (*: maximum window scaling exponent :*)
-  TCP_MAXWINSCALE = 14 
+  TCP_MAXWINSCALE = (14:nat)
 
 (*:
 @description
