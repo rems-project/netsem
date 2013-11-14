@@ -461,7 +461,7 @@ let (*: is IP address a broadcast/multicast address? :*)
 @description
  Test if IP address [[i]] is a broadcast or multicast address, wrt the
    given set of interfaces [[ifds0]].  If no interfaces given
-   ([[ifds0=NONE]]), then treat only [[INADDR_BROADCAST]] as a broadcast
+   ([[ifds0=None]]), then treat only [[INADDR_BROADCAST]] as a broadcast
    address.
 
  These correctly use the interface rather than the routing-table
@@ -486,7 +486,7 @@ let (*: compute set of routeable addresses for a routing table entry :*)
 (* DON'T phase: in betters *)
 let (*: determine list of possible sending interfaces :*)
   outroute_ifids(i2,rttab (*rttab:routing_table*) ) =
-    MAP_OPTIONAL (fun rte -> if i2 IN routeable rte then SOME rte.ifid else NONE) rttab
+    MAP_OPTIONAL (fun rte -> if i2 IN routeable rte then SOME rte.ifid else None) rttab
 (*:
 @description
 %
@@ -502,7 +502,7 @@ let (*: is the interface up? :*)
 let (*: compute interface to use to send to given IP, if any :*)
   outroute(i2,rttab (*rttab:routing_table*),ifds (*ifds:ifid |-> ifd*) ) =
     (match FILTER (ifid_up ifds) (outroute_ifids(i2,rttab)) with
-        []           -> NONE
+        []           -> None
      | (ifid::_987) -> SOME ifid 
 end)
 
@@ -544,7 +544,7 @@ let (*: test if we can route to given IP, returning appropriate error if not :*)
 	 else
 	     if FILTER (ifid_up ifds) ifids = [] then
 		 SOME ENETDOWN
-	     else NONE
+	     else None
 (*:@mergewithnext:*)
 
 (* DON't phase: is phase 1, but handled explicitly in testEval *)
@@ -627,7 +627,7 @@ let (*: least [[fd]] satisfying predicate [[P]] :*)
   leastfd P = FD (LEAST { n | (FD n) IN P })
 (*:@mergewithnext:*)
 
-(* FIXME val _ = set_fixity "leastfd" Binder; *)
+(* val _ = set_fixity "leastfd" Binder; *) (* not in Lem *)
 
 (* DON'T phase: in betters *)
 let (*: next file descriptor to use :*)
@@ -758,7 +758,7 @@ let (*: convert [[(sec,nsec)]] pair to real time value :*)
     (sec,nsec) = time (real_plus (real_of_int sec)  (real_div (real_of_int nsec) (real_of_num 1000000000)))
 (*:@mergewithnext:*)
 
-let (*: convert optional [[(sec,nsec)]] pair to real time value (where [[NONE]] mapped to [[time_infty]]) :*)
+let (*: convert optional [[(sec,nsec)]] pair to real time value (where [[None]] mapped to [[time_infty]]) :*)
   time_of_tltimeopt x = (match x with 
   |  Nothing     -> time_infty 
   | (Just sn) -> time_of_tltime sn
@@ -855,7 +855,7 @@ let (*: attempt to dequeue a message :*)
   dequeue dq (Timed(q,d),Timed(q',d'),msg)
     = (match q with
         (msg0::q0) -> q' = q0 && (msg = SOME msg0 && (d' = (if q0 = [] then never_timer else dq))) 
-       | []         -> q' = q  && (msg = NONE      && (d' = d))
+       | []         -> q' = q  && (msg = None      && (d' = d))
 end)
 (*:@mergewithnext:*)
 

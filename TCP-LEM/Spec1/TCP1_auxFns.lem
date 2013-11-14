@@ -134,7 +134,7 @@ let (*: is it permitted to bind the given (IP,port) pair? :*)
         s IN FRANGE socks && (s.ps1 = SOME port &&        
 (proto_eq s.pr pr &&
         (if bsd_arch arch && (SO_REUSEADDR IN (set_of_bool_fn sf.b1)) then
-           s.is2 = NONE && (s.is1 = is)
+           s.is2 = None && (s.is1 = is)
          else if linux_arch arch && (SO_REUSEADDR IN (set_of_bool_fn sf.b1) && (SO_REUSEADDR IN (set_of_bool_fn s.sf.b1) &&
                  ((exists tcp_sock. (TCP_PROTO(tcp_sock) = s.pr) && not (tcp_sock.st = LISTEN)) ||                   
 (exists udp_sock. UDP_PROTO(udp_sock) = s.pr)))) then
@@ -142,7 +142,7 @@ let (*: is it permitted to bind the given (IP,port) pair? :*)
 	 else if windows_arch arch && (SO_REUSEADDR IN (set_of_bool_fn sf.b1)) then
 	    F (* can rebind any UDP address; not sure about TCP - assume the same for now *)
          else
-            (is = NONE || (s.is1 = NONE || (exists i (*i:ip*). is = SOME i && (s.is1 = SOME i))))))) })
+            (is = None || (s.is1 = None || (exists i (*i:ip*). is = SOME i && (s.is1 = SOME i))))))) })
 
 (*:
 @description
@@ -194,6 +194,7 @@ let (*: score the match against the given pattern of the given quadruple :*)
     | ((Just i1, Just p1, Just i2, Just p2), (i3,ps3,i4,ps4)) ->
        if (Just p2 = ps3) && ((i2 = i3) && ((i1 = i4) && (Just p1 = ps4))) then 4
        else 0
+    | (_,_) -> failwith "match_score: impossible?" 
 end)
 
 (*:
@@ -603,6 +604,7 @@ let (*: do a UDP send, filling in source address and port as necessary :*)
 			   udp_ps1 = (Just p1); udp_ps2 = (Just p);
 			   udp_data = data |>),
 		 oq',ok))
+  | _ -> failwith "dosend: impossible?" (* missing cases? or impossible? *)
 end)
 
 (*:
@@ -758,12 +760,12 @@ let (*: update RTT estimators from new measurement :*)
   update_rtt (rtt:duration) (ri:rttinf)
     = let (t_srtt',t_rttvar')
         = (if ri.tf_srtt_valid then
-             let delta     = FIXME_real (* (rtt - 1/HZ) - ri.t_srtt *)
+             let delta     = (rtt - 1/HZ) - ri.t_srtt
              in
-             let vardelta  = FIXME_real (* abs delta - ri.t_rttvar *)
+             let vardelta  = abs delta - ri.t_rttvar 
              in
-             let t_srtt'   = FIXME_real (* MAX (1/(32*HZ)) (ri.t_srtt + (1/8) * delta) *)
-             in let t_rttvar' = FIXME_real (* MAX (1/(16*HZ)) (ri.t_rttvar + (1/4) * vardelta) *)
+             let t_srtt'   = max (1/(32*HZ)) (ri.t_srtt + (1/8) * delta)
+             in let t_rttvar' = max (1/(16*HZ)) (ri.t_rttvar + (1/4) * vardelta)
                  (* BSD behaviour is never to let these go to zero,
                     but clip at the least positive value.  Since SRTT
                     is measured in 1/32 tick and RTTVAR in 1/16 tick,
@@ -773,7 +775,7 @@ let (*: update RTT estimators from new measurement :*)
              (t_srtt',t_rttvar')
            else
              let t_srtt' = rtt
-             in let t_rttvar' = FIXME_real (* rtt / 2 *)
+             in let t_rttvar' = rtt / 2 
              in
              (t_srtt',t_rttvar'))
       in
@@ -890,35 +892,34 @@ are completely nondeterministic, and allow any legal reassembly.
 (* ------------------------------------------------------------------ *)
 
 (* DON'T phase: handled by betters *)
-val tcp_reass: tcp_seq_foreign -> list tcpReassSegment -> set (list byte * nat * bool) (* FIXME *)
-(* FIXME
+val tcp_reass: tcp_seq_foreign -> list tcpReassSegment -> set (list byte * nat * bool)
 let (*: perform TCP segment reassembly :*)
   tcp_reass seq (*seq:tcp_seq_foreign?*) (rsegq : list tcpReassSegment) =
      let myrel = { (i,c) | exists rseg. (* i:tcp_seq_foreign? c:byte *)
-                              rseg IN' rsegq &&
-                              i >= rseg.seq &&
-                              i < rseg.seq + LENGTH rseg.data +
-                                    (if rseg.spliced_urp <> None then 1 else 0) &&
+                              IN' rseg rsegq &&
+                              (i:tcp_seq_foreign) >= rseg.tcpReassSegment_seq &&
+                              i < rseg.tcpReassSegment_seq + (n2s(LENGTH rseg.data)) +
+                                    (n2s(if rseg.spliced_urp <> None then 1 else 0)) &&
                               (match rseg.spliced_urp with
                                  Some(n:tcp_seq_foreign) ->
                                    (if i > n then
-                                     c = Some(EL (num_of_int (i - rseg.seq - 1)) (rseg.data))
+                                     c = Some(EL (num_of_int ((seq32_diff i rseg.tcpReassSegment_seq) - 1)) (rseg.data))
                                     else if i = n then
                                      c = None
                                     else
-                                     c = Some(EL (num_of_int (i - rseg.seq)) (rseg.data))) |
+                                     c = Some(EL (num_of_int (seq32_diff i rseg.tcpReassSegment_seq)) (rseg.data))) |
                                  None ->
-                                     c = Some(EL (num_of_int (i - rseg.seq)) (rseg.data)) end) } in
+                                     c = Some(EL (num_of_int (seq32_diff i rseg.tcpReassSegment_seq)) (rseg.data)) end) } in
      { (cs',len,FIN) | exists cs. cs' = CONCAT_OPTIONAL cs &&
-                   (forall n. (n:num) < LENGTH cs --> (seq+n,EL n cs) IN myrel) &&
-                   (not (exists c. (seq+LENGTH cs,c) IN myrel)) &&
+                   (forall n. (n:nat) < LENGTH cs --> (seq+(n2s n),EL n cs) IN myrel) &&
+                   (not (exists c. (seq+(n2s(LENGTH cs)),c) IN myrel)) &&
                    (len = LENGTH cs) &&
-                   (FIN = exists rseg. rseg IN' rsegq &&
-                                 rseg.seq + LENGTH rseg.data +
-                                   (if rseg.spliced_urp <> None then 1 else 0) =
-                                     seq + LENGTH cs &&
+                   (FIN = exists rseg. IN' rseg rsegq &&
+                                 rseg.tcpReassSegment_seq + (n2s(LENGTH rseg.data)) +
+                                   (n2s(if rseg.spliced_urp <> None then 1 else 0)) =
+                                     seq + (n2s(LENGTH cs)) &&
 	  	                 rseg.FIN ) }
-*)
+
          (* NB: the FIN may come from a 0-length segment, or from a
          different segment from that which the last character came but logically is
          always at the end of cs's. *)
@@ -979,8 +980,8 @@ let (*: perform TCP segment reassembly :*)
 
 let (*: drop prefix of reassembly queue :*)
   tcp_reass_prune seq (rsegq : list tcpReassSegment) =
-    FILTER (fun rseg -> FIXME (*rseg.seq + LENGTH rseg.data + (if rseg.spliced_urp <> None then 1 else 0) +
-                     (if rseg.FIN then 1 else 0) > seq *)) rsegq
+    FILTER (fun (rseg:tcpReassSegment) -> rseg.tcpReassSegment_seq + (n2s(LENGTH rseg.TCP1_hostTypes.data)) + (n2s(if rseg.spliced_urp <> None then 1 else 0)) +
+                     (n2s(if rseg.FIN then 1 else 0)) > seq) rsegq
 
 (*:
 @description
@@ -1138,7 +1139,7 @@ convenient and compositional way.
 :*)
 (* ------------------------------------------------------------------ *)
 
-(* FIXME
+(* not in Lem -  we bracket expressions (...) andThen (...) so no ambiguity
 val _ = add_infix ("andThen", 97, LEFT); (* absolutely no idea what precedence to choose *)
 *)
 
@@ -1582,7 +1583,7 @@ let
 
     (*: Calculate the amount of unused send window :*)
     let win = MIN cb.snd_wnd snd_cwnd' in
-    let snd_wnd_unused = FIXME_int (* (int_of_num win) - (cb.snd_nxt - cb.snd_una) *) in
+    let snd_wnd_unused = (int_of_num win) - (seq32_diff cb.snd_nxt cb.snd_una) in
 
     (*: Is it possible that a FIN may need to be sent? :*)
     let fin_required = (sock.cantsndmore && NOTIN tcp_sock.st {FIN_WAIT_2;TIME_WAIT}) in
@@ -1599,10 +1600,10 @@ let
     let have_data_or_fin_to_send = seq32_lt cb.snd_nxt last_sndq_data_and_fin_seq in
 
     (*: The amount by which the right edge of the advertised window could be moved :*)
-    let window_update_delta = FIXME_int (* int - seq32??? (int_min (int_of_num(shift_left TCP_MAXWIN cb.rcv_scale))
+    let window_update_delta = (int_min (int_of_num(shift_left TCP_MAXWIN cb.rcv_scale))
 				       (int_of_num(sock.sf.n(SO_RCVBUF)) - int_of_num(LENGTH
 				       tcp_sock.rcvq))) - 
-			      (cb.rcv_adv - cb.rcv_nxt) *) in
+			      (seq32_diff cb.rcv_adv cb.rcv_nxt) in
 
     (*: Send a window update? This occurs when (a) the advertised window can be increased by at
         least two maximum segment sizes, or (b) the advertised window can be increased by at least
@@ -1649,7 +1650,8 @@ let
         Some (fun cb ->
          <| cb with tt_rexmt = (match cb.tt_rexmt with
                         None -> start_tt_persist 0 cb.t_rttinf arch 
-                        | Some (Timed((Persist,shift),d)) -> Some (Timed((Persist,0),d)) end);
+                        | Some (Timed((Persist,shift),d)) -> Some (Timed((Persist,0),d)) 
+                        | Some _ -> failwith "tcp_output_required: impossible" end);
                     snd_nxt = cb.snd_una |>)
       else
         (*: Otherwise, leave the persist timer alone :*)
@@ -1737,7 +1739,7 @@ let
     (*: Calculate the amount of unused send window :*)
     let win0 = MIN cb.snd_wnd snd_cwnd' in
     let win = (if window_probe && win0 = 0 then 1 else win0) in
-    let (snd_wnd_unused : int) = FIXME_int (* int - seq32? int_of_num win - (cb.snd_nxt - cb.snd_una) *) in
+    let (snd_wnd_unused : int) = (int_of_num win) - (seq32_diff cb.snd_nxt cb.snd_una) in
 
     (*: Is it possible that a [[FIN]] may need to be transmitted? :*)
     let fin_required = (sock.cantsndmore && NOTIN tcp_sock.st {FIN_WAIT_2;TIME_WAIT}) in
@@ -1771,7 +1773,7 @@ let
     (*: If sending urgent data, set the [[URG]] and [[urp]] fields appropriately :*)
     let (URG,urp) = (match tcp_sock.sndurp with
                       None -> (F,0) |  (*: No urgent data; don't set :*)
-                      Some sndurpn -> let urp_n = FIXME_num (* (cb.snd_una + sndurpn) - cb.snd_nxt + 1 *) in
+                      Some sndurpn -> let urp_n = seq32_diff (cb.snd_una + (n2s(sndurpn))) (cb.snd_nxt + (n2s 1))  in
                                           (* points one byte *past* the urgent byte *)
                                       if urp_n < 1 then
                                         (F,0) (*: Urgent data out of range; don't set :*)
@@ -1841,7 +1843,7 @@ let
                 tcp_sock.st in
 
     (*: Updated values to store in the control block after the segment is output :*)
-    let snd_nxt'' = FIXME_seq32 (*snd_nxt' + LENGTH data_to_send + (if FIN then 1 else 0) *) in
+    let snd_nxt'' = snd_nxt' + (n2s(LENGTH data_to_send)) + (n2s(if FIN then 1 else 0)) in
     let snd_max' = seq32_MAX cb.snd_max snd_nxt'' in
 
     (*: Following a |tcp_output| code walkthrough by SB: :*)

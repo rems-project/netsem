@@ -70,7 +70,7 @@ specification.
 
    For each timer we define a constructor and a time-passage function.
    The time-passage function takes a duration (positive real) and a
-   timer, and returns either the timer, or [[NONE]] if time is not
+   timer, and returns either the timer, or [[None]] if time is not
    permitted by the timer to pass that far (i.e., an urgent instant
    would be passed).  Timers that never need to stop time do not
    return an option type.  Timers that behave nondeterministically are
@@ -206,12 +206,12 @@ let
      in
      if time_lte (time e') deadmax
      then SOME (Timer(e',deadmin,deadmax))
-     else NONE
+     else None
 
-
-let _FIXME_assertion_Time_Pass_timer_additive =
+(* these are assertions, presumably in need of proof at some point *)
+let _assertion_Time_Pass_timer_additive =
   time_pass_additive (opttorel Time_Pass_timer)
-let _FIXME_assertion_Time_Pass_timer_trajectory =
+let _assertion_Time_Pass_timer_trajectory =
   time_pass_additive (opttorel Time_Pass_timer)
 
 
@@ -248,9 +248,9 @@ let
 end
 
 
-let _FIXME_assertion_Time_Pass_timed_additive =
+let _assertion_Time_Pass_timed_additive =
   time_pass_additive (opttorel Time_Pass_timed)
-let _FIXME_assertion_Time_Pass_timed_trajectory =
+let _assertion_Time_Pass_timed_trajectory =
   time_pass_additive (opttorel Time_Pass_timed)
 
 
@@ -295,9 +295,9 @@ let
                     (timer_expires d' && (tw' = TimeWindowClosed)) end) 
   | TimeWindowClosed  -> (tw' = TimeWindowClosed) end)
 
-let _FIXME_assertion_Time_Pass_timewindow_additive =
+let _assertion_Time_Pass_timewindow_additive =
   time_pass_additive Time_Pass_timewindow
-let _FIXME_assertion_Time_Pass_timewindow_trajectory =
+let _assertion_Time_Pass_timewindow_trajectory =
   time_pass_additive Time_Pass_timewindow
 
 
@@ -348,9 +348,9 @@ let
   tick_imax(Ticker(t,r,imin,imax)) = imax
 
 
-let _FIXME_assertion_Time_Pass_ticker_additive =
+let _assertion_Time_Pass_ticker_additive =
   time_pass_additive Time_Pass_ticker
-let _FIXME_assertion_Time_Pass_ticker_trajectory =
+let _assertion_Time_Pass_ticker_trajectory =
   time_pass_trajectory Time_Pass_ticker
 
 
@@ -378,9 +378,9 @@ let
    = exists rate. real_lte ratemin rate && (real_lte rate ratemax &&     
 (s' = Stopwatch(real_plus d (real_times dur rate),ratemin,ratemax)))
 
-let _FIXME_assertion_Time_Pass_stopwatch_additive =
+let _assertion_Time_Pass_stopwatch_additive =
   time_pass_additive Time_Pass_stopwatch
-let _FIXME_assertion_Time_Pass_stopwatch_trajectory =
+let _assertion_Time_Pass_stopwatch_trajectory =
   time_pass_additive Time_Pass_stopwatch
 
 

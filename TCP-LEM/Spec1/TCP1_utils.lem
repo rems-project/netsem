@@ -127,25 +127,18 @@ val _ = add_bare_numeral_form (#"w", SOME "n2w")
 (*                   REAL                             *)
 (* -------------------------------------------------- *)
 
-(*
-let MIN = fun (x:real) (y:real) -> FIXME_real
-let MAX = fun (x:real) (y:real) -> FIXME_real
-*)
+(* MIN and MAX on reals are now Min and Max *)
 
-let Num (x:int) = FIXME_num
 
 (* this definition really should be built in... *)
 (* ... doesn't need phasing; handled specially in testEval *)
 (*: inject [[int]] into [[real]] :*)
-let  real_of_int (i:int) = if Basic_classes.(<) i int_zero then ~(real_of_num (Num (int_neg i)))
-                                 else real_of_num (Num i)
+let  real_of_int (i:int) = if Basic_classes.(<) i int_zero then ~(real_of_num (num_of_int (int_neg i)))
+                                 else real_of_num (num_of_int i)
 (*: @mergewithnext :*)
 
-
-(* let FIXME_least s d = Set.choose s d *)
-
 (*: [[num]] floor of [[real]] :*)
-let num_floor (x:real) = FIXME_num (*FIXME_least { (n:num) | real_gt (real_of_num (n+1)) x } FIXME_num *)
+let num_floor (x:real) = LEAST { n | (real_of_num (n+1)) > x } 
 (*: @mergewithnext :*) (* better version proved in TCP1_timerProps, though could/should be here
       really *)
 
@@ -172,8 +165,7 @@ let  fm_exists fm P = exists k. k IN FDOM fm && P (k, FAPPLY fm k)
      there exists a (k,v) pair in the finite map fm \\ k0, such that
      k = v
 *)
-(* 
-FIXME
+(* this syntax was removed in Lem version
 val _ = overload_on ("RES_EXISTS", ``fm_exists``)
 *)
 
@@ -185,7 +177,7 @@ val _ = overload_on ("RES_EXISTS", ``fm_exists``)
 (* allows you to say  cb with <| field updated_by value onlywhen condition |>
    instead of cb with <| field := if condition then value else cb.field |> *)
 
-(* FIXME
+(* onlywhen removed in Lem version
 val _ = add_infix ("onlywhen", 460, NONASSOC);  (* slightly tighter than updated_by (=450) *)
 *)
 
@@ -278,7 +270,7 @@ This section contains a number of basic functions for manipulating lists.
 (*: split worker function:*)
 let rec SPLIT_REV_0 n ls rs = (match (n,ls,rs) with 
   | (0,ls,rs) -> (ls,rs)
-  | (n',ls,(r::rs)) -> (SPLIT_REV_0 (n'-1) (r::ls) rs)
+  | (n',ls,(r::rs)) -> (SPLIT_REV_0 (n' - 1) (r::ls) rs)
   | (n',ls,[]) -> (ls,[])
 end)
 (*: @mergewithnext :*)
@@ -330,7 +322,7 @@ let rec decr_list d ns = (match ns with
 end)
 (*: @mergewithnext :*)
 
-(* FIXME 
+(* these infixes replaced by prefix versions in Lem
 (* member and not-member for lists *)
 val _ = add_infix ("IN'"   , 450, RIGHT);
 val _ = overload_on ("IN'", ``MEM``);
@@ -355,7 +347,7 @@ let rec MAP_OPTIONAL f xs = (match xs with
 end)
 (*: @mergewithnext :*)
 
-(*: concatentation of option list that drops all [[NONE]]s:*)
+(*: concatentation of option list that drops all [[None]]s:*)
 let CONCAT_OPTIONAL xs = MAP_OPTIONAL I xs
 (*: @mergewithnext :*)
 
@@ -393,7 +385,7 @@ let ASSERTION_FAILURE (s:string) = false
 
 (*
 val _ = adjoin_to_theory
-        { sig_ps = NONE,
+        { sig_ps = None,
           struct_ps =
           SOME (fn pps =>
                    (PP.add_string pps "val _ = Datatype.big_record_size := 8;";

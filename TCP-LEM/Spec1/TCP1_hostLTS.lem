@@ -518,8 +518,8 @@ let
                                             measurement timer. These will be started by
                                             [[tcp_output_really]] when the retransmit is
                                             actioned. :*)
-                                        tt_rexmt      = NONE;
-                                        t_rttseg      = NONE;
+                                        tt_rexmt      = None;
+                                        t_rttseg      = None;
 
                                         (*: Sequence number to retransmit---this is equal to the
                                         [[ack]] value in the duplicate [[ACK]] segment :*)
@@ -588,7 +588,7 @@ let
      let ack  = tcp_seq_foreign_to_local seg.ack in
      let urp  = w2n seg.TCP1_netTypes.urp in
      let data = seg.TCP1_netTypes.data in
-     let seq  = tcp_seq_local_to_foreign seg.TCP1_netTypes.seq + (if seg.SYN then 1 else 0) in
+     let seq  = (tcp_seq_local_to_foreign seg.TCP1_netTypes.seq) + ((* i2f *) (if seg.SYN then 1 else 0)) in
 
      (*: Pull out the senders advertised window and apply the sender's scale factor :*)
      let win  = w2n seg.win << (tcp_sock_0).cb.snd_scale in
@@ -644,7 +644,7 @@ let
          remove the urgent byte from the segment's data so that it does not get placed in the
          receive queue, and set [[spliced_urp]] to the sequence number of the urgent byte. :*)
      let rseg = <| tcpReassSegment_seq   = FIXME_seq32 (* seq_trimmed *);
-                   spliced_urp  = if can_pull then SOME(FIXME_seq32 (*cb.rcv_nxt + urp_trimmed - 1*)) else NONE;
+                   spliced_urp  = if can_pull then SOME(FIXME_seq32 (*cb.rcv_nxt + urp_trimmed - 1*)) else None;
                    FIN   = FIN_trimmed;
                    data  = if can_pull then
                              APPEND (TAKE (urp - 1) data_trimmed_left_right)
@@ -718,7 +718,7 @@ let
                          not FIN_trimmed &&
                          cb.t_segq = [] &&
                         not cb.tf_rxwin0sent &&
-                         cb.tt_delack = NONE ) in
+                         cb.tt_delack = None ) in
 
         (*: Check to see whether any data or a [[FIN]] can be reassembled. [[tcp_reass]] returns
             the set of all possible reassemblies, one of which is chosen non-deterministically
@@ -887,7 +887,7 @@ let
      let ack  = tcp_seq_foreign_to_local seg.ack in
      let urp  = w2n seg.urp in
      let data = seg.TCP1_netTypes.data in
-     let seq  = tcp_seq_local_to_foreign seg.seq + (if seg.SYN then 1 else 0) in
+     let seq  = tcp_seq_local_to_foreign seg.seq + ((*i2f*)(if seg.SYN then 1 else 0)) in
      let win  = shift_left (w2n seg.win) (tcp_sock_0).cb.snd_scale in
 
      get_sock (fun  sock->
@@ -937,7 +937,7 @@ let
                                (cb.snd_wl1 < seq ||
                                 (cb.snd_wl1 = seq &&
                                  (cb.snd_wl2 < ack || cb.snd_wl2 = ack && win > cb.snd_wnd)) ||
-                                (tcp_sock.st = SYN_RECEIVED && not FIN))) in  (*: This replaces BSD's |snd_wl1 := seq-1| hack; should perhaps be [[~FIN_reass]] :*)
+                                (tcp_sock.st = SYN_RECEIVED && not FIN))) in  (*: This replaces BSD's |snd_wl1 := seq - 1| hack; should perhaps be [[~FIN_reass]] :*)
 
      let seq_trimmed = FIXME_tcp_seq_foreign (*MAX seq (MIN cb.rcv_nxt (seq + LENGTH data))*) in
 
@@ -988,11 +988,11 @@ let
                             st  = TIME_WAIT;
                               cb  = <| s.cb with
                                  tt_2msl  = SOME (Timed((),slow_timer (2*TCPTV_MSL)));
-                                   tt_rexmt  = NONE;
-                                   tt_keep  = NONE;
-                                   tt_delack  = NONE;
-                                   tt_conn_est  = NONE;
-                                   tt_fin_wait_2  = NONE
+                                   tt_rexmt  = None;
+                                   tt_keep  = None;
+                                   tt_delack  = None;
+                                   tt_conn_est  = None;
+                                   tt_fin_wait_2  = None
                                  |>
                            |>) in
 
@@ -1010,7 +1010,7 @@ let
       match ((tcp_sock_of sock).st, FIN_reass) with
 
        (SYN_RECEIVED,F) -> (*: In [[SYN_RECEIVED]] and have not received a [[FIN]] :*)
-          if ack >= cb.iss + 1 then
+          if ack >= cb.iss + ((*i2l*) 1) then
             (*: This socket's initial [[SYN]] has been acknowledged :*)
             modify_tcp_sock (fun s-> <| s with
                  st  = if not sock.cantsndmore then
@@ -1143,7 +1143,11 @@ let
 
        (TIME_WAIT,T)    ->  (*: In [[TIME_WAIT]] and have received a [[FIN]] :*)
           (*: Remaining in [[TIME_WAIT]] until the \wasverb{2MSL} timer expires :*)
-          cont end
+          cont |
+
+       (_,_) -> FIXME (* FIXME missing cases? or impossible? probably impossible - other cases are unreachable *)
+       
+       end
     )))
 
 
@@ -1176,7 +1180,7 @@ let
             UDP_PROTO udp_sock -> F
          | TCP_PROTO(tcp_sock') -> (
               (match tcp_sock'.lis with
-                 NONE -> F
+                 None -> F
               | Some lis ->
                    IN' sid  lis.q0 end)) end in
 
@@ -1262,9 +1266,9 @@ let
         (tcp.st = LISTEN &&
          exists lis. tcp.lis = SOME lis &&
                lis.q <> []) ||
-        sock.es <> NONE) |
+        sock.es <> None) |
       UDP_PROTO(udp) ->
-       (udp.udp_rcvq <> [] || sock.es <> NONE || (sock.cantrcvmore && not (windows_arch arch))) end)
+       (udp.udp_rcvq <> [] || sock.es <> None || (sock.cantrcvmore && not (windows_arch arch))) end)
 
 (*:
 
@@ -1301,7 +1305,7 @@ let
           sock.sf.n(SO_SNDBUF) - LENGTH tcp.sndq  >= sock.sf.n(SO_SNDLOWAT)) || (* change to send_buffer_space *)
         (if linux_arch arch then not sock.cantsndmore else sock.cantsndmore) ||
         (linux_arch arch && tcp.st = CLOSED) ||
-        sock.es <> NONE) |
+        sock.es <> None) |
       UDP_PROTO(udp) -> T end)
 
 (*:
@@ -1524,7 +1528,7 @@ r1: forall id proto cat h1 lbl h2. true ==> host_redn0 id proto cat h1 lbl h2 an
        an error code from accept.  This behaviour differs from other BSD socket implementations.
        For reliable operation the application should detect the network errors defined for the
        protocol after accept and treat them like EAGAIN by retrying. In case of TCP/IP these are
-       ENETDOWN, EPROTO, ENOPROTOOPT, EHOSTDOWN, ENONET, EHOSTUNREACH, EOPNOTSUPP, and
+       ENETDOWN, EPROTO, ENOPROTOOPT, EHOSTDOWN, ENoneT, EHOSTUNREACH, EOPNOTSUPP, and
        ENETUNREACH.
 
        This is currently not modelled, but will be looked at when the Linux semantics are
@@ -1571,22 +1575,22 @@ accept_1: forall h lbl rc ts t files socks tid d fds fds'
                files  = files;
                socks  =
                  socks |++
-                   [(sid ,Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,cantsndmore,cantrcvmore,
+                   [(sid ,Sock(SOME fid,sf,is1,SOME p1,None,None,es,cantsndmore,cantrcvmore,
                                TCP_Sock(LISTEN,cb,SOME lis,
-                                        [],NONE,[],NONE,NO_OOBDATA)));
-                    (sid',Sock(NONE,sf',SOME i1',SOME p1,SOME i2,SOME p2,es',cantsndmore',cantrcvmore',
-                               TCP_Sock(ESTABLISHED,cb',NONE,sndq,sndurp,rcvq,rcvurp,iobc)))] |>)
+                                        [],None,[],None,NO_OOBDATA)));
+                    (sid',Sock(None,sf',SOME i1',SOME p1,SOME i2,SOME p2,es',cantsndmore',cantrcvmore',
+                               TCP_Sock(ESTABLISHED,cb',None,sndq,sndurp,rcvq,rcvurp,iobc)))] |>)
    ((* lbl *)lbl)
      ((* h2 *)<| h with ts  = FUPDATE ts (tid,Timed(Ret (OK'_fdipport (fd',(i2,p2))),sched_timer));
                fds  = fds';
                files  = files |++ [(fid',File(FT_Socket(sid'),ff_default))];
                socks  =
                  socks |++
-                   [(sid ,Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,cantsndmore,cantrcvmore,
+                   [(sid ,Sock(SOME fid,sf,is1,SOME p1,None,None,es,cantsndmore,cantrcvmore,
                           TCP_Sock(LISTEN,cb,SOME lis',
-                                   [],NONE,[],NONE,NO_OOBDATA)));
+                                   [],None,[],None,NO_OOBDATA)));
                     (sid',Sock(SOME fid',sf',SOME i1',SOME p1,SOME i2,SOME p2,es',
-                               cantsndmore',cantrcvmore', TCP_Sock(ESTABLISHED,cb',NONE,sndq,
+                               cantsndmore',cantrcvmore', TCP_Sock(ESTABLISHED,cb',None,sndq,
                                                                  sndurp,rcvq,rcvurp,iobc)))] |>) (* TODO: reorder to fit description *)
 
 
@@ -1666,8 +1670,8 @@ accept_2: forall h ts tid d
    ff.b(O_NONBLOCK) = F &&
    sid IN FDOM h.socks &&
    (exists sf is1 p1 cb lis es.
-       (FAPPLY h.socks  sid) = Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,F,cantrcvmore,
-                            TCP_Sock(LISTEN,cb,SOME lis,[],NONE,[],NONE,NO_OOBDATA)) &&
+       (FAPPLY h.socks  sid) = Sock(SOME fid,sf,is1,SOME p1,None,None,es,F,cantrcvmore,
+                            TCP_Sock(LISTEN,cb,SOME lis,[],None,[],None,NO_OOBDATA)) &&
        lis.q = [])
 
    ==>
@@ -1692,7 +1696,7 @@ accept_2: forall h ts tid d
    completed connections is empty, [[q := []]], hence the [[accept()]] call blocks waiting for a
    successful new connection attempt, leaving the calling thread state [[Accept2(sid)]].
 
-   Socket [[sid]] might not be bound to a local IP address, i.e. [[is1]] could be [[NONE]]. In this
+   Socket [[sid]] might not be bound to a local IP address, i.e. [[is1]] could be [[None]]. In this
    case the socket is listening for connection attempts on port [[p1]] for all local IP addresses.
 
    @internal
@@ -1716,8 +1720,8 @@ accept_3: forall h ts tid d
    ff.b(O_NONBLOCK) = T &&
    sid IN FDOM h.socks &&
    (exists sf is1 p1 cb lis es.
-      (FAPPLY h.socks  sid) = Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,cantsndmore,cantrcvmore,
-                           TCP_Sock(LISTEN,cb,SOME lis,[],NONE,[],NONE,NO_OOBDATA)) &&
+      (FAPPLY h.socks  sid) = Sock(SOME fid,sf,is1,SOME p1,None,None,es,cantsndmore,cantrcvmore,
+                           TCP_Sock(LISTEN,cb,SOME lis,[],None,[],None,NO_OOBDATA)) &&
       lis.q = [])
 
    ==>
@@ -1743,7 +1747,7 @@ accept_3: forall h ts tid d
    leaving the calling thread state [[Ret (FAIL EAGAIN)]] after a [[Lh_call(tid,accept(fd))]]
    transition.
 
-   Socket [[sid]] might not be bound to a local IP address, i.e. [[is1]] could be [[NONE]]. In this
+   Socket [[sid]] might not be bound to a local IP address, i.e. [[is1]] could be [[None]]. In this
    case the socket is listening for connection attempts on port [[p1]] for all local IP addresses.
 
    @internal
@@ -1787,14 +1791,14 @@ accept_4: forall h ts socks tid d t lbl rc
      ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(t,d));
                socks  =
                  socks |++
-                   [(sid ,Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,cantsndmore,cantrcvmore,
-                               TCP_Sock(st,cb,SOME lis,[],NONE,[],NONE,NO_OOBDATA)))] |>)
+                   [(sid ,Sock(SOME fid,sf,is1,SOME p1,None,None,es,cantsndmore,cantrcvmore,
+                               TCP_Sock(st,cb,SOME lis,[],None,[],None,NO_OOBDATA)))] |>)
    ((* lbl *)lbl)
      ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' ECONNABORTED),sched_timer));
                socks  =
                  socks |++
-                   [(sid ,Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,cantsndmore,cantrcvmore,
-                               TCP_Sock(st,cb,SOME lis,[],NONE,[],NONE,NO_OOBDATA)))] |>)
+                   [(sid ,Sock(SOME fid,sf,is1,SOME p1,None,None,es,cantsndmore,cantrcvmore,
+                               TCP_Sock(st,cb,SOME lis,[],None,[],None,NO_OOBDATA)))] |>)
 
 
    (*:
@@ -2038,7 +2042,7 @@ and
   [[bind(fd,is,ps)]] assigns a local address to the socket referenced by file descriptor [[fd]]. The
   local address, [[(is,ps)]], may consist of an IP address, a port or both an IP address and port.
 
-  If [[bind()]] is called without specifying a port, [[bind(_,_,NONE)]], the socket's local port
+  If [[bind()]] is called without specifying a port, [[bind(_,_,None)]], the socket's local port
   assignment is autobound, i.e. an unused port for the socket's protocol in the host's ephemeral
   port range is selected and assigned to the socket. Otherwise the port [[p]] specified in the bind
   call, [[bind(_,_,SOME p)]] forms part of the socket's local address.
@@ -2048,7 +2052,7 @@ and
   sufficient privileges the call will fail.
 
   A [[bind()]] call may or may not specify the IP address. If an IP address is not specified,
-  [[bind(_,NONE,_)]], the socket's local IP address is set to [[NONE]] and it will receive segments
+  [[bind(_,None,_)]], the socket's local IP address is set to [[None]] and it will receive segments
   or datagrams addressed to any of the host's local IP addresses and port [[p]]. Otherwise, the
   caller specifies a local IP address, [[bind(_,SOME i,_)]], the socket's local IP address is set
   to [[SOME i]], and it only receives segments or datagrams addressed to IP address [[i]] and port
@@ -2083,7 +2087,7 @@ and
        bound to the same local port.
 
     \end{itemize}
-  This error is never returned from a call [[bind(_,_,NONE)]] that requests an autobound port.
+  This error is never returned from a call [[bind(_,_,None)]] that requests an autobound port.
 
   @error [[EADDRNOTAVAIL]] The specified IP address cannot be bound as it is not local to the host.
 
@@ -2131,8 +2135,8 @@ and
     corresponding to the [[is]] and [[ps]] arguments of the model. For the |AF_INET|
     sockets used in the model, a |sockaddr_in| structure stores the address. The
     |sin_addr.s_addr| field holds the IP address; if it is set to |0| then the IP
-    address is wildcarded: [[is=NONE]]. The |sin_port| field stores the port to bind to; if
-    it is set to |0| then the port is wildcarded: [[ps=NONE]]. On WinXP a wildcard IP is
+    address is wildcarded: [[is=None]]. The |sin_port| field stores the port to bind to; if
+    it is set to |0| then the port is wildcarded: [[ps=None]]. On WinXP a wildcard IP is
     specified by the constant |INADDR_ANY|, not |0|
 
     \item the returned |int| is either |0| to indicate success or |-1| to
@@ -2199,11 +2203,11 @@ bind_1: forall h h' h0 ts socks tid d
 
    h0 = <| h' with  ts  = FUPDATE ts (tid,Timed(Run,d));
                       socks  = socks |++
-                        [(sid ,Sock(SOME fid,sf,NONE,NONE,NONE,NONE,es,cantsndmore,cantrcvmore,pr))]
+                        [(sid ,Sock(SOME fid,sf,None,None,None,None,es,cantsndmore,cantrcvmore,pr))]
                   |> &&
      h  = <| h' with  ts  = FUPDATE ts (tid,Timed(Ret (OK'_one ()),sched_timer));
                      socks  = socks |++
-                        [(sid ,Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,cantsndmore,cantrcvmore,pr))];
+                        [(sid ,Sock(SOME fid,sf,is1,SOME p1,None,None,es,cantsndmore,cantrcvmore,pr))];
                      bound  = bound |> &&
      fd IN FDOM h0.fds &&
      fid = (FAPPLY h0.fds  fd) &&
@@ -2215,7 +2219,7 @@ bind_1: forall h h' h0 ts socks tid d
      (h0.privs || NOTIN p1  (privileged_ports h0)) &&
      bound_port_allowed pr (DOMSUB h0.socks  sid) sf h0.arch is1 p1 &&
      (match pr 
-        with TCP_PROTO(tcp_sock) -> (tcp_sock  = TCP_Sock0(CLOSED,cb,NONE,[],NONE,[],NONE,NO_OOBDATA)) &&
+        with TCP_PROTO(tcp_sock) -> (tcp_sock  = TCP_Sock0(CLOSED,cb,None,[],None,[],None,NO_OOBDATA)) &&
 	                       (bsd_arch h0.arch --> cantsndmore=F && cb.bsd_cantconnect = F) |UDP_PROTO(udp_sock) -> (udp_sock = UDP_Sock0([])) end)
 
      ==>
@@ -2233,7 +2237,7 @@ bind_1: forall h h' h0 ts socks tid d
 
    The call [[bind(fd,is1,ps1)]] is perfomed on the TCP or UDP socket [[sid]] referenced by file
    descriptor [[fd]] from a thread [[tid]] in the [[Run]] state. The socket [[sid]] is currently
-   uninitialised, i.e. it has no local or remote address defined [[(NONE,NONE,NONE,NONE)]], and it
+   uninitialised, i.e. it has no local or remote address defined [[(None,None,None,None)]], and it
    contains an uninitialised TCP or UDP protocol block, [[tcp_sock]] and [[udp_sock]] as appropriate for the socket's protocol.
 
    If an IP address is specified in the [[bind()]] call, i.e. [[is1 = SOME i1]], the call can only succeed
@@ -2406,7 +2410,7 @@ bind_5: forall h ts tid d
      fid = (FAPPLY h.fds  fd) &&
      FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
      (FAPPLY h.socks  sid) = sock &&
-     (sock.ps1 <> NONE ||
+     (sock.ps1 <> None ||
       (bsd_arch h.arch && sock.pr = TCP_PROTO(tcp_sock) &&
        (sock.cantsndmore ||
         tcp_sock.cb.bsd_cantconnect) ))
@@ -2424,7 +2428,7 @@ bind_5: forall h ts tid d
    @description
    From thread [[tid]], which is in the [[Run]] state, a [[bind(fd,is1,ps1)]] call is made where
    [[fd]] refers to a socket [[sock]]. The socket already has a local port binding: [[sock.ps1 <>
-   NONE]], and rebinding is not supported.
+   None]], and rebinding is not supported.
 
     A [[Lh_call(tid,bind(fd,is1,ps1))]] transition is made, leaving the thread state [[Ret (FAIL
     EINVAL)]].
@@ -2554,7 +2558,7 @@ bind_9: forall h ts tid d
    fd IN FDOM h.fds &&
      fid = (FAPPLY h.fds  fd) &&
      FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
-     ps1 = NONE &&
+     ps1 = None &&
      ((autobind(ps1,(proto_of ((FAPPLY h.socks  sid)).pr),h,h.socks) = {}) ||
       windows_arch h.arch)
 
@@ -2573,7 +2577,7 @@ bind_9: forall h ts tid d
    From thread [[tid]], which is in the [[Run]] state, a [[bind(fd,is1,ps1)]] call is made where
    [[fd]] refers to a socket [[sid]].
 
-   A port is not specifed in the [[bind]] call, i.e. [[ps1 = NONE]], and calling [[autobind]] returns
+   A port is not specifed in the [[bind]] call, i.e. [[ps1 = None]], and calling [[autobind]] returns
    the [[EMPTY]] set rather than a set of free ephemeral ports that the socket could choose
    from. This occurs only when there are no remaining ephemeral ports available for autobinding.
 
@@ -2810,14 +2814,14 @@ close_2: forall h ts tid d fds fds'
                         [(fid,File(FT_Socket(sid),ff))];
                socks  = socks |++
                         [(sid,Sock(SOME fid,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,cantsndmore,cantrcvmore,
-                                   TCP_Sock(st,cb,NONE,sndq,sndurp,rcvq,rcvurp,iobc)))] |>)
+                                   TCP_Sock(st,cb,None,sndq,sndurp,rcvq,rcvurp,iobc)))] |>)
    ((* lbl *)Lh_call (tid,close(fd)))
      ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (OK'_one ()),sched_timer));
                fds  = fds';
                files  = DOMSUB files  fid;
                socks  = socks |++
-                        [(sid,Sock(NONE,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,T,T,
-                                   TCP_Sock(st,cb,NONE,sndq,sndurp,[],rcvurp,iobc)))] |>)
+                        [(sid,Sock(None,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,T,T,
+                                   TCP_Sock(st,cb,None,sndq,sndurp,[],rcvurp,iobc)))] |>)
 
 
    (*:
@@ -2908,7 +2912,7 @@ close_3: forall h ts tid d fds fds'
             TIME_WAIT;CLOSE_WAIT;LAST_ACK} ||
       st = SYN_RECEIVED && linux_arch h.arch) && (* earlier states are treated specially *)
      sock = Sock(SOME fid,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,cantsndmore,cantrcvmore,
-                  TCP_Sock(st,cb,NONE,sndq,sndurp,rcvq,rcvurp,iobc)) &&
+                  TCP_Sock(st,cb,None,sndq,sndurp,rcvq,rcvurp,iobc)) &&
      sf.t(SO_LINGER) = time_zero &&  (* [[O_NONBLOCK]] is irrelevant here *)
      fd IN FDOM fds &&
      fid = (FAPPLY fds  fd) &&
@@ -2916,7 +2920,7 @@ close_3: forall h ts tid d fds fds'
      fds' = DOMSUB fds  fd &&
      NOTIN fid  (FDOM files) &&
      NOTIN sid  (FDOM socks) &&
-     sock' = <| (tcp_close h.arch sock) with  fid  = NONE |> &&
+     sock' = <| (tcp_close h.arch sock) with  fid  = None |> &&
      seg IN set_of_bool_fn (make_rst_segment_from_cb cb (i1,i2,p1,p2)) &&
      enqueue_and_ignore_fail h.arch h.rttab h.ifds [TCP seg] oq oq'
 
@@ -3029,14 +3033,14 @@ close_4: forall h ts tid d fds fds'
                         [(fid,File(FT_Socket(sid),ff))];
                socks  = socks |++
                         [(sid,Sock(SOME fid,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,cantsndmore,cantrcvmore,
-                                   TCP_Sock(st,cb,NONE,sndq,sndurp,rcvq,rcvurp,iobc)))] |>)
+                                   TCP_Sock(st,cb,None,sndq,sndurp,rcvq,rcvurp,iobc)))] |>)
    ((* lbl *)Lh_call (tid,close(fd)))
      ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Close2(sid),slow_timer (sf.t(SO_LINGER))));
                fds  = fds';
                files  = files;
                socks  = socks |++
-                        [(sid,Sock(NONE,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,T,T,
-                                   TCP_Sock(st,cb,NONE,sndq,sndurp,[],rcvurp,iobc)))] |>)
+                        [(sid,Sock(None,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,T,T,
+                                   TCP_Sock(st,cb,None,sndq,sndurp,[],rcvurp,iobc)))] |>)
 
 
    (*:
@@ -3123,13 +3127,13 @@ close_5: forall h ts tid d
    host_redn0 close_5 ((* rp *) rp_tcp)  (*: Successful completion of a lingering close on a synchronised socket :*) ((* rc *)slow urgent succeed) 
      ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Close2(sid),d));
                socks  = socks |++
-                        [(sid,Sock(NONE,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,T,T,
-                              TCP_Sock(st,cb,NONE,[],sndurp,[],rcvurp,iobc)))] |>)
+                        [(sid,Sock(None,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,T,T,
+                              TCP_Sock(st,cb,None,[],sndurp,[],rcvurp,iobc)))] |>)
    ((* lbl *)Lh_tau)
      ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (OK'_one ()),sched_timer));
                socks  = socks |++
-                        [(sid,Sock(NONE,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,T,T,
-                              TCP_Sock(st,cb,NONE,[],sndurp,[],rcvurp,iobc)))] |>)
+                        [(sid,Sock(None,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,T,T,
+                              TCP_Sock(st,cb,None,[],sndurp,[],rcvurp,iobc)))] |>)
      (* SB: sndq and rcvq should now both be empty *)
 
 
@@ -3183,8 +3187,8 @@ close_6: forall h ts tid
      sid sf es
      i1 p1 i2 p2 st cb sndq sndurp rcvurp iobc d.
 
-   sock = Sock(NONE,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,T,T,
-                 TCP_Sock(st,cb,NONE,sndq,sndurp,[],rcvurp,iobc)) &&
+   sock = Sock(None,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,T,T,
+                 TCP_Sock(st,cb,None,sndq,sndurp,[],rcvurp,iobc)) &&
      timer_expires d &&
      NOTIN st  {TIME_WAIT; CLOSED}
 
@@ -3322,7 +3326,7 @@ close_8: forall h ts tid d fds fds'
      sid ff sock lis sf is1 p1 es cb sndq sndurp rcvq rcvurp iobc
      socks_to_rst socks_to_rst_list cantsndmore cantrcvmore.
 
-   sock = Sock(SOME fid,sf,is1,SOME p1,NONE,NONE,es,cantsndmore,cantrcvmore,
+   sock = Sock(SOME fid,sf,is1,SOME p1,None,None,es,cantsndmore,cantrcvmore,
                  TCP_Sock(LISTEN,cb,SOME lis,sndq,sndurp,rcvq,rcvurp,iobc)) &&
      fd IN FDOM fds &&
      fid = (FAPPLY fds  fd) &&
@@ -3507,7 +3511,7 @@ and
 
   If [[fd]] refers to a TCP socket then TCP's connection establishment protocol, often called the
   \textit{three-way handshake}, will be used to connect the socket to the peer specified by
-  [[(ip,port)]]. A peer port must be specified: [[port]] cannot be set to [[NONE]]. There must be a
+  [[(ip,port)]]. A peer port must be specified: [[port]] cannot be set to [[None]]. There must be a
   listening TCP socket at the peer address, otherwise the connection attempt will fail with an
   [[ECONNRESET]] or [[ECONNREFUSED]] error. The local socket must be in the [[CLOSED]] state: attempts to
   [[connect()]] to a peer when already synchronised with another peer will fail. To start
@@ -3528,7 +3532,7 @@ and
   Calling [[connect()]] again will indicate the current status of the connection establishment in
   the returned error: it will fail with [[EALREADY]] if the connection has not been established,
   [[EISCONN]] once the connection has been established, or if the connection establishment failed,
-  an error describing why. Alternatively, [[pselect([],[fd],[],NONE,_)]] can be used; it will return
+  an error describing why. Alternatively, [[pselect([],[fd],[],None,_)]] can be used; it will return
   when [[fd]] is ready for writing which will be when connection establishment is complete, either
   successfully or not. On Linux or BSD, unsetting the [[O_NONBLOCK]] flag for [[fd]] and then calling
   [[connect()]] will block until the connection is established or fails; for WinXP the call will
@@ -3546,7 +3550,7 @@ and
   made. The peer address is then the default destination address for subsequent [[send()]] calls
   (and the only possible destination address on FreeBSD), and only datagrams with this source
   address will be delivered to the socket. On FreeBSD the peer port must be specified: a call to
-  [[connect(fd,ip,NONE)]] will fail with an [[EADDRNOTAVAIL]] error; on Linux and WinXP such a call
+  [[connect(fd,ip,None)]] will fail with an [[EADDRNOTAVAIL]] error; on Linux and WinXP such a call
   succeeds: datagrams from any port on the host with IP address [[ip]] will be delivered to the
   socket. Calling [[connect()]] on a UDP socket that already has a peer address set is allowed: the
   peer address will be replaced with the one specified in the call. On FreeBSD if the socket has a
@@ -3576,7 +3580,7 @@ and
   A call to [[connect()]] can fail with the errors below, in which case the corresponding exception
   is raised:
 
-  @error [[EADDRNOTAVAIL]] There is no route to the peer; a port must be specified ([[port <> NONE]]); or
+  @error [[EADDRNOTAVAIL]] There is no route to the peer; a port must be specified ([[port <> None]]); or
   there are no ephemeral ports left.
 
   @error [[EADDRINUSE]] The address quad that would result if the connection was successful is in
@@ -3643,7 +3647,7 @@ and
     address structure |sockaddr_in|. The |sin_family| member is set to
     |AF_INET|; the |sin_port| is the port to connect to, corresponding to the
     [[port]] argument of the model [[connect()]]: |sin_port = 0| corresponds to
-    [[port=NONE]] and |sin_port=p| corresponds to [[port = SOME p]]; the
+    [[port=None]] and |sin_port=p| corresponds to [[port = SOME p]]; the
     |sin_addr.s_addr| member of the structure corresponds to the [[ip]] argument of the
     model [[connect()]].
 
@@ -3707,14 +3711,14 @@ connect_1: forall h h0 h' ts_ socks tid d oq oq' cb' cb'' cb''' es es' es'' t'
    h  = <| h0 with  ts  = FUPDATE ts_ (tid,Timed(Run,d));
                      socks  = socks |++
                              [(sid,Sock(SOME fid,sf,is1,ps1,is2,ps2,es,cantsndmore,cantrcvmore,
-                               TCP_Sock(st,cb,NONE,[],NONE,[],NONE,NO_OOBDATA)))] ;
+                               TCP_Sock(st,cb,None,[],None,[],None,NO_OOBDATA)))] ;
                      oq  = oq |> &&
 
      (*: Thread [[tid]] ends in state [[t']] with updated host sockets and output queue :*)
      h' = <| h0 with  ts  = FUPDATE ts_ (tid,t');
                      socks  = socks |++
                               [(sid,Sock(SOME fid,sf,SOME i1',SOME p1',is2',ps2',es'',F,F,
-                                TCP_Sock(st',cb''',NONE,[],NONE,[],NONE,NO_OOBDATA)))] ;
+                                TCP_Sock(st',cb''',None,[],None,[],None,NO_OOBDATA)))] ;
                      bound  = bound;
                      oq  = oq' |> &&
 
@@ -3728,12 +3732,12 @@ connect_1: forall h h0 h' ts_ socks tid d oq oq' cb' cb'' cb''' es es' es'' t'
      when we try to enqueue the segment. :*)
 
      i1' IN auto_outroute(i2,is1,h.rttab,h.ifds) &&
-       (*: Notice that [[auto_outroute]] never fails if [[is1<>NONE]] (i.e., is specified in the socket). :*)
+       (*: Notice that [[auto_outroute]] never fails if [[is1<>None]] (i.e., is specified in the socket). :*)
 
      (*: The socket is either bound to a local port [[p1']] or can be autobound to an ephemeral port [[p1']] :*)
      p1' IN autobind(ps1,PROTO_TCP,h,h.socks) &&
      (*: If autobinding occurs then [[sid]] is added to the head of the host's list of bound sockets. :*)
-     (if ps1 = NONE then bound = sid::h.bound else bound = h.bound) &&
+     (if ps1 = None then bound = sid::h.bound else bound = h.bound) &&
 
      (*: The socket can be in one of two states: (1) it is in state [[CLOSED]] in which case its
          peer address is not set; it has no pending error; it is not shutdown for writing; and it is
@@ -3744,11 +3748,11 @@ connect_1: forall h h0 h' ts_ socks tid d oq oq' cb' cb'' cb''' es es' es'' t'
        important in the [[cb]].
      :*)
 
-     ((st = CLOSED && is2 = NONE && ps2 = NONE &&
-       es = NONE && cantsndmore = F && (cantrcvmore = F || bsd_arch h.arch)) ||
+     ((st = CLOSED && is2 = None && ps2 = None &&
+       es = None && cantsndmore = F && (cantrcvmore = F || bsd_arch h.arch)) ||
       (bsd_arch h.arch && st = TIME_WAIT &&
-       (is2 <> NONE --> ps2 <> NONE) &&
-         (ps2 <> NONE --> is2 <> NONE))) &&
+       (is2 <> None --> ps2 <> None) &&
+         (ps2 <> None --> is2 <> None))) &&
 
      (*: No other TCP sockets on the host have the address quad [[(SOME i1',SOME p1',SOME i2,SOME p2)]]. :*)
      not (exists  sid' s. (sid', s) IN (set_of_fmap (DOMSUB h.socks  sid)) &&
@@ -3761,7 +3765,7 @@ connect_1: forall h h0 h' ts_ socks tid d oq oq' cb' cb'' cb''' es es' es'' t'
      iss IN { n | T } &&
 
      (*: If windows-scaling is to be requested for the connection then [[request_r_scale=SOME n]]
-     where [[n]] is a valid window scale; otherwise, [[request_r_scale=NONE]]. [[rcv_wnd0]] is a
+     where [[n]] is a valid window scale; otherwise, [[request_r_scale=None]]. [[rcv_wnd0]] is a
      valid receive window size. If window scaling is to be requested then the socket's receive
      window is set to [[rcv_wnd0]] scaled by the window scale factor [[n]]; otherwise it is set to
      [[rcv_wnd0]]. The socket's receive window is not greater than the size of the socket's receive
@@ -3771,7 +3775,7 @@ connect_1: forall h h0 h' ts_ socks tid d oq oq' cb' cb'' cb''' es es' es'' t'
      choose on a per-connection basis whether to do window scaling or
      not. This permits both.
      :*)
-     (request_r_scale:option nat) IN ({NONE} union {SOME n | n >= 0 && n <= TCP_MAXWINSCALE }) &&
+     (request_r_scale:option nat) IN ({None} union {SOME n | n >= 0 && n <= TCP_MAXWINSCALE }) &&
 
 (*
      (rcv_wnd0:nat) IN { n | n > 0 /\ n <= TCP_MAXWIN } /\  ( * we feel a zero window would be dumb (deaf?) * )
@@ -3792,10 +3796,10 @@ connect_1: forall h h0 h' ts_ socks tid d oq oq' cb' cb'' cb''' es es' es'' t'
      about WS options, we should ignore them *)
 
      (*: Either advertise a maximum segment size, [[advmss]], that is between [[1]] and
-     [[65535-40]], or advertise no maximum segment size. If one is advertised, [[advmss'=SOME advmss]]; otherwise, [[advmss'=NONE]]. :*)
+     [[65535-40]], or advertise no maximum segment size. If one is advertised, [[advmss'=SOME advmss]]; otherwise, [[advmss'=None]]. :*)
 
      advmss IN { n | n >= 1 && n <= (65535 - 40) } &&
-     advmss' IN {NONE;SOME advmss} &&
+     advmss' IN {None;SOME advmss} &&
         (* we think 0 would be REALLY stupid; the upper limit is the highest physically possible,
            but we're not sure if it should in fact be lower.  Seems credible *)
         (* note, default is 536 ( = 576 - 40).  We probably need to record this,
@@ -3840,7 +3844,7 @@ connect_1: forall h h0 h' ts_ socks tid d oq oq' cb' cb'' cb''' es es' es'' t'
                       tf_rxwin0sent      = (rcv_wnd = 0);   (* = F *)
                       request_r_scale    = request_r_scale; (*: store whether we requested WS and if so what :*)
                       t_maxseg           = cb.t_maxseg;     (*: do not change this :*)
-                      t_advmss           = advmss';         (*: store what mss we advertised; [[NONE]] or [[SOME v]] :*)
+                      t_advmss           = advmss';         (*: store what mss we advertised; [[None]] or [[SOME v]] :*)
                       tf_req_tstmp       = tf_req_tstmp';
                       last_ack_sent      = tcp_seq_foreign word_zero;
                       t_rttseg           = t_rttseg'
@@ -3872,7 +3876,7 @@ connect_1: forall h h0 h' ts_ socks tid d oq oq' cb' cb'' cb''' es es' es'' t'
      rollback_tcp_output F (TCP seg) h.arch h.rttab h.ifds T
                          (<| cb with  snd_nxt        = iss;
                                      snd_max        = iss;
-                                     tt_delack      = NONE;
+                                     tt_delack      = None;
                                      last_ack_sent  = tcp_seq_foreign word_zero;
                                      rcv_adv        = tcp_seq_foreign word_zero
                                   |>) cb' (cb'',es',outsegs') &&
@@ -3912,17 +3916,17 @@ connect_1: forall h h0 h' ts_ socks tid d oq oq' cb' cb'' cb''' es es' es'' t'
 	  es''=es' && st' = SYN_SENT && is2' = SOME i2 && ps2' = SOME p2) ||
       (*: non-blocking socket :*)
       (ff.b(O_NONBLOCK) &&
-          es = NONE &&
+          es = None &&
           (err = (if windows_arch h.arch then EAGAIN else EINPROGRESS) || SOME err = es') &&
-          t' = Timed(Ret(FAIL' err),sched_timer) && rc = fast fail && es''=NONE &&
+          t' = Timed(Ret(FAIL' err),sched_timer) && rc = fast fail && es''=None &&
 	  if oq=oq' then
-	      st' = CLOSED && is2' = NONE && ps2' = NONE
+	      st' = CLOSED && is2' = None && ps2' = None
 	  else
 	      st' = SYN_SENT && is2' = SOME i2 && ps2' = SOME p2)
      ))
 
      (* note that we must write ts_ for the h.ts variable, because ts is used for timestamps *)
-     (* we presume sock.es is NONE both before and after this rule *)
+     (* we presume sock.es is None both before and after this rule *)
 
      (*: Thread [[tid]] is in state [[Run]] and TCP socket [[sid]] has binding quad [[(is1,ps1,is2,ps2)]].  :*)
      ==>
@@ -3966,13 +3970,13 @@ connect_1: forall h h0 h' ts_ socks tid d oq oq' cb' cb'' cb''' es es' es'' t'
    If there is an early buffer allocation failure when enqueuing the segment, then it will not be
    placed on the host's out-queue and [[es' = ENOBUFS]]; the socket's control block will be [[cb']]
    with its [[snd_nxt]] and [[snd_max]] fields set to the intial sequence number, its
-   [[last_ack_seen]] and [[rcv_adv]] fields set to [[0]], its [[tt_delack]] option set to [[NONE]],
+   [[last_ack_seen]] and [[rcv_adv]] fields set to [[0]], its [[tt_delack]] option set to [[None]],
    its [[tt_rexmt]] timer stopped, and its [[tf_rxwin0sent]] and [[t_rttseg]] fields reset.
 
    If there is no route from an interface specified by the local IP address [[i1]] to the foreign IP
    address [[i2]] then the socket's control block will be [[cb']] with its [[snd_next]] field set to the
    initial sequence number, its [[last_ack_sent]] and [[rcv_adv]] fields set to [[0]], and its
-   [[tt_delack]] option set to [[NONE]].
+   [[tt_delack]] option set to [[None]].
 
    If the segment would case a loopback packet to be sent on the wire then the socket's control
    block will be [[cb']].
@@ -3990,7 +3994,7 @@ connect_1: forall h h0 h' ts_ socks tid d oq oq' cb' cb'' cb''' es es' es'' t'
 
    POSIX: we consider particularly the "If the initiating socket is connection-mode" paragraph.
 
-   So if [[is1]] is NONE, where exactly does it get filled in?  I'm assuming here, for now.
+   So if [[is1]] is None, where exactly does it get filled in?  I'm assuming here, for now.
 
    We go into [[SYN_SENT]] immediately, to avoid a race between the actual connection initiation and
    another thread doing a [[connect()]].
@@ -4024,7 +4028,7 @@ connect_1: forall h h0 h' ts_ socks tid d oq oq' cb' cb'' cb''' es es' es'' t'
    made. [[fd]] refers to a TCP socket identified by [[sid]] with address quad
    [[(is1,ps1,is2,ps2)]]. The socket is uninitialised: it is in state [[CLOSED]] with control block
    [[cb]], empty send and receive queues, no urgent pointers set, no out-of-band data, does not have
-   a peer address set, [[is2=NONE /\ ps2=NONE]], has no pending error, and is not shutdown for
+   a peer address set, [[is2=None /\ ps2=None]], has no pending error, and is not shutdown for
    reading or writing.
 
    The socket either has its local IP address set to [[i1']], or there is an IP address [[i1']] for
@@ -4047,7 +4051,7 @@ connect_1: forall h h0 h' ts_ socks tid d oq oq' cb' cb'' cb''' es es' es'' t'
    [[TCP_MAXWIN]]. If the window scale option is to be requested for the connection
    ([[request_r_scale=SOME n]]) then [[rcv_wnd]] is [[rcv_wnd0]] scaled by the window scale value
    specified by [[request_r_scale]] and clipped to a 16-bit value; if window scaling is not to be
-   requested ([[request_r_scale=NONE]]) then [[rcv_wnd = rcv_wnd0]]. Additionally, [[rcv_wnd]] is
+   requested ([[request_r_scale=None]]) then [[rcv_wnd = rcv_wnd0]]. Additionally, [[rcv_wnd]] is
    not greater than the size of the socket's receive buffer: [[rcv_wnd <= sf.n(SO_RCVBUF)]].
 
    \item If [[advmss'=SOME v]] then the maximum segment size, [[v]] will be sent with the [[SYN]];
@@ -4091,7 +4095,7 @@ connect_1: forall h h0 h' ts_ socks tid d oq oq' cb' cb'' cb''' es es' es'' t'
    it is transmitted in the [[SYN]] segment;
 
    \item the [[t_advmss]] field will be set to [[SOME v]] if the MSS [[v]] was sent with the [[SYN]]
-   or [[NONE]] otherwise;
+   or [[None]] otherwise;
 
    \item the [[tf_req_tstmp]] field will be set to [[T]] if time-stamping was requested, or [[F]] otherwise;
 
@@ -4119,9 +4123,9 @@ connect_1: forall h h0 h' ts_ socks tid d oq oq' cb' cb'' cb''' es es' es'' t'
    {@link [[enqueue_oq_list_qinfo]]} to create new outqueue [[oq']]. If this now fails due to a
    buffer allocation failure, [[queued = F]], then [[es'=ENOBUFS]], [[oq'=h.oq]], and the socket's
    control block is updated to set the [[snd_nxt]] field to the initial sequence number, the
-   [[rcv_adv]] and [[last_ack_sent]] fields to [[0]], the [[tt_delack]] option to [[NONE]], and to
+   [[rcv_adv]] and [[last_ack_sent]] fields to [[0]], the [[tt_delack]] option to [[None]], and to
    stop the retransmit timer. If the segment is successfully enqueued on the host's outqueue then
-   [[es'=NONE]] to create new outqueue [[oq']].
+   [[es'=None]] to create new outqueue [[oq']].
 
    If the call is made with non-blocking semantics, the [[O_NONBLOCK]] flag of the file description
    for the socket is set, and the socket does not have a pending error then the call will fail with
@@ -4131,7 +4135,7 @@ connect_1: forall h h0 h' ts_ socks tid d oq oq' cb' cb'' cb''' es es' es'' t'
    asynchronously and [[connect()]] should be called again to see the result. A
    [[Lh_call(tid,connect(fd,i2,SOME p2))]] transition will be made, leaving the thread state
    [[Ret (FAIL err)]]. If the call failed without enqueueing a [[SYN]] segment then the socket will
-   be in state [[CLOSED]] with address quad [[(SOME i1',SOME p1',NONE,NONE)]]; otherwise it will be
+   be in state [[CLOSED]] with address quad [[(SOME i1',SOME p1',None,None)]]; otherwise it will be
    in state [[SYN_SENT]] with address quad [[(SOME i1',SOME p1',SOME i2,SOME p2)]]. In either case
    the pending error will be cleared.
 
@@ -4210,7 +4214,7 @@ connect_3: forall h ts socks sock tid d sid e tcp_sock.
    ((* lbl *)Lh_tau)
      ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' e),sched_timer));
                socks  = socks |++
-                        [(sid,<| sock with  es  = NONE |>)] |>)
+                        [(sid,<| sock with  es  = None |>)] |>)
 
 
    (*:
@@ -4279,7 +4283,7 @@ and
 connect_4: forall h ts socks sock sock' tid d sid fid sf i1 ps1 i2 p2 err cb cb'.
 
    sock = Sock(SOME fid,sf,SOME i1,ps1,SOME i2,SOME p2,SOME err,F,F,
-                TCP_Sock(SYN_SENT,cb,NONE,[],NONE,[],NONE,NO_OOBDATA)) &&
+                TCP_Sock(SYN_SENT,cb,None,[],None,[],None,NO_OOBDATA)) &&
     (*: On WinXP if the error is from routing to an unavailable address,
        the error is not returned and the socket is left alone. The
        rexmtsyn timer will retry the SYN transmission and eventually fail. :*)
@@ -4289,15 +4293,15 @@ connect_4: forall h ts socks sock sock' tid d sid fid sf i1 ps1 i2 p2 err cb cb'
            (* On BSD if the error is from routing to an unavailable address,
               the error is returned. The socket is left alone so that
               the rexmtsyn timer can retry the SYN transmission (needlessly). *)
-           sock' = Sock(SOME fid,sf,SOME i1,ps1,SOME i2,SOME p2,NONE,F,F,
-                   TCP_Sock(SYN_SENT,cb,NONE,[],NONE,[],NONE,NO_OOBDATA))
+           sock' = Sock(SOME fid,sf,SOME i1,ps1,SOME i2,SOME p2,None,F,F,
+                   TCP_Sock(SYN_SENT,cb,None,[],None,[],None,NO_OOBDATA))
          else
-	   sock' = Sock(SOME fid,sf,SOME i1,ps1,NONE,NONE,NONE,F,F,
-                   TCP_Sock(CLOSED,initial_cb,NONE,[],NONE,[],NONE,NO_OOBDATA)))
+	   sock' = Sock(SOME fid,sf,SOME i1,ps1,None,None,None,F,F,
+                   TCP_Sock(CLOSED,initial_cb,None,[],None,[],None,NO_OOBDATA)))
      else
        (*: close the socket, but do not shutdown for reading/writing :*)
-       sock' = Sock(SOME fid,sf,SOME i1,ps1,NONE,NONE,NONE,F,F,
-                TCP_Sock(CLOSED,cb',NONE,[],NONE,[],NONE,NO_OOBDATA)) &&
+       sock' = Sock(SOME fid,sf,SOME i1,ps1,None,None,None,F,F,
+                TCP_Sock(CLOSED,cb',None,[],None,[],None,NO_OOBDATA)) &&
        cb' = initial_cb
      )
 
@@ -4372,7 +4376,7 @@ connect_4a: forall h ts tid d socks sid sock err fd i2 p2 fid ff tcp_sock.
    ((* lbl *)Lh_call (tid,connect(fd,i2,SOME p2)))
      ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' err),sched_timer)) ;
                socks  = socks |++
-	                [(sid,<| sock with  es  = NONE |>)] |>)
+	                [(sid,<| sock with  es  = None |>)] |>)
 
 
    (*:
@@ -4507,7 +4511,7 @@ connect_5a: forall h ts tid d ps1 p1'
      i2 p2 err sock socks bound is1' i1'.
 
    h.ts = FUPDATE ts (tid,Timed(Run,d)) &&
-     h.socks = (socks |++ [(sid,<| sock with  is1  = NONE; ps1  = ps1 |>)]) &&
+     h.socks = (socks |++ [(sid,<| sock with  is1  = None; ps1  = ps1 |>)]) &&
 
      fd IN FDOM h.fds &&
      fid = (FAPPLY h.fds  fd) &&
@@ -4515,8 +4519,8 @@ connect_5a: forall h ts tid d ps1 p1'
      (if bsd_arch h.arch && proto_of sock.pr = PROTO_TCP then
 	  is1' = SOME i1' && i1' IN local_primary_ips h.ifds &&
           ps1' = SOME p1' && p1' IN autobind(ps1,PROTO_TCP,h,h.socks) &&
-	  (if ps1 = NONE then bound = sid::h.bound else bound = h.bound)
-     else is1' = NONE && ps1' = ps1 && bound = h.bound) &&
+	  (if ps1 = None then bound = sid::h.bound else bound = h.bound)
+     else is1' = None && ps1' = ps1 && bound = h.bound) &&
      (match test_outroute_ip(i2,h.rttab,h.ifds,h.arch) with
 	 Some e   -> err = e
      |  _other29 -> F end  (* other cases not considered in this rule *)) &&
@@ -4572,15 +4576,15 @@ connect_5b: forall h ts tid d
      FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
      i1' IN auto_outroute(i2,sock.is1,h.rttab,h.ifds) &&
      p1' IN autobind(sock.ps1,(proto_of sock.pr),h,h.socks) &&
-     (if sock.ps1 = NONE then bound' = sid::bound else bound' = bound) &&
+     (if sock.ps1 = None then bound' = sid::bound else bound' = bound) &&
      (proto_of sock.pr = PROTO_UDP --> not (linux_arch h.arch || windows_arch h.arch)) &&
      (exists  sid' s. (sid',s) IN (set_of_fmap (DOMSUB socks  sid)) &&
         s.is1 = SOME i1' && s.ps1 = SOME p1' &&
         s.is2 = SOME i2  && s.ps2 = SOME p2  &&
         proto_eq sock.pr s.pr) &&
      (if proto_of sock.pr = PROTO_UDP then
-	  if sock.is2 = NONE then is1' = sock.is1 && is2' = NONE && ps2' = NONE
-          else                    is1' = NONE  && is2' = NONE && ps2' = NONE
+	  if sock.is2 = None then is1' = sock.is1 && is2' = None && ps2' = None
+          else                    is1' = None  && is2' = None && ps2' = None
       else is1' = sock.is1 && is2' = sock.is2 && ps2' = sock.ps2)
 
      ==>
@@ -4615,9 +4619,9 @@ connect_5b: forall h ts tid d
    accomplished by autobinding then [[sid]] is appended to the head of [[bound]], the host's list of
    bound sockets, to create a new list [[bound']]. If [[sock]] is a TCP socket then its [[is1]],
    [[is2]], and [[ps2]] fields are unchanged. If [[sock]] is a UDP socket on FreeBSD then if its
-   peer IP address was set, its local IP address will be unset: [[is1'=NONE]], otherwise its local
+   peer IP address was set, its local IP address will be unset: [[is1'=None]], otherwise its local
    IP address will stay as it was: [[is1'=sock.is1]]; its peer IP address and port will both be
-   unset: [[is2'=NONE /\ ps2'=NONE]].
+   unset: [[is2'=None /\ ps2'=None]].
 
    @variation Linux
 
@@ -4647,8 +4651,8 @@ connect_5c: forall h ts tid d
    fd IN FDOM h.fds &&
      fid = (FAPPLY h.fds  fd) &&
      FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
-     ((FAPPLY h.socks  sid)).ps1 = NONE &&
-     autobind(NONE,(proto_of ((FAPPLY h.socks  sid)).pr),h,h.socks) = {}
+     ((FAPPLY h.socks  sid)).ps1 = None &&
+     autobind(None,(proto_of ((FAPPLY h.socks  sid)).pr),h,h.socks) = {}
 
      ==>
 
@@ -4783,26 +4787,26 @@ connect_7: forall h h0 ts tid d sid fid sf es ff socks bound
 
    h0 = <| h with  ts  = FUPDATE ts (tid, Timed(Run,d));
                     socks  = socks |++
-                               [(sid,Sock(SOME fid,sf,NONE,ps1,NONE,NONE,es,cantsndmore,cantrcvmore,UDP_PROTO(udp)))]
+                               [(sid,Sock(SOME fid,sf,None,ps1,None,None,es,cantsndmore,cantrcvmore,UDP_PROTO(udp)))]
           |> &&
      fd IN FDOM h.fds &&
      fid = (FAPPLY h.fds  fd) &&
      (FAPPLY h0.files  fid) = File(FT_Socket(sid),ff) &&
      p1' IN autobind(ps1,PROTO_UDP,h0,h0.socks) &&
-     (if ps1 = NONE then bound = sid::h0.bound else bound = h0.bound) &&
-     i1' IN auto_outroute(i2,NONE,h0.rttab,h0.ifds) &&
+     (if ps1 = None then bound = sid::h0.bound else bound = h0.bound) &&
+     i1' IN auto_outroute(i2,None,h0.rttab,h0.ifds) &&
      not (exists  sid' s. (sid', s) IN (set_of_fmap (DOMSUB h0.socks  sid)) && 
               s.is1 = SOME i1' && s.ps1 = SOME p1' &&
               s.is2 = SOME i2  && s.ps2 = ps2 &&
               proto_of s.pr = PROTO_UDP &&
               bsd_arch h.arch) &&
-     (bsd_arch h.arch --> ps2 <> NONE && es = NONE) &&
+     (bsd_arch h.arch --> ps2 <> None && es = None) &&
      (if windows_arch h.arch then cantsndmore' = F
       else                        cantsndmore' = cantsndmore)
 
      ==>
 
-   host_redn0 connect_7 ((* rp *) rp_udp)  (*: Set peer address on socket with binding quad [[NONE,ps1,NONE,NONE]] :*) ((* rc *)fast succeed) 
+   host_redn0 connect_7 ((* rp *) rp_udp)  (*: Set peer address on socket with binding quad [[None,ps1,None,None]] :*) ((* rc *)fast succeed) 
      ((* h1 *)h0)
    ((* lbl *)Lh_call (tid,connect(fd,i2,ps2)))
      ((* h2 *)<| h0 with  ts  = FUPDATE ts (tid, Timed(Ret (OK'_one ()),sched_timer));
@@ -4830,7 +4834,7 @@ connect_7: forall h h0 ts tid d sid fid sf es ff socks bound
       @variation FreeBSD
 
       As above, with the additional conditions that a foreign port is specified in the [[connect()]]
-      call: [[ps2 <> NONE]], and there are no pending errors on the socket. Furthermore, there may
+      call: [[ps2 <> None]], and there are no pending errors on the socket. Furthermore, there may
       be no other sockets in the host's finite map of sockets with the binding quad [[(SOME i1',SOME
       p1',SOME i2,ps2)]].
 
@@ -4852,7 +4856,7 @@ connect_8: forall h ts tid d sid fid sf es ff socks h0
      fd IN FDOM h.fds &&
      fid = (FAPPLY h.fds  fd) &&
      FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
-     (bsd_arch h.arch --> ps <> NONE && es = NONE) &&
+     (bsd_arch h.arch --> ps <> None && es = None) &&
      (if windows_arch h.arch then cantsndmore' = F
       else                        cantsndmore' = cantsndmore) &&
      not (exists  sid' s. (sid',s) IN (set_of_fmap (DOMSUB h0.socks  sid)) &&
@@ -4885,7 +4889,7 @@ connect_8: forall h ts tid d sid fid sf es ff socks h0
      @variation FreeBSD
 
      As above, with the additional conditions that a foreign port is specified in the [[connect()]]
-     call, [[ps <> NONE]], and there are no pending errors on the socket. Furthermore, there may be
+     call, [[ps <> None]], and there are no pending errors on the socket. Furthermore, there may be
      no other sockets in the host's finite map of sockets with the binding quad [[(SOME i1',SOME
      p1',SOME i,ps)]].
 
@@ -4912,7 +4916,7 @@ connect_9: forall h ts tid d socks sid
      fd IN FDOM h.fds &&
      fid = (FAPPLY h.fds  fd) &&
      FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
-     (if sock.is2 <> NONE then is1 = NONE else is1 = sock.is1)
+     (if sock.is2 <> None then is1 = None else is1 = sock.is1)
 
      ==>
 
@@ -4920,10 +4924,10 @@ connect_9: forall h ts tid d socks sid
      ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d));
                socks  = socks |++
                         [(sid,<| sock with  pr  = UDP_PROTO(udp) |>)] |>)
-   ((* lbl *)Lh_call (tid,connect(fd,i,NONE)))
+   ((* lbl *)Lh_call (tid,connect(fd,i,None)))
      ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' EADDRNOTAVAIL),sched_timer));
                socks  = socks |++
-                        [(sid,<| sock with  is1  = is1; is2  = NONE; ps2  = NONE; pr  = UDP_PROTO(udp) |> )] |>)
+                        [(sid,<| sock with  is1  = is1; is2  = None; ps2  = None; pr  = UDP_PROTO(udp) |> )] |>)
 
 
 
@@ -4932,13 +4936,13 @@ connect_9: forall h ts tid d socks sid
     @description
 
     On FreeBSD, consider a UDP socket [[sid]] referenced by [[fd]]. From thread [[tid]], which is in
-    the [[Run]] state, a [[connect(fd,i,NONE)]] call is made. Because no port is specified, the call
+    the [[Run]] state, a [[connect(fd,i,None)]] call is made. Because no port is specified, the call
     fails with an [[EADDRNOTAVAIL]] error.
 
-    A [[Lh_call(tid,connect(fd,i,NONE))]] transition is made, leaving the thread state [[Ret
-    (FAIL EADDRNOTAVAIL)]]. The socket's peer address is cleared: [[is2 := NONE]] and [[ps2 :=
-    NONE]]. Additionally, if the socket had its peer IP address set, [[sock.is2 <> NONE]], then its
-    local IP address will be cleared: [[is1 = NONE]]; otherwise it remains the same: [[is1 =
+    A [[Lh_call(tid,connect(fd,i,None))]] transition is made, leaving the thread state [[Ret
+    (FAIL EADDRNOTAVAIL)]]. The socket's peer address is cleared: [[is2 := None]] and [[ps2 :=
+    None]]. Additionally, if the socket had its peer IP address set, [[sock.is2 <> None]], then its
+    local IP address will be cleared: [[is1 = None]]; otherwise it remains the same: [[is1 =
     sock.is1]].
 
     @variation Posix
@@ -4971,7 +4975,7 @@ connect_10: forall h ts tid d socks sid sock err udp fd i ps fid ff h0.
     fd IN FDOM h.fds &&
     fid = (FAPPLY h.fds  fd) &&
     FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
-    ps <> NONE &&
+    ps <> None &&
     not (exists  sid' s. (sid',s) IN (set_of_fmap  (DOMSUB h0.socks  sid)) && 
               s.is1 = sock.is1 && s.ps1 = sock.ps1 &&
               s.is2 = SOME i  && s.ps2 = ps &&
@@ -4984,7 +4988,7 @@ connect_10: forall h ts tid d socks sid sock err udp fd i ps fid ff h0.
   ((* lbl *)Lh_call (tid,connect(fd,i,ps)))
     ((* h2 *)<| h0 with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' err),sched_timer));
               socks  = socks |++
-                       [(sid,<| sock with  is2  = SOME i; ps2  = ps; es  = NONE; pr  = UDP_PROTO(udp) |>)] |>)
+                       [(sid,<| sock with  is2  = SOME i; ps2  = ps; es  = None; pr  = UDP_PROTO(udp) |>)] |>)
 
 
     (*:
@@ -4993,7 +4997,7 @@ connect_10: forall h ts tid d socks sid sock err udp fd i ps fid ff h0.
 
      On FreeBSD, consider a UDP socket [[sid]], referenced by [[fd]], with pending error
      [[err]]. From thread [[tid]], which is in the [[Run]] state, a [[connect(fd,i,ps)]] call is
-     made with [[ps <> NONE]]. There is no other UDP socket on the host which has the same local
+     made with [[ps <> None]]. There is no other UDP socket on the host which has the same local
      address [[sock.is1,sock.ps1]] as [[sid]], and its peer address set to [[SOME i, ps]]. The call
      fails, returning the pending error [[err]].
 
@@ -5021,7 +5025,7 @@ and
    A call to [[disconnect(fd)]], where [[fd]] is a file descriptor referring to a socket, removes
    the peer address for a UDP socket. If a UDP socket has peer address set to [[(SOME i2, SOME p2)]]
    then it can only receive datagrams with source address [[(i2,p2)]]. Calling [[disconnect()]] on
-   the socket resets its peer address to [[(NONE,NONE)]], and so it will be able to receive
+   the socket resets its peer address to [[(None,None)]], and so it will be able to receive
    datagrams with any source address.
 
    It does not make sense to disconnect a TCP socket in this way.  Most supported architectures
@@ -5173,7 +5177,7 @@ disconnect_5: forall h ts tid d sid fd fid ff socks sock sock' oq oq' outsegs tc
      FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
      TCP_PROTO(tcp_sock) = sock.pr &&
      (if tcp_sock.st IN {SYN_RECEIVED; ESTABLISHED; FIN_WAIT_1; FIN_WAIT_2; CLOSE_WAIT} then
-       tcp_drop_and_close h.arch NONE sock (sock',outsegs) &&
+       tcp_drop_and_close h.arch None sock (sock',outsegs) &&
        enqueue_and_ignore_fail h.arch h.rttab h.ifds outsegs oq oq'
      else
        sock = sock' &&
@@ -5253,7 +5257,7 @@ disconnect_1: forall h ts_ tid d sid fid sf is1 ff ret
    ((* lbl *)Lh_call (tid,disconnect(fd)))
      ((* h2 *)<| h with  ts  = FUPDATE ts_ (tid,Timed(Ret (ret),sched_timer));
                socks  = socks |++
-                        [(sid, Sock(SOME fid,sf,NONE,SOME p1,NONE,NONE,es,cantsndmore,cantrcvmore,UDP_PROTO(udp)))]
+                        [(sid, Sock(SOME fid,sf,None,SOME p1,None,None,es,cantsndmore,cantrcvmore,UDP_PROTO(udp)))]
             |>)
 
 
@@ -5268,8 +5272,8 @@ disconnect_1: forall h ts_ tid d sid fid sf is1 ff ret
     [[EAFNOSUPPORT]] error.
 
     A [[Lh_call(tid,disconnect(fd))]] transition is made, leaving the thread state [[Ret (OK())]]
-    or [[Ret (FAIL EAFNOSUPPORT)]]. The socket has its peer address set to [[(NONE,NONE)]], and its
-    local IP address set to [[NONE]]. The local port, [[p1]], is left in place.
+    or [[Ret (FAIL EAFNOSUPPORT)]]. The socket has its peer address set to [[(None,None)]], and its
+    local IP address set to [[None]]. The local port, [[p1]], is left in place.
 
     @variation FreeBSD
 
@@ -5301,11 +5305,11 @@ disconnect_2: forall h ts_ tid d sid fid ff ret h0
 
    h0 = <| h with  ts  = FUPDATE ts_ (tid, Timed(Run,d));
                     socks  = socks |++
-                             [(sid, Sock(SOME fid,sf,NONE,NONE,NONE,NONE,es,cantsndmore,cantrcvmore,UDP_PROTO(udp)))] |> &&
+                             [(sid, Sock(SOME fid,sf,None,None,None,None,es,cantsndmore,cantrcvmore,UDP_PROTO(udp)))] |> &&
      fd IN FDOM h.fds &&
      fid = (FAPPLY h.fds  fd) &&
      FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
-     (ps1 = NONE || (ps1 = SOME p1 && p1 IN autobind(NONE,PROTO_UDP,h0,h0.socks))) &&
+     (ps1 = None || (ps1 = SOME p1 && p1 IN autobind(None,PROTO_UDP,h0,h0.socks))) &&
      (if linux_arch h.arch then ret = OK'_one ()
       else                      ret = (FAIL' EAFNOSUPPORT))
 
@@ -5316,7 +5320,7 @@ disconnect_2: forall h ts_ tid d sid fid ff ret h0
    ((* lbl *)Lh_call (tid,disconnect fd))
      ((* h2 *)<| h0 with  ts  = FUPDATE ts_ (tid, Timed(Ret (ret), sched_timer));
                 socks  = socks |++
-                         [(sid, Sock(SOME fid,sf,NONE,ps1,NONE,NONE,es,cantsndmore,cantrcvmore,UDP_PROTO(udp)))];
+                         [(sid, Sock(SOME fid,sf,None,ps1,None,None,es,cantsndmore,cantrcvmore,UDP_PROTO(udp)))];
                 bound  = sid::h0.bound |>)
 
 
@@ -5325,7 +5329,7 @@ disconnect_2: forall h ts_ tid d sid fid ff ret h0
     @description
 
     Consider a UDP socket [[sid]] referenced by [[fd]] and with binding quad
-    [[(NONE,NONE,NONE,NONE)]]. From thread [[tid]], which is in the [[Run]] state, a
+    [[(None,None,None,None)]]. From thread [[tid]], which is in the [[Run]] state, a
     [[disconnect(fd)]] call is made. The call succeeds on Linux and fails with an [[EAFNOSUPPORT]]
     error on FreeBSD and WinXP.
 
@@ -5363,11 +5367,11 @@ disconnect_3: forall h ts tid d socks fid ff h0
 
    h0 = <| h with  ts  = FUPDATE ts (tid,Timed(Run,d));
                     socks  = socks |++
-                             [(sid,Sock(SOME fid,sf,NONE,NONE,NONE,NONE,es,cantsndmore,cantrcvmore,UDP_PROTO(udp)))] |> &&
+                             [(sid,Sock(SOME fid,sf,None,None,None,None,es,cantsndmore,cantrcvmore,UDP_PROTO(udp)))] |> &&
      fd IN FDOM h.fds &&
      fid = (FAPPLY h.fds  fd) &&
      FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
-     autobind(NONE,PROTO_UDP,h0,h0.socks) = EMPTY &&
+     autobind(None,PROTO_UDP,h0,h0.socks) = EMPTY &&
      e IN {EAGAIN; EADDRNOTAVAIL; ENOBUFS}
 
      ==>
@@ -5383,7 +5387,7 @@ disconnect_3: forall h ts tid d socks fid ff h0
     @description
 
     Consider a UDP socket [[sid]] referenced by [[fd]] and with binding quad
-    [[NONE,NONE,NONE,NONE]]. From thread [[tid]], which is in the [[Run]] state, a
+    [[None,None,None,None]]. From thread [[tid]], which is in the [[Run]] state, a
     [[disconnect(fd)]] call is made. There are no ephemeral ports left, so the socket cannot be
     autobound to a local port. The call fails with an error: [[EAGAIN]], [[EADDRNOTAVAIL]], or
     [[ENOBUFS]].
@@ -6073,8 +6077,8 @@ getpeername_1: forall h ts tid d
      FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
      sock = (FAPPLY h.socks  sid) &&
      sock.is2 = SOME i2 &&
-     (sock.ps2 = SOME p2 || (windows_arch h.arch && sock.ps2 = NONE &&
-                             (p2 = Port 0) && proto_of sock.pr = PROTO_UDP) (* on XP, can do a connect(SOME i1,NONE) and then getpeername returns with OK(i2,Port 0) *)) &&
+     (sock.ps2 = SOME p2 || (windows_arch h.arch && sock.ps2 = None &&
+                             (p2 = Port 0) && proto_of sock.pr = PROTO_UDP) (* on XP, can do a connect(SOME i1,None) and then getpeername returns with OK(i2,Port 0) *)) &&
      ((forall tcp_sock. sock.pr = TCP_PROTO(tcp_sock) -->
                   tcp_sock.st IN {ESTABLISHED; CLOSE_WAIT; LAST_ACK;
                                   FIN_WAIT_1; CLOSING} ||
@@ -6132,7 +6136,7 @@ getpeername_1: forall h ts tid d
 
     @variation WinXP
 
-    If [[sock]] is a UDP socket and has no peer port set, [[sock.ps2 = NONE]] then the call may
+    If [[sock]] is a UDP socket and has no peer port set, [[sock.ps2 = None]] then the call may
     still succeed with [[p2 = Port 0]]. Additionally, if [[sock]] is a TCP socket then it may be in
     any state.
 
@@ -6143,7 +6147,7 @@ getpeername_1: forall h ts tid d
     POSIX claims [[EINVAL]] is possible "if the socket has been shut down".  We have not modelled
     this either; not clear exactly what point it is referring to, or that this makes sense.
 
-    Note that on Windows XP, we return [[OK(i2,Port 0)]] if we made a [[connect(SOME i2,NONE)]] call
+    Note that on Windows XP, we return [[OK(i2,Port 0)]] if we made a [[connect(SOME i2,None)]] call
     previously, whereas BSD and Linux adhere to rule [[getpeername_2]].
 
    :*)
@@ -6157,8 +6161,8 @@ getpeername_2: forall h ts tid d
      fid = (FAPPLY h.fds  fd) &&
      FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
      sock = (FAPPLY h.socks  sid) &&
-     not (sock.is2 <> NONE &&
-       (sock.ps2 <> NONE || (windows_arch h.arch && proto_of sock.pr = PROTO_UDP)) &&
+     not (sock.is2 <> None &&
+       (sock.ps2 <> None || (windows_arch h.arch && proto_of sock.pr = PROTO_UDP)) &&
        (forall tcp_sock. sock.pr = TCP_PROTO(tcp_sock) -->
             tcp_sock.st IN {ESTABLISHED; CLOSE_WAIT; LAST_ACK; FIN_WAIT_1; CLOSING (* SYN_RECEIVED ??*)} ||
             (not sock.cantrcvmore && tcp_sock.st = FIN_WAIT_2) ||
@@ -6207,7 +6211,7 @@ getpeername_2: forall h ts tid d
 
     If the socket is not connected, this request does not make sense.
 
-    Note that we can do a [[connect(SOME i1, NONE)]] which succeeds on Linux, yet when we then call
+    Note that we can do a [[connect(SOME i1, None)]] which succeeds on Linux, yet when we then call
     [[getpeername]] we fail.
 
    :*)
@@ -6505,7 +6509,7 @@ getsockerr_1: forall h ts tid d
    fd IN FDOM h.fds &&
      fid = (FAPPLY h.fds  fd) &&
      FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
-     ((FAPPLY h.socks  sid)).es = NONE
+     ((FAPPLY h.socks  sid)).es = None
 
      ==>
 
@@ -6542,7 +6546,7 @@ getsockerr_2: forall h ts tid d
      fid = (FAPPLY h.fds  fd) &&
      FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
      SOME e = sock.es &&
-     sock' = <| sock with  es  = NONE |>
+     sock' = <| sock with  es  = None |>
 
      ==>
 
@@ -6855,11 +6859,11 @@ and
      correspond to the [[(ip option, port option)]] return type of the model [[getsockname()]]. If
      the |sin_addr.s_addr| field of the |name| structure is set to |0| on
      return, then the socket's local IP address is not set: the [[ip option]] member of the return
-     tuple is set to [[NONE]]; otherwise, if it is set to |i| then it corresponds to the
+     tuple is set to [[None]]; otherwise, if it is set to |i| then it corresponds to the
      socket having local IP address and so the [[ip option]] member of the return tuple is[[SOME
      i]]. If the |sin_port| field of the |name| structure is set to |0| on
      return then the socket does not have a local port set, corresponding to the [[port option]] in
-     the return tuple being [[NONE]]; otherwise the |sin_port| field is set to |p|
+     the return tuple being [[None]]; otherwise the |sin_port| field is set to |p|
      corresponding to the socket having its local port set: the [[port option]] in the return tuple
      is [[SOME p]].
 
@@ -6904,9 +6908,9 @@ getsockname_1: forall h ts tid d
      sock = (FAPPLY h.socks  sid) &&
      (match sock.pr with
         TCP_PROTO(tcp_sock) ->
-          bsd_arch h.arch --> not (tcp_sock.cb.bsd_cantconnect = T && sock.ps1 = NONE) |
+          bsd_arch h.arch --> not (tcp_sock.cb.bsd_cantconnect = T && sock.ps1 = None) |
         UDP_PROTO(_444) -> T end) &&
-     (windows_arch h.arch --> sock.is1 <> NONE || sock.ps1 <> NONE)
+     (windows_arch h.arch --> sock.is1 <> None || sock.ps1 <> None)
 
      ==>
 
@@ -6945,7 +6949,7 @@ getsockname_1: forall h ts tid d
     here, pending experiment (e.g., why not [[ENETUNREACH]] as well?).
 
     POSIX: if socket is unbound, the return value is \emph{unspecified}.  We give it as
-    [[(NONE,NONE)]] instead.  (what about [[(NONE,SOME p1)]]?).
+    [[(None,None)]] instead.  (what about [[(None,SOME p1)]]?).
 
     POSIX claims [[EINVAL]] is possible "if the socket has been shut down".  We have not modelled
     this either; not clear exactly what point it is referring to, or that this makes sense.
@@ -6958,8 +6962,8 @@ getsockname_2: forall h ts tid d socks sid sock tcp_sock fd fid ff.
 
    bsd_arch h.arch &&
      sock.pr = TCP_PROTO(tcp_sock) &&
-     (tcp_sock.cb.bsd_cantconnect = T && sock.ps1 = NONE) &&
-      (* MS: ps1 = NONE is implied by bsd_cantconnect, so not really needed *)
+     (tcp_sock.cb.bsd_cantconnect = T && sock.ps1 = None) &&
+      (* MS: ps1 = None is implied by bsd_cantconnect, so not really needed *)
       (* BSD returns ECONNRESET if we shutdown the socket for writing while in [[CLOSED]] or [[LISTEN]] *)
       (* MS: no longer include test "sock.cantsndmore = T /\ tcp_sock.st IN {CLOSED;LISTEN}" as a possible
              condition for rule firing, as we could have arrived in LISTEN due to the user calling listen()
@@ -7017,11 +7021,11 @@ getsockname_3: forall h ts tid d sid
    host_redn0 getsockname_3 ((* rp *) rp_all)  (*: Fail with [[EINVAL]]: socket not bound on WinXP :*) ((* rc *)fast fail) 
      ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d));
                socks  = socks |++
-                        [(sid,<| sock with  is1  = NONE; ps1  = NONE |>)] |>)
+                        [(sid,<| sock with  is1  = None; ps1  = None |>)] |>)
    ((* lbl *)Lh_call (tid,getsockname(fd)))
      ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (FAIL' EINVAL),sched_timer));
                socks  = socks |++
-                        [(sid,<| sock with  is1  = NONE; ps1  = NONE |>)] |>)
+                        [(sid,<| sock with  is1  = None; ps1  = None |>)] |>)
 
 
    (*:
@@ -7258,7 +7262,7 @@ and
   \end{itemize}
 
   The return value of the [[getsocktopt()]] call is the time-value of the specified [[flag]]. A
-  return value of [[NONE]] means the timeout is disabled. A return value of [[SOME(s,ns)]] means the
+  return value of [[None]] means the timeout is disabled. A return value of [[SOME(s,ns)]] means the
   timeout value is [[s]] seconds and [[ns]] nano-seconds.
 
 @errors
@@ -7546,7 +7550,7 @@ listen_1: forall h ts socks listen0 tid d
      not (windows_arch h.arch && IS_None ps1) &&
      (bsd_arch h.arch --> cb.bsd_cantconnect = F) &&
      p1 IN autobind(ps1,PROTO_TCP,h,DOMSUB socks  sid) &&
-     (if ps1 = NONE then bound = sid::h.bound else bound = h.bound) &&
+     (if ps1 = None then bound = sid::h.bound else bound = h.bound) &&
      lis = <| q0  = [];
               q   = [];
               qlimit  = n |>
@@ -7557,13 +7561,13 @@ listen_1: forall h ts socks listen0 tid d
      ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d));
                socks  = socks |++
                         [(sid,Sock(SOME fid,sf,is1,ps1,is2,ps2,es,F,cantrcvmore,
-				   TCP_Sock(CLOSED,cb,NONE,[],NONE,[],NONE,NO_OOBDATA)))] ;
+				   TCP_Sock(CLOSED,cb,None,[],None,[],None,NO_OOBDATA)))] ;
                listen  = listen0 |>)
    ((* lbl *)Lh_call (tid,listen(fd,n)))
      ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (OK'_one ()),sched_timer));
                socks  = socks |++
                         [(sid,Sock(SOME fid,sf,is1,SOME p1,is2,ps2,es,F,cantrcvmore,
-                              TCP_Sock(LISTEN,cb,SOME lis,[],NONE,[],NONE,NO_OOBDATA)))] ;
+                              TCP_Sock(LISTEN,cb,SOME lis,[],None,[],None,NO_OOBDATA)))] ;
                listen  = sid :: listen0;
                bound  = bound |>)
 
@@ -7639,13 +7643,13 @@ listen_1b: forall h ts socks listen0 tid d
      ((* h1 *)<| h with  ts  = FUPDATE ts (tid,Timed(Run,d));
                socks  = socks |++
                         [(sid,Sock(SOME fid,sf,is1,ps1,is2,ps2,es,F,cantrcvmore,
-                                   TCP_Sock(LISTEN,cb,SOME lis,[],NONE,[],NONE,NO_OOBDATA)))] ;
+                                   TCP_Sock(LISTEN,cb,SOME lis,[],None,[],None,NO_OOBDATA)))] ;
                listen  = listen0 |>)
    ((* lbl *)Lh_call (tid,listen(fd,n)))
      ((* h2 *)<| h with  ts  = FUPDATE ts (tid,Timed(Ret (OK'_one ()),sched_timer));
                socks  = socks |++
                         [(sid,Sock(SOME fid,sf,is1,ps1,is2,ps2,es,F,cantrcvmore,
-                                   TCP_Sock(LISTEN,cb,SOME lis',[],NONE,[],NONE,NO_OOBDATA)))] ;
+                                   TCP_Sock(LISTEN,cb,SOME lis',[],None,[],None,NO_OOBDATA)))] ;
                listen  = sid :: listen0 |>)
 
 
@@ -7736,7 +7740,7 @@ listen_2: forall h ts tid d
      FAPPLY h.files fid = File(FT_Socket(sid),ff) &&
      FAPPLY h.socks sid = sock &&
      proto_of sock.pr = PROTO_TCP &&
-     sock.ps1 = NONE
+     sock.ps1 = None
 
      ==>
 
@@ -7752,7 +7756,7 @@ listen_2: forall h ts tid d
 
    On WinXP, from thread [[tid]], which is in the [[Run]] state, a [[listen(fd,n)]] call is
    made. [[fd]] refers to a TCP socket [[sock]], identified by [[sid]], which is not bound to a
-   local port: [[sock.ps1 = NONE]]. The call fails with an [[EINVAL]] error.
+   local port: [[sock.ps1 = None]]. The call fails with an [[EINVAL]] error.
 
    A [[Lh_call(tid,listen(fd,n))]] transition is made, leaving the thread state [[Ret (FAIL EINVAL)]].
 
@@ -8006,7 +8010,7 @@ and
   data for the socket it refers to or the socket is still at the out-of-band mark.
 
   The [[timeout]] argument specifies how long the [[pselect()]] call should block waiting for a file
-  descriptor to be ready. If [[timeout=NONE]] then the call should block until one of the file
+  descriptor to be ready. If [[timeout=None]] then the call should block until one of the file
   descriptors in the [[readfds]], [[writefds]], or [[exceptfds]] becomes ready. If
   [[timeout=SOME(s,ns)]] then the call should block for at most [[s]] seconds and [[ns]]
   nanoseconds. However, system activity can lengthen the timeout interval by an indeterminate
@@ -8109,7 +8113,7 @@ and
 
     \item |timeout| specifies how long the |pselect()| call shall block before
      timing out, corresponding to the [[timeout]] argument of the model [[pselect()]]. If the
-     |timeout| parameter is a null pointer this corresponds to [[timeout=NONE]]; if the
+     |timeout| parameter is a null pointer this corresponds to [[timeout=None]]; if the
      |timeout| parameter is not a null pointer, then its two fields,
      |timeout.tv_sec| (the number of seconds) and |timeout.tv_nsec| (the number of
      nano-seconds), correspond to [[timeout=SOME(s,ns)]] where [[s]] is the number of seconds, and
@@ -8117,7 +8121,7 @@ and
 
     \item |sigmask| is the signal-mask to be used when examining the file descriptors,
      corresponding to the [[sigmask]] argument of the model [[pselect()]]. If |sigmask| is a
-     null pointer then [[sigmask = NONE]] in the model; if |sigmask| is not a null pointer
+     null pointer then [[sigmask = None]] in the model; if |sigmask| is not a null pointer
      then [[sigmask = SOME sigs]] in the model where [[sigs]] is the signal-mask to use.
 
     \item if the call is successful then the returned |int| is the number of bits set in the
@@ -8132,7 +8136,7 @@ and
   The Linux interface is similar. On FreeBSD and WinXP there is no |pselect()| call, only a
   |select()| call which is the same as the interface described above, except without the
   |sigmask| argument. The |select()| call corresponds to calling the model
-  [[pselect()]] with [[sigmask=NONE]]. Additionally, the |timeout| argument is a pointer to
+  [[pselect()]] with [[sigmask=None]]. Additionally, the |timeout| argument is a pointer to
   a |timeval| structure which has two members |tv_sec| and |tv_usec|,
   specifying the seconds and micro-seconds to block for, rather than seconds and nano-seconds.
 
@@ -8174,7 +8178,7 @@ pselect_1: forall h ts tid readfds writefds exceptfds timeout sigmask readfds' w
      readfds'' writefds'' exceptfds'' badreadfds badwritefds badexceptfds.
 
    (tltimeopt_wf timeout || windows_arch h.arch)&&
-     sigmask = NONE &&
+     sigmask = None &&
      not (exists fd n. (IN' fd  readfds || IN' fd  writefds || IN' fd  exceptfds) &&
               if windows_arch h.arch
 	      then n = (num_MAX (LENGTH readfds) (num_MAX (LENGTH writefds) (LENGTH exceptfds))) &&
@@ -8230,7 +8234,7 @@ pselect_1: forall h ts tid readfds writefds exceptfds timeout sigmask readfds' w
 
     From thread [[tid]], which is in the [[Run]] state, a
     [[pselect(readfds,writefds,exceptfds,timeout,sigmask)]] call is made. The time-out is
-    well-formed and no signal mask was set: [[sigmask=NONE]]. All of the file descriptors in the
+    well-formed and no signal mask was set: [[sigmask=None]]. All of the file descriptors in the
     sets [[readfds]], [[writefds]], and [[exceptfds]] are greater than the maximum allowed file
     descriptor in a set for the architecure, [[FD_SETSIZE]], and all of them are valid file
     descriptors: they are in the host's finite map of file descriptors, [[h.fds]].
@@ -8273,7 +8277,7 @@ pselect_2: forall h ts tid d
 
    tltimeopt_wf timeout &&
      d' = time_MIN (time_of_tltimeopt timeout) pselect_timeo_t_max &&
-     sigmask = NONE &&
+     sigmask = None &&
      not (exists fd n. (IN' fd  readfds || IN' fd  writefds || IN' fd  exceptfds) &&
               if windows_arch h.arch
 	      then n = num_MAX (LENGTH readfds) (num_MAX (LENGTH writefds) (LENGTH exceptfds)) &&
@@ -8299,7 +8303,7 @@ pselect_2: forall h ts tid d
 
     From thread [[tid]], which is in the [[Run]] state, a
     [[pselect(readfds,writefds,exceptfds,timeout,sigmask)]] call is made. The time-out is
-    well-formed and no signal mask was set: [[sigmask=NONE]]. All of the file descriptors in the
+    well-formed and no signal mask was set: [[sigmask=None]]. All of the file descriptors in the
     sets [[readfds]], [[writefds]], and [[exceptfds]] are greater than the maximum allowed file
     descriptor in a set for the architecure, [[FD_SETSIZE]], and all of them are valid file
     descriptors: they are in the host's finite map of file descriptors, [[h.fds]].
@@ -8598,7 +8602,7 @@ and
   \end{itemize}
 
   The returned [[string]] is the data read from the socket's receive queue. The [[((ip * port) *
-  bool) option]] is always returned as [[NONE]] for a TCP socket.
+  bool) option]] is always returned as [[None]] for a TCP socket.
 
   In order to receive data, a TCP socket must be connected to a peer; otherwise, the [[recv()]] call
   will fail with an [[ENOTCONN]] error.  If the socket has a pending error then the [[recv()]] call
@@ -10670,7 +10674,7 @@ send_1: forall h ts tid d
 	 (str',str'') = SPLIT space str
      ) &&
      sndurp' = (if (MSG_OOB IN opts) && (n = LENGTH str)
-		    then Some (LENGTH (APPEND sndq str') -1)
+		    then Some (LENGTH (APPEND sndq str') - 1)
 		else sndurp)
 
      ==>
@@ -10916,7 +10920,7 @@ send_3a: forall h ts tid sid str opts d socks fid i1 p1 i2 p2 sf
                  (sf.n(SO_SNDBUF)) (LENGTH sndq) (MSG_OOB IN opts) h.arch cb.t_maxseg i2 &&
       space < LENGTH str && space > 0 &&
       (str',str'') = SPLIT space str &&
-      sndurp' = if MSG_OOB IN opts then Some(LENGTH (APPEND sndq str') -1) else sndurp
+      sndurp' = if MSG_OOB IN opts then Some(LENGTH (APPEND sndq str') - 1) else sndurp
 
       ==>
 
@@ -14653,7 +14657,7 @@ deliver_in_1: forall h socks socks'
     (*: Initial sequence number of [[SYN]],[[ACK]] reply segment is unconstrained. :*)
     iss IN { n | T } &&
     (*: The [[ack]] value in the reply segment must acknowledge the remote host's initial [[SYN]]. :*)
-    let ack' = seq + 1 in
+    let ack' = seq + ((*i2f*) 1) in
 
     (*: Update the new connection's control block in light of above. :*)
     cb' = <| cb with 
@@ -14866,7 +14870,7 @@ deliver_in_1: forall h socks socks'
     connection goes) and is closed.
 
    :*)
-   
+(**   
 and
 
 deliver_in_1b: forall h iq iq' socks seg sock bndlm bndlm' sid fid sf i1 p1 i2 p2
@@ -18438,7 +18442,7 @@ val _ = overload_on ("transition3", ``host_redn'``);
 *)
 
 (* -------------------------------------------------- *)
-(**
+
 val _ = export_theory();
 
 (* Local Variables: *)

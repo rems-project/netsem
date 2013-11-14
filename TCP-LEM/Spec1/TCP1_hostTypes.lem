@@ -202,7 +202,7 @@ type (*: round-trip time calculation parameters :*)
        t_lastrtt  : duration ;             (*: most recent instantaneous RTT obtained :*)
                                            (*: Note this should really
                                               be an option type which is
-                                              set to [[NONE]] if no value
+                                              set to [[None]] if no value
                                               has been obtained. The same
                                               applies to [[t_lastshift]]
                                               below. :*)
@@ -244,7 +244,7 @@ type (*: the TCP control block :*)
    tcpcb = <|
 
   (*: timers :*)
-  tt_rexmt      : maybe (timed (rexmtmode * nat)) ; (*: retransmit timer, with mode and shift; [[NONE]] is idle :*)
+  tt_rexmt      : maybe (timed (rexmtmode * nat)) ; (*: retransmit timer, with mode and shift; [[None]] is idle :*)
     (*: see |tcp_output.c:356ff| for more info. :*)
     (*: as in BSD, the shift starts at zero, and is incremented each
         time the timer fires.  So it is zero during the first interval,
@@ -356,7 +356,7 @@ type (*: details of a TCP socket :*)
    tcp_socket
      = <| st   : tcpstate;  (*: here rather than in [[tcpcb]] for convenience as heavily used.  Called |t_state| in BSD :*)
           cb   : tcpcb;
-          lis  :  maybe socket_listen; (*: invariant: [[NONE]] iff not [[LISTEN]] :*)
+          lis  :  maybe socket_listen; (*: invariant: [[None]] iff not [[LISTEN]] :*)
           sndq : list byte;
           sndurp : maybe nat;
           rcvq : list byte;
@@ -541,7 +541,7 @@ let (*: compare two control blocks for "equality" modulo known issues :*)
   tracecb_eq (flav:traceflavour) (st:tcpstate) (es:maybe error) (cb:tcpcb) (cb':tcpcb)
     = ((                                cb.snd_una       = cb'.snd_una      ) &&       
 ((if flav = TA_OUTPUT then T else cb.snd_max       = cb'.snd_max      ) &&       
-((if flav = TA_OUTPUT || (st = SYN_SENT && es <> NONE)
+((if flav = TA_OUTPUT || (st = SYN_SENT && es <> None)
         then T
         else cb.snd_nxt       = cb'.snd_nxt      ) &&       
 (  (* only bad on error *)(                                cb.snd_wl1       = cb'.snd_wl1      ) &&       

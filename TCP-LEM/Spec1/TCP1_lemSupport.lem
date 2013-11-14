@@ -1,3 +1,11 @@
+(* 
+
+  todo:
+
+  [ ] eliminate SOME in favour of Some 
+
+*)
+
 open import List
 let FILTER = List.filter
 let MAP = List.map
@@ -15,9 +23,11 @@ let FIXME_bool = true
 let T = true
 let F = false
 
-val is_Some: forall 'a. maybe 'a -> bool
+let lem_transform T = true
+let lem_transform F = false
 
-val IS_None: forall 'a. maybe 'a -> bool
+declare pattern_match exhaustive bool = [ T; F ; ]
+
 
 val FST : forall 'a 'b. ('a * 'b) -> 'a
 
@@ -34,9 +44,15 @@ val I: forall 'a. 'a -> 'a
 let MAX = max
 let MIN = min
 
+let failwith (s:string) = ARB
+
 
 (******************************************************************************)
 (* options maybe *)
+
+val is_Some: forall 'a. maybe 'a -> bool
+
+val IS_None: forall 'a. maybe 'a -> bool
 
 val THE: forall 'a. maybe 'a -> 'a
 
@@ -87,6 +103,8 @@ val int_DIV: int -> int -> int
 val int_min: int -> int -> int
 
 
+let Num (x:int) = FIXME_num
+
 
 (******************************************************************************)
 (* words *)
@@ -106,7 +124,7 @@ let n2w16 n = WORD16 n
 
 let FIXME_word32 = WORD32 0
 
-let i2w i = FIXME_word32
+let i2w (i:int) = FIXME_word32
 
 let w_minus x y = FIXME_word32
 
@@ -163,8 +181,18 @@ instance (NumDivision real)
   let (/) = real_div
 end
 
+instance (NumMult real)
+  let ( * ) = real_times
+end
+
+
 instance (NumAdd real)
-  let (+) = fun x -> fun y -> FIXME_real
+  let (+) = real_plus
+end
+
+
+instance (NumMinus real)
+  let (-) = real_minus
 end
 
 
@@ -177,6 +205,7 @@ let real_of_num = fun (x:nat) -> FIXME_real
 
 let real_compare (x:real) (y:real) = if real_lt x y then LT else if real_gt x y then GT else EQ
 
+(* this also gives us Min and Max *)
 instance (Ord real)
   let compare = real_compare
   let (<) = real_lt
@@ -186,6 +215,7 @@ instance (Ord real)
 end
 
 
+val abs: real -> real
 
 
 (******************************************************************************)

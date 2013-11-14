@@ -97,7 +97,7 @@ let (*: [[<=]] comparison on file descriptors :*)
   fdle (FD n) (FD m) = n <= m
 (*:@mergewithnext:*)
 
-(* FIXME 
+(* these replaced in Lem by typeclass Ord fd below  
 val _ = overload_on ("<", ``fdlt``);
 val _ = overload_on ("<=", ``fdle``);
 *)
@@ -363,7 +363,6 @@ Language values.
 (* Note that one of [[TLty_lift]] and [[TL_option]] needs to be fixed so that the names are consistent. *)
 
 let SOME = Just
-let NONE = Nothing
 
 indreln
 [ tlang_typing:  TLang -> TLang_type -> bool ]
@@ -385,7 +384,7 @@ indreln
 
        r7: forall p ty. tlang_typing p ty ==>
                tlang_typing (TL_option (SOME p)) (TLty_lift ty) and
-       r8: forall ty. true ==> tlang_typing (TL_option NONE) (TLty_lift ty) and
+       r8: forall ty. true ==> tlang_typing (TL_option None) (TLty_lift ty) and
 
        r9: forall e ty. true ==> tlang_typing (TL_err (FAIL e)) (TLty_err ty) and
        r10: forall p ty. tlang_typing p ty ==>
@@ -599,7 +598,7 @@ let
  (*: written [[>=]] :*)
   time_gte xs ys = time_lte ys xs
 
-(* FIXME
+(* these replaced in Lem by typeclass Ord    
 val _ = overload_on("<" , ``time_lt`` );
 val _ = overload_on("<=", ``time_lte``);
 val _ = overload_on(">" , ``time_gt`` );
@@ -638,7 +637,7 @@ end
 
 let time_MAX = time_max
 
-(* FIXME
+(* these replaced by Min and Max in Lem (or more explicitly, time_MIN and time_MAX)
 val _ = overload_on("MIN", ``time_min``);
 val _ = overload_on("MAX", ``time_max``);
 *)
@@ -676,13 +675,14 @@ end
 val _ = overload_on("*", ``real_mult_time``) handle e => Raise e;
 *)
 
-val FIXME_time: time
-
 instance (Numeral time)
-  let fromNumeral x = FIXME_time
+  let fromNumeral x = time (real_from_numeral x)
 end
 
-let time_mult_time t1 t2 = FIXME_time
+let time_mult_time t1 t2 = (match (t1,t2) with
+  | ((time x),(time y)) -> (time (x * y))
+  | _ -> time_infty
+end)
 
 instance (NumMult time)
   let ( * ) = time_mult_time
@@ -712,7 +712,7 @@ and [[usec]] are both natural numbers.
 (* destructor - to option *)
 let realopt_of_time t = match t with 
   | (time x) -> SOME x 
-  | time_infty -> NONE
+  | time_infty -> None
 end
 (*: @mergewithnext :*)
 
@@ -720,6 +720,7 @@ end
 let the_time x = match x with 
   (*: written [[THE]] :*)
 | (time x) -> x
+| time_infty -> (failwith "the_time: attempt to apply the_time to time_infty")
 end
 (*
 val _ = overload_on("THE", ``the_time``);
@@ -754,7 +755,7 @@ type byte = char
 local open integer_word32Theory (* for w2i and i2w functions *) in end;
 *)
 
-type seq32 'a = SEQ32 of 'a * word32
+type seq32 'a = SEQ32 of ('a * word32)
 
 (*: @description
 32-bit wraparound sequence numbers, as used in TCP, along with their special arithmetic.
@@ -765,28 +766,28 @@ type seq32 'a = SEQ32 of 'a * word32
 
 let 
  (*: written [[+]] :*)
-  seq32_plus   (SEQ32 a n) (m:nat) = SEQ32 a (w_plus n (n2w m))
+  seq32_plus   (SEQ32(a,n)) (m:nat) = SEQ32(a,(w_plus n (n2w m)))
 (*: @mergewithnext :*)
 
 
 let 
  (*: written [[-]] :*)
-  seq32_minus  (SEQ32 a n) (m:nat) = SEQ32 a (w_minus n (n2w m))
+  seq32_minus  (SEQ32(a,n)) (m:nat) = SEQ32(a,(w_minus n (n2w m)))
 (*: @mergewithnext :*)
 
 let 
  (*: written [[+]] :*)
-  seq32_plus'  (SEQ32 a n) (m:int) = SEQ32 a (w_plus n (i2w m))
+  seq32_plus'  (SEQ32(a,n)) (m:int) = SEQ32(a,(w_plus n (i2w m)))
 (*: @mergewithnext :*)
 
 let 
  (*: written [[-]] :*)
-  seq32_minus' (SEQ32 a n) (m:int) = SEQ32 a (w_minus n (i2w m))
+  seq32_minus' (SEQ32(a,n)) (m:int) = SEQ32(a,(w_minus n (i2w m)))
 (*: @mergewithnext :*)
 
 
 
-(* FIXME
+(* Lem cannot support this overloading; we resort to manual disambiguation
 val _ = overload_on("+", ``seq32_plus``  );
 val _ = overload_on("-", ``seq32_minus`` );
 val _ = overload_on("+", ``seq32_plus'`` );
@@ -797,7 +798,7 @@ val _ = overload_on("-", ``seq32_minus'``);
 
 let 
  (*: written [[-]] :*)
-  seq32_diff (SEQ32 (a:'a) n) (SEQ32 (b:'a) m) = w2i (w_minus n m)
+  seq32_diff (SEQ32((a:'a), n)) (SEQ32( (b:'a), m)) = w2i (w_minus n m)
 (*: @mergewithnext :*)
 
 (*
@@ -828,7 +829,7 @@ let
  (*: written [[>=]] :*)
   seq32_geq (n:seq32 'a) (m:seq32 'a) = Basic_classes.(>=) (( (seq32_diff n m) : int )) int_zero
 (*: @mergewithnext :*)
-(* FIXME
+(* in Lem, this is handled by the Ord typeclass below 
 val _ = overload_on("<" , ``seq32_lt`` );
 val _ = overload_on("<=", ``seq32_leq``);
 val _ = overload_on(">" , ``seq32_gt`` );
@@ -856,24 +857,35 @@ let
  (*: written [[MAX x y]] :*)
   seq32_max (n:seq32 'a) (m:seq32 'a) = if seq32_lt n m then m else n
 
-(* FIXME
+(* in Lem, this should be min and max, or more explicitly seq32_min, seq32_max
 val _ = overload_on("MIN", ``seq32_min``);
 val _ = overload_on("MAX", ``seq32_max``);
 *)
 
-val FIXME_seq32 : forall 'a. seq32 'a
+(* we want to allow expressions such as s+1 where s is a seq32; for
+the moment, we assert that numerals such as 1 can be converted to
+seq32; this only happens for 'a = tcpLocal or 'a = tcpForeign;
+moreover, any numeral converted to seq32 immediately has the
+made-up-'a-value discarded by the + operation; thus, this approach
+seems reasonable; the alternative is explicitly expanding expressions
+such as s+1 to s+(tcp_seq_local_of_num 1) which is possible but
+horribly awful *)
 
-val seq32_MAX: forall 'a. seq32 'a -> seq32 'a -> seq32 'a
+(* a related problem is that e.g. the expression s + -1 should
+properly use i2w (integerFromNumeral -1) but a grep of the code
+reveals that no such uses arise - we always have eg s - 1, so that 1
+can be converted to a nat and then to a word *)
 
-val FIXME_w2n: forall 'a. numeral -> seq32 'a
+let n2s (n:nat) = SEQ32(FIXME,n2w n) (* FIXME *)
 
 instance forall 'a. (Numeral (seq32 'a))
-  let fromNumeral = FIXME_w2n
+  let fromNumeral n = n2s(natFromNumeral n)
 end
 
-let seq32_plus_seq32 a b = a (* FIXME *)
+let seq32_plus_seq32 (a:seq32 'a) (b:seq32 'a) = (match (a,b) with
+  | (SEQ32(a1,w1),SEQ32(_,w2)) -> (SEQ32(a1,w_plus w1 w2))
+end)
 
-(* FIXME this is potentially dangerous with the Numerall instance above, because we aren't sure that the coercions will preserve semantics... think about this more! *)
 instance forall 'a. (NumAdd (seq32 'a))
   let (+) = seq32_plus_seq32
 end
@@ -889,6 +901,10 @@ instance forall 'a. (Ord (seq32 'a))
   let (>) = seq32_gt
   let (>=) = seq32_geq
 end
+
+let seq32_MAX (x:seq32 'a) (y:seq32 'a) = max x y
+
+val FIXME_seq32 : forall 'a. seq32 'a
 
 
 
@@ -909,23 +925,23 @@ val FIXME_tcp_seq_local : tcp_seq_local
 val FIXME_tcp_seq_foreign : tcp_seq_foreign
 
 (* TCP constructors *)
-let tcp_seq_local   (n:word32) = SEQ32 TcpLocal   n (*: @mergewithnext :*)
-let tcp_seq_foreign (n:word32) = SEQ32 TcpForeign n (*: @mergewithnext :*)
-
+let tcp_seq_local   (n:word32) = SEQ32 (TcpLocal,   n) (*: @mergewithnext :*)
+let tcp_seq_foreign (n:word32) = SEQ32 (TcpForeign, n) (*: @mergewithnext :*)
 
 (* TCP flip-sense overloaded operator *)
-let tcp_seq_local_to_foreign x = match x with | SEQ32 TcpLocal n -> SEQ32 TcpForeign n end (*: @mergewithnext :*)
-let tcp_seq_foreign_to_local x = match x with | SEQ32 TcpForeign n -> SEQ32 TcpLocal n end 
-(* FIXME
+let tcp_seq_local_to_foreign x = match x with | SEQ32(TcpLocal, n) -> SEQ32(TcpForeign, n) end (*: @mergewithnext :*)
+let tcp_seq_foreign_to_local x = match x with | SEQ32(TcpForeign, n) -> SEQ32(TcpLocal, n) end 
+(* in Lem uses of these functions have been removed
 val _ = overload_on("tcp_seq_flip_sense", ``tcp_seq_local_to_foreign``);
 val _ = overload_on("tcp_seq_flip_sense", ``tcp_seq_foreign_to_local``);
 *)
+
 
 (* timestamps are treated identically with TCP sequence numbers,
    as wraparound unsigned 32-bit words *)
 type tstamp = | Tstamp
 type ts_seq = seq32 tstamp
-let ts_seq (n:word32) = SEQ32 Tstamp n
+let ts_seq (n:word32) = SEQ32(Tstamp, n)
 
 (* -------------------------------------------------- *)
 (*

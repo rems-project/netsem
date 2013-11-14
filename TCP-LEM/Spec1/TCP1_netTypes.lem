@@ -163,7 +163,7 @@ let
 (*:
 message well-formedness test (physical constraints imposed by format)
 :*)
-  sane_udpdgm dgm = LENGTH dgm.udp_data < (65536-20-8)
+  sane_udpdgm dgm = LENGTH dgm.udp_data < (65536 - 20 - 8)
 
 
 
@@ -218,7 +218,7 @@ type
     QUENCH
   | SQ_OTHER of (byte * word32) (*: writen [[OTHER]] :*)
 
-(* FIXME val _ = overload_on("OTHER", ``SQ_OTHER``); *)
+(* val _ = overload_on("OTHER", ``SQ_OTHER``); *) (* in Lem, we use SQ_OTHER *)
 
 type 
   icmp_redirect_code =
@@ -228,7 +228,7 @@ type
   | RD_TOSHOST                 (*: written [[TOSHOST]] :*)
   | RD_OTHER of (byte * word32)  (*: written [[OTHER]] :*)
 
-(* FIXME
+(* in Lem, we don't use the following overloadings
 val _ = overload_on("NET",     ``RD_NET``);
 val _ = overload_on("HOST",    ``RD_HOST``);
 val _ = overload_on("TOSNET",  ``RD_TOSNET``);
@@ -242,7 +242,7 @@ type
   | REASS
   | TX_OTHER of (byte * word32)  (*: written [[OTHER]] :*)
 
-(* FIXME val _ = overload_on("OTHER", ``TX_OTHER``); *)
+(* val _ = overload_on("OTHER", ``TX_OTHER``); *) (* not in Lem *)
 
 type 
   icmp_paramprob_code =
@@ -250,7 +250,7 @@ type
   | NEEDOPT
   | PP_OTHER of (byte * word32)  (*: written [[OTHER]] :*)
 
-(* FIXME val _ = overload_on("OTHER", ``PP_OTHER``); *)
+(* val _ = overload_on("OTHER", ``PP_OTHER``); *) (* not in Lem *)
 
 
 (* we list here only those ICMPs we handle.  The rest we explicitly do not specify in this semantics. *)
@@ -323,7 +323,7 @@ let msg_is2 x = (match x with
   | (UDP dgm') -> dgm'.udp_is2
 end)
 
-(* FIXME
+(* in Lem, we use the msg_is1 function rather than this fancy syntax overloading
 val _ = Parse.add_record_field("is1",``msg_is1``);  (* overload x.is1 *)
 val _ = Parse.add_record_field("is2",``msg_is2``);  (* overload x.is2 *)
 *)
