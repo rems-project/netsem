@@ -266,8 +266,8 @@ let
                                      (*: RFC2582 partial window deflation: deflate the congestion
                                          window by the amount of data freshly acknowledged and add
                                          back one maximum segment size :*)
-                                     snd_cwnd = FIXME_num (* Num (int_of_num cb'.snd_cwnd -
-                                                     (ack - cb'.snd_una) + int_of_num cb'.t_maxseg) *);
+                                     snd_cwnd = num_of_int (int_of_num cb'.snd_cwnd -
+                                                     (seq32_diff ack cb'.snd_una) + int_of_num cb'.t_maxseg);
                                      snd_nxt =  cb'.snd_nxt |>) (*: restore previous value :*)
 
        else if TCP_DO_NEWRENO && cb'.t_dupacks >= 3 && ack >= cb'.snd_recover then
@@ -287,7 +287,7 @@ let
                                               flight. This is burst avoidance: [[tcp_output]] is
                                               only able to send upto one further segment until some
                                               of the in flight data is acknowledged. :*)
-                                          FIXME_num (*Num (cb'.snd_max - ack + int_of_num cb'.t_maxseg) *)
+                                          num_of_int ((seq32_diff cb'.snd_max ack) + int_of_num cb'.t_maxseg) 
                                        else
                                           (*: Otherwise, set [[snd_cwnd]] to be [[snd_ssthresh]],
                                               forbidding any further segment output until some in
@@ -329,7 +329,7 @@ let
     (*: If a new round-trip time estimate was calculated above, update the round-trip information
         held by the socket's control block :*)
     let t_rttinf' = (match emission_time with
-                      Some t_rttinf -> update_rtt FIXME_real (* (real_of_int (ticks - time_THE emission_time) / HZ) *)
+                      Some t_rttinf -> update_rtt (real_of_int (seq32_diff ticks (THE emission_time)) / HZ)
                                         cb'.t_rttinf
                    | None -> cb'.t_rttinf end) in
 
@@ -362,8 +362,8 @@ let
                                  acknowledged as it is now consuming space on the receiver's
                                  receive queue. Remove the acknowledged bytes from the send queue
                                  as they will never need to be retransmitted.:*)
-                             (cb'.snd_wnd - FIXME_num (*Num (ack - tcp_sock_0.cb.snd_una) *),
-                              DROP FIXME_num (* (Num (ack - tcp_sock_0.cb.snd_una)) *) tcp_sock_0.sndq)
+                             (cb'.snd_wnd - num_of_int (seq32_diff ack tcp_sock_0.cb.snd_una),
+                              DROP (num_of_int (seq32_diff ack tcp_sock_0.cb.snd_una)) tcp_sock_0.sndq)
                             ) in
 
     (*: Update the control block :*)
@@ -507,8 +507,8 @@ let
             (modify_cb (fun cb'-> <| cb' with  t_dupacks     = t_dupacks';  (*: increment the counter :*)
 
                                         (*: Set to half the current flight size as per RFC2581/2582 :*)
-                                        snd_ssthresh  = FIXME_num (*num_MAX 2 ((num_MIN cb.snd_wnd cb.snd_cwnd) DIV 2
-                                                        DIV cb.t_maxseg) * cb.t_maxseg *);
+                                        snd_ssthresh  = max 2 ((min cb.snd_wnd cb.snd_cwnd) / 2
+                                                        / cb.t_maxseg) * cb.t_maxseg;
 
 					(*: If doing NewReno-style Fast Retransmit set to the
                                             highest sequence number transmitted so far [[snd_max]]. :*)
@@ -607,7 +607,7 @@ let
          pointer always points to the byte immediately following the urgent byte and is relative
          to the start of the segment's data. An urgent pointer of zero signifies that there is no
          urgent data in the segment. :*)
-     let trim_amt_left = if cb.rcv_nxt > seq then FIXME_num (* MIN (Num (cb.rcv_nxt - seq)) (LENGTH data) *)
+     let trim_amt_left = if cb.rcv_nxt > seq then min (num_of_int (seq32_diff cb.rcv_nxt seq)) (LENGTH data) 
                          else 0 in
      let data_trimmed_left = DROP trim_amt_left data in
      let seq_trimmed = seq32_plus seq trim_amt_left in (*: Trimmed data starts at [[seq_trimmed]] :*)
@@ -643,8 +643,8 @@ let
          the socket is not doing inline delivery (and hence the urgent byte is stored in [[iobc]]),
          remove the urgent byte from the segment's data so that it does not get placed in the
          receive queue, and set [[spliced_urp]] to the sequence number of the urgent byte. :*)
-     let rseg = <| tcpReassSegment_seq   = FIXME_seq32 (* seq_trimmed *);
-                   spliced_urp  = if can_pull then SOME(FIXME_seq32 (*cb.rcv_nxt + urp_trimmed - 1*)) else None;
+     let rseg = <| tcpReassSegment_seq   = seq_trimmed;
+                   spliced_urp  = if can_pull then SOME(cb.rcv_nxt + (n2s urp_trimmed) - (n2s 1)) else None;
                    FIN   = FIN_trimmed;
                    data  = if can_pull then
                              APPEND (TAKE (urp - 1) data_trimmed_left_right)
@@ -664,8 +664,8 @@ let
                                  ensures that the pointer is not accidentally overwritten until the
                                  future segment arrives. :*)
                              (*: FreeBSD does not pull [[rcv_up]] along in the fast path; this is a bug :*)
-                             rcv_up = updated_by_onlywhen s.cb.rcv_up  FIXME_seq32 (* (if urp_advanced then seq_trimmed + urp_trimmed
-                                                       else MAX cb.rcv_up cb.rcv_nxt) *)
+                             rcv_up = updated_by_onlywhen s.cb.rcv_up  (if urp_advanced then seq_trimmed + (n2s(urp_trimmed))
+                                                       else max cb.rcv_up cb.rcv_nxt) 
                                     (not (bsd_arch arch && bsd_fast_path)) |>);
                           (*: If the urgent pointer is valid and advances the urgent pointer,
                               update [[rcvurp]]---the socket's receive queue urgent data index---to
@@ -674,8 +674,8 @@ let
                               points to the location where the urgent byte is stored not the byte
                               immediately following the urgent byte (as is the convention for the
                               [[urp]] field in the TCP header). :*)
-                          rcvurp = updated_by_onlywhen s.rcvurp (SOME FIXME_num (*(LENGTH tcp_sock.rcvq +
-                                                    Num(seq_trimmed + urp_trimmed - cb.rcv_nxt - 1)) *))
+                          rcvurp = updated_by_onlywhen s.rcvurp (SOME (LENGTH tcp_sock.rcvq +
+                                                    num_of_int(seq32_diff (seq_trimmed + (n2s(urp_trimmed ))) ((cb.rcv_nxt - (n2s 1))))))
                                   urp_advanced;
                           (*: If the segment's urgent pointer is valid, the urgent data is within
                               this segment and the socket is not doing inline delivery of
@@ -702,7 +702,7 @@ let
              [[data_trimmed_left_right]] is used rather than [[data_deoobed]] in some of the
              conditions below. :*)
      (if seq_trimmed = cb.rcv_nxt &&
-         FIXME_seq32 (* seq_trimmed + LENGTH data_trimmed_left_right + (if FIN_trimmed then 1 else 0)*) > cb.rcv_nxt &&
+         seq_trimmed + (n2s(LENGTH data_trimmed_left_right)) + (n2s(if FIN_trimmed then 1 else 0)) > cb.rcv_nxt &&
          cb.rcv_wnd > 0 then
 
         (*: Only need to acknowledge the segment if there is new in-window data (including urgent
@@ -800,7 +800,7 @@ let
       (*: Case (5) Segment is a window probe.  Note: the original fields from the segment, \ie, [[data]]
           and [[FIN]] are used in the guard below---the trimmed variants are useless here! :*)
       (*: Case (6) Segment is completely beyond the window and is not a window probe :*)
-      else if (seq < cb.rcv_nxt && FIXME_seq32 (* seq + LENGTH data + (if FIN then 1 else 0) *) <= cb.rcv_nxt) || (*: (4) :*)
+      else if (seq < cb.rcv_nxt && seq + (n2s(LENGTH data)) + (n2s(if FIN then 1 else 0)) <= cb.rcv_nxt) || (*: (4) :*)
               (seq_trimmed = cb.rcv_nxt && cb.rcv_wnd = 0 &&
                  LENGTH data + (if FIN then 1 else 0) > 0) || (*: (5) :*)
               T then (*: (6) :*)
@@ -939,7 +939,7 @@ let
                                  (cb.snd_wl2 < ack || cb.snd_wl2 = ack && win > cb.snd_wnd)) ||
                                 (tcp_sock.st = SYN_RECEIVED && not FIN))) in  (*: This replaces BSD's |snd_wl1 := seq - 1| hack; should perhaps be [[~FIN_reass]] :*)
 
-     let seq_trimmed = FIXME_tcp_seq_foreign (*MAX seq (MIN cb.rcv_nxt (seq + LENGTH data))*) in
+     let seq_trimmed = max seq (min cb.rcv_nxt (seq + (n2s(LENGTH data)))) in
 
      (*: Write back the window updates :*)
      modify_cb (fun cb-> <| cb with  snd_wnd = updated_by_onlywhen cb.snd_wnd win update_send_window;
@@ -952,7 +952,7 @@ let
         Note that in [[FIN_WAIT_1]] or [[FIN_WAIT_2]], we still process data, even if [[ourfinisacked]].  :*)
     if (tcp_sock.st = TIME_WAIT || (tcp_sock.st = CLOSING && ourfinisacked)) then
         (*: pull along urgent pointer :*)
-        modify_cb (fun cb-> <| cb with  rcv_up  = FIXME_tcp_seq_foreign (* MAX cb.rcv_up cb.rcv_nxt*) |>) **>
+        modify_cb (fun cb-> <| cb with  rcv_up  = max cb.rcv_up cb.rcv_nxt |>) **>
         the_ststuff F
     else
         di3_datastuff_really the_ststuff tcp_sock_0 seg bsd_fast_path arch))
@@ -1145,7 +1145,7 @@ let
           (*: Remaining in [[TIME_WAIT]] until the \wasverb{2MSL} timer expires :*)
           cont |
 
-       (_,_) -> FIXME (* FIXME missing cases? or impossible? probably impossible - other cases are unreachable *)
+       (_,_) -> failwith "di3_ststuff: impossible?" 
        
        end
     )))
@@ -1214,7 +1214,7 @@ let
                      |SYN_SENT->ESTABLISHED =>| update [[rcv_wnd]] then [[rcv_adv]]
                      |SYN_RCVD->ESTABLISHED =>| update [[rcv_adv]] then [[rcv_wnd]] :*)
         let cb' = <| tcp_sock_1.cb with  rcv_wnd  = rcv_window;
-                                        rcv_adv  = FIXME_seq32 (*tcp_sock_1.cb.rcv_nxt + tcp_sock_1.cb.rcv_wnd*) |> in
+                                        rcv_adv  = tcp_sock_1.cb.rcv_nxt + (n2s(tcp_sock_1.cb.rcv_wnd)) |> in
 
         (*: Update both the newly connected socket and the listening socket :*)
         socks' = (socks |++
@@ -15135,7 +15135,7 @@ deliver_in_2: forall h socks iq iq' oq oq' seg sid fid sf i1 p1 i2 p2 cb es cant
 
               (*: update RTT estimators from timestamp or roundtrip time :*)
               let emission_time = match ts with
-                                      Some (ts_val,ts_ecr) -> Some FIXME_seq32 (* (ts_ecr - 1) *)
+                                      Some (ts_val,ts_ecr) -> Some (ts_ecr - (n2s 1))
                                   | None ->
                                   (match cb.t_rttseg with
                                        Some (ts0,seq0) -> if ack > seq0
@@ -15211,7 +15211,7 @@ deliver_in_2: forall h socks iq iq' oq oq' seg sid fid sf i1 p1 i2 p2 cb es cant
                                              rcv_up, so the effect is that rcv_up points from
                                              the first byte of data, and cannot point to the SYN. *)
                                            (* proof obligation: the Num is nonnegative! *)
-               (rcvurp':maybe nat) = Some (0 (* LENGTH rcvq *) + num_of_int FIXME_int (* (seq32_diff (seq32_plus seq urp) cb.rcv_nxt) *))
+               (rcvurp':maybe nat) = Some (0 (* LENGTH rcvq *) + num_of_int (seq32_diff (seq32_plus seq urp) cb.rcv_nxt) )
            else
                rcv_up' = cb.rcv_nxt && (*: pull along with window :*)
                rcvurp' = rcvurp) &&
@@ -15235,7 +15235,7 @@ deliver_in_2: forall h socks iq iq' oq oq' seg sid fid sf i1 p1 i2 p2 cb es cant
      data' = TAKE rcv_window data_deoobed &&
      FIN' = (if data' = data_deoobed then FIN else F) &&
      rcvq' = data' &&  (*: because [[rcvq]] is empty initially :*)
-     rcv_nxt' = FIXME_seq32 (*seq + 1 (* for SYN *) + LENGTH data' + (if FIN' then 1 else 0)*) &&
+     rcv_nxt' = seq + (n2s 1) (* for SYN *) + (n2s(LENGTH data')) + (n2s(if FIN' then 1 else 0)) &&
      rcv_wnd' = rcv_window - LENGTH data' && (* MS: do not need to subtract 1 for SYN here, as does not
                                                     take up space in rcvq. *)
 
@@ -15268,7 +15268,7 @@ deliver_in_2: forall h socks iq iq' oq oq' seg sid fid sf i1 p1 i2 p2 cb es cant
               rcv_nxt      = rcv_nxt';
               rcv_wnd      = rcv_wnd';
               tf_rxwin0sent  = (rcv_wnd' = 0);
-              rcv_adv      = FIXME_seq32 (* rcv_nxt' + (shift_left (shift_right rcv_wnd' rcv_scale') rcv_scale') *); 
+              rcv_adv      = rcv_nxt' + (n2s(shift_left (shift_right rcv_wnd' rcv_scale') rcv_scale')); 
               rcv_up       = rcv_up';
               t_maxseg     = t_maxseg'';
               ts_recent      = match ts with
@@ -16895,8 +16895,8 @@ timer_tt_rexmtsyn_1: forall h socks sid sock sock' cb cb' cb'' oq oq' shift d
                         t_rttseg           = None;
                         snd_cwnd           = cb.t_maxseg;
                         (*: Calculation as per BSD :*)
-                        snd_ssthresh       = cb.t_maxseg * FIXME_num (*MAX 2 (MIN cb.snd_wnd cb.snd_cwnd
-                                                                      DIV (2 * cb.t_maxseg))*);
+                        snd_ssthresh       = cb.t_maxseg * max 2 (min cb.snd_wnd cb.snd_cwnd
+                                                                      / (2 * cb.t_maxseg));
                         snd_cwnd_prev      = snd_cwnd_prev';
                         snd_ssthresh_prev  = snd_ssthresh_prev';
                         t_dupacks          = 0 |> &&
@@ -17008,7 +17008,7 @@ timer_tt_rexmt_1: forall h socks sid sock sock' sock'' cb cb' cb'' oq oq' shift 
                                                         here we clear it as per BSD - tcp_output_really does not set
                                                         it again, as we're doing a retransmit. see tcp_output.c::785 *)
                          snd_cwnd           = cb.t_maxseg;
-                         snd_ssthresh       = cb.t_maxseg * FIXME_num (*MAX 2 (MIN cb.snd_wnd cb.snd_cwnd DIV (2 * cb.t_maxseg))*);
+                         snd_ssthresh       = cb.t_maxseg * max 2 (min cb.snd_wnd cb.snd_cwnd / (2 * cb.t_maxseg));
                          snd_cwnd_prev      = snd_cwnd_prev';
                          snd_ssthresh_prev  = snd_ssthresh_prev';
                          t_dupacks          = 0 |> &&
@@ -17176,7 +17176,7 @@ timer_tt_keep_1: forall h socks oq oq' seg d
               TCP1_netTypes.is2   = Some i1;
               TCP1_netTypes.ps1   = Some p2;
               TCP1_netTypes.ps2   = Some p1;
-              TCP1_netTypes.seq   = FIXME_seq32 (*cb.snd_una - 1*);  (*: deliberately outside window :*)
+              TCP1_netTypes.seq   = cb.snd_una - 1);  (*: deliberately outside window :*)
               TCP1_netTypes.ack   = cb.rcv_nxt;
               TCP1_netTypes.URG   = F;
               TCP1_netTypes.ACK   = T;

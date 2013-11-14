@@ -890,6 +890,15 @@ instance forall 'a. (NumAdd (seq32 'a))
   let (+) = seq32_plus_seq32
 end
 
+let seq32_minus_seq32 (a:seq32 'a) (b:seq32 'a) = (match (a,b) with
+  | (SEQ32(a1,w1),SEQ32(_,w2)) -> (SEQ32(a1,w_minus w1 w2))
+end)
+
+instance forall 'a. (NumMinus (seq32 'a))
+  let (-) = seq32_minus_seq32
+end
+
+
 (* ordering *)
 
 let seq32_compare (x:seq32 'a) (y:seq32 'a) = if x=y then EQ else if seq32_lt x y then LT else GT
@@ -904,9 +913,6 @@ end
 
 let seq32_MAX (x:seq32 'a) (y:seq32 'a) = max x y
 
-val FIXME_seq32 : forall 'a. seq32 'a
-
-
 
 (* -------------------------------------------------- *)
 (*      TCP SEQUENCE NUMBERS and TIMESTAMPS           *)
@@ -920,9 +926,6 @@ type tcpForeign = | TcpForeign
 (* TCP sequence number types *)
 type tcp_seq_local = seq32 tcpLocal
 type tcp_seq_foreign = seq32 tcpForeign
-
-val FIXME_tcp_seq_local : tcp_seq_local
-val FIXME_tcp_seq_foreign : tcp_seq_foreign
 
 (* TCP constructors *)
 let tcp_seq_local   (n:word32) = SEQ32 (TcpLocal,   n) (*: @mergewithnext :*)
