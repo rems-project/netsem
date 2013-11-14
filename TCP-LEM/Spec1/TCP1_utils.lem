@@ -74,9 +74,9 @@ let funupd f x y = fun x' -> if Basic_classes.(=) x' x then y else f x
 let  funupd_list f xys = fold_left (fun f (x,y) -> funupd f x y) f xys
 (*: @mergewithnext :*)
 
-let clip (i:int) = if i < int_zero then (0:int) else 0
+let clip (i:int) = if i < (0:int) then (0:int) else 0
 
-(* let tmp = (Int.int 0) = int_zero *)
+(* let tmp = (Int.int 0) = (0:int) *)
 
 (*: clip [[int]] to [[num]] :*)
 let clip_int_to_num (i:int) = if i < 0 then 0 else num_of_int i
@@ -133,7 +133,7 @@ val _ = add_bare_numeral_form (#"w", SOME "n2w")
 (* this definition really should be built in... *)
 (* ... doesn't need phasing; handled specially in testEval *)
 (*: inject [[int]] into [[real]] :*)
-let  real_of_int (i:int) = if Basic_classes.(<) i int_zero then ~(real_of_num (num_of_int (int_neg i)))
+let  real_of_int (i:int) = if Basic_classes.(<) i (0:int) then ~(real_of_num (num_of_int (int_neg i)))
                                  else real_of_num (num_of_int i)
 (*: @mergewithnext :*)
 

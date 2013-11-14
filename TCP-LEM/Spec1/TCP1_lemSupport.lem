@@ -2,11 +2,12 @@
 
   todo:
 
-  [ ] eliminate SOME in favour of Some 
+  [ ] tidy up names eg IS_None
 
 *)
 
 open import List
+
 let FILTER = List.filter
 let MAP = List.map
 
@@ -14,11 +15,8 @@ let MAP = List.map
 open import Pervasives_extra
 
 val FIXME: forall 'a. 'a
+val ARB: forall 'a. 'a (* ARB is a constant available in HOL, typically used to model partial functions *)
 
-
-let FIXME_num = (0:nat)
-
-let FIXME_bool = true
 
 let T = true
 let F = false
@@ -28,21 +26,19 @@ let lem_transform F = false
 
 declare pattern_match exhaustive bool = [ T; F ; ]
 
+let FST = fst
 
-val FST : forall 'a 'b. ('a * 'b) -> 'a
-
-val SND : forall 'a 'b. ('a * 'b) -> 'b
-
-val num_MIN: nat -> nat -> nat
-
-val num_MAX: nat -> nat -> nat
-
-val ARB: forall 'a. 'a
-
-val I: forall 'a. 'a -> 'a
+let SND = snd
 
 let MAX = max
 let MIN = min
+
+let num_MIN = min
+
+let num_MAX = max
+
+val I: forall 'a. 'a -> 'a
+let I = fun x -> x
 
 let failwith (s:string) = ARB
 
@@ -50,13 +46,14 @@ let failwith (s:string) = ARB
 (******************************************************************************)
 (* options maybe *)
 
-val is_Some: forall 'a. maybe 'a -> bool
+let is_Some = isJust
 
-val IS_None: forall 'a. maybe 'a -> bool
+let IS_None = isNothing
 
-val THE: forall 'a. maybe 'a -> 'a
+let THE = fromMaybe ARB
 
-val option_case: forall 'a 'b. 'b -> ('a -> 'b) -> maybe 'a -> 'b
+let option_case = maybe
+
 
 type option 'a = maybe 'a
 declare lem target_rep type option = `maybe` 
@@ -76,17 +73,12 @@ val shift_right: nat -> nat -> nat
 
 
 
-
 (******************************************************************************)
 (* ints *)
 
 type int = integer
 
-let int_zero = (0:int) (* Int.int 0 *) (* FIXME remove this defn and occurrences in following *)
-
-let FIXME_int = int_zero
-
-val int_geq : int -> int -> bool
+val int_geq : int -> int -> bool (* FIXME these operations should be aliases for Lem's built in operations *)
 
 val int_lt : int -> int -> bool
 
@@ -103,59 +95,66 @@ val int_DIV: int -> int -> int
 val int_min: int -> int -> int
 
 
-let Num (x:int) = FIXME_num
-
-
 (******************************************************************************)
 (* words *)
 
-(* contains defns available in HOL but not available in LEM, such as
-word32; this comes before all other TCP1_xxx files; many FIXMEs *)
+(* gives defns available in HOL but not available in Lem *)
 
-type word32 = WORD32 of nat (* FIXME *)
+(* following HOL model of words; the spec depends on the exact model
+of words provided by HOL, so we don't reproduce these defns here *)
 
-type word16 = WORD16 of nat (* FIXME *)
+type word 'a = Word of 'a 
 
-let w2i w = FIXME_int
+type word_size_16 = Word_size_16 of unit
 
-let n2w n = WORD32 n
+type word_size_32 = Word_size_32 of unit
 
-let n2w16 n = WORD16 n
+type word32 = word word_size_32 (* WORD32 of nat (* FIXME *) *)
 
-let FIXME_word32 = WORD32 0
+let WORD32 (n:nat) = Word (Word_size_32 ())
 
-let i2w (i:int) = FIXME_word32
+type word16 = word word_size_16 (* WORD16 of nat (* FIXME *) *)
 
-let w_minus x y = FIXME_word32
+let WORD16 (n:nat) = Word (Word_size_16 ())
 
-let w_plus x y = FIXME_word32
+let n2w (n:nat) = WORD32 n
 
-let w2n w = FIXME_num  (* FIXME needs a more specific type! *)
+let n2w16 (n:nat) = WORD16 n
 
-let INT32_SIGNED_MAX = FIXME_word32
+val w_minus: word32 -> word32 -> word32
+
+val w_plus: word32 -> word32 -> word32
+
+val w2n: forall 'a. word 'a -> nat
 
 val word_zero: word32
 
 val word16_zero: word16
 
-let zero_w32 = WORD32 0
+
+
+(* following 3 defns from integer_word32 *)
+
+val i2w: int -> word32
+
+val w2i: word32 -> int
+
+val INT32_SIGNED_MAX: word32 (* n2w 2147483647 *) (* FIXME lem fails to parse this as an int: failure int_of_string *)
+
+
 
 
 (******************************************************************************)
 (* reals *)
 
-(* FIXME this is a hack just to get a type for real *)
+(* Lem does not support reals out-of-the-box, so we defined an isomorphic type here *)
 type real = Real of (nat -> bool)
 
 val real_from_numeral : numeral -> real
 
-let FIXME_real = Real (fun x -> true)
-
-
 instance (Numeral real)
   let fromNumeral = real_from_numeral
 end
-
 
 val real_MAX: real -> real -> real
 
@@ -167,13 +166,13 @@ let ~ = real_neg (* FIXME *)
 
 val real_gte: real -> real -> bool
 
-let real_minus (x:real) (y:real) = FIXME_real
-let real_plus (x:real) (y:real) = FIXME_real
-let real_div (x:real) (y:real) = FIXME_real
-let real_times (x:real) (y:real) = FIXME_real
+val real_minus: real -> real -> real
+val real_plus: real -> real -> real
+val real_div: real -> real -> real 
+val real_times: real -> real -> real
 
-let real_gt (x:real) (y:real) = FIXME_bool
-let real_lt (x:real) (y:real) = FIXME_bool
+val real_gt: real -> real -> bool
+val real_lt: real -> real -> bool
 let real_lte (x:real) (y:real) = real_lt x y || (x=y)
 
 
@@ -198,10 +197,9 @@ end
 
 val duration_zero:real
 
+let real_zero = (0:real)
 
-let real_zero = FIXME_real
-
-let real_of_num = fun (x:nat) -> FIXME_real
+val real_of_num: nat -> real
 
 let real_compare (x:real) (y:real) = if real_lt x y then LT else if real_gt x y then GT else EQ
 
@@ -214,7 +212,6 @@ instance (Ord real)
   let (>=) = real_gte
 end
 
-
 val abs: real -> real
 
 
@@ -225,9 +222,11 @@ let LENGTH = List.length
 
 let fold_left = foldl
 
-val MAP2: forall 'a 'b 'c. ('a -> 'b -> 'c) -> list 'a -> list 'b -> list 'c
+let EVERY = all
+(* val EVERY : forall 'a. ('a -> bool) -> list 'a -> bool *)
 
-val EVERY : forall 'a. ('a -> bool) -> list 'a -> bool
+(* these HOL constants are not available in Lem, but could easily be defined here *)
+val MAP2: forall 'a 'b 'c. ('a -> 'b -> 'c) -> list 'a -> list 'b -> list 'c
 
 val EL: forall 'a. nat -> list 'a -> 'a
 
@@ -236,7 +235,9 @@ val EL: forall 'a. nat -> list 'a -> 'a
 (******************************************************************************)
 (* fmaps *)
 
-type fmap 'a 'b
+(* various constants, most of which are not available in Lem currently *)
+
+type fmap 'a 'b (* FIXME we should use Lem's built in fmaps *)
 val FEMPTY : forall 'a 'b. fmap 'a 'b
 val FUPDATE : forall 'a 'b. fmap 'a 'b -> ('a * 'b) -> fmap 'a 'b
 val FAPPLY : forall 'a 'b. fmap 'a 'b -> 'a -> 'b
@@ -249,7 +250,6 @@ val domain: forall 'a 'b. fmap 'a 'b -> set 'a
 val (|+) : forall 'a 'b. fmap 'a 'b -> 'a * 'b -> fmap 'a 'b
 
 val (|++) : forall 'a 'b. fmap 'a 'b -> list ('a * 'b) -> fmap 'a 'b
-
 
 val DRESTRICT: forall 'a 'b. fmap 'a 'b -> set 'a -> fmap 'a 'b
 

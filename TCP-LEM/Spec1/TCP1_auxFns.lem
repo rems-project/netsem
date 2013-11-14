@@ -355,7 +355,7 @@ let
 (*: Constrain the TCP timestamp option values that appear in an outgoing segment :*)
   do_tcp_options cb_tf_doing_tstmp cb_ts_recent cb_ts_val  =
     if cb_tf_doing_tstmp then
-       let ts_ecr' = option_case (ts_seq zero_w32) I (timewindow_val_of cb_ts_recent) in
+       let ts_ecr' = option_case (ts_seq word_zero) I (timewindow_val_of cb_ts_recent) in
            Just(cb_ts_val,ts_ecr')
      else
          Nothing
@@ -1778,14 +1778,14 @@ let
                                       if urp_n < 1 then
                                         (F,0) (*: Urgent data out of range; don't set :*)
                                       else if urp_n < 65536 then
-                                        (T,w2n urp_n) (*: Urgent data in range; set :*)
+                                        (T,num_of_int urp_n) (*: Urgent data in range; set :*)
                                       else
 					(*: Urgent data in the very distant future; set :*)
 					(* Steven's suggestion; not sure if followed *)
                                         (T,65535) end) in
     (*: Calculate size of the receive window (based upon available buffer space) :*)
     let rcv_wnd'' = calculate_bsd_rcv_wnd sock.sf tcp_sock in
-    let rcv_wnd' = num_MAX (w2n (seq32_diff cb.rcv_adv cb.rcv_nxt)) (num_MIN (shift_left TCP_MAXWIN cb.rcv_scale)
+    let rcv_wnd' = num_MAX (num_of_int (seq32_diff cb.rcv_adv cb.rcv_nxt)) (num_MIN (shift_left TCP_MAXWIN cb.rcv_scale)
                   (if rcv_wnd'' < DIV (sock.sf.n(SO_RCVBUF)) 4 && rcv_wnd'' < cb.t_maxseg
 		   then 0  (*: Silly window avoidance: shouldn't advertise a tiny window :*)
                    else rcv_wnd'')) in

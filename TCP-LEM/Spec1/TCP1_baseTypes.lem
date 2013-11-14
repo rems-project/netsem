@@ -814,20 +814,20 @@ val _ = overload_on("-", ``seq32_diff``);
 
 let 
  (*: written [[<]] :*)
-  seq32_lt  (n:seq32 'a) (m:seq32 'a) = Basic_classes.(<) (( (seq32_diff n m) : int )) int_zero
+  seq32_lt  (n:seq32 'a) (m:seq32 'a) = Basic_classes.(<) (( (seq32_diff n m) : int )) (0:int)
 (*: @mergewithnext :*)
 
 let 
  (*: written [[<=]] :*)
-  seq32_leq (n:seq32 'a) (m:seq32 'a) = Basic_classes.(<=) (( (seq32_diff n m) : int )) int_zero
+  seq32_leq (n:seq32 'a) (m:seq32 'a) = Basic_classes.(<=) (( (seq32_diff n m) : int )) (0:int)
 (*: @mergewithnext :*)
 let 
  (*: written [[>]] :*)
-  seq32_gt  (n:seq32 'a) (m:seq32 'a) = Basic_classes.(>) (( (seq32_diff n m) : int )) int_zero
+  seq32_gt  (n:seq32 'a) (m:seq32 'a) = Basic_classes.(>) (( (seq32_diff n m) : int )) (0:int)
 (*: @mergewithnext :*)
 let 
  (*: written [[>=]] :*)
-  seq32_geq (n:seq32 'a) (m:seq32 'a) = Basic_classes.(>=) (( (seq32_diff n m) : int )) int_zero
+  seq32_geq (n:seq32 'a) (m:seq32 'a) = Basic_classes.(>=) (( (seq32_diff n m) : int )) (0:int)
 (*: @mergewithnext :*)
 (* in Lem, this is handled by the Ord typeclass below 
 val _ = overload_on("<" , ``seq32_lt`` );

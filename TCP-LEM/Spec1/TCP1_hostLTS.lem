@@ -5612,9 +5612,9 @@ dupfd_1: forall h ts tid d
      fd IN FDOM fds &&
      fid = (FAPPLY fds  fd) &&
      n >= 0 &&
-     FD (Num n) < OPEN_MAX_FD &&  (* attempt to save doing a LEAST if n is out of range *)
+     FD (num_of_int n) < OPEN_MAX_FD &&  (* attempt to save doing a LEAST if n is out of range *)
      (*: REMARK use of [[LEAST P]] should be guarded with [[EXISTS P]] :*)
-     fd' = FD (LEAST { n' | Num n <= n' && FD n' < OPEN_MAX_FD && NOTIN (FD n')  (FDOM fds)}) &&
+     fd' = FD (LEAST { n' | num_of_int n <= n' && FD n' < OPEN_MAX_FD && NOTIN (FD n')  (FDOM fds)}) &&
      fds' = (fds |+ (fd', fid))
 
      ==>
@@ -5666,7 +5666,7 @@ dupfd_3: forall h ts tid d
      fd n err.
 
    unix_arch h.arch &&
-     n < 0 || Num n >= OPEN_MAX &&
+     n < 0 || num_of_int n >= OPEN_MAX &&
      err = (if bsd_arch h.arch then EBADF else EINVAL)
 
      ==>
@@ -5715,7 +5715,7 @@ dupfd_4: forall h ts tid d
      fid = (FAPPLY h.fds  fd) &&
      n >= 0 &&
      (*: REMARK this rule is incorrect; it doesn't mean what the author thought it meant :*)
-     fd' = FD (LEAST { n' | Num n <= n' && OPEN_MAX_FD <= FD n' && NOTIN (FD n')  (FDOM h.fds)})
+     fd' = FD (LEAST { n' | num_of_int n <= n' && OPEN_MAX_FD <= FD n' && NOTIN (FD n')  (FDOM h.fds)})
 
      ==>
 
@@ -15210,7 +15210,7 @@ deliver_in_2: forall h socks iq iq' oq oq' seg sid fid sf i1 p1 i2 p2 cb es cant
                rcv_up' = seq32_plus (seq + 1) urp && (* BSD advances seq by 1 for the SYN before setting
                                              rcv_up, so the effect is that rcv_up points from
                                              the first byte of data, and cannot point to the SYN. *)
-                                           (* proof obligation: the Num is nonnegative! *)
+                                           (* proof obligation: the num is nonnegative! *)
                (rcvurp':maybe nat) = Some (0 (* LENGTH rcvq *) + num_of_int (seq32_diff (seq32_plus seq urp) cb.rcv_nxt) )
            else
                rcv_up' = cb.rcv_nxt && (*: pull along with window :*)

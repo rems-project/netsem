@@ -769,7 +769,7 @@ end)
 let (*: is an optional [[(sec,nsec)]] pair well-formed? :*)
   tltimeopt_wf (*tltimeopt_wf : option (int * int) -> bool *) x = (match x with
   |  Nothing             -> T 
-  | (Just (sec,nsec)) -> (int_geq sec int_zero && (int_geq nsec int_zero && int_lt nsec (int_of_num 1000000000)))
+  | (Just (sec,nsec)) -> (int_geq sec (0:int) && (int_geq nsec (0:int) && int_lt nsec (int_of_num 1000000000)))
 end)
 (*:@mergewithnext:*)
 
