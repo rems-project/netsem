@@ -2,58 +2,64 @@
 
   todo:
 
-  [ ] tidy up names eg IS_None
+  [ ] tidy up names eg IS_None - use lem to lem conversion with
+  lem_transform
+
+  [ ] check that the semantics of DIV in HOL at type int agrees with
+  lem; why is it written DIV in hol source, when / is also possible?
+
+  [ ] Lem parsing of arbitrary length numerals, see INT32_SIGNED_MAX
+
+--
+
+For each "val" declaration (asserting the existence of a given
+constant) we aim to provide a HOL equivalent.
 
 *)
 
-open import List
-
-let FILTER = List.filter
-let MAP = List.map
-
+open List
 
 open import Pervasives_extra
 
-val FIXME: forall 'a. 'a
-val ARB: forall 'a. 'a (* ARB is a constant available in HOL, typically used to model partial functions *)
+(* ARB is a constant available in HOL, typically used to model partial
+functions; unlike similar things in Coq, it *does not* introduce
+soundness problems - in HOL, *all* types are inhabited! *)
 
+val ARB: forall 'a. 'a 
+let lem_transform {hol} ARB = ARB
 
-let T = true
-let F = false
+(* typically used for marking incomplete pattern matches where the
+missing cases are not reachable *)
+let failwith (s:string) = ARB
 
 let lem_transform T = true
 let lem_transform F = false
-
 declare pattern_match exhaustive bool = [ T; F ; ]
 
-let FST = fst
+let lem_transform FST = fst
 
-let SND = snd
+let lem_transform SND = snd
 
-let MAX = max
-let MIN = min
+let lem_transform MAX = max
+let lem_transform MIN = min
 
 let num_MIN = min
 
 let num_MAX = max
 
-val I: forall 'a. 'a -> 'a
-let I = fun x -> x
-
-let failwith (s:string) = ARB
+let I = Function.id
 
 
 (******************************************************************************)
 (* options maybe *)
 
-let is_Some = isJust
+let lem_transform is_Some = isJust
 
-let IS_None = isNothing
+let lem_transform IS_None = isNothing
 
-let THE = fromMaybe ARB
+let lem_transform THE = fromMaybe ARB
 
-let option_case = maybe
-
+let lem_transform option_case = maybe
 
 type option 'a = maybe 'a
 declare lem target_rep type option = `maybe` 
@@ -64,35 +70,29 @@ let lem_transform Some = Just
 declare pattern_match exhaustive maybe 'a = [ None; Some ; ]
 
 
-(******************************************************************************)
-(* nats *)
-
-val shift_left: nat -> nat -> nat
-
-val shift_right: nat -> nat -> nat
-
-
 
 (******************************************************************************)
 (* ints *)
 
 type int = integer
 
-val int_geq : int -> int -> bool (* FIXME these operations should be aliases for Lem's built in operations *)
-
-val int_lt : int -> int -> bool
-
-let rec EXP n m = if m = (0:nat) then (1:nat) else n * (EXP n (m-1))
-
 val int_of_num : nat -> int
+let lem_transform {hol} int_of_num = int_of_num
 
 val num_of_int: int -> nat
+(* let lem_transform {hol} num_of_int = Num ; FIXME Lem does not recognize Num as a HOL constant *)
 
-val int_neg: int -> int
+let int_geq = integerGreaterEqual
 
-val int_DIV: int -> int -> int
+let int_lt = integerLess
 
-val int_min: int -> int -> int
+let EXP n m = (n:nat) ** (m:nat)
+
+let int_neg = integerNegate
+
+let int_DIV (x:int) (y:int) = x/y
+
+let int_min = min
 
 
 (******************************************************************************)
@@ -101,7 +101,7 @@ val int_min: int -> int -> int
 (* gives defns available in HOL but not available in Lem *)
 
 (* following HOL model of words; the spec depends on the exact model
-of words provided by HOL, so we don't reproduce these defns here *)
+of words provided by HOL *)
 
 type word 'a = Word of 'a 
 
@@ -109,72 +109,113 @@ type word_size_16 = Word_size_16 of unit
 
 type word_size_32 = Word_size_32 of unit
 
-type word32 = word word_size_32 (* WORD32 of nat (* FIXME *) *)
+type word32 = word word_size_32 
 
-let WORD32 (n:nat) = Word (Word_size_32 ())
+type word16 = word word_size_16 
 
-type word16 = word word_size_16 (* WORD16 of nat (* FIXME *) *)
 
-let WORD16 (n:nat) = Word (Word_size_16 ())
+val n2w32: nat -> word32
+(* let lem_transform {hol} n2w = n2w ; Lem does not recognize n2w as a hol constant *)
 
-let n2w (n:nat) = WORD32 n
+val n2w16: nat -> word16
+(* let lem_transform {hol} n2w16 = n2w ; Lem does not recognize n2w as a hol constant *)
 
-let n2w16 (n:nat) = WORD16 n
+(* the following constants map to the HOL functions of the same name. *)
 
 val w_minus: word32 -> word32 -> word32
+let lem_transform {hol} w_minus = w_minus
 
 val w_plus: word32 -> word32 -> word32
+let lem_transform {hol} w_plus = w_plus
 
 val w2n: forall 'a. word 'a -> nat
+let lem_transform {hol} w2n = w2n
 
 val word_zero: word32
+let lem_transform {hol} word_zero = n2w32 0
 
 val word16_zero: word16
-
-
+let lem_transform {hol} word16_zero = n2w16 0
 
 (* following 3 defns from integer_word32 *)
 
 val i2w: int -> word32
+let lem_transform {hol} i2w = i2w
 
 val w2i: word32 -> int
+let lem_transform {hol} w2i = w2i
 
 val INT32_SIGNED_MAX: word32 (* n2w 2147483647 *) (* FIXME lem fails to parse this as an int: failure int_of_string *)
-
 
 
 
 (******************************************************************************)
 (* reals *)
 
-(* Lem does not support reals out-of-the-box, so we defined an isomorphic type here *)
+(* Lem does not support reals out-of-the-box, so we defined an
+isomorphic type here; this should map to the HOL type real *)
+
 type real = Real of (nat -> bool)
 
+let real_MAX = max
+
+let real_MIN = min
+
+val real_neg: real -> real
+let lem_transform {hol} real_neg = real_neg
+
+
+let ~ = real_neg 
+
+val real_of_num: nat -> real
+let lem_transform {hol} real_of_num = real_of_num
+
+(* this allows Lem to parse numeric literals as reals *)
 val real_from_numeral : numeral -> real
 
 instance (Numeral real)
   let fromNumeral = real_from_numeral
 end
 
-val real_MAX: real -> real -> real
+let real_zero = (0:real)
 
-val real_MIN: real -> real -> real
+let duration_zero = real_zero
 
-val real_neg: real -> real
-let ~ = real_neg (* FIXME *)
-
-
-val real_gte: real -> real -> bool
 
 val real_minus: real -> real -> real
+declare hol target_rep function real_minus = infix `-` 
+
 val real_plus: real -> real -> real
+declare hol target_rep function real_plus = infix `+` 
+
 val real_div: real -> real -> real 
+declare hol target_rep function real_div = infix `/` 
+
 val real_times: real -> real -> real
+declare hol target_rep function real_times = infix `*` 
 
 val real_gt: real -> real -> bool
-val real_lt: real -> real -> bool
-let real_lte (x:real) (y:real) = real_lt x y || (x=y)
+declare hol target_rep function real_gt = infix `>` 
 
+val real_lt: real -> real -> bool
+declare hol target_rep function real_lt = infix `<` 
+
+val real_lte: real -> real -> bool
+declare hol target_rep function real_lte = infix `<=` 
+
+val real_gte: real -> real -> bool
+declare hol target_rep function real_gte = infix `>=` 
+
+let real_compare (x:real) (y:real) = if real_lt x y then LT else if real_gt x y then GT else EQ
+
+(* this also gives us Min and Max *)
+instance (Ord real)
+  let compare = real_compare
+  let (<) = real_lt
+  let (<=) = real_lte
+  let (>) = real_gt
+  let (>=) = real_gte
+end
 
 instance (NumDivision real)
   let (/) = real_div
@@ -194,42 +235,29 @@ instance (NumMinus real)
   let (-) = real_minus
 end
 
+val abs: real -> real (* absolute value *)
+let lem_transform {hol} abs = abs
 
-val duration_zero:real
-
-let real_zero = (0:real)
-
-val real_of_num: nat -> real
-
-let real_compare (x:real) (y:real) = if real_lt x y then LT else if real_gt x y then GT else EQ
-
-(* this also gives us Min and Max *)
-instance (Ord real)
-  let compare = real_compare
-  let (<) = real_lt
-  let (<=) = real_lte
-  let (>) = real_gt
-  let (>=) = real_gte
-end
-
-val abs: real -> real
 
 
 (******************************************************************************)
 (* lists *)
 
-let LENGTH = List.length
+let lem_transform FILTER = List.filter
+let lem_transform MAP = List.map
 
-let fold_left = foldl
+let lem_transform LENGTH = List.length
 
-let EVERY = all
-(* val EVERY : forall 'a. ('a -> bool) -> list 'a -> bool *)
+let lem_transform fold_left = foldl
 
-(* these HOL constants are not available in Lem, but could easily be defined here *)
+let lem_transform EVERY = all
+
+(* these HOL constants are not available in Lem, but could easily be defined here if we have ARB *)
 val MAP2: forall 'a 'b 'c. ('a -> 'b -> 'c) -> list 'a -> list 'b -> list 'c
+let lem_transform {hol} MAP2 = MAP2
 
 val EL: forall 'a. nat -> list 'a -> 'a
-
+let lem_transform {hol} EL = EL
 
 
 (******************************************************************************)
@@ -237,70 +265,99 @@ val EL: forall 'a. nat -> list 'a -> 'a
 
 (* various constants, most of which are not available in Lem currently *)
 
-type fmap 'a 'b (* FIXME we should use Lem's built in fmaps *)
-val FEMPTY : forall 'a 'b. fmap 'a 'b
-val FUPDATE : forall 'a 'b. fmap 'a 'b -> ('a * 'b) -> fmap 'a 'b
-val FAPPLY : forall 'a 'b. fmap 'a 'b -> 'a -> 'b
-val FDOM : forall 'a 'b. fmap 'a 'b -> set 'a
+type fmap 'a 'b = map 'a 'b (* FIXME we should use Lem's built in fmaps *)
+val FEMPTY : forall 'a 'b. MapKeyType 'a => fmap 'a 'b
+let lem_transform FEMPTY = Map.empty
 
-val FRANGE : forall 'a 'b. fmap 'a 'b -> set 'b 
+let FUPDATE m (k,v) = Map.insert k v m
 
-val domain: forall 'a 'b. fmap 'a 'b -> set 'a
+let FDOM = Map.domain
 
-val (|+) : forall 'a 'b. fmap 'a 'b -> 'a * 'b -> fmap 'a 'b
+let FRANGE = Map.range
 
+let (|+) = FUPDATE 
+
+(* no counterpart to the following in lem; could be defined *)
 val (|++) : forall 'a 'b. fmap 'a 'b -> list ('a * 'b) -> fmap 'a 'b
+let lem_transform {hol} (|++) = (|++)
 
+(* no direct lem equivalent; could be defined *)
 val DRESTRICT: forall 'a 'b. fmap 'a 'b -> set 'a -> fmap 'a 'b
+let lem_transform {hol} DRESTRICT = DRESTRICT
 
-val o_f: forall 'a 'b 'c. ('b -> 'c) -> (fmap 'a 'b) -> (fmap 'a 'c)
+let o_f = Map.map
+let lem_transform {hol} o_f = o_f  (* infix in hol *)
 
+(* no lem equivalent; could be defined *)
 val RRESTRICT : forall 'a 'b. fmap 'a 'b -> set 'b -> fmap 'a 'b
+let lem_transform {hol} RRESTRICT = RRESTRICT
 
-val DOMSUB: forall 'a 'b. fmap 'a 'b -> 'a -> fmap 'a 'b
+(* val DOMSUB: forall 'a 'b. fmap 'a 'b -> 'a -> fmap 'a 'b *)
+let DOMSUB = Map.deleteSwap
 
-val set_of_fmap: forall 'a 'b. fmap 'a 'b -> set ('a * 'b)
+let set_of_fmap = Map.toSet
 
+(* no direct equivalent in Lem (key not in domain should mean result
+is an option, but hol uses ARB) *)
+val FAPPLY : forall 'a 'b. fmap 'a 'b -> 'a -> 'b
+let lem_transform {hol} FAPPLY = FAPPLY
+
+val domain: forall 'a 'b. SetType 'a,MapKeyType 'a => fmap 'a 'b -> set 'a 
+let lem_transform {hol} domain = FDOM
 
 
 (******************************************************************************)
 (* sets *)
 
-
+(* no equivalent in Lem (could be empty set; hol uses ARB *)
 val LEAST : set nat -> nat
+let lem_transform {hol} LEAST = LEAST
 
 let NOTIN x xs = not (x IN xs)
 
 let BIGUNION s = { x | exists t. x IN t && (t IN s) }
 
-val EMPTY: forall 'a. set 'a
+let EMPTY = Set.empty
 
-val set_of_list: forall 'a. list 'a -> set 'a
+let set_of_list = Set.fromList
 
-val CARD : forall 'a. set 'a -> nat
+let CARD = Set.size
 
+(* no equivalent in Lem; for empty set hol uses ARB; CHOOSE is not a
+standard hol constant so we cannot use lem_transform here *)
 val SET_CHOOSE : forall 'a. set 'a -> 'a
+(* let lem_transform {hol} SET_CHOOSE = CHOOSE - CHOOSE is not a standard hol constant *)
 
-val UNIV: forall 'a. set 'a
+let UNIV = { x | true }
+let lem_transform {hol} UNIV = UNIV
 
-val set_of_bool_fn: forall 'a. ('a -> bool) -> set 'a
+let set_of_bool_fn f = { x | f x = true }
 
-val DIFF: forall 'a. set 'a -> set 'a -> set 'a
-
-
+let DIFF = Set.difference
 
 (******************************************************************************)
-(* strings *)
+(* chars and strings *)
 
-type char = string (* FIXME FIXME *)
+(* In HOL, strings are lists of char. Lem has an inbuilt type char,
+but little support in the standard library. Lem has an inbuilt type
+string. *)
 
 val CHR: nat -> char
+let lem_transform {hol} CHR = CHR
 
 val ORD: char -> nat
+let lem_transform {hol} ORD = ORD
 
+(* In HOL, IMPLODE is a no-op (presumably, at some point in the past,
+there was a separate type for string, necessitating a function to map
+from char list to string). *)
 val IMPLODE: string -> string
+let lem_transform {hol} IMPLODE = IMPLODE
 
+(* In HOL, this function is absent because strings are char lists. In
+HOL, string_of_char_list should therefore be the identity function. *)
 val string_of_char_list: list char -> string
+let lem_transform {hol} string_of_char_list = string_of_char_list
 
 val STRLEN: string -> nat
-
+let lem_transform {hol} STRLEN = STRLEN

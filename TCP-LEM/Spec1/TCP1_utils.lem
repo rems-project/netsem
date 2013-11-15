@@ -94,6 +94,10 @@ let right_shift_num (n:nat) (i:nat) = n / (2 ** i)
 let (<<) = left_shift_num
 let (>>) = right_shift_num
 
+let shift_left x y = x << y
+let shift_right x y = x >> y
+
+
 let DIV = fun x y -> x / y
 
 (* Don't Phase: handled by testEval *)

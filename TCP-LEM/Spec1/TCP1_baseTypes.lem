@@ -766,13 +766,13 @@ type seq32 'a = SEQ32 of ('a * word32)
 
 let 
  (*: written [[+]] :*)
-  seq32_plus   (SEQ32(a,n)) (m:nat) = SEQ32(a,(w_plus n (n2w m)))
+  seq32_plus   (SEQ32(a,n)) (m:nat) = SEQ32(a,(w_plus n (n2w32 m)))
 (*: @mergewithnext :*)
 
 
 let 
  (*: written [[-]] :*)
-  seq32_minus  (SEQ32(a,n)) (m:nat) = SEQ32(a,(w_minus n (n2w m)))
+  seq32_minus  (SEQ32(a,n)) (m:nat) = SEQ32(a,(w_minus n (n2w32 m)))
 (*: @mergewithnext :*)
 
 let 
@@ -876,7 +876,7 @@ properly use i2w (integerFromNumeral -1) but a grep of the code
 reveals that no such uses arise - we always have eg s - 1, so that 1
 can be converted to a nat and then to a word *)
 
-let n2s (n:nat) = SEQ32(FIXME,n2w n) (* FIXME *)
+let n2s (n:nat) = SEQ32(ARB,n2w32 n) (* FIXME *)
 
 instance forall 'a. (Numeral (seq32 'a))
   let fromNumeral n = n2s(natFromNumeral n)
