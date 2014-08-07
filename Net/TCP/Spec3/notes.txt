@@ -1,0 +1,1227 @@
+2006-12-08
+
+making changes to transition format.
+
+get_in_stream and set_stream to access streams.
+
+set_in_stream must check invariants (such as: if both directions destroyed then removed)
+
+
+
+2006-12-07
+
+Why complexity of wercvdafin to replace FIN_reass, rather than just
+peeking at whether there is a FIN on the wire?
+
+Conclude that we might as well peek at whether there is a FIN on the
+wire- at this stage, we are presumably closing the connection, so
+being more precise about the behaviour probably doesn't make sense.
+
+Decision to go nondeterministic on wesentafin, wercvdafin. Problem
+that e.g. ourfinisacked appears to be unconstrained (and therefore its
+name does not represent what it stands for any longer), but the point
+is that it doesn't affect behaviour that much. Seems reasonable to
+keep the name in sync with Spec1.
+
+Thinking further, what is happening it that one host needs to know
+whether the other host has received a FIN. This is the purpose of the
+ourfinisacked flag. Really this should be modelled as a FINACK flag in
+the stream (indicating an ACK for the FIN seq number). But how would
+we know what the FIN seq number was, in order to calculate FINACK in
+the abstraction? Probably we fall back on ourfinisacked from Spec1.deliver_in_3
+
+
+2006-12-06
+
+Reconsidering wesentafin, wercvdafin. Abstraction is stateless if
+these two can be made to disappear.
+
+They appear in one rule- deliver_in_3.
+
+    deliver_in_3, wesentafin
+      ourfinisacked ==> wesentafin
+      ourfinisacked used by di3_ackstuff, di3_datastuff, di3_ststuff
+      di3_ackstuff passes to di3_newackstuff
+        di3_newackstuff closes a socket in state LAST_ACK if ourfinisacked
+      di3_datastuff calls the_ststuff with FIN_reass=F if state is closing and ourfinisacked (?why F?)
+        the_ststuff from di3_ststuff
+
+      di3_ststuff uses FIN_reass and ourfinisacked a lot :(
+
+    deliver_in_3, wercvdafin
+      di3_datastuff passes it as FIN_reass to di3_ststuff
+      di3_ststuff uses it instead of FIN_reass
+
+wesentafin can be calculated from the Spec1 hosts in a static way. As
+can ourfinisacked. Is this interesting?
+
+If we went totally nondeterministic, then we would have a very weak spec.
+
+nondet on wesentafin would affect states LAST_ACK and CLOSING, but
+also generally in di3_ststuff through ourfinisacked. In di3_ststuff,
+ourfinisacked only affects states in startup and closedown.
+
+nondet on wercvdafin affects di3_ststuff, which does state transitions
+based on it. However, wercvdafin could be obtained from a FIN on the
+wire?
+
+
+2006-12-05
+
+ConflateGround output includes msgs, which are required by the
+abstraction function.
+
+Currently I have Spec1 linked into Spec3, so that Holmake can figure
+out the dependencies (will probably revert to adjusting the
+loadPath). So to build ConflateGround.exe I add the following to the
+Holmakefile from Spec1:
+
+GroundConflate.exe: GroundConflate.uo
+	$(HOLMOSMLC) -o $@ GroundConflate.uo
+
+and Holmake GroundConflate.exe
+
+I call it as e.g.:
+
+../GroundConflate.exe trace0593.epsilon.thydata.grounded trace0593.aux.epsilon.thydata.grounded trace0593.net.thydata
+
+
+evalAbsFun.ml now computes the abstraction function (running it
+overnight to test). Basically it just applies abs_trans, and then HOL
+simplification. Obviously this is grossly inefficient.
+
+I build this by copying evalAbsFun.ml to evalAbsFun.sml (couldn't get
+mosml to compile a .ml file), and then adding the following to the
+Holmakefile from Spec1:
+
+evalAbsFun.exe: evalAbsFun.uo
+	$(HOLMOSMLC) -o $@ evalAbsFun.uo
+
+and Holmake evalAbsFun.exe
+
+I call it as e.g.:
+
+../evalAbsFun.exe trace0593.net.thydata trace0593.net3.thydata
+
+Note to Michael: for a given Spec3 network transition (h1,s,h2) -->
+(h1',s',h2'), you can access the underlying Spec1 transition from
+trace0593.net.thydata, which also includes information on the rn rp
+and rc. This let's you know which Spec3 rule to use. So perhaps the
+trace checker should take the spec1 trace and the spec3 trace, instead
+of just the spec3 trace.
+
+The whole process now looks something like:
+
+(trace,trace.aux)
+
+--> conflate.ml
+
+(trace.epsilon,trace.aux.epsilon)
+
+--> CheckTraces.exe --saveths
+
+(trace.epsilon.thydata,trace.aux.epsilon.thydata)
+
+--> GroundTraces.exe
+
+(trace.epsilon.thydata.grounded,trace.aux.thydata.grounded)
+
+--> GroundConflate.exe
+
+trace.net.thydata
+
+--> evalAbsFun.exe
+
+trace.net3.thydata
+
+
+2006-12-01
+
+Michael: the way GroundConflate defines its own test, aux and
+hosts_to_net constants is bad style.  In general, constants should
+only be defined in Script files.  If this isn't done, then the meaning
+of the definitions can vary depending on the interactive context when
+the definitions are executed.  You also end up with constants that
+belong to the "scratch" theory hanging about.  (You can see this in
+the thydata files.)
+
+So, I'd like to move those three constants into a separate theory,
+even if we do eventually throw it away entirely.  I might then try to
+isolate the code in GroundConflate so that we can package it into
+another module.  Then the "interactive script" elements of
+GroundConflate (references to explicit file-names etc) can move into
+evalAbsFun.ml.  There shouldn't be a big problem with the code
+isolation, but the problem with the constants moving is that it will
+invalidate the data files we have generated already (which refer to
+scratch$test etc).
+
+I've modularised a bit, but left the constants in scratch.  But now
+they get put there by the script in evalAbsFun.ml.
+
+
+2006-11-23
+
+Looking at yesterday. It could be that when the cb is destroyed,
+further data received by the other end cannot have an observable
+effect at the API layer. But this seems unlikely. For example, if the
+RST gets lost, then the other end doesn't know anything about the
+destroyed cb, so can receive data as normal. However, it may be that,
+in the same way that we don't treat duplicate SYNs, this falls outside
+the range of behaviour we want to deal with.
+
+Let's suppose we want to deal with it the proper way, i.e. by falling
+back on looking at the messages on the wire, in case the cb is
+deleted. Then can we do anything clever? For example, can we use the
+state of the data at the previous step? Well, we could, but then we
+would have to figure out if any data was received, by looking at the
+current ssi. e.g. if ssi recorded that data was received, we would
+drop this from the data in the previous step. So, by using stateful
+information (i.e. the state at the last step) we are compelled to do
+something clever. Plus, this duplicates functionality that is present
+in the stream spec.
+
+So we really do have to look at the contents of the messages in play.
+
+Also considering pes point that the quad should be used to identify
+the socket. The problem with this is that e.g. on BSD, a close_3
+resets is1 and ps1 on the socket. But perhaps the socket will no
+longer take part in any communication, so we can just zero it. Then
+the socket becomes destroyed, and there is no data in the relevant
+stream (indeed, the sndq gets destroyed). In this case, we would check for a close call in real_absfn and simply destroy the stream, except that data might still be on the wire. So we need to act later (i.e. in absfn_one_sided).
+
+In fact, smatch is only used for data, so we can match on the quad,
+and if this fails (i.e. NONE case) we resort to looking at the
+messages on the wire.
+
+OK, so fixed smatch to use the full quad.
+
+Now need to deal with data, i.e. write some form of reassembly
+function from the messages on the wire. This should return the longest
+gap-free portion of the stream that can be reconstructed from the msgs
+on the wire, starting at the byte that receiver is expecting next.
+
+
+
+2006-11-22
+
+Thinking about abstraction function again. Now, for the data, we
+currently look at the cb.sndq and rcvq, and ignore messages on
+wire. For SYN etc. the equivalent would be to look at the state
+(SYN_SENT) rather than the msgs on wire. This fails because the cb
+could be deleted but a SYN could still be on the wire, leading to a
+SYN being received at the other end (even tho the abstraction records
+that there is no SYN because there is no cb in SYN_SENT).
+
+For the data, the situation is similar- if the cb is deleted, then we
+may still receive some data at the other end, even tho the abstraction
+function records that there is no data present.
+
+So we have to decide what we think about these situations. Are they
+something we just do not deal with? Well, our aims are to capture the
+behaviour of the API as it really is, which includes these corner
+cases.
+
+We also want the abstraction fn to be formal (ish).
+
+I want to say that the problem is that we have not been formal up to
+this point, so all the invariants that would make the abstraction
+function easy to state are not documented. So we have to fall back on
+the basic approach. But I think it really just needs more close work
+on the actual transitions, checking that various things can't happen.
+
+e.g. suppose a SYN is sent, received, and another SYN sent. Now,
+because the 2nd SYN will be rejected, the stream should not record
+this second SYN. However, naively this SYN will be recorded.
+
+The abstraction function is really "a SYN is on the wire that may be
+received as valid".
+
+The feeling is that as we go deeper into the details, the absfn
+becomes more and more complex, and so less easy to write.
+
+But really, we've got 4 flags and one list to construct with the
+absfn. It shouldn't be that difficult!
+
+OK, first things first, let's deal with the SYN flag. The stream should record a SYN iff
+
+There is a SYN on sndq, oq, wire, iq, rcvq such that the seq is such
+that SYN can be received.
+
+Scenario: But looking at the spec, apparently a SYN retransmission is treated as
+an error by deliver_in_8. There is even a comment that perhaps a RST
+should only be sent if SYN is in window.
+
+So we conclude that we do not handle SYN retransmissions correctly at the moment.
+
+Case: use SYN_SENT on control block
+
+Scenario: socket sends SYN, then gets zapped. Looks like SYN
+disappears, but is still on wire. e.g. close_7, sock gets
+deleted. This implies that we can't use the cb.
+
+Case: use messages on wire. Then we forget sequence numbers, cos SYN
+retransmit is not handled properly anyway.
+
+
+OK, what to do about the data? Well, we again have to use the actual
+messages on the wire, in case the sndq and the rcvq are not
+present. If they are present, we presumably need an invariant, stating
+that the messages on the wire are consistent.
+
+
+
+
+2005-10-25
+
+Thinking again about deleting the streams. Problem is that we want the
+streams to be oblivious to whether they have been deleted from the
+cb. So the delete flag should be independent of the stream. This could
+be achieved by having the streams independent, and the net recording
+such additional info. On the other hand, some calls do indeed read and
+write to a stream, so it appears that the streams must be treated as a unit.
+
+Maybe the stream should have one transition with ssi as a label.
+
+2005-10-24
+
+thinking of the spec3 network transitions. The net transitions do not
+state whether the transition of the host will be a simple trans, a
+stream trans or a multiway trans. However, this is largely determined
+by the state of the host when the call is made. Thus, this information
+should be recorded in the abstraction and used by the checker. i.e. in
+the abstraction, we explicitly state for close_8 say, that the network
+host does a call_multiple_and_destroy. Rather than an abstract simreln
+! x ? y , we should give the abstract y steps for the concrete x. In
+order to state these things, net transitions should be named. Perhaps
+stream transitions should also be named.
+
+Thinking about the half removal of a stream. This is really info that
+should be maintained in the network. So we may have flags accompanying
+the streams, indicating which halfs have been closed or removed from
+the cb. At the moment, we have a streamid to tcpstreams. This means that we should also record which direction has been shutdown in the tcpstreams.
+
+
+
+2005-10-14
+
+deliver_in_icmp_1: note that this involves dequeing an icmp message
+from the iq. Previous rules have allowd the iqs to be unconstrained,
+but here there is behaviour that interacts with TCP. So we must ensure
+that all iq's are the same as iq in previous rules. FIXME
+
+checks to listen, missing soexceptional soreadable sowriteable from pselects, so commenting out pselects
+
+recv3
+
+udprecv
+
+delin3
+
+
+
+2005-10-11
+
+fixed connect_1a, but don't like this behaviour
+
+connect_4 has a call Lh_tau_and_destroy. need to fix the meaning of all these calls
+Lh_tau_and_create
+Lh_tau_and_close
+
+looks like Lh_tau_and_close is just wrong, and that tau_and_destroy has a ssi arg
+
+compiling to 14702, which is deliver_in_5, which is probably where I got to anyway
+
+compiles to end of timers
+
+
+2005-10-10
+
+datastuff
+
+INVARIANT assume the following always satisfied
+
+    (*: For a socket in the [[SYN_RECEIVED]] state check that the ACK is valid (the acknowledge
+        value [[ack]] is not outside the range of sequence numbers that have been transmitted to the
+        remote socket) and that the segment is not a LAND DoS attack (the segment's sequence number
+        is not smaller than the remote socket's (the receiver from this socket's perspective)
+        initial sequence number) :*)  (* Note it might be better to put the [[SYN_RECEIVED]] case into its own rule *)
+    ~(tcp_sock.st = SYN_RECEIVED /\
+      ((ACK /\ (ack <= tcp_sock.cb.snd_una \/ ack > tcp_sock.cb.snd_max)) \/
+       seq < tcp_sock.cb.irs)) /\
+
+close_8 not parsing in tmp.sml
+
+NOTIN IN NOTIN' IN' seem confused. NOTIN works on Lists, but seems to
+be defined to work on sets, and also works on sets. NOTIN' works on
+lists. IN' works on lists. IN works on sets, not on lists. utilsScript
+overload NOTIN to be notinlist. This behaviour seems inconsistent.
+
+compiles to connect_1a, line 3660, need to modify some of the calls
+
+
+2005-10-07
+
+datastuff
+
+ststuff
+enter_TIME_WAIT
+
+2005-10-06
+
+removed the following from newackstuff because we are dealing with well formed connections
+INVARIANT
+
+
+   (*: Check [[ack]] value is sensible, \ie, not greater than the highest sequence number
+       transmitted so far :*)
+    ? ack_gt_snd_max :: {T;F}.
+    if ack_gt_snd_max then
+        (*: Drop the segment and possibly emit a [[RST]] segment :*)
+        ?stop'. FIXMEstream_mlift_dropafterack_or_fail segRST arch rttab ifds sock (sock',FIN,RST,stop') /\
+        stop = T
+    else (*: continue processing :*)
+
+
+
+also removed the following clause INVARIANT
+
+     else if tcp_sock_0.st = TIME_WAIT /\ ack_gt_snd_una (* data acked past FIN *) then
+        (*: If the socket is in [[TIME_WAIT]] and this segment contains a new acknowledgement (that
+            acknowledges past the [[FIN]] segment), drop it---it's invalid. Stop processing. :*)
+        ? sock''''. FIXMEstream_mlift_dropafterack_or_fail seg arch rttab ifds ticks andThen
+        stop
+
+now looking at ststuff
+
+
+2005-10-05
+newackstuff in tmp.sml
+
+
+
+2005-10-03
+
+tackling deliver_in_3
+
+topstuff fine
+
+ackstuff, newackstuff: mlift_tcp_output_perhaps_or_fail, tcp_close, mlift_dropafterack_or_fail
+
+mlift_tcp_output_perhaps_or_fail: tcp_output_perhaps, rollback_tcp_output
+
+tcp_output_perhaps: tcp_output_really
+
+tcp_output_really: have a stream version of this which looks like it may send a FIN, or update the sock
+
+rollback_tcp_output: have a stream version of this
+
+if we are inlining the di3 fns, then we need to record segs output,
+state changes to socks and cbs, and whether to continue or not.  we
+should maintain the current structure. the monad is relational.
+
+...sock...sock'' FIN'
+? (sock',FIN,cont) IN {(sock',FIN,cont).
+  sock' = do_something_to sock /\ FIN = ...
+  /\ ...
+  }.
+if ~cont
+then sock'' = sock' /\ FIN' = FIN
+else let sock = sock' in (* rebind so that sock is the updated sock *)
+? (sock',FIN',cont) IN {(sock',FIN,cont).
+
+}.
+if ~cont
+then sock'' = sock'
+else
+let sock = sock' in
+let FIN = FIN' /\ FIN in
+? (sock', FIN,cont) IN {
+}.
+sock'' = sock'
+
+
+This basically restates the monadic stuff. However, the nesting makes it a bit hard to read. Is there some other way of expressing this? Do we really want to avoid the monadic stuff?
+
+(2005-10-04)
+
+added FIXMEstream_tcp_output_perhaps
+
+adding FIXMEstream_mlift_tcp_output_perhaps_or_fail, case split on num. of returned segments. If none, continue else rollback using the new cb to get an updated cb. We are hoping that rollback doesn't do anything too fancy with the cb.
+
+at the moment stream_tcp_output_perhaps returns whether there was a FIN, not whether there was any segs sent. could turn this into a bool opt, i.e. if none then no segs else SOME FIN
+
+OK, updated FIXMEstream_mlift_tcp_output_perhaps_or_fail_def
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+assessing stream creation and destruction.
+
+Our abstraction is "if a sock exists, not {CLOSED,LISTEN}, then a stream should exist"
+
+call a socket live if not in {CLOSED,LISTEN}, dead otherwise
+
+for stream destruction, we mark every transition from live to dead, and signal stream destruction.
+
+for stream creation, we mark every transition from dead to live. We
+could create streams whenever a packet is written, and assume that
+dead to live occurs on send of e.g. SYN. However, seems neater in
+abstraction to record transition from dead to live.
+
+several functions may transition sock from live to dead/ dead to live
+
+tcp_close close_7 close_8 shutdown_1 del_in_1 di3b deliver_in_7 di7a di7d timer_tt_2msl timer_tt_...
+
+tcp_drop_and_close deliver_in_icmp_1 deliver_in_icmp_4
+
+?FIXMEstream_enqueue_or_fail doesn't alter state
+
+?FIXMEstream_enqueue_or_fail_sock timer_tt_rexmt doesn't alter state
+
+?FIXMEstream_tcp_output_really state changes do not affect live/die status
+
+
+and various calls may change the state directly
+
+calls moving from CLOSED: connect_1 connect_4 listen_1c deliver_in_3
+
+connect_1 is a nightmare because on bsd it can actually destroy an existing stream, whereas we typically expect it to create a stream
+
+
+calls moving from LISTEN: accept_1 close_8 listen_1 listen_1c di1 di3? di7
+
+
+
+so for stream creation could have a "create" flag, and a destroy flag if not creating.
+
+and probably best to mark these as Lh_call_and_create Lh_call_and_destroy, Lh_tau_and_create Lh_tau_and_destroy
+
+or maybe have a flag? but then not so easy to comprehend
+
+
+our stream abstraction reaches to the thread calls. Should the stream
+remain depending on whether an fid exists? Well, at the moment the
+abstraction really extends to the socket- e.g. a blocking send does
+not transfer all the info to the stream at once.
+
+
+Looking at close_7, it also seems that we should destroy a stream if the quad is lost (since otherwise we get an orphaned stream). Deciding to do each rule individually.
+
+individual rules:
+
+close_3: tcp_close
+
+close_7: sock removal
+
+close_8: sock removal, and dependent sock removal
+
+connect_1: alter state, and alter ip binds. too difficult to figure out, splitting into connect_1 and connect_1a
+
+connect_4: state change
+
+connect_5a: ip change. note that bound typically changes with local ip change. assume i2,p2 not bound, so no stream creation.
+
+connect_5b: ip change, but quad already exists. If live sock created, must have is2 and ps2 already set, ps1 unset. But then we know a stream already exists.
+
+disconnect_5: tcp_drop_and_close
+
+listen_1c: state change
+
+shutdown_1: tcp_close, but socket dead
+
+deliver_in_1: creates new sock
+
+deliver_in_3: ?
+
+deliver_in_3b: tcp_close
+
+deliver_in_7: tcp_close
+
+deliver_in_7a: tcp_close
+
+deliver_in_7d: tcp_close
+
+timer_tt_rexmtsyn_1: tcp_close
+
+timer_tt_rexmt_1: state changes?
+
+timer_tt_fin_wait_2: tcp_close
+
+icmps?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+dropwithreset can decide not to RST if e.g. quad is_broadcastormulticast
+
+dropwithreset_ignore_fail calls dropwithreset
+
+enqueue_or_fail calls rollback_tcp_output
+
+enqueue_or_fail_sock calls enqueue_or_fail
+
+rollback_tcp_output may update tt_keep, set error flags
+
+tcp_output_really may emit a FIN
+
+tcp_output_required no further calls
+
+
+FIXME can we get rid of inline? no internal trans should depend on the exact data.
+
+STUFF WE WOULD HAVE TO PROVE ON THE WAY TO PROVING THE ABSTRACTION
+
+The biggie is of course that we would have to prove that TCP was correct, in the sense that it did deliver the data as a stream. This is the basis of the abstraction of course.
+
+Even assuming this in some form there is a lot of work.
+
+For example, in deliver_in_3, wesentafin is calculated as
+
+    let wesentafin = tcp_sock.cb.snd_max > tcp_sock.cb.snd_una + LENGTH tcp_sock.sndq in
+
+whereas this is replaced in the abstraction with a flag in the gizmo that goes high when a FIN is sent. Are these behaviours equivalent? Such a proof seems to be almost as complicated as proving full correctness. And there are a lot of such proofs.
+
+
+
+      <li>delay dual testing till Adam gets back- find out exactly what he has discovered
+	stream spec, particularly duplication of SYNs etc and what happens, and relate this to semantics of flag settings. deliver_in_1 explicitly blocks duplicate SYNs from causing problems
+	also think about removing FIXMEdiff in favour of a finer grained analysis of what happens enqueue_oq_list_qinfo etc
+	ditto this point for every call (e.g. tcp_drop_and_close) that uses the outsegs mechanism
+	continue stream spec work
+	think about TCP/Notes1/stream-level-plan.txt
+	note some different types of invariants: within a type (e.g. n < MAX_LIMIT) as a restriction on a (subset of) the state (if cantrcvmore set, rcvq is []), reachable state, and temporally (if P at t, then Q at t+t')
+	FIXME problem if we try to preserve UDP calls, but alter underlying functions (enqueue...) to reflect stream way.
+	FIXME need to backout changes to e.g.TCP_auxFnsScript if we want to have all specs living in same space?
+	need to have SYNACK flag on stream?
+      </li>
+
+tau2 call should not update data INVARIANT
+
+
+      <li>calls which sync with stream
+tau2:
+recv_3    -- Lh_tau2 (ARB rcvq (MSG_PEEK IN opts)) --> peeking, want to know whether rcvq could be as long as... if no data, then trans definitely enabled, otherwise trans maybe enabled FIXME do we want to be so det about this?
+send_3    -- Lh_tau2 str' -->
+send_3a     -- Lh_tau2 str' -->
+
+deliver_in_1    -- Lh_tau2 (stream_id (i1,p1,i2,p2),(* in *)(SYN, FIN, RST, data),(* out *)(SYN', FIN', RST', data'))  -->
+deliver_in_2    -- Lh_tau2 ((i1,p2,i2,p2),SYN,FIN,RST) -->   SYNACK?
+deliver_in_3   -- Lh_tau2 ((* rcv stream *)
+		   (SYN,FIN,F), (* RST must be F *)
+	           wercvdafin,
+	           data (* data from anywhere in stream, FIXME change rule name, add another stream rule, not removed from stream since this rule just tracks side-effects of the data passing through the host *),
+
+	       (* snd stream *) out_msgs, wesentafin) -->
+
+deliver_in_...
+
+call2:
+close_3 seg IN make_rst_segment_from_cb (* X cb X *) (i1,i2,p1,p2)
+
+close_8 make_rst_segment_from_cb (* X tcp_sock'.cb X *)(THE
+sock'.is1,THE sock'.is2,THE sock'.ps1,THE sock'.ps2);
+enqueue_each_and_ignore_fail h.arch h.rttab h.ifds (MAP TCP segs) oq
+oq' -- syncs with multiple streams decide to have outgoing
+quad,flags,data list for each socket
+FIN is unconstrained, c.f. make_rst_seg_from_cb
+
+connect_1 Lh_call2 (tid,connect(fd,i2,SOME p2),ARB (i1',p1',i2,p2,SYN)) puts a SYN on the wire
+disconnect_5 tcp_drop_and_close h.arch NONE sock (sock',outsegs) /\ Lh_call2 (tid,disconnect(fd),ARB (RST,data)), data may not be nothing
+
+pselects?????
+
+recv_1 -- Lh_call2 (tid,recv(fd,n0,opts0), ARB rcvq (MSG_PEEK IN opts)) --> FIXME should be rcvq'? str?
+recv_2    -- Lh_call2 (tid,recv(fd,n0,opts0), ARB (rcvq:char list) T (* indicates that data should not be removed from the stream at this point *) ) -->  want to know whether rcvq could be as long as ...
+recv_4    -- Lh_call2 (tid,recv(fd,n0,opts0), ARB (rcvq:char list) T (* just peeking *)) --> for length again
+recv_8    -- Lh_call2 (tid,recv(fd,n0,opts0), ARB (rcvq:char list) T (* only peeking *) ) -->
+send_1    -- Lh_call2 (tid,send(fd,NONE,IMPLODE str,opts0),ARB str') --> send some data
+
+suggested formats for calls:
+(i1,p1,i2,p2) (SYN,SYNACK,FIN,RST,data,peek) (SYN,SYNACK,FIN,RST,data) -- so make out like in, but peek not observed
+
+i1,p1,i2,p2 should be i1,p1 the host where act is happening, i2,p2 host on other end of stream
+
+nice idioms?
+quad (in_flags, data_from_stream) (out_flags, data_to_stream)
+in_flags.SYN, SYNACK, FIN, RST, PEEK, data_inline, wercvdafin
+
+
+
+from_stream to_stream
+quad ex_stream in_stream
+in.SYN...in.data
+
+read (i1,p1,i2,p2) data = ((i1,p1,i2,p2),F,T,(null_flgs,[]))
+peek (...) =
+write (...) =
+
+got to close_8- need to spec multiway sync
+
+      </li>
+      <li>
+	hostLTSTmp - hostLTS
+	          - sowriteable appears
+	          - soexceptional
+	accepts OK
+	binds OK
+	closes
+	close3 make_rst_segment_from_cb
+
+	connect1 connect1 redo to take account of all possibilities, and connect1 seems hopelessly incorrect anyway (it was first socket rule to be tackled)
+	  make_syn_seg just sets the SYN flag
+	  enqueue_oq_list_qinfo
+	  what do we really want to happen at this point? do we assume that tcp takes care of handling syn retransmits, so that we can just update the cb and the es? in this case, rollback_tcp_output leaves cb unchanged (rcvdsyn is F). rollback_tcp_output also sets error flags- can we dispense with these? appears not. We may be able to dispense with enqueue etc. How does the timed oq behave? Looks like the timers never force urgency, just demand that the message gets transmitted within a set time. Now, may be that e.g. an interface can be brought up between with ip SOME i2 after a msg for i2 is queued in oq. In this case the msg would be sent locally not to stream. Thus, we seem to need lots of invariants about the quads and routing remaining constant whilst a send is in progress. However, if this is the case then we can get away with
+        in fact, connect_1 is rather difficult to spec, because it looks like it either does sync with the stream, or it doesn't.
+	at the moment, we have distinguished whether the call syncs or not, but lots of stuff should be made neater for this call FIXME
+	could just do a null sync with the stream instead of explicitly dealing with label. Also note FIXME that this rule is bad because it inspects the behaviour of a lower layer (oq' = oq), thus breaking abstraction.
+
+
+	connect_3 OK
+	connect_4 OK
+	connect_4a OK
+	connect_5 OK
+	connect_5a OK
+	connect_5b OK
+	connect_5c OK
+	connect_5d OK
+	connect_7 .. onwards OK
+
+	disconnects
+	disconnect_5 tcp_drop_and_close sock' may have error updated, a rst may be sent
+	we need a stream_tcp_drop_and_close, such that sock' gets updated and an indication of whether a RST was sent.
+	maybe say that we only have stream interation if we know a quad exists. need INVARIANT FIXME to allow getting of quad
+
+
+	dups need porting
+	getfileflags
+	...
+	getsockname_1 getsockname_2 loss of coherence on condition tcp_sock.cb.bsd_cantconnect = T /\ sock.ps1 = NONE
+
+	listens
+	question about what to do with bsdcantconnect. For example, we may know that on non-bsd archs, bsdcantconnect is always false. We might expect uses of bsdcantconnect to be guarded by a bsdarch check, but this may not always be the case (e.g. listen_5). At the moment we are non-det on this, but may have to revisit this issue. Especially with regard to listen_5 and friends.
+	Perhaps we should alter references to bsd_cantconnect with updates to cantsndmore or something? If we have removed bsd_cantconnect then some state has to replace this flag.
+
+	pselects
+	question about what to do with soreadable sowriteable and soexceptional. Presumably soexceptional disappears since it concerns urgent data. soreadable indicates whether data can be read from the buffer. Presumably these become relational, so that if there is no data to be read, readable is F, else readable is either T or F.
+	these calls seem difficult. 3 options: move to fuzzy reasoning, allow any subset of sockets with data, or allow any subset of sockets. 2nd option maybe best, but requires to know length of receivable data in each stream- ugly sync.
+	leaving for the time being
+
+	FIXME perhaps we should remove sndq and rcvq from the sock as well
+
+	recvs BIGGIE
+	recv1
+	thinking about rcvq for pselects and this call. Presumably we should include rcvq in the sync with the stream.
+        MSG_OOB NOTIN opts /\ (* assumed true *)
+        let urgent_data_ahead = (?om.rcvurp = SOME om /\ 0 < om /\ om <= LENGTH rcvq) (* assumed false *) in
+	rcvurp assumed NONE
+	this call is quite interesting, because we need to see whether we could receive a string of a certain length, and then we need to actually receive a possibly shorter string
+
+	recv2
+        MSG_OOB NOTIN opts /\
+        let urgent_data_ahead = (?om.rcvurp = SOME om /\ 0 < om /\ om <= LENGTH rcvq) (* otherwise, we're at the OOB mark *) in
+
+	recv3 similar to recv1
+	note that we are both restricting the allowable behaviour of Spec1 whilst also abstracting from it
+
+	recv5 disappears because we are not dealing with OOB data
+
+ 	recv_8a does not sync with host- can always do this? INVARIANT provided SO_RCVLOWAT is always > 0, we could potentially make this transition
+	FIXME got here, can't think anymore
+
+	recv11 udp calls- presumably we cut these out altogether FIXME need to cut udp calls from previous sections
+
+	sends BIGGIE
+	send_1 send_queue_space- could go completely nondet since anymore deterministic seems somewhat pointless
+	more det would allow e.g. a limit on bsd sends and linux to be a multiple of maxseg. this seems perverse, so go for full non-det
+	FIXME where is n from in this rule?
+	FIXME remove
+	FIXME question about whether SYNACK should be as it is, or whether should just have SYN, and SYNACK indicates, for a SYN, whether it was a SYNACK. but we need to be more deterministic, so SYN records presence of SYN without an ACK, SYNACK is SYN with an ACK. Thus, INVARIANT either SYN is set, or SYNACK is set, but not both
+
+	send_2 illustrates the problem with completely non-det- for a new connection, may know that the string is less than the sndq size, and so will not block, but this is not stream behaviour really.
+
+	send_3a question about whether we need this rule, but probably do because it allows data to be added to stream in bits.
+
+	sets...
+
+	shutdowns
+	shutdown_1 note that this has the effect of setting rcvq to []. This may destroy the abstraction, so that we need some condition in the abstraction which incorporates the setting  of the cantrcvmore flag.FIXME
+
+	sockatmarks disappear? FIXME make sockatmark disappear from rulenames
+
+	sockets
+	misc
+
+  deliver_in_1
+
+  deliver_in_1b RSTs a bad connection, but we assume connections
+  good INVARIANT. accept_incoming_q0 lis F could be cause, in which case we
+  don't RST. However, in this case we assume retransmit. Other case is
+  for a seq of socket calls causing the sock to connect to itself, in
+  which case it RSTs itself- but this seems too exotic. Drop this
+  rule.
+
+	deliver_in_2
+	(ACK ==> (cb.iss < ack /\ ack <= cb.snd_max)) /\
+	question of how to distinguish simultaneous open from active open if we don't have acks. For a simultaneous open, the stream object exists on receipt of a sim SYN. Could sync with stream to determine if this is a sim open (we sent a SYN). However, this only affects softerror. For a completion of an active open we clear softerror, else softerror is preserved. Decide to go non-det on this, since we don't really want the ugliness of anything else.
+	URG = F as we do not consider urgent data
+	looks like if we send a SYN, recv a SYN, we send a SYN,ACK. but in this case we have already sent a SYN, so SYN will be high in stream, or low if lost/received. So we may need to raise it high again. However, if semantics of stream SYN flag means "at some point we sent a SYN", then it doesn't go low, and we don't need to resend a SYN.
+	enqueue_or_fail may set softerror on a routing failure
+	really need to deal with all these side effects from queuing etc.
+	test_outroute only uses is2
+	FIXME note could demand that FIN only ACKED after data read by other end but this is not what we do elsewhere
+
+	deliver_in_2 raises the question of whether we should be allowed to send stuff out of order. Since there is no data being sent it doesn't matter in this case
+
+	deliver_in_2a disappears INVARIANT on bad packets not being on net
+
+	deliver_in_3 leaving for moment- need to alter relational monad stuff
+
+	deliver_in_3a removed, since we trust to retransmit
+
+deliver_in_3b even if process has gone away, the stream lives! raise
+question of when a stream should die. Maybe if removed from the socket
+list (timer expiry?) or if both ends fail, or 2MSL after a close?
+.dropwithreset_ignore_fail dropwithreset may decide not to RST. seems
+slightly odd to track in such great detail, since spec is only
+intended to be an upper limit on msgs. Not sure about the level of
+nondet, since dropwithreset_ignore_fail may decide not to RST. FIXME
+but we are an overapprox to queue anyway.
+
+deliver_in_3c removed INVARIANT about non-dos, stupid ack etc.
+
+deliver_in_4 keeping in for the moment, nothing to do with stream spec. remove? FIXME
+
+deliver_in_5 again nothing to do with stream spec. remove? Actually,
+this is perfectly reasonable, if one host connects to another that is
+not listening. Then there is a stream object, but no foreign
+sock. Question of what to do about creation and destruction. In this
+case, we know the stream is only half created, so we should send a
+RST, not destroy the half stream, because there is no sock entry.
+
+INVARIANT note that this call assumes match_score >0 implies there is
+a socket fully bound, whereas match_score can be >0 for a non-fully
+bound sock which doesn't correspond to a stream. Basically there is
+something wrong with the way match_score>0 is supposed to correspond
+to a stream object. FIXME
+
+deliver_in_6 nothing happens to stream, but host end is already
+closed. assume that quad set in seg? unclear what behaviour of
+match_score is intended to mean. decide that this rule disappears
+because there i no observable effect on the stream. However, in some
+semantics, there would be a peek at the stream object, that we may
+wish to preserve.
+
+deliver_in_7 receive a RST
+
+deliver_in_7b question about how we are modelling non-stream
+packets. presumably every packet must belong to a stream. However, BSD
+bug may cause a LISTEN socket to correpsond to a stream, and so this
+would represent a valid transition of the LISTEN socket syncsing with
+the stream. INVARIANT decide not to model BSD weirdness. In which case, this rule has nothing to do with stream spec.
+
+deliver_in_7c seems like a reasonable stream sync for TIME_WAIT state,
+for SYN_SENT relies on malformed packet INVARIANT
+
+deliver_in_7d INVARIANT cb.iss < ack /\ ack <= cb.snd_max  /\ (*: acceptable ack :*)
+
+deliver_in_8 FIXME again we may be too liberal, if not bsd, and dropwithreset does not RST, then a RST may not be sent
+
+deliver_in_9 FIXME again we may be too liberal, if not bsd, and dropwithreset does not RST, then a RST may not be sent
+
+deliver_out_1 tcp_output_required (do_output,persist_fun), then
+tcp_output_really enqueue_or_fail_sock.  question as to whether we
+really need to do anything here, since perhaps if e.g. detects should
+send a FIN, then maybe that FIN has already been sent. Against that,
+conceivable that someone sets cntsndmore without sending a FIN, and
+this triggers a FIN send here. FIXME should it be FIXMEstream_tcp_output_required?
+
+timer_tt_rexmtsyn_1 can drop the socket, but our stream gizmo
+survives. How do we expire the stream?  Now, we know that a SYN may
+already have been in the stream, but perhaps it has been received, or
+lost. Then in the gizmo we may record this by lowering SYN. But then
+we should raise it for this transition. Alternatively, we may know
+that the gizmo is an overapprox, so that SYN may remain high even when
+a SYN is received. This seems like a recipe for disaster because it
+makes assumptions about the stream behaviour.
+
+timer_tt_rexmt_1 FIXME tcp_drop_and_close should be
+FIXMEstream_tcp_drop_and_close? FIXME change oflgs = ... to oflgs IN
+make_syn_ack_flgs_data, same for bsd_make_phantom_segment FIXME is
+sock.cantsndmore ==> oflgs.FIN correct translation of
+bsd_make_phantom_segment?
+
+timer_tt_2msl_1 seems odd to allow this rule to fire whenever...FIXME we need to get some invariant which says that this rule can only fire when in state ...
+
+timer_tt_conn_est_1 this rule is a bit ugly
+
+timer_tt_fin_wait_2_1 odd to allow rule to fire whenever
+
+deliver_in_icmp_1 do we really want to keep this in? this rule can close a socket
+
+
+      </li>
+
+
+interesting observation: our stream gizmo is sufficiently modular that we could do things like track the number of RST received, drop various packets, or even force a RST if the read would read the corresponding data
+
+
+
+IMPORTANT NOTES FOR ADAM
+
+TCP1_streamScript.sml notes.txt and tmp.sml are main files involved
+
+sndq oq iq reassq and rcvq are irrelevant on host- they are just vestigial cruft
+
+tcpstate in host
+
+The data in the stream is altered via socket send and recv calls (not
+done yet).
+
+The labels for the rules are Lh_call2 (for a sockets API call
+interacting with stream and host) and Lh_tau2 for a host stream
+interaction. The argument type has been left general ('a), but will be
+further refined. Probably there will be several rules, since e.g. some
+rules interact with several streams at the same time.
+
+the stream flags e.g. SYN indicate whether a SYN might be on the
+wire. If a SYN is received, a duplicate may be on wire, so flag can
+stay high.
+
+FIXMEdiff is a placeholder, it will be replaced by a finer analysis of
+what FINs SYNs and RSTs get sent.
+
+So, the stream represents an overapproximation in terms of the flags,
+whilst it is assumed the data is accurate.
+
+Philosophy behind current version: minimal changes consistent with
+removed info from cb. No use made of invariants. e.g. possible for a
+SYN to be sent by TCP with data, even tho sockets API does not allow
+this.  Push stream level abstraction right up to sockets API
+level. Side effects due to host receiving data etc. are handled as
+separate syncs between host and stream. They typically DO NOT affect
+the data in the stream (this happens at send and recv at the sockets
+level with a 3 way sync between thread host and stream).
+
+Present status: most socket calls have been examined. Several of the
+socket calls have been changed. deliver_in_1 has been
+changed. deliver_in_3 has been changed.
+
+
+
+
+
+
+
+2005-08-08 over weekend wondered whether our handling of SYN FIN RST is too liberal- maybe repeated e.g. SYNs are discarded because they are out of sequence.
+
+finished di3_ackstuff
+
+looking at di3_datastuff_really
+
+FIN_reass- presumably this can only be set if FIN is set?
+
+looking at tcp_reass
+
+would like to say something like "FIN_reass is set implies seg.FIN", but this is not true because rsegq may contain a FINed seq- i.e. may have received a FIN previously.
+
+could include a flag "wereceivedafin", and FIN_reass must be <= this flag. Then deliver_in_3 would sync on this info. OK, this seems reasonable, if nightmarish for proof.
+
+The other option is to go totally non-det on FIN_reass, but this allows FIN behaviour even if a FIN has not been sent by the other end. This is better for proof in some ways, but must then include assumptions which should really be part of the model.
+
+Presumably deliver_in_3 may occur at any point. FIXME Do we want to specify ordering on these events?
+
+FIXME deliver_in_3 and friends can presumably read data from anywhere in the input stream
+
+Assuming handling FIN_reass via wercvdafin
+
+Then providing wercvdafin is true, tcp_reass may return FIN_reass0 true, so FIN_reass0 implies FIN_reass. Of course, tcp_reass may return false for FIN_reass0
+
+FIXME may want e.g. a FIN can only be received if the data stream would be emptied (i.e. model FIN reassembly at end of data stream). However, this would seem to require extensive knowledge of the invariants.
+
+A reasonable approach to proof would be to show that the rules are
+receptive, i.e. that they define what can happen in any given
+situation. Since this almost certainly cannot be proved currently,
+this will force at least some of the invariants to be explicitly
+formulated. Also, receptiveness is probably the weakest thing of
+interest that could be proved.
+
+
+
+
+
+
+2005-08-05 wondering what to do about wesentafin, ourfinisacked.
+
+could record sentafin, recvafin, ackedafin, rcvdackforfin
+
+FIXME also seems to be a mismatch between the fact that we assume the
+data is assembled properly, but assume e.g. that SYNs and FINs can be
+duplicated etc. Maybe this is justifiable- we have to assume the data
+is handled OK and this happen in ESTABLISHED. The SYNs etc are
+handled in other states.
+
+decide to do the simplest thing, and later refine it. So we record a
+flag wesentafin in the stream, and set this to high (and it remains
+high) on receipt of a FIN.
+
+another option would be to record the transit directly, which forces
+at least one stream interaction at the other end before can receive a
+FINACK. May also be able to deduce more info, e.g. by tagging which
+bytes within the data correspond to the FIN, and tracking this through
+the reassembly at the other end. However, this seems difficult and
+probably pointless.
+
+
+di3_topstuff: note that we are receiving bytes from the stream, so the
+packet must be valid, so we do not drop it here. This translates to a
+restriction on the packets in the wire to being "valid" packets, at
+least so that paws_failed \/ segment_off_right_hand_edge is false, i.e. drop_it is false.
+
+adding back update_idle_def, non-det handling of cb.tf_needfin flag FIXME how does this flag relate to wesentafin?
+
+di3_newackstuff:
+
+mlift_tcp_output_perhaps_or_fail, uses tcp_output_perhaps, uses tcp_output_really, which may trigger a FIN send
+
+tcp_output_required can return anything for the flag, and the persist_fun can either be none, or SOME I
+
+
+mlift_dropafterack_or_fail
+
+
+
+
+
+2005-08-04 was thinking last night about sends and receives. Clearly
+these should update the data in the stream. What if data in stream is
+non-contiguous (say, a message was dropped from the host because of a
+temporary routing problem)? We could go non-det on this, but this
+would mean dropping an awful lot of the behaviour (such as routing
+failures etc.) that we currently deal with.
+
+plan for today: look at timers ch.18, do a dummy stream transition syncing with deliver_in_1. Then consider the biggies- deliver_in_3. Also consider send and recv.
+
+timer_tt_persist_1 timer_tt_keep_1: we retain keep in the cb, so
+presumably we want to model some kind of "stream is live"
+property. These two rules (and others?) allow msgs which do not
+contain data, SYN FIN RST to be on the wire. These are invisible to
+our current abstraction, but allow some knowledge of when there is a
+packet on the wire. Suggest we maintain another timer in the stream
+which is separate from the SYN FIN RST timers, and which records the
+last time any msg was put on the wire. But does this really matter?
+Does receipt of an empty msg really affect things at our level of
+abstraction?
+
+OK, timers look reasonable.
+
+Thinking about send- in fact, because we are abstracting above
+individual resends of data, this may be OK. This whole approach relies
+on the property of TCP that it sends data in order and sending data
+earlier in the sequence must be a retransmit. This is not the case for
+e.g. the model of TCPs correctness in Isabelle.
+
+Stream sync for deliver_in_1.
+
+Looking at rule from yesterday. Apparently receivng  a FIN with a SYN does nothing. This seems to be correct according to the original rule.
+
+Completed a prototypical stream rule. Will there be any other kinds of stream transitions? Seems unlikely. Perhaps one for message loss- i.e. SYN FIN and RST arbitrarily become false. Or perhaps for time transition if we start incorporating time info.
+
+Now looking at deliver_in_3.
+
+pes seems to be on the money when he states that ourfinisacked is important. It controls a lot of behaviour that is observably different.
+
+Would like to record whether a FIN has been sent, and whether an ACK for the FIN has been received. However, its not (totally) clear that the conditions that are used to set these flags in deliver_in_3 actually correspond directly to e.g. whether we sent a fin. Suppose we decided to take these flags at face value. Then we could record whether or not we have sent a FIN, and whether or not a fin has been received ?, and whether or not that fin has been acked.
+
+
+2005-08-03
+
+close_1: ok
+
+close_2: sets rcvq to []. On host, this shouldn't mean anything. cntsndmore and cntrcvmore are set to T, so presumably this stops any further receives. FIXME should probably move host socket type to exclude rcvq and sndq. oq should also be removed from host.
+
+will have to make enqueue_and_ignore_fail, and related functions, return the oq delta, not the oq. Needless to say, this will touch a lot of the spec. FIXME need to check that these changes are made. At the moment, we delay this change and introduce a dummy FIXMEdiff
+
+need to add back make_rst_segment_from_cb, make_rst_segment_from_seg, tcp_output_required? tcp_output_really? tcp_output_perhaps?, enqueue_or_fail, enqueue_or_fail_sock?, enqueue_and_ignore_fail, enqueue_each_and_ignore_fail
+
+choose to add back minimal for close_2: make_rst_segment_from_cb enqueue_and_ignore_fail
+
+close_8: adding back enqueue_each_and_ignore_fail. Note that we would really like to sync with streams and record that they have a RST on the wire. However, we want to be the least non-deterministic we can, and this means taking account of the possibility of enqueueing failure. We are also currently recording data from the sndq in the RST, because this is allowed by Spec1. However, this seems wrong... even if BSD allows it.
+
+
+finished close rules, other API rules look similar to ones we've already done. At the moment we typically sync on msgs hitting the oq, but this should be changed to data+flags indexed by stream id + possible data.
+
+doing deliver_in_1, once finished do dummy stream transitions
+
+added Lh_tau2 to labels, which is for a previously internal host transition that now interacts with the stream (e.g. by updating oq)
+
+
+2005-08-02
+
+deliver_in_1: note that socket gets cantsndmore and cantrcvmore from listening parent.
+
+socks are filtered to close those with clashing quads. Presumably this must also close the streams that currently exist. This involves a many way synchronization with all stream objects. Thus, deliver_in_1 label must be decorated with at least a list of stream names.
+
+Streams and naming: at the moment, just have a function which takes a host and an sid to a (asummed unique) name. Perhaps can use quad.
+
+Host Stream invariant: If a socket is in SYN_SENT through to
+TIME_WAIT/LAST_ACK, then there is a corresponding stream term, and
+vice versa.
+
+Thinking about the transitions. Perhaps the current labels are thread host syncs, and we now need thread host stream syncs. Thread host syncs are already specified for the sockets API. So we need to incorporate extra info on the labels, an option perhaps.
+
+tcp_close does not result in msgs being sent, but does move streams to closed state. However, there may be packets on the wire corresponding to the old stream. Do streams correspond to msgs in transit or the host view of msgs in transit?
+
+Alternative host stream invariant: if the wire contains, or may
+contain, msgs for a given quad, then there must be an associated
+stream term, and vice versa.
+
+Perhaps decouple host and streams, allowing for orphan streams e.g. when deliver_in_1 drops arbitrary connections from queue of incomplete connection attempts. Perhaps an orphaned (at both ends) stream expires after MSL?
+
+need to add new labels e.g. deliver_in_1, need to update old labels to carry new info
+
+deliver_in_1 syncs with streams on: list of streams that are closed on host? (not if allowing orphaned streams) , stream id, SYN_ACK sent to stream
+
+...
+
+deliver_in_2: data can apparently be received in a SYN,ACK datagram. How? The other end must queue a SYN_ACK with data. See note for make_syn_ack_segment p.107. Since we rule out non-valid API uses (and this isn't even possible with sockets API), it seems reasonable to assume this can't happen. Also note claim in last comment for make_ack_segment. Theoretically there is nothing wrong with transmitting data with a SYN,ACK segment, although this may be risky since connection has not really been established.
+
+deliver_in_2a: this rule disappears? Or sync with orphaned stream?
+
+...
+
+deliver_out_1: tcp_output_really constructs segs from
+
+TODO: decide on a fixed format for the streams- including SYNs FINs and RSTs on the wire, and states. States are duplicated in the host, so perhaps they should just remain on the hosts?
+
+decide how to write network sync code
+
+adjust labels- host0 must include host stream sync
+
+name streams
+
+decide how host syncs with stream- is there a nice way to record that e.g. the process term should transition to include a new stream?
+
+rewrite rules- deliver_in_1, connect_1
+
+specific files:
+
+utils: OK
+errors: OK
+signals: OK
+basetypes: OK
+nettypes: OK
+LIBinterface: OK
+host0: needs changes to labels
+ruleids: needs altering as we add/ subtract rules. perhaps add a placeholder "FIXME" rule_id
+timers: OK
+hostTypes: change control block, remove rtt stuff, reass stuff?. modify cb, remove oob, modify tcp_socket socket, modify helpers. leaving for now and need to come back later and rip out the rubbish
+params: OK
+auxFns: needs altering to track previous changes, remove stuff like bandlimiting?, what happens to enqueue, rollback etc.? probably delete defns, but keep constants? come back later and remove cruft
+hostLTS: most of the socket API calls are simple to modify
+
+going through sockets API
+
+close3: make_rst_segment_from_cb is OK, but note data_garbage is unconstrained; enqueue_and_ignore_fail seems to allow nondet failure to queue
+
+close8: RSTs to many streams
+
+-----
+
+2005-08-01 should we duplicate the sndq and rcvq in the host? Are there any host trans that alter these? Answer should be no..., but some (e.g. accept_n) rely on the invariant that sndq and rcvq are [].
+
+What about cntsndmore, cntrcvmore? These are also duplicated in
+host. Other option is to move these to stream. Decide to keep as is
+for moment, and remove from host state once first pass is complete,
+i.e. pretend these bits of host don't exist for now.
+
+accept_4 for a listening socket has behaviour that depends on cntsndmore and tcp_state, so these at least should be duplicated in the host for listenting sockets.
+
+added (sid IN FDOM h.socks) to conditions of transitions: this is not an invariant, it is a condition of use of finite function application
+
+stream expiry after e.g. TIME_WAIT: need to sync timers in host and stream, so that both exit at same time
+
+
+
+bind calls: uninteresting, should affect just host and thread
+
+close: leaving till later
+
+connect: done first draft of connect_1, noting extra info that needs
+to be passed to stream. clearly lots of other cases need to be
+considered. Thinking of making extra info an option, and force thread
+sync only on those that have this option. Note that the whole approach
+of having the host maintain info about the processes in the global
+process term requires invariants connecting the host state and the
+process term.
+
+disconnect: disconnect_5 uses tcp_drop_and_fail, which requires that
+the stream is terminated (a RST gets put on the wire, so that the
+connection gets closed at some later point). How are we modelling the
+fact that a SYN may be sent and only later received? Surely we do need
+to record whether a SYN is on the wire or not, because you can
+transition out of SYN_SENT whilst a SYN is still on the wire.
+
+dup: dufd: thread host transitions
+
+getfileflags: getifaddrs: getpeername: ditto
+
+...
+
+getsockerr: updates socket es field. What are we intending to do about syncing this?
+
+...
+
+listen: thread host
+
+pselect: thread host
+
+recv: need to decide what to do about urg (non-det? flag? ignore?). split recv_1 into host and stream rules. should be OK.
+
+send: send_1 looks OK- split into host and stream rules. send_2 send_3a timer changes on host thread
+
+...
+
+setsockbopt: do we want to keep the stream flags with the stream, sync with host, or keep on host? perhaps the stream is independent of the flags which can be maintained on the host?
+
+shutdown: similar to disconnect_5, can maintain flags cntsndmore etc. on host, in stream, or sync. shutdown_1 can change the state, so must sync with stream.
+
+...
+
+
+
+
+
+
+synchronization:
+
+accept_1: thread and host
+
+accept_2: thread and host
+
+accept_3: thread and host
+
+accept_4: ...

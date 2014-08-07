@@ -1,0 +1,57 @@
+$Id: README,v 1.2 2006/05/25 16:50:04 tjr22 Exp $
+
+A daemon that listens on a TCP or UNIX domain socket for LIB
+calls (in HOL label format) and executes them using ocamllib,
+rendering the results to the command socket (results are also echoed
+to the instrumentation/logging socket opened by nssock).
+
+Usage: libd -priv TCP ip port
+                  UNIX unixsockname
+
+Libd is often run as root user (on Unix systems). When the -priv
+argument is specified it keeps root privileges so that it can bind to
+privileged ports. If -priv is not specified, it resume normal user
+privileges instead.
+
+
+
+tjr notes:
+
+can run libd standalone. e.g. dag.netsem2
+
+./libd TCP 192.168.13.105 8000
+
+Then telnet to it
+
+telnet 192.168.13.105 8000
+
+and give a call such as
+
+Lh_call (TID 30083,socket(SOCK_STREAM ));
+
+N.B parser is quite picky about brackets.
+
+Then it tries to return log information via environment variables
+
+export NS_ADDR=192.168.13.201 NS_PORT=8001 NS_DEBUG=0
+
+so run netcat (nc) on a suitable host. e.g. for zonule
+
+nc -s 192.168.13.201 -l -p 8001
+
+
+In fact, telnet flushes on a newline, but the newline character causes
+the libd to exit on the next loop parsing the input. So I use scsh to
+send data to the libd socket. My code is as follows.
+
+; sockets
+
+(define s (create-socket protocol-family/internet socket-type/stream))
+
+(define ip (car (host-info:addresses (host-info "dag.netsem2"))))
+
+(connect-socket s (internet-address->socket-address ip 8000) )
+
+(write-string "Lh_call (TID 59047, socket(SOCK_STREAM));" (socket:outport s))
+
+Then I just write more strings as appropriate.

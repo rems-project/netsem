@@ -1,0 +1,52 @@
+README -- Test/utils/holtcpcb/holtcpcb TCP debug tool
+-----------------------------------------------------
+
+****************************
+* THIS TOOL IS DEPRECATED  *
+* USED holtcpcb-v8 instead *
+****************************
+
+--------
+CONTENTS
+i) Description of tool
+ii) Useful notes on tcp_debug
+--------
+
+
+Description of tool
+-------------------
+ - this tool is a modified version of the standard trpt (TCP socket
+debugging) tool (taken from the FreeBSD v4.6 running on emil and john)
+and was version 1.12;
+
+- it has been modified to accept extra command-line options:
+ '-n' forces some portions of the tcp control blocks to be
+pretty-printed as a hol tcp model tcpcb-like record;
+
+ '-F' is as 'f' except for not printing the inital contents of the
+ring buffer first. This feature was added because the ring buffer is
+never explicitly cleared (except of course during a reboot) and thus
+the first time the tool is run it can produce up to a buffer's worth
+(100 records) of stale information.
+
+
+Useful notes on tcp_debug
+-------------------------
+- in order to perform tcp debugging the host's kernel must be built
+with the TCPDEBUG option set. This forces the tcp network routines to
+call tcp_trace to place debugging information in the tcp_debug ring
+buffer when certain types of event occur. The ring buffer is located
+in kernel memory;
+
+- to debug a specific application the application must set the
+SO_DEBUG socket option;
+
+- kernel memory can be accessed through /dev/kmem if you have
+appropriate permissions (on BSD you must be root or be a member of
+group "kmem");
+
+- the kernel image (/kernel on BSD) contains two symbols: _tcp_debug
+and _tcp_debx. The first is a pointer to the start of the tcp debug
+buffer. The second is the position in the buffer where the next new
+item will be placed, i.e. everything upto but NOT including this
+position (from _tcp_debug) is valid data.

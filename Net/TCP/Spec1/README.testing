@@ -1,0 +1,78 @@
+For info on testing, please see the following documents:
+
+Net/TCP/Test/doc/tcptest.{tex,dvi,ps} describes the test-generation framework
+
+Net/TCP/Test/scripts/check/README describes the procedure to follow
+  for checking traces, in detail.
+
+Net/TCP/Test/doc/tracechecking.txt describes the procedure to follow
+  in generating and checking traces, in detail (OUT OF DATE)
+
+Net/TCP/Test/notes/auto-testing.txt describes the set of tests (traces).
+
+Net/TCP/Test/notes/gruntsupply.txt describes the machines that this
+  stuff can be run on.
+
+Net/TCP/Test/notes/newmachine.txt describes how to set up the tools
+  for trace checking on a new machine.
+
+
+Recent info:
+~~~~~~~~~~~~
+
+ inside hol.unquote:
+
+ - load "testEval";
+
+ - quietdec := true; open testEval ; quietdec := false;
+
+   (* change TcpLocal above to TcpForeign for typing reasons *)
+ - val t = ``tcp_reass (SEQ32 TcpForeign 4w) [ <| seq  := SEQ32 TcpForeign 4w;
+                        spliced_urp := NONE;
+                        FIN  := T;
+                        data := [] |> ]``;
+
+ - SIMP_CONV phase2_ss [] t;
+ > val it =
+     |- tcp_reass (SEQ32 TcpForeign 4w)
+          [<|seq := SEQ32 TcpForeign 4w; spliced_urp := NONE; FIN := T;
+             data := []|>] = {([],0,T)} : thm
+
+To splice in a term from ML:
+
+> val u = ``^(t) - 1``;
+
+
+Out-of-date info:
+~~~~~~~~~~~~~~~~~
+
+Do the following:
+
+  hol.unquote
+  load "testEval";;
+  show_assums := true;;
+  testEval.do_timed_trace_fromfile "/usr/groups/tthee/batch/autotest-2003-05-27T16:03:05+0100/trace0000";;
+
+Note that the loading may take several minutes.
+
+The last theorem is the last step; the assumptions on that theorem are
+the constraints inferred.
+
+If this fails with "tried to take head of empty sequence", it means
+the trace is unsatisfiable.
+
+
+
+Or to just check if a trace is type-correct:
+
+  Holmake --fast testEval2.uo TCP1_evalSupportTheory.uo
+  hol.unquote
+  load "testEval2";;
+  testEval2.host_and_labels_from_file "filename.tra";;
+
+or, now, much faster:
+
+thalamus$ trace_checker.exe foo bar baz bam
+
+
+

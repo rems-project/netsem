@@ -1,0 +1,38 @@
+#!/bin/bash
+
+BINDIR=`dirname $0`
+
+TITLE=`basename $1`
+#grep ^==Step "$@" | cut -d' ' -f2 > /tmp/stepgraph.$$
+cat $1 | cut -d' ' -f3 > /tmp/timesgraph.rawdata.real.$$
+cat $1 | cut -d' ' -f4 > /tmp/timesgraph.rawdata.st.$$
+cat $1 | cut -d' ' -f6 > /tmp/timesgraph.rawdata.maxstep.$$
+$BINDIR/histoplot -bars 30 /tmp/timesgraph.rawdata.real.$$ > /tmp/timesgraph.real.$$
+$BINDIR/histoplot -bars 30 /tmp/timesgraph.rawdata.st.$$ > /tmp/timesgraph.st.$$
+$BINDIR/histoplot -bars 30 /tmp/timesgraph.rawdata.maxstep.$$ > /tmp/timesgraph.maxstep.$$
+cat <<EOF | gnuplot -persist
+set terminal postscript landscape color
+set title "$TITLE"
+set xlabel 'Elapsed check time (real time, s)'
+set ylabel 'Number of traces'
+set nokey
+set output "timesgraph.real.ps"
+plot '/tmp/timesgraph.real.$$' with histeps;
+
+set terminal postscript landscape color
+set title "$TITLE"
+set xlabel 'Elapsed check time (normalised time, st)'
+set ylabel 'Number of traces'
+set nokey
+set output "timesgraph.st.ps"
+plot '/tmp/timesgraph.st.$$' with histeps;
+
+set terminal postscript landscape color
+set title "$TITLE"
+set xlabel 'Max step reached in check run'
+set ylabel 'Number of traces'
+set nokey
+set output "timesgraph.maxstep.ps"
+plot '/tmp/timesgraph.st.$$' with histeps;
+EOF
+

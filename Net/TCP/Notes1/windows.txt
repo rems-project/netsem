@@ -1,0 +1,143 @@
+Windows sockets:
+~~~~~~~~~~~~~~~~
+
+* Windows socket support is provided by the winsock libraries. Current
+version is winsock 2 (ws2_32.dll)
+  - user applications must include winsock2.h
+
+* Microsoft have added many of their own socket functions
+  - in winsock v1.1 the new functions are named with capital first
+    letters and are postfixed with "Ex", e.g., "ConnectEx"
+  - in winsock v2 the new functions are prefixed "WSA", e.g.,
+    "WSAConnect"
+
+* Before any socket calls can be made the winsock (v2) library must be
+  initialised with a call to WSAStartup(...). Similarly once sockets
+  are no longer required a call must be made to WSACleanup().
+
+* winsock uses type SOCKET for it's socket descriptors (these were/are
+  different to file descriptors)
+  - latest MSDN library documenation suggests that SOCKET descriptors
+    **can** be used as FILE descriptors (aiming for POSIX
+    compatability?)
+  - SMB to check this out!!
+
+* no global errno variable
+  - an error code is obtained by a call to WSAGetLastError()
+
+* winsock does not use the POSIX error pseudonyms. All winsock errors
+  begin WSA*, e.g. WSAENOBUFS
+
+* does (not) have dup()/dup2() calls
+  - does have a call named WSADuplicateSocket(sd, processID, magic
+    datastructure ptr). It fills the magic datastructure with some
+    values that allow the process (processID) to create a shared copy
+    of the socket sd.
+  - it also has a call named DuplicateHandle() (a Platform SDK library
+    function) which will duplicate any type of Windows handle (from
+    FD's and SD's to thread and semaphore handles). Xavier's socket
+    library uses DuplicateHandle() for the implementation of both
+    dup() and dup2() (though his dup2() implementation is badly
+    broken).
+
+* all fcntl calls, e.g., query file flags such as O_NONBLOCK and
+  O_ASYNC, are processed via ioctlsocket(). The same function also
+  deals with the ioctl() calls.
+
+** sockatmark is discovered through a call to ioctlsocket() (ioctl)
+   with the value SIOCATMARK. The description given online in the API
+   docs is wierd and wonderful and may or may not be correct. It
+   certainly feels like TRUE and FALSE may be the wrong way round. See
+   http://msdn.microsoft.com/library/default.asp?url=/library/en-us/winsock/winsock/ioctlsocket_2.asp for more info.
+
+* windows has no recvmsg() or sendmsg() calls
+
+* for recv(), windows does not support the MSG_WAITALL and
+  MSG_DONTWAIT flags
+
+* select() and OOB data. From MSDN: if SO_OOBINLINE is FALSE, OOB data
+  is reported in exceptfds. If SO_OOBINLINE is TRUE, OOB data is
+  reported in readfds. From URL:
+  http://msdn.microsoft.com/library/en-us/winsock/winsock/select_2.asp?frame=true
+
+* ioctlsocket() and getfilebfl(). ioctlsocket() calls are used to get
+  the file flags (getfilebfl()), but it is unclear how to make such
+  calls from the MSDN documentation at
+  http://msdn.microsoft.com/library/en-us/winsock/winsock/ioctlsocket_2.asp?frame=true. I
+  infer that passing a NULL ptr to argp performs a get flags
+  operation...
+
+* SO_DEBUG socket option:
+  - Windows appears to support (to same definition of 'support') the
+    SO_DEBUG socket option. It is certainly setable and viewable with
+    setsockopt/getsockopt (see:
+    http://msdn.microsoft.com/library/en-us/winsock/winsock/setsockopt_2.asp?frame=true).
+  - The Winsock API does not give any information on how one might go
+    about recovering the debug information.
+  - The Winsock SPI guide (service provider's interface) says "Windows
+    Sockets service providers are encouraged (but not required) to
+    supply output debug information if the SO_DEBUG option is set by a
+    Windows Sockets SPI client. The mechanism for generating the debug
+    information and the form it takes are beyond the scope of this
+    specification." (see:
+    http://msdn.microsoft.com/library/en-us/winsock/winsock/wspsetsockopt_2.asp?frame=true)
+    Every other source reports the unhelpful "beyond the scope of this
+    specification" clause.
+  - No amount of searching has suggested that Microsoft's TCP
+  - implementation supports such debugging
+  - Lots of internet sources say that setting SO_DEBUG on Winsock
+    succeeds but has no effect (it is there for compatability only).
+  - Other sources suggest that 3rd party TCP stacks may support TCP
+    debugging via adhoc methods (see
+    http://home.postech.ac.kr/~ayo/winsock-faq/newbie.html). The
+    Trumpet Winsock library may be such an alternative.
+  - MSDN contains no useful infomation (i.e. none that could be found)
+
+* MSDN setsockopt says:
+  (http://msdn.microsoft.com/library/en-us/winsock/setsockopt.asp)
+  "If the setsockopt function is called before the bind function,
+  TCP/IP options will not be checked with TCP/IP until the bind
+  occurs. In this case, the setsockopt function call will always
+  succeed, but the bind function call may fail because of an early
+  setsockopt failing."
+
+
+---
+Newsgroups: comp.protocols.tcp-ip
+From: alun@texis.com (Alun Jones)
+Subject: Re: accept()
+Date: Thu, 29 Aug 2002 15:57:59 GMT
+Message-ID: <bwrb9.3507$335.747443351@newssvr30.news.prodigy.com>
+
+> >As a RST indicates a "hard" error, I wouldn't use a RST for indicating
+> >overload of a server, as it's a temporary condition, not a hard error.
+>
+> I don't suppose you could persuade Microsoft of that, could you?  I've been
+> trying on and off for the last decade.  Theirs is still the only TCP/IP stack
+> that I'm aware of that responds with a RST to incoming connections if the
+> listen backlog queue is full; and as a result, theirs is still the only TCP/IP
+> stack that I'm aware of that automatically retransmits a SYN if a RST comes in
+> - it essentially treats the RST as if it weren't there, and times out on the
+> SYN.  Kludge piled on top of bug.
+>
+> Alun.
+
+---
+http://msdn.microsoft.com/msdnmag/issues/1000/Winsock/print.asp
+and thread Message-ID: <jj4gnug8ei9rfsjc8sj9orpbbp5h2eishq@4ax.com>.
+
+* A thread on microsoft.public.win32.programmer.networks currently
+  (see around Message-ID: <OgHl9NHcCHA.1652@tkmsftngp11>) notes that
+  the behaviour of Winsock depends on the version you actually request
+  dynamically (with WSAStartup()), not just on the version of the DLL
+  installed.  (if I understand what they're saying correctly).  Beware
+  of this!
+
+---
+
+"Winsocki" military academy in 1945 MGM film Best Foot Forward:
+
+http://us.imdb.com/Title?0035675
+
+---
+

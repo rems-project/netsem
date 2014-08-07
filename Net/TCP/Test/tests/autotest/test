@@ -1,0 +1,97 @@
+#! /bin/bash
+
+# ----------------------------------------------------------------------
+# DIRPATH - directory where traces are to be deposited
+# FILENAME - name of trace directory for the testing run
+# ----------------------------------------------------------------------
+DIRPATH=/usr/groups/tthee/batch/temp-testing-runs
+DIAG_SCRIPT=/usr/groups/tthee/local/Net/TCP/Test/scripts/build-diags
+PRETTY_SCRIPT=/usr/groups/tthee/local/Net/TCP/Test/scripts/check/prettytrace
+
+FILENAME=autotest-`date -Iseconds`
+
+set -e
+
+# Define the temporary and real trace directory names
+TEMPNAME=$DIRPATH/temp-$FILENAME
+REALNAME=$DIRPATH/$FILENAME
+STATUS=$DIRPATH/status
+
+# Create the temporary directory with the required permissions
+# All new traces are deposited here. If the test run is successful
+# this is renamed to $REALNAME otherwise it is left alon.
+umask 0002
+mkdir $TEMPNAME
+chgrp netsem $TEMPNAME
+chmod 2775 $TEMPNAME
+
+echo "Started new test run at `date -Iseconds`" > $STATUS
+echo "  Traces are currently being written to:" >> $STATUS
+echo "    $TEMPNAME" >> $STATUS
+echo "  A log of the testing progress can be found at: " >> $STATUS
+echo "    $TEMPNAME/log" >> $STATUS
+
+echo "Not flushing or locking anything, to my eternal discredit"
+#echo "Flushing and locking route metric cache entries on BSD..."
+#ssh root@john.netsem "route change -net 192.168.0 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0" >/dev/null
+#ssh root@john.netsem "route change -host 192.168.0.99 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0" >/dev/null
+#ssh root@john.netsem "if (route get 192.168.0.12 | grep CLONING) then echo no delete; else route delete -host 192.168.0.12; fi" > /dev/null
+#ssh root@john.netsem "route add -host 192.168.0.12 default -iface -llinfo -nostatic -ifp lo0 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0 -lock -mtu 16384" > /dev/null
+#ssh root@john.netsem "route change -net 192.168.1 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0" >/dev/null
+#ssh root@emil.netsem "route change -net 192.168.0 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0" >/dev/null
+#ssh root@emil.netsem "route change -host 192.168.0.99 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0" >/dev/null
+#ssh root@emil.netsem "if (route get 192.168.1.13 | grep CLONING) then echo no delete; else route delete -host 192.168.1.13; fi" > /dev/null
+#ssh root@emil.netsem "route add -host 192.168.1.13 default -iface -llinfo -nostatic -ifp lo0 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0 -lock -mtu 16384" > /dev/null
+#ssh root@emil.netsem "route change -net 192.168.1 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0" >/dev/null
+
+function ntp_update {
+    if [[ $1 = "DISABLE" ]]; then
+	echo  "Disabling ntp updates..."
+	ssh john.netsem "echo -n glia:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'unconfig astrocyte' glia"
+	ssh john.netsem "echo -n john:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'unconfig astrocyte' john"
+	ssh john.netsem "echo -n emil:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'unconfig astrocyte' emil"
+	ssh john.netsem "echo -n alan:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'unconfig astrocyte' alan"
+	ssh john.netsem "echo -n kurt:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'unconfig astrocyte' kurt"
+    else
+	echo  "Re-enabling ntp updates..."
+	ssh john.netsem "echo -n glia:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'addserver astrocyte' glia"
+	ssh john.netsem "echo -n john:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'addserver astrocyte' john"
+	ssh john.netsem "echo -n emil:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'addserver astrocyte' emil"
+	ssh john.netsem "echo -n alan:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'addserver astrocyte' alan"
+	ssh john.netsem "echo -n kurt:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'addserver astrocyte' kurt"
+    fi
+}
+
+
+#ntp_update DISABLE
+#ntp_update ENABLED
+echo "Declining to do anything useful about NTP either"
+
+function success {
+#    ntp_update  ENABLE
+    echo "" >> $STATUS
+    echo "Test generation was successful." >> $STATUS
+    echo "Finished!" >> $STATUS
+}
+
+function fail {
+#    ntp_update ENABLE
+    echo "" >> $STATUS
+    echo "Test generation $1." >> $STATUS
+    echo "See the log file in this directory for more details" >> $STATUS
+}
+
+function handle_signal {
+    fail "KILLED"
+    exit 1
+}
+
+trap handle_signal SIGINT SIGTERM SIGKILL
+
+if ./autotest $1 $TEMPNAME/trace $TEMPNAME/log $2 $3 ; then
+    success
+else
+    fail "FAILED"
+fi
+
+# END OF SCRIPT

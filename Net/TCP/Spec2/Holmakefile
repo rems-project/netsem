@@ -1,0 +1,50 @@
+OPTIONS = QUIT_ON_FAILURE
+OBJS = testEval.uo LetComputeLib.uo strings.uo numrelnorm.uo
+
+all: TCP1_evalSupportTheory.uo #trace_checker.exe CheckTraces.exe
+
+
+#-----
+# Build options for automatic trace checking
+#-----
+CheckTraces.exe.tmp: CheckTraces.uo strings.uo
+	$(HOLMOSMLC) -o $@ $<
+
+build: CheckTraces.exe.tmp
+
+commit: CheckTraces.exe.tmp
+	mv CheckTraces.exe.tmp CheckTraces.exe
+
+# End
+#-----
+
+trace_checker.exe: trace_checker.uo
+	$(HOLMOSMLC) -o $@ $<
+
+CheckTraces.exe: CheckTraces.uo $(OBJS)
+	$(HOLMOSMLC) -o $@ $<
+
+genstrings.exe : genstrings.uo
+	$(HOLMOSMLC) -o $@ $<
+
+strings.sml : genstrings.exe html_header html_trailer
+	./genstrings.exe html_header html_trailer > $@
+
+word16Theory.ui word16Theory.uo : \
+                  $(SIGOBJ)/wordFunctor.ui $(SIGOBJ)/wordFunctorLib.ui \
+                  $(SIGOBJ)/bitsTheory.ui
+	$(HOLDIR)/bin/mkword.exe 16
+
+word32Theory.uo word32Theory.ui : \
+                  $(SIGOBJ)/wordFunctor.ui $(SIGOBJ)/wordFunctorLib.ui \
+                  $(SIGOBJ)/bitsTheory.ui
+	$(HOLDIR)/bin/mkword.exe 32
+
+HolDoc.sml HolDoc.sig : \
+		$(HOLDIR)/tools/holdoc/HolDoc.sml \
+		$(HOLDIR)/tools/holdoc/HolDoc.sig
+	cp $(HOLDIR)/tools/holdoc/HolDoc.sml $(HOLDIR)/tools/holdoc/HolDoc.sig .
+
+EXTRA_CLEANS=HolDoc.sml HolDoc.sig trace_checker.exe CheckTraces.exe \
+             genstrings.exe strings.sml
+

@@ -1,0 +1,54 @@
+%Filename: T1bchy.fd
+%Created by: tex charter
+%Hacked by Keith Wansbrough to scale to *not quite* optically match cmr (for UDP Calculus)
+%Time-stamp: <2002-01-15 15:20:48 kw217@dove.cl.cam.ac.uk>
+
+%THIS FILE SHOULD BE PUT IN A TEX INPUTS DIRECTORY
+
+\ProvidesFile{T1bchy.fd}
+   [2001/04/25 Fontinst v1.504 font definitions for T1/bchy (+KSW).]
+
+\DeclareFontFamily{T1}{bchy}{}
+
+\DeclareFontShape{T1}{bchy}{b}{n}{
+   <-> [1.00] bchb8t
+}{}
+
+\DeclareFontShape{T1}{bchy}{b}{sc}{
+   <-> [1.00] bchbc8t
+}{}
+
+\DeclareFontShape{T1}{bchy}{b}{sl}{
+   <-> [1.00] bchbo8t
+}{}
+
+\DeclareFontShape{T1}{bchy}{b}{it}{
+   <-> [1.00] bchbi8t
+}{}
+
+\DeclareFontShape{T1}{bchy}{m}{n}{
+   <-> [1.00] bchr8t
+}{}
+
+\DeclareFontShape{T1}{bchy}{m}{sc}{
+   <-> [1.00] bchrc8t
+}{}
+
+\DeclareFontShape{T1}{bchy}{m}{sl}{
+   <-> [1.00] bchro8t
+}{}
+
+\DeclareFontShape{T1}{bchy}{m}{it}{
+   <-> [1.00] bchri8t
+}{}
+
+\DeclareFontShape{T1}{bchy}{bx}{n}{<->ssub * bchy/b/n}{}
+\DeclareFontShape{T1}{bchy}{bx}{sc}{<->ssub * bchy/b/sc}{}
+\DeclareFontShape{T1}{bchy}{bx}{sl}{<->ssub * bchy/b/sl}{}
+\DeclareFontShape{T1}{bchy}{bx}{it}{<->ssub * bchy/b/it}{}
+\DeclareFontShape{T1}{bchy}{l}{n}{<->ssub * bchy/m/n}{}
+\DeclareFontShape{T1}{bchy}{l}{sc}{<->ssub * bchy/m/sc}{}
+\DeclareFontShape{T1}{bchy}{l}{sl}{<->ssub * bchy/m/sl}{}
+\DeclareFontShape{T1}{bchy}{l}{it}{<->ssub * bchy/m/it}{}
+
+\endinput

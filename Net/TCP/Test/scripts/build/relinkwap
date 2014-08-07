@@ -1,0 +1,13 @@
+#!/bin/sh
+
+. `dirname $0`/waprc
+
+umask 007
+mkdir -p $WAPDIR
+mkdir -p $WAPLOC
+cd $WAPDIR
+lndir $WAPSRC
+#find $WAPLOC -type f -print | perl -pe 's/\Q$ENV{WAPLOC}\E/$ENV{WAPDIR}/' | xargs rm -f __rm_food
+find $WAPLOC -type f -print | sed -s "s#${WAPLOC}#${WAPDIR}#" | xargs rm -f __rm_food
+lndir $WAPLOC
+find . -follow -printf '' 2>&1 | cut -c 7- | cut -d: -f1 | xargs rm -f __rm_food

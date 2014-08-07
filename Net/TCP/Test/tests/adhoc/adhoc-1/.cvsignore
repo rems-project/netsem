@@ -1,0 +1,5 @@
+*.cm*
+*.o
+adhoc-1
+*.exe
+.depend

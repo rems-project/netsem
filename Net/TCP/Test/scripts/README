@@ -1,0 +1,78 @@
+This directory contains shell scripts to generally make life easier
+:-)
+
+build-diags
+~~~~~~~~~~~
+
+builds the tracennnn.ps.gz views of the trace.  Documentation in file.
+Note that only running it in the relevant dir works - passing a dir on
+the command line is broken at the moment.
+
+build-diags3
+~~~~~~~~~~~~
+
+builds the tracennnn.annotated.ps.gz views of the trace - with the
+rule firings down one side.  Documentation in file.
+
+check/:
+~~~~~~~
+Directory contains the distributed HOL trace checking code. See
+check/README for further details.
+
+distribute:
+~~~~~~~~~~~
+This packages the local version of the Net/TCP/Test/
+directory tree into a gzipped tarball and securely copies it to each
+non-Windows machine on our test network: alan, kurt, emil and john.
+
+Connecting via ssh it unpackages the directory on each host into
+/home/Net/TCP/Test and proceeds to call make at the top
+level. Distribute connects to the test machine as root, so you must
+have root access via private-key ssh.
+
+Finally, for tools that require extra privileges, it changes their
+ownership to user root and group wheel, and sets their setuid bit.
+
+It should be called from /home/Net/TCP/Test by executing
+script/distribute.
+
+To make life simpler, OCaml lives in the same place on the subnet
+machines as on the lab machines: /usr/groups/netsem/ocaml/.  For the
+script to work without manual intervention, RSA key authentication
+must be setup for ssh connections to the machines on the test network.
+
+bsd-script, linux-script:
+~~~~~~~~~~~~~~~~~~~~~~~~~
+are dependencies of distribute for the respective architectures.
+
+win/
+~~~~
+The scripts in this directory are used ON a windows machine to
+distribute the test tools to that machine (this is the Windows
+equivalent of distribute, except that it pulls rather than pushes the
+update). See Section 6, "Distributing the test tools to the test
+machines" in Test/README for further details on how to use these.
+
+build/:
+~~~~~~~
+Directory contains useful scripts for maintaining the structure of
+/usr/groups/tthee/local which has source and build directories for
+both the test tools and hol98. See build/README for details.
+
+packagetsc:
+~~~~~~~~~~~
+Packages up the Windows timer calibration code in utils/tsccal for
+distribution to the outside world.
+
+lintperm:
+~~~~~~~~~
+A script for checking the permissions in /usr/groups/tthee and
+/usr/groups/tthee-scratch are correct.... because people have a bad
+habbit of screwing up file permissions in this group shared
+directories!
+
+
+
+
+
+

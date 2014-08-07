@@ -1,0 +1,35 @@
+Boot from the FreeBSD-6.0-RELEASE install CD and choose 'standard installation'.
+
+When prompted to create partitions, press 'A' for 'use entire disk' followed by
+'Q'. Choose to install a standard MBR and then automatically create partitions
+with 'A'. On ken, this results in the following:
+
+a   /     512MB
+b   swap  486MB
+d   /var  1267MB
+e   /tmp  512MB
+f   /usr  3371MB
+
+Select 'Q' to finish. When asked to select a distribution, choose 'developer'
+and decline to install the ports collection. Select 'install from CD', confirm
+everything and watch it go.
+
+After the installation, elect to configure Ethernet devices, select the device
+from the list, say 'no' to IPv6 and DHCP, then enter the appropriate settings.
+
+hostname: ken.netsem2
+domain: netsem2
+gateway:
+name server:
+address: 192.168.13.102
+subnet mask 255.255.255.0
+extra opts:
+
+Configure the time zone and keymap and set a root password. Add users, making
+sure anyone who should be able to su to root is in group wheel.
+
+Install the shells/bash-3.0.16_1 and devel/gmake-3.80_2 packages. Symlink
+/bin/bash to /usr/local/bin/bash and /bin/make to /usr/local/bin/gmake.
+
+Replace /etc/hosts with the /etc/hosts in this directory which gives IPs for the
+six test machines, 'psyche' and fornix.

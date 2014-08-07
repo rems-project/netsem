@@ -1,0 +1,26 @@
+#!/bin/sh
+
+if [ $# -ne 1 ]; then
+    echo "Usage: $0 relative_or_absolute_path_to_new_HOLDoc_dir, or $0 -r to remove"
+    exit 255
+fi
+
+NEWDIR="$1"
+
+if [ $NEWDIR = "-r" ] ; then
+    echo "Deleting files."
+    for f in holdoc-guide.txt holdoc_init.ml holdoc_init.mli holdoc_munge.ml holdoc_munge.mli HolDoc.sig HolDoc.sml hollex.mli hollex.mll hol_to_latex.ml lts_to_latex.ml Makefile mng_to_latex.ml README simpledump.ml simpletexdump.ml WISHLIST ; do
+        rm $f
+    done
+else
+    echo "Linking files."
+    for f in holdoc-guide.txt holdoc_init.ml holdoc_init.mli holdoc_munge.ml holdoc_munge.mli HolDoc.sig HolDoc.sml hollex.mli hollex.mll hol_to_latex.ml lts_to_latex.ml Makefile mng_to_latex.ml README simpledump.ml simpletexdump.ml WISHLIST ; do
+        ln -s $NEWDIR/$f
+    done
+fi
+
+echo "All done."
+
+
+
+

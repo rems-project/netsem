@@ -1,0 +1,1215 @@
+
+Disclaimer: these were Steve's (smb50's) thoughts on which tests to
+write when he first started thinking about writing autotest and some
+tests. We now have many more tests than those listed, but this does
+contain some of Steve's thought processes... and may still have some
+useful unanswered questions!!!
+
+
+******************************
+Notes on automated TCP testing
+******************************
+
+Sections
+********
+0. Testing TODO
+1. General TODO
+2. Q&A
+3. General notes on testing socket calls
+4. Notes on specific socket calls
+5. Thoughts on structure of the test harnesses
+6. Test desiderata (PES, KW, SMB)
+
+
+NB: "*" denotes done, "#" denotes to be done (in Section 4 only).
+
+
+--------------------
+Testing TODO
+--------------------
+
+
+--------------------
+General TODO
+--------------------
+* Take a look at the sockopts in ocamllib. These are subject to change.
+  - SO_BSDCOMPAT is meaningless for TCP so this should probably be
+  removed.
+  - what other flags are worth including? This needs further
+  investigation...
+
+* Think about how to exhaust memory and mbufs during tests. Probably
+  not too hard...
+    - is kernel memory constant or can it grow?
+    - is the max number of mbufs a sysctl variable?
+  ==> In FreeBSD 4.6-RELEASE as on john.netsem, the following limits
+      hold at present (settable by sysctls unless stated):
+      - kernel max number of files is 1064 (=ENFILE)
+      - kernel max number of files per process is 957 (=EMFILE)
+      - kernel max number of mbufs is 4096
+      - kernel max number of clusters is 1024
+      - kernel max number of sockets is 1064, also used to init the
+        max number of tcpcbs (watch these with vm.zone)
+      - kernel default send and receive space for TCP socket; used
+        only in tcp_attach, and probably reset by route?? 32768 and
+        57344 bytes respectively.
+      - syncache max size: 15359 (bucketlimit 30)
+
+* From an email by KW: We say everywhere that we're really keen to
+specify *failure* behaviour precisely.  Thus, we need to see what
+happens when:
+      - the destination is unrouteable
+      - the network cable is pulled out
+      - the interface is brought down
+      - the next-hop gateway falls over
+      - the next-hop gateway can't route the packet
+      - the next link has a smaller MSS than the first link
+      - all the above for an arbitrary other gateway/link in the network
+      - all the above for each end of the connection
+As a first attempt, our model has (or is supposed to have) a library
+call which means "disconnect from the internet", and one which means
+"bring the interface down/up".
+
+--------------------
+Q&A
+--------------------
+* Does BSD have a maximum number of system/kernel-wide mbufs? Thus, is
+  it possible to ever get ENOBUFS?
+
+    - KW to check. This may be sysctl settable? If it is sysctl
+  settable then the testing tools should NOT have sysctl access to
+  avoid future test cockups.
+  ==> see above.  Yes: system-wide, settable.
+
+* Does any implementation actually produce EISCONN after a call to
+  bind (cf bind_8)? The BSD/Linux/Windows man pages do not mention
+  it. It only appears within the POSIX specificiation.
+
+    A: Don't know -- see what the different hosts do. It may be
+  difficult to excersie bind_8 fully...
+    - SB to write some tests for this
+
+* Are we interested in BSD's accept filter queue? This is the
+  additional queue used to hold completed connections before they are
+  checked against the accept filter rules. Successful packets are then
+  placed on the completed connection queue ready to be accept()ed. BSD
+  manpage states that this queues length is also based on the backlog
+  parameter to listen (whatever that *actually* means).
+
+    - KW to check this out.
+  ##TODO: KW
+
+* The linux manpage for listen() suggests that it is possible to get
+  the error EADDRINUSE if two sockets attempt to listen on the same
+  port. It is possible to bind to the same port either on different or
+  the same IP address with SO_REUSEADDR or SO_REUSEPORT
+  respectively. Is the stated error message actually possible? Surely
+  any violations would be caught by bind()? Worth testing...
+
+    Update: W32 listen description suggests that this error can be
+  raised if you have bound to a wildcard IP address. The bind succeeds
+  but listening may force a specific address to be selected and thus
+  can fail. Still worth testing....
+
+    A: SB to write some tests for this
+
+
+-----------------------------------
+General notes on testing sock calls
+-----------------------------------
+
+* there is a difference between exhaustively testing bind() and
+  connect() and having a function which will force a socket into a
+  given (ip1,ps1,ip2,ps2) state. The latter function is useful in
+  later tests
+
+* Thus, it is clear that more primitive tests have to be completed
+  first. It is difficult to define an ordering for testing socket
+  calls, although it is clear that socket/bind/connect require testing
+  first as these are required to bootstrap later tests.
+
+* Thought: outgrowing the listen queue and checking whether clients get
+  ECONNREFUSED or ECONNRESET.
+
+* Some thoughts on the bound states we should be able to force a
+  socket into (I believe other combinations are subsumed by these):
+  (key: *=unspecified;  l=local interface ip;  p=privileged port;
+	e=ephemeral port;  n=non-privileged non-ephemeral port;
+	f=foreign ip address;  x=any foreign port;  a=auto bound;
+	lb=loopback)
+  (note: where 'e' is used I mean actually specify a port number that
+         lies in the ephemeral range (don't use autobind))
+
+	  IS1	 PS1	IS2	PS2
+	  *	 *	*	*	(BOUND SOCKETS)
+	  *	 p	*	*
+	  *	 e	*	*
+	  *	 n	*	*
+	  l	 *	*	*
+	  l	 p	*	*
+	  l	 e	*	*
+	  l	 n	*	*
+	  lb	 *	*	*
+	  lb	 p	*	*
+	  lb	 e	*	*
+	  lb	 n	*	*
+
+	  a	 a	f	x	(CONNECTED SOCKETS)
+	  a	 p	f	x
+	  a	 e	f	x
+	  a	 n	f	x
+	  l	 a	f	x
+	  l	 p	f	x
+	  l	 e	f	x
+	  l	 n	f	x
+	  lb	 a	f	x
+	  lb	 p	f	x
+	  lb	 e	f	x
+	  lb	 n	f	x
+	  a	 a	l	x
+	  a	 p	l	x
+	  a	 e	l	x
+	  a	 n	l	x
+	  l	 a	l	x
+	  l	 p	l	x
+	  l	 e	l	x
+	  l	 n	l	x
+	  lb	 a	l	x
+	  lb	 p	l	x
+	  lb	 e	l	x
+	  lb	 n	l	x
+	  a	 a	lb	x
+	  a	 p	lb	x
+	  a	 e	lb	x
+	  a	 n	lb	x
+	  l	 a	lb	x
+	  l	 p	lb	x
+	  l	 e	lb	x
+	  l	 n	lb	x
+	  lb	 a	lb	x
+	  lb	 p	lb	x
+	  lb	 e	lb	x
+	  lb	 n	lb	x
+
+* When each test is performed it is wrapped within a "try ... with _
+  -> ..." such that all errors are caught. When an error is caught a
+  warning that that test failed is printed to stderr and testing
+  continues. This is an important feature when doing overnight batch
+  testing with 1000s of tests!
+    - this should also produce a log containing a summary of the tests
+  performed and an enumeration of all failed tests (including full
+  descriptions). Probably should be in html format.
+
+
+------------------------------
+Notes on specific socket calls
+------------------------------
+
+socket()
+--------
+* normal case to obtain a valid fd (DONE)
+# exhaust resources
+* - exhaust maximum number of fds (DONE)
+* - too many system wide fds (DONE)
+# - out of memory / out of mbufs
+
+bind()
+------
+* unspecified IP, unspecified port (DONE)
+* unspecified IP, unbound non-priv non-ephemeral port (DONE)
+* unspecified IP, unbound ephemeral port (DONE)
+* unspecified IP, unbound privileged port with permission (DONE)
+* unspecified IP, unbound privileged port without permission (DONE)
+* unspecified IP, bound non-priv non-ephemeral port (DONE)
+* unspecified IP, bound ephemeral port (DONE)
+* unspecified IP, bound privileged port with permission (DONE)
+* unspecified IP, bound privileged port without permission (DONE)
+* available IP, unspecified port (DONE)
+* available IP, unbound non-priv non-ephemeral port (DONE)
+* available IP, unbound ephemeral port (DONE)
+* available IP, unbound privileged port with permission (DONE)
+* available IP, unbound privileged port without permission (DONE)
+* available IP, bound non-priv non-ephemeral port (DONE)
+* available IP, bound ephemeral port (DONE)
+* available IP, bound privileged port with permission (DONE)
+* available IP, bound privileged port without permission (DONE)
+* unavailable IP, unspecified port (DONE)
+* unavailable IP, unbound non-priv non-ephemeral port (DONE)
+* unavailable IP, unbound epehemeral port (DONE)
+* unavailable IP, unbound privileged port with permission (DONE)
+* unavailable IP, unbound privileged port without permission (DONE)
+* unavailable IP, bound non-priv non-ephemeral port (DONE)
+* unavailable IP, bound ephemeral port (DONE)
+* unavailable IP, bound privileged port with permission (DONE)
+* unavailable IP, bound privileged port without permission (DONE)
+* incremental binding: bind port then bind ip (DONE)
+* incremental binding: bind ip then bind port (DONE)
+* rebinding a bound socket (DONE)
+* binding an already connected socket (DONE)
+# exhaust all ephemeral ports and try
+# - unspecified IP, unspecified port
+# - available IP, unspecified port
+# - unavailable IP, unspecified port
+# exhaust resources
+# - out of memory / out of mbufs
+
+
+dup()
+-----
+* normal case (DONE)
+* leave holes in fd numbers to check minimal fd is picked (DONE)
+* exhaust resources (DONE)
+* - too many process file descriptors (DONE)
+* - too many system wide file descriptors (DONE)
+
+
+dupfd()
+-------
+* to same file descriptor (DONE)
+* to a file descriptor already in use (DONE)
+* to a file descriptor already in use with some in a higher range available (DONE)
+* to an unallocated file decriptor (DONE)
+* invalid argument (fd out of range)
+* exhaust resources (DONE)
+* - too many process file descriptors to allocated descr (DONE)
+* - too many system wide file descriptors to allocated descr (DONE)
+* - too many process file descriptors to same descr (DONE)
+* - too many sys file descriptors to same descr (DONE)
+
+
+listen()
+--------
+* normal case (following successful bind to IP,port) (DONE)
+* normal case (following successful bind to wildcard IP, port) (DONE)
+* error case (listen on wildcard IP, wildcard port) (DONE)
+* negative backlog values (DONE)
+* backlog values greater than maximum (SOMAXCONNS) (REMOVED)
+* attempt to listen on already listening ip, port (DONE)
+* multiple calls specifying the same backlog (DONE)
+* multiple calls to update backlog (DONE)
+  (WIN32 suggest this is allowed. Rationale says not)
+# posix suggests you can get an EACCES? How?
+* for all TCP states (except LISTEN):
+*  - attempt call and check errors (DONE)
+* find the correspondence between the backlog value and the queue
+length (DONE)
+# out of resources (no bufs)
+* not a socket fd (to test notsock_1 in Spec) (DONE)
+
+
+accept()
+--------
+* non-blocking, in LISTEN, connection(s) waiting (DONE)
+* non-blocking, in LISTEN, no connection waiting (DONE)
+* blocking, in LISTEN, connection(s) waiting (DONE)
+* blocking, in LISTEN, no connection waiting (DONE)
+# blocking, in LISTEN, no connection waiting, signal received
+* socket shutdown/closed before blocked call returns (not easy in normal case)
+* for all TCP states (except LISTEN): (DONE)
+* - non-blocking (DONE)
+* - blocking (DONE)
+# exhaust resources
+* - exhausted proc fds, non-blocking, in LISTEN, connection(s) waiting (DONE)
+* - exhausted proc fds, non-blocking, in LISTEN, no connection waiting (DONE)
+* - exhausted proc fds, blocking, in LISTEN, connection(s) waiting (DONE)
+* - exhausted proc fds, blocking, in LISTEN, no connection waiting (DONE)
+* - exhausted sys fds, non-blocking, in LISTEN, connection(s) waiting (DONE)
+* - exhausted sys fds, non-blocking, in LISTEN, no connection waiting (DONE)
+* - exhausted sys fds, blocking, in LISTEN, connection(s) waiting (DONE)
+* - exhausted sys fds, blocking, in LISTEN, no connection waiting (DONE)
+# - out of memory
+# - out of mbufs
+
+
+connect()
+---------
+Unless otherwise stated, perform each of these tests for each type of
+locally BOUND SOCKET:
+* blocking, in CLOSED, listening foreign ip/port (DONE)
+* blocking, in CLOSED, non-listening foreign ip/port (DONE)
+* non-blocking, in CLOSED, listening foreign ip/port (DONE)
+* non-blocking, in CLOSED, non-listening foreign ip/port (DONE)
+* blocking, foreign ip/port (of non-existent host?), timeout should occur (DONE)
+* for all TCP states (except CLOSED): (DONE)
+* - blocking, listening foreign ip/port (DONE)
+* - blocking, non-listening foreign ip/port (DONE)
+* - non-blocking, listening foreign ip/port (DONE)
+* - non-blocking, non-listening foreign ip/port (DONE)
+* blocking, foreign ip/port, hostunreachable (or networkdown) (DONE)
+* blocking, address already in use (same quad)
+# blocking, foreign ip/port (of non-existent host?), interupted by signal
+# exhaust resources
+# - no ephemeral ports
+# - out of buffer space ??
+
+
+close()
+-------
+The tests marked ## require some packets to be inserted to simulate
+the virtual host psyche.
+
+* for all TCP states (except LISTEN, ESTABLISHED):
+  - blocking, normal close (DONE)
+  - non-blocking, normal close (DONE)
+
+* for state LISTEN:
+  - non-blocking, LISTEN, connection(s) waiting on accept queue (DONE)
+  - non-blocking, LISTEN, connection(s) in syn cache ## (DONE)
+  - non-blocking, LISTEN, no connection(s) waiting (DONE)
+  - blocking, LISTEN, connection(s) waiting on accept queue (DONE)
+  - blocking, LISTEN, connection(s) waiting in syn cache ## (DONE)
+  - blocking, LISTEN, no connection(s) waiting (DONE)
+
+* for state ESTABLISHED:
+  - non-blocking, multiple descs, close one fd (returned from socket) (DONE)
+  - non-blocking, multiple descs, close one fd (returned from dup) (DONE)
+  - non-blocking, multiple descs, close all fds ## (DONE)
+  - blocking, multiple descs, close one fd (returned from socket) (DONE)
+  - blocking, multiple descs, close one fd (returned from dup) (DONE)
+  - blocking, multiple descs, close all fds ## (DONE)
+  - non-blocking, single descr, no linger, close does not succeed (DONE)
+  - non-blocking, single descr, no linger ## (DONE)
+  - non-blocking, single descr, zero linger (DONE)
+  - non-blocking, single descr, non-zero linger ## (DONE)
+  - non-blocking, single descr, non-zero linger, timeout occurs ## (DONE)
+  - blocking, single descr, no linger ## (DONE)
+  - blocking, single descr, zero linger (DONE)
+  - blocking, single descr, non-zero linger ## (DONE)
+  - blocking, single descr, non-zero linger, timeout occurs ## (DONE)
+
+* for state CLOSE_WAIT:
+  - non-blocking, no linger (DONE)
+  - non-blocking, zero linger (DONE)
+  - non-blocking, non-zero linger (DONE)
+  - blocking, no linger (DONE)
+  - blocking, zero linger (DONE)
+  - blocking, non-zero linger (DONE)
+
+
+
+getsockname()
+-------------
+Unless otherwise stated, perform each of these tests for each type of
+bound/connected socket. (N.B. getsockname() for an unbound socket is an
+interesting case to consider. Posix says the behaviour is
+"unspecified"):
+* standard call (DONE)
+* call from each TCP state (DONE)
+# exhaust resources
+# - out of buffer space
+
+
+
+getpeername()
+-------------
+Unless otherwise stated, perform each of these tests for each type of
+bound/connected socket. (N.B. getpeername() for an unconnected socket
+is an interesting case to consider. Should return ENOTCONN):
+* standard call (DONE)
+* call from each TCP state (DONE)
+# exhaust resources
+# - out of buffer space
+
+
+shutdown()
+----------
+These tests require a small virtual TCP stack for the test host psyche.
+For all TCP states:
+* shutdown read only (and try recv'ing data afterwards) (DONE)
+* shutdown write only (and try sending data afterwards) (DONE)
+* shutdown read and write (and try recv'ing/sending data afterwards) (DONE)
+* exhaust resources
+  - out of buffer space (NOT MODELLED YET IN THE SPEC!)
+
+
+send()
+------
+The tests marked ## require some packets to be inserted to simulate
+the virtual host psyche.
+
+* for all TCP states (except ESTABLISHED, CLOSE_WAIT)
+  - non-blocking, send some data   (should fail) (DONE)
+  - blocking, send some data  (should fail) (DONE)
+
+* for state CLOSE_WAIT:
+  - non-blocking, send some data ## (DONE)
+  - blocking, send some data ## (DONE)
+
+* for state ESTABLISHED:
+  - non-blocking, send some data, normal case ## (DONE)
+  - blocking, send some data, normal case ## (DONE)
+  - non-blocking, send empty message ##? (DONE)
+  - blocking, send empty message ##? (DONE)
+
+  - blocking, MSG_PEEK, send some data  (should fail) (DONE)
+  - blocking, MSG_WAITALL, send some data  (should fail) (DONE)
+  - blocking, shutdown SEND, send some data  (should fail) (DONE)
+
+  - non-blocking, reduce SO_SNDBUF, fill send buffer, send some data ## (DONE)
+  - non-blocking, reduce SO_SNDBUF, almost fill send buffer, send more
+    data than space available (partial send) ## (DONE)
+  - blocking, reduce SO_SNDBUF, fill send buffer, SO_SNDTIMEO=0, send
+    some data ## (warning: may block indefinitely) (DONE)
+  - blocking, reduce SO_SNDBUF, fill send buffer, SO_SNDTIMEO=0, send
+    some data and allow it to succeed eventually (DONE)
+  - blocking, reduce SO_SNDBUF, fill send buffer, SO_SNDTIMEO!=0, send
+    some data (should timeout) ## (DONE)
+  - blocking, reduce SO_SNDBUF, fill send buffer, MSG_DONTWAIT set, send
+    some data (should behave like non-blocking) ## (DONE)
+  - blocking, MSG_DONTWAIT set, space available in sndbuf, send some
+    data ## (DONE)
+
+  - non-blocking, set SO_SNDLOWAT, send more data than SO_SNDLOWAT (DONE)
+  - non-blocking, set SO_SNDLOWAT, send data equal to SO_SNDLOWAT (DONE)
+  - non-blocking, set SO_SNDLOWAT, send less data than SO_SNDLOWAT (DONE)
+
+  - non-blocking, MSG_OOB, space available, send some data ##? (DONE)
+  - non-blocking, MSG_OOB, reduce SO_SNDBUF, fill send buffer, send
+    some data ## (DONE)
+  - non-blocking, MSG_OOB, fill send buffer, send lots of data ## (DONE)
+
+* other tests
+  - pending errors returned (only ESTABLISHED state??)
+  - blocking (or non-blocking) call interrupted by a signal
+  - out of resources
+
+
+recv()
+------
+The tests marked ## require some packets to be inserted to simulate
+the virtual host psyche.
+
+* for all TCP states (except ESTABLISHED, FIN_WAIT_1, FIN_WAIT_2, CLOSING):
+  - non-blocking, recv some data (should fail) (DONE)
+  - blocking, recv some data (should fail) (DONE)
+
+
+* for states FIN_WAIT_1 and FIN_WAIT_2:
+  - non-blocking, recv some data, normal case ## (DONE)
+  - blocking, recv some data, normal case ## (DONE)
+
+
+* for state CLOSING:
+  - non-blocking, data on recv queue ## (DONE)
+  - blocking, data on recv queue ## (DONE)
+
+
+* for state ESTABLISHED:
+  - non-blocking, data on rcv queue, normal case ## (DONE)
+  - blocking, data on rcv queue, normal case ## (DONE)
+  - blocking, FIN received from remote host, normal case ## (DONE)
+  - non-blocking, empty rcv queue (DONE)
+  - non-blocking, empty rcvq but request 0 bytes (DONE)
+  - blocking, empty rcv queue (may BLOCK) (DONE)
+  - non-blocking, partial rcv (DONE)
+  - blocking, partial rcv (DONE)
+
+  - non-blocking, MSG_PEEK, empty queue (DONE)
+  - non-blocking, MSG_PEEK, request some of queue ## (DONE)
+  - non-blocking, MSG_PEEK, request more that available on queue ## (DONE)
+
+  - blocking, MSG_PEEK, MSG_WAITALL, request more that available on
+    queue (may BLOCK) ## (DONE)
+  - blocking, MSG_WAITALL, requested amount on queue ## (DONE)
+  - blocking, MSG_WAITALL, requested amount not on queue ## (may BLOCK) (DONE)
+
+  - non-blocking, MSG_OOB, no oob data available (DONE)
+  - non-blocking, MSG_OOB, oob data available inline but out-of-band requested (DONE)
+  - non-blocking, MSG_OOB, oob data available inline (DONE)
+  - non-blocking, MSG_OOB, oob data available inline, request 0 bytes (DONE)
+  - non-blocking, MSG_OOB, oob data available not inline (DONE)
+  - non-blocking, MSG_OOB, rcvq full, oob data arrives inline ??? (DONE)
+  - non-blocking, MSG_OOB, rcvq full, oob data arrives and is available not inline ??? (DONE)
+
+  - non-blocking, rcvq len less than SO_RCVLOWAT (DONE)
+  - non-blocking, rcvq len equals SO_RCVLOWAT (DONE)
+  - non-blocking, rcvq len greater than SO_RCVLOWAT (DONE)
+  - non-blocking, MSG_PEEK, rcvq len less than SO_RCVLOWAT (DONE)
+
+  - blocking, SO_RCVTIMEO=0, rcvq empty, no data arrives (will block forever) (DONE)
+  - blocking, SO_RCVTIMEO!=0, rcvq empty, no data arrives, should timeout eventually (DONE)
+  - blocking, SO_RCVTIMEO!=0, rcvq empty, data arrives before timeout occurs (DONE)
+  - blocking, MSG_WAITALL, SO_RCVTIMEO!=0, requested amount not on queue, allow timeout (DONE)
+
+  - non-blocking, shutdown RECV (DONE)
+
+
+* other tests
+  - pending errors returned (only ESTABLISHED state??)
+  - MSG_WAITALL and error/disconnect occured
+  - blocking (or non-blocking) call interrupted by signal
+  - out of resources
+
+
+pselect()
+---------
+* too difficult to think about for now....
+
+
+sockatmark()
+------------
+* no urgent data
+* urgent data on rcv queue, not yet at mark
+* urgent data, at mark
+* urgent data no longer on rcv queue, have passed mark
+
+
+setsockbopt() / getsockbopt()
+-----------------------------
+* get/set/get SO_REUSEADDR  (DONE)
+* get/set/get SO_KEEPALIVE  (DONE)
+* get/set/get SO_OOBINLINE  (DONE)
+* get/set/get SO_DONTROUTE  (DONE)
+# NOTE: Do we also require SO_REUSEPORT? What else is missing? Need to
+test the dynamic behaviour that each of these effects.
+
+
+setsocknopt() / getsocknopt()
+-----------------------------
+* get/set/get SO_SNDBUF -- all kinds of arguments (DONE)
+* get/set/get SO_RCVBUF -- all kinds of arguments (DONE)
+* get/set/get SO_SNDLOWAT -- all kinds of arguments (DONE)
+* get/set/get SO_RCVLOWAT -- all kinds of arguments (DONE)
+# NOTE: SO_RCVBUF is not tested by recv() as recv()'s behaviour does
+not rely upon it (I think...)
+
+
+setsocktopt() / getsocktopt()
+-----------------------------
+* get/set/get SO_LINGER -- all kinds of arguments (DONE)
+* get/set/get SO_SNDTIMEO -- all kinds of arguments (DONE)
+* get/set/get SO_RCVTIMEO -- all kinds of arguments (DONE)
+* timeout too long (DONE)
+
+
+getfileflags() / setfileflags()
+-------------------------------
+* get/set/get O_NONBLOCK, O_ASYNC -- all kinds of arguments (DONE)
+
+
+getsockerr()
+------------
+###Don't forget that errors are asynchronous (so errors don't
+necessarily occur during/after a socket call)!###
+* no error case (DONE)
+* read and clear a pending error (DONE)
+
+
+getsocklistening()
+------------------
+* For all TCP states:
+* - make call (DONE)
+
+
+------------------------------------
+Notes on testing specific spec rules
+------------------------------------
+
+
+deliver_in_1
+------------
+Passive open, normal case (recv SYN, send SYN/ACK) with completed connection queue not full:
+* broadcast or multicast source address (DONE)
+* broadcast destination address (DONE)  (note: multicast destination
+address not easily achievable)
+* i1 in / notin local ifds (DONE)
+* PSH set (DONE)
+* ack is zero or not (model is permissive) (DONE)
+* urp unconstrained (DONE)
+* MSS set or not set (576 etc) (DONE)
+* Scale option - set or not (DONE)
+* window size set or not (DONE)
+* timestamp set (DONE)
+* old connections for same tuple in TIME_WAIT. Worry about iss's.  (DONE)
+* set all of MSS, scale, win and timestamp (DONE)
+# FIN set, URG set, send data (ignored my model)
+
+
+deliver_in_1b
+-------------
+Passive open, receive bad or boring datagram and either RST or ignore.
+* not a broadcast or multicast source address (DONE)
+* not a broadcast destination address (DONE) (note: multicast
+destination address not easily achievable)
+* i1 in / notin local ifds (DONE)
+* ack packet only (DONE)
+* forged (from self) with SYN set (DONE)
+* forged (from self) with SYN,ACK set  (* interesting case -- do we
+really RST ourselves?!! *) (DONE)
+* not syn and not ack (DONE)
+* syn and not ack, and i1=i2 and p1=p2 (covered above so DONE)
+* listening queue full (DONE)
+
+
+deliver_in_2
+------------
+Simultaneous open or completion of active open, in SYN_SENT: receive
+SYN, send SYN,ACK or receive SYN,ACK, send ACK
+* window scaling resolution: both support, both do not support, disagree
+* timestamp resolution: both support, both do not support, disagree
+* completion of active open vs simultaneous open (DONE)
+* OOB processing (inline and not, advancing urgent pointer and not) (DONE)
+* with/without data (DONE)
+* with/without FIN (DONE)
+* generating a delayed ack (ACK /\ ~FIN /\ data <> [] /\ ...) (DONE)
+
+
+deliver_in_2a
+-------------
+Receive bad or boring datagram and RST or ignore for SYN_SENT socket
+* ack not in correct range (RSTd) (DONE)
+* no SYN, no ACK (ignored) (DONE)
+* no SYN, ACK, ack in range (no change to output queue) (ignore) (DONE)
+
+
+
+deliver_in_3
+------------
+Receive data (and maybe do other things... cope with any non-RST,
+non-SYN segment in >= SYN_RECEIVED states)
+
+
+topstuff: Dropping a segment
+----------------------------
+(Timers: idle timer reset upon new segment arriving; keep_alive timer
+reset upon new segment arriving if not closing in SYN_RECEIVED;
+fin_wait_2 timer reset if segment arrives whilst in FIN_WAIT_2)
+
+* st=SYN_RECEIVED, ACK packet, ack < snd_una (should dropreset) (DONE)
+* st=SYN_RECEIVED, ACK packet, ack = snd_una (should dropreset) (DONE)
+* st=SYN_RECEIVED, ACK packet, ack > snd_max (should dropreset) (DONE)
+* st=SYN_RECEIVED, seq < irs (should dropreset)			(DONE)
+
+For states FIN_WAIT_1, CLOSING, LAST_ACK, FIN_WAIT_2 and TIME_WAIT:
+* process gone away (no fid), segment received with data past rcv_nxt
+  (this is a normal non-forced close) (DONE)
+
+# timestamp < ts_recent (PAWS test fails: dropafterack)
+  [do later when TS option can be enabled on test host]
+* data past RHS of window (dropafterack) (DONE)
+* window probe (advertised window is zero) (dropafterack) (DONE)
+* whole segment lies within acknowledged region of rcv_q (DONE)
+
+# segment with timestamp set, seq <= last_ack_sent. (should update
+  ts_recent)
+  [do later when TS option can be enabled on test host]
+
+
+ackstuff: dealing with flow control
+-----------------------------------
+
+* Duplicate acknowledgements (ack<=snd_una; data=[]; win=snd_wnd;
+  timer=rexmt{syn})
+  (general rule: STOP if dupacks>=3)
+  * dupacks < 3: just update dupack counter in cb; CONT (DONE)
+  * dupacks > 3 or (dupacks=3; NEWRENO; ack<snd_recover):
+    if dupacks=3 then dupacks=0; grow cwnd; output_perhaps; STOP (DONE)
+  * dupacks = 3 and not(NEWRENO; ack<snd_recover):
+    update ssthresh; cwnd; snd_nxt; output perhaps; update cwnd and
+    snd_nxt; STOP (DONE)
+OR
+* Old ack but not duplicate (data!=[]; win!=snd_wnd; timer NOTIN
+  rexmt{syn}:
+  * dupacks = 0; CONT (DONE)
+OR
+[Do all of the below....
+* Ack of new sequence number (ack > snd_una):
+  * !NEWRENO \/ (NEWRENO; dupacks<3): dupacks=0; update cwnd; CONT
+  * NEWRENO /\ dupacks>=3 /\ ack<snd_recover: partial ack, send next
+    missing segment perhaps; update cwnd; update snd_nxt; CONT
+  * NEWRENO; dupacks>=3; ack>=snd_recover: complete recovery;
+    dupacks=0; update cwnd; CONT
+  * ack > snd_max: dropafterack; STOP (** TEST THE snd_max bug **)
+  # ack arrives during badrxtwin: undo cb changes; CONT
+  # ack does not arrive during badrxtwin: CONT
+
+* RTT estimator update
+  * ack segment has a timestamp: update RTT; CONT
+  * ack segment does not have a timestamp but is ack'ing a segment
+  that we were timing: update RTT; CONT  (## CHECK ##)
+  * no timestamp and not acking a timed segment: CONT
+
+* Update rexmt
+  * ack=snd_max: rexmt=*; output=T; CONT
+  * ack!=snd_max; no segment being timed: restart timer; CONT
+  * ack!=snd_max; rexmt timer set: restart timer; CONT
+  * ack!=snd_max; persist timer set: CONT
+
+* Do the cwnd footling
+  * (!NEWRENO \/ dupacks = 0); cwnd>ssthresh: grow cwnd linearly; CONT
+  * (!NEWRENO \/ dupacks = 0); cwnd<=ssthresh: grown cwnd
+    exponentially; CONT
+  X NEWRENO; dupacks != 0: leave cwnd alone; CONT (covered by NEWRENO
+  dupacks tests)
+
+* Move along snd_wnd
+  X ourfinisacked: move snd_wnd and sndq=[]; CONT (covered by many
+  other tests)
+  X !outfinisacked: move snd_wnd and drop part of sndq; CONT (covered
+  by many other tests)
+
+* Final footling
+  X TIME_WAIT and !TIME_WAIT to see update to 2msl timer  (done by
+  fold over tests)
+  # LAST_ACK; ourfinisacked: tcp_close; STOP
+  # TIME_WAIT; ack>snd_una: dropafterack; STOP
+...up to here]
+
+
+datastuff: dealing with urgent and non-urgent data
+--------------------------------------------------
+
+* Updating the send window
+  X ACK /\ snd_wl1 < seq  (covered by almost all other tests)
+  X ACK /\ snd_wl1 = seq /\ snd_wl2 < ack (covered by almost all other tests)
+  * ACK /\ snd_wl1 = seq /\ snd_wl2 = ack /\ win > snd_wnd
+  * ACK /\ SYN_RCVD /\ !FIN
+
+* Urgent data processing
+  * URG /\ urp>0 /\ urp+(len rcvq)<=SB_MAX (valid urgent offset)
+      * seq+urp>rcv_up (advance the urgent pointer & marker)
+  	  * urgent byte in this segment /\ out-of-line (pull-out urg
+	    byte)
+	  * urgent byte is not in this segment
+	  * in-line delivery
+      * seq+urp=rcv_up (don't advance the urgent pointer & marker)
+	  * urgent byte in this segment /\ out-of-line (pull-out urg
+	    byte)
+	  * urgent byte is not in this segment
+	  * in-line delivery
+      * seq+urp<rcv_up (don't advance the urgent pointer & marker)
+
+  * !(URG /\ urp>0 /\ urp+(len rcvq)<=SB_MAX) (invalid urgent offset:
+    pull along rcv_up)
+
+* Processing of normal data and FINs
+  Receive some in-order data
+  * seq<rcv_nxt; seq+len_data<rcv_nxt; (duplicate old segment [dropwithack])
+  * seq>(rcv_nxt + rcv_wnd) (segment entirely beyond window [dropwithack])
+
+  * seq=rcv_nxt; rcv_wnd=0; Length(data)=1; (segment is a window probe [ack now])
+
+  * seq=rcv_nxt; seq+len_data>rcv_nxt; within window; no FIN
+  * seq<rcv_nxt; seq+len_data>rcv_nxt; within window; no FIN
+  * seq=rcv_nxt; seq+len_data=rcv_nxt; within window; no FIN
+  * seq<rcv_nxt; seq+len_data=rcv_nxt; within window; no FIN
+  * seq=rcv_nxt; seq+len_data>rcv_nxt; within window; FIN
+  * seq<rcv_nxt; seq+len_data>rcv_nxt; within window; FIN
+  * seq=rcv_nxt; seq+len_data=rcv_nxt; within window; FIN
+  * seq<rcv_nxt; seq+len_data=rcv_nxt; within window; FIN
+  * seq=rcv_nxt; seq+len_data>rcv_nxt; escapes window; no FIN
+  * seq<rcv_nxt; seq+len_data>rcv_nxt; escapes window; no FIN
+  * seq=rcv_nxt; seq+len_data>rcv_nxt; escapes window; FIN
+  * seq<rcv_nxt; seq+len_data>rcv_nxt; escapes window; FIN
+  * seq=rcv_nxt; seq+len_data=rcv_nxt; escapes window; FIN
+  * seq<rcv_nxt; seq+len_data=rcv_nxt; escapes window; FIN
+  X next expected segment(s) in the reass buffer (covered by other tests)
+
+  Delaying an ACK
+  X have data or FIN left; reass_q=[]; tt_delack=*; !rxwin0sent
+  (should be covered by many other tests)
+
+  Received some out-of-order data
+  * seq>rcv_nxt; seq<(rcv_nxt+rcv_wnd); no FIN
+  * seq>rcv_nxt; seq<(rcv_nxt+rcv_wnd); FIN
+
+* State changes
+  - SYN_RECEIVED, no FIN
+  - SYN_RECEIVED, FIN
+  - ESTABLISHED, no FIN
+  - ESTABLISHED, FIN
+  - CLOSE_WAIT, no FIN
+  - CLOSE_WAIT, FIN
+  - FIN_WAIT_1, no FIN
+  - FIN_WAIT_1, FIN
+  - FIN_WAIT_2, no FIN
+  - FIN_WAIT_2, FIN
+  - CLOSING, no FIN
+  - CLOSING, FIN
+
+* Accepted connection queue stuff?
+
+
+
+deliver_in_4
+------------
+Receive and drop (silently) a non-sane or martian segment
+* checksum not valid (## cannot do this yet!! ##)
+* offset not valid (## cannot do this yet!! ##)
+* broadcast/multicast seg.i2 address (this should be covered by
+deliver_in_1/deliver_in_1b as tests there generate martian segments) (DONE)
+
+
+deliver_in_5
+------------
+Receive and drop (maybe with RST) a sane segment that doesn't match
+any socket
+* sane segments to host with no matching non-CLOSED sockets (DONE)
+
+
+deliver_in_6
+------------
+Receive and drop (silently) a sane segment that matches a CLOSED
+socket
+* sane segments that match a CLOSED socket (DONE)
+
+
+deliver_in_7
+------------
+Receive RST and zap non-{CLOSED; LISTEN; SYN_SENT; SYN_RECEIVED;
+TIME_WAIT} socket
+* send well-formed RST (DONE)
+
+
+deliver_in_7a
+-------------
+Receive RST and zap SYN_RECEIVED socket
+* send well-formed RST for socket on listen queue (DONE)
+
+
+deliver_in_7b
+-------------
+Receive RST and ignore for LISTEN socket
+* send well-formed RST to socket in listening state (DONE)
+
+
+deliver_in_7c
+-------------
+Receive RST and ignore for SYN_SENT(unacceptable ack) or TIME_WAIT socket
+* send well-formed RST to socket in TIME_WAIT state (DONE)
+* send ACK,RST segment with invalid ack to socket in SYN_SENT state (DONE)
+
+
+deliver_in_7d
+-------------
+Receive RST and zap SYN_SENT(acc ack) socket
+* send ACK,RST segment with valid ack to socket in SYN_SENT state (DONE)
+
+
+deliver_in_8
+------------
+Receive SYN in non-{CLOSED;LISTEN;SYN_SENT;TIME_WAIT} state
+* send segment with SYN sent to non-{CLOSED;LISTEN;SYN_SENT;TIME_WAIT}
+state (DONE)
+
+
+deliver_in_9
+------------
+Receive SYN in TIME_WAIT state if there is no matching LISTEN socket
+* send segment with SYN set with seq <= rcv_nxt and new socket in LISTEN
+state (DONE)
+* send segment with SYN set with seq <= rcv_nxt and no new socket in the
+LISTENing state (DONE)
+* send segment with SYN set with valid seq and new socket in LISTEN
+state (DONE)
+* send segment with SYN set with valid seq and no new socket in the
+LISTENing state (DONE)
+
+
+Not matched by any rules?
+-------------------------
+* segments with bogus is1, ps1 and/or ps2
+
+
+deliver_in_icmp_1 --> deliver_in_icmp_7
+---------------------------------------
+Ignore for now (no decent ICMP support in the test tools)
+
+
+timer_tt_rexmtsyn_1
+-------------------
+SYN retransmit timer expires:
+# transmit SYN segment and allow timer to expire (DONE)
+
+
+timer_tt_conn_est_1
+-------------------
+Connection establishment timer expires:
+# allow connection establishment to timeout (with SYN segments being
+retransmitted). NB: need to test this alongside
+timer_tt_rexmtsyn_1. We can't test this separately from rexmtsyn until
+we have a router in the test network. (DONE'ish)
+
+
+timer_tt_rexmt_1
+----------------
+Retransmit timer expires:
+* transmit normal segment in ESTABLISHED and allow timeouts (DONE)
+* transmit FIN segment in ESTABLISHED and allow timeout in FIN_WAIT_1 (DONE)
+* send FIN segment in CLOSE_WAIT and allow timeout in LAST_ACK (DONE)
+* transmit SYN,ACK from LISTEN and allow timeout in SYN_RCVD (should
+be shorter than the above timeouts) (DONE)
+
+
+timer_tt_persist_1
+------------------
+Persist timer expires:
+* receiver's window is 0 and does not send updates. (NB: receiver
+should respond to the window probes) (DONE)
+
+
+timer_tt_keep_1
+---------------
+Keepalive timer expires:
+* set keepalive and don't send data for 2 hours. Wait for the
+10x75second timeouts (DONE)
+### WE don't appear to have a rule for the keepalive timer expiring!?!
+
+
+timer_tt_2msl_1
+---------------
+2*MSL timer expires:
+* In TIME_WAIT wait for the timer to expire (DONE)
+
+
+timer_tt_delack_1
+-----------------
+Delayed-ACK timer expires:
+* receive data and don't try and send. Wait for timer to expire (DONE)
+* receive data and do send before the timer expires (DONE)
+
+
+timer_tt_fin_wait_2_1
+---------------------
+FIN_WAIT_2 timer expires:
+* in FIN_WAIT_2 receive no datagrams to allow timer to fire (DONE)
+* in FIN_WAIT_2 receive some datagrams to reset the timer, then
+eventually send no datagrams to the socket to allow timer to fire (DONE)
+(THIS does not directly model the BSD behaviour of sleep(10mins) then
+check every 75s whether the connection has been idle or not)
+
+
+
+-------------------------------------------
+Thoughts on structure of the test harnesses
+-------------------------------------------
+
+* each test should result in a different output trace file
+
+* ability to preinitialise a socket
+  - create socket
+  - force into a bound state (including connected states)
+
+* ability to drive a socket into a given state
+  - need some formulas for doing this
+  - should be a whole class of these functions
+    (e.g. TCP state diagram states, sets-of-sets of cbs,
+     certain dynamic modes...)
+
+* testing on multiple platforms automatically
+  - are all combinations of pairs required? can we optimise?
+    - Answer: We can optimise most of the time. For some tests it is
+    convenient to run libd on another machine to force another
+    machine's socket into a given state. It is useful to test from
+    all different host types as the datagram layout could be different
+    (e.g. due to TCP options). For other tests that require the use of
+    an injector this is not necessary (it is instead sufficient to
+    test on each of the three platforms whilst running the injector on
+    the same single host).
+
+* discussed exhaustive testing and sysctls with KW
+  - tests that rely on sysctls (and especially those that may require
+  sysctls to be altered) should be separate from the general autotests
+  and always run after the other tests
+  - the autotest script should report the sysctls we are interested in to
+  the log at the start of each test run and report any non-default
+  values as a warning (otherwise tests may not behave as expected)
+  - test scripts that rely on sysctls changing should query the
+  existing values, alter them and put the existing values back even if
+  the test run fails
+  - we should record the default sysctl values somewhere and their MD5
+
+---------------------------------------------
+Methods for driving TCP into a specific state
+(a la `TCP state transition diagram` style)
+[Methods drawn up by SMB 20030609]
+---------------------------------------------
+
+Key: T -- perform this action on the test host
+     A -- perform this action on the auxilary host
+     X -- something the test harness does on the tthee host
+     n -- thread index to use for requesting the action on the *tthee*
+     host (this prevents us from blocking forever)
+e.g. T1 = test host thread1 and T2 = test host thread2
+
+Events should occur in the order shown otherwise things will go
+wrong!
+
+KW noted that the more interesting ESTABLISHED and post-ESTABLISHED
+states are those where data has been sent and received on the
+socket. Thus for each of the states ESTABLISHED, CLOSE_WAIT, LAST_ACK,
+FIN_WAIT_1, CLOSING, FIN_WAIT_2 and TIME_WAIT we should add further
+granularity and be able to choose from: no_data_sent, some_data_sent,
+some_data_received and some_data_sent_and_received. These actions must
+occur when in the ESTABLISHED state and before further actions are
+take to place the socket in a post-ESTABLISHED state. Notes on how to
+implement the extra granularity are included at the end of this
+section.
+
+The extra granularity becomes useful in tests like sending all
+possible packets to a socket in all possible TCP states.
+
+* CLOSED: (DONE)
+  - T1: call socket()
+
+* LISTEN: (DONE)
+  - T1: call socket()
+  - T1: call bind(local_ip, local_port)
+  - T1: call listen(positive backlog, e.g. 1)
+
+* SYN_SENT: (DONE)
+  - T1: call socket()
+  - T1: call connect(psyche's IP address, some port) in O_NONBLOCK mode
+    (nothing should be masquerading as psyche)
+  - X1: recv SYN packet via slurper callback from test host
+    (NB: this state will timeout eventually causing the connect to fail. 90 secs?)
+
+* SYN_RCVD: (IMPOSSIBLE!)
+  - CANNOT GET our hands on a socket in this state! Why? Consider:
+    - T1: call socket()
+    - T1: call bind()
+    - T1: call listen()
+    - A1: injector(psyche -> test host): SYN packet
+    This doesn't put the socket we have into SYN_RCVD. SYN_RCVD is an
+    internal state---the state of the half-opened connection on the
+    listen queue. We only get hold of it once it is ESTABLISHED.... KW
+    believes it must be possible with TTCP, although we don't model
+    this yet.
+
+* ESTABLISHED: (DONE)
+  - T1: call socket()
+  - T1: call connect(psyche_ip, port)
+  - X2: recv SYN packet via slurper callback from test host
+  - A2: injector(psyche -> test_host): SYN,ACK packet
+  - X2: recv ACK packet via slurper callback from test host
+
+* CLOSE_WAIT: (DONE)
+  - As ESTABLISHED
+  - A2: injector(psyche -> test_host): FIN packet
+  - X2: recv ACK packet via slurper callback from test host
+  (NB: must be careful of the timeout here. 2 mins?)
+
+* LAST_ACK: (DONE)
+  - As CLOSE_WAIT
+  - T1: call close()
+  - X2: recv FIN packet via slurper callback from test host
+  (NB: must be careful of the timeout here. 2 mins?)
+
+* FIN_WAIT_1: (DONE)
+  - As ESTABLISHED
+  - T1: call close()
+  - X2: recv FIN packet via slurper callback from test host
+  (NB: must be careful of the timeout here. 2 mins?)
+
+* CLOSING: (DONE)
+  - As FIN_WAIT_1
+  - A2: injector(psyche -> test_host): FIN packet
+  - X2: recv ACK packet via slurper callback from test host
+  (NB: must be careful of the timeout here. 2 mins?)
+
+* FIN_WAIT_2: (DONE)
+  - As FIN_WAIT_1
+  - A2: injector(psyche -> test_host): ACK packet
+  - X2: recv ACK packet via slurper callback from virtual host
+  (NB: must be careful of the timeout here. 2 mins?)
+
+* TIME_WAIT:
+  - As FIN_WAIT_1
+  - A2: injector(psyche -> test_host): FIN,ACK packet
+  - X2: recv ACK packet via slurper callback from test host
+  (NB: must be careful not to get a timeout from here. 2 mins?)
+
+* no_data_sent: (DONE)
+  - in ESTABLISHED
+  - do nothing extra
+
+* some_data_sent: (DONE)
+  - in ESTABLISHED
+  - T1: send(few bytes of data)
+  - X2: recv packet via slurper callback from test host
+
+* some_data_received: (DONE)
+  - in ESTABLISHED
+  - A1: injector(psyche -> test_host): packet with few bytes data
+  - X2: recv ACK packet via slurper callback from test host
+
+* some_data_sent_and_received: (DONE)
+  - in ESTABLISHED
+  - T1: send(few bytes of data)
+  - X2: recv packet via slurper callback from test host
+  - A1: injector(psyche -> test_host): ACK packet with few bytes data
+  - X2: recv ACK packet via slurper callback from test host
+
+------------------------------
+Test desiderata (PES, KW, SMB)
+[Extended by KW, SMB 20030602]
+------------------------------
+
+* exercise all our rules including non-fast transitions
+  - socket rules
+1 - deliver and timer rules
+3 - more refined coverage of code paths through deliver_in_3
+
+* consider loopback/broadcast/multicast addresses
+
+* exercise all the kinds of arguments to calls from all flavours of
+  sockets
+3 * exercise all TCP transitions (state transition diagram style)
+  - abstract model
+3 * exercise all TCP states
+  - all possible segments to all possible states
+
+* exercise all possible socket errors
+
+* urgent data
+
+* integrate checking traces with HOL
+* arrange diff-modulo time for test output for quick regression
+  testing (e.g. when talking to HOL directly)
+
+2 * drive TCP into each dynamic mode, e.g. ack-clocked, congested,
+  slow-whatever, delack
+* exercise all BSD code paths (PES :-)
+
+* platform differences we find in docs/web/other and fingerprint
+* everything from RFC1122 and TCP Bakeoff (RFC 1025)
+
+* timing analysis (what the timeouts are). Needs tightening of the
+  specs parametrically.
+* segment re-assembly priority and multiple partial writes
+
+* META: consider how many tests we can cope with
+
+------------------
+Answered questions
+------------------
+* Do we want to test the generation of error messages when we bind a
+  socket and pass bind an incorrectly formatted address or the wrong
+  length for the address structure?  Is this a programming issue or a
+  TCP issue?
+    A: Probably not a TCP issue. Ocamllib abstracts away from this
+  implementation detail so it's a little tricky to check. Although, it
+  may lead to an interesting class of errors?? But the class of errors
+  is that of bad interfaces rather than bad protocols... (SMB)
+
+* Should ip_of_string in ocamllib check for "0.0.0.0" and disallow it?
+
+    A: Yes (PES, KW)
+
+* Should ports in ocamllib be abstract? They currently are not.
+
+    A: Yes (PES, KW)
+
+* Are we interested in the specific ordering of error messages?
+
+    A: No. Error message ordering is almost certainly implementation dependent
+  so the TCP spec is deliberately non-deterministic about this (PES)
+
+-----------
+Done TODOs
+-----------
+
+* Implement a logging feature for the automatic test generator. This
+  should give a summary of the tests performed and enumerate all
+  failures (with descriptions of the failed tests). Should probably
+  produce a html page. (DONE -- without html page for now)

@@ -1,0 +1,21 @@
+Usage: ./dlhack application application_args
+
+Start the application with the specified arguments but with its socket calls dynamically relinked to go through our instrumented sockets library in order to produce a trace of the applications behaviour.
+
+Effectively you get:
+
+    Application (e.g. Mozilla)
+   -------------
+   socket_preload
+   -------------
+      nssock
+   -------------
+      glibc
+
+See Test/dynamic for information on the socket_preload library and look at the dlhack script here for insight to what is going on and how it works.
+
+`man dlopen` will be of assistance in understanding how all this works.
+
+
+$Id: README,v 1.1 2004/09/17 16:09:33 smb50 Exp $
+

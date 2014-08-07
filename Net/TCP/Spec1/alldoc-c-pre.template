@@ -1,0 +1,50 @@
+\documentclass[10pt,oneside]{book}
+
+\usepackage{ltsmunge}
+%\usepackage{udpstuff}
+
+\usepackage{tcp}
+
+\usepackage[a4paper]{geometry}
+
+\makeatletter
+\newcommand{\ps@idstyle}{%
+  \def\@evenhead{\thepage\hfil\slshape\rightmark}%
+  \def\@oddhead{{\slshape\leftmark}\hfil\thepage}%
+  \def\@evenfoot{\hfil\slshape\footnotesize Rule version: \rulesrcsid\hfil}%
+  \let\@oddfoot\@evenfoot
+}
+\makeatother
+
+\pagestyle{idstyle}
+
+\newcommand{\mignore}[1]{}
+
+\def\rulesrcsid{}
+
+% load as late as possible
+\usepackage[pdfpagelabels,linktocpage,colorlinks,linkcolor=blue,pagecolor=blue]{hyperref}
+% Ugh, get rid of annoying warnings.  We will hope that the substitutions
+% hyperref does to get a PDF-safe string for the various anchors are OK.
+\makeatletter
+\def\HyPsd@CatcodeWarning#1{}
+\makeatother
+
+\begin{document}
+
+\frontmatter
+
+\title{TCP Specification\\
+{\large THIS DOCUMENT IS A CONFIDENTIAL DRAFT -- PLEASE DO NOT DISTRIBUTE.}}
+\author{The Netsem Team\\
+University of Cambridge Computer Laboratory}
+\date{\today}
+\maketitle
+
+
+\tableofcontents
+
+\clearpage
+\mainmatter
+
+\let\dumpallrules\relax

@@ -1,0 +1,4 @@
+The contents of this directory are DEPRECATED.  Do not use! This
+directory contains various proof-of-concept and experimental code.
+
+rawtest: C code that implements raw socket sending on WinXP.

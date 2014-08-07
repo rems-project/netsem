@@ -1,0 +1,79 @@
+POSIX
+
+The standardized subset is part of POSIX 2001 which is available
+on-line. The most convenient URL for you is probably
+http://www.opengroup.org/onlinepubs/007904975/idx/networking.html
+
+-----------
+
+telling rant?
+------
+
+
+> Hmmm, I saw a bunch of compliance testing kits on the web today (linked throug
+h
+> from another post). Try http://www.ixiacom.com/products/caa/
+
+ANVL is a very useful tool for regression testing and checking some
+edge cases.  However, calling it a formal compliance testing kit is
+probably stretching things a bit.  There is no such thing as a TCP/IP
+compliance test, nor, really, should there be one.  The acid test for
+a TCP/IP implementation is *interoperability*, not strict compliance
+with the RFCs.
+
+IETF != ITU.
+
+
+---
+
+ANVL is the gold standard for protocol conformance testing, but it's
+not anywhere close to free.  It seems like I've heard of another test
+suite, but I can't find the information on it.
+
+
+
+
+----------
+
+From: "Keith W. McCammon" <km@km.com>
+[1] Re: tcp window: from basics to advanced
+Date: Tue Jun 04 14:17:39 BST 2002
+Lines: 37
+X-Trace: fu-berlin.de 1023196769 34771107 151.200.109.76 (16 [59806])
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Newsreader: Microsoft Outlook Express 5.50.4522.1200
+X-MimeOLE: Produced By Microsoft MimeOLE V5.50.4522.1200
+
+Here are two documents.  The first pertains loosely to Linux and *BSD, while
+the latter explains Windows TCP implementation in detail.
+
+http://www.csm.ornl.gov/~dunigan/net100/auto.html
+
+http://www.microsoft.com/windows2000/docs/tcpip2000.doc
+
+
+----------
+
+
+
+The details of Linux implementation are in:
+
+Stephen T. Satchell , H.B.J. Clifford, Linux IP Stacks Commentary, Coriolis,
+ISBN 1-57610-470-2.
+
+HTH
+
+Tauno Voipio
+
+
+-------------
+
+
+I have vaguely mentioned this before, but there seems to be more to it
+now and
+it could be useful whilst doing TCP.
+
+http://p.ulh.as/tools/
+
+A.

@@ -1,0 +1,75 @@
+OCAMLC=ocamlc
+OCAMLCOPT=ocamlopt
+OCAMLDEP=ocamldep
+MKLIB=lib
+RM=del /Q /F
+
+CINCLUDE=/I . /I "$(OCAMLLIB)" /I "$(OCAMLLIB)/caml" /I "../ocamllib"
+CFLAGS=/O2 /Ob1 /D "WIN32" /D "NDEBUG" /D "__STDC__" /D "_MBCS" \
+       /FD /EHsc /W3 /nologo /TC $(CINCLUDE)
+OCAMLCFLAGS=-I "$(OCAMLLIB)" -I "$(OCAMLLIB)/caml"
+MKLIBOPTS=/NOLOGO /NODEFAULTLIB
+
+all: platform rawsock threadparsing parser_hack_script.exe
+
+# --------------
+# platform
+# --------------
+PCFILES=platformc.c
+PMLIFILES=platform.mli
+PMLFILES=platform.ml
+
+platform: $(PCFILES:.c=.obj) $(PMLIFILES:.mli=.cmi)\
+	$(PMLFILES:.ml=.cmo) $(PMLFILES:.ml=.cmx)
+	$(MKLIB) $(MKLIBOPTS) /OUT:platformc.lib $(PCFILES:.c=.obj)
+	$(OCAMLC) -a -custom -o $@.cma $(PMLFILES:.ml=.cmo)
+	$(OCAMLCOPT) -a -o $@.cmxa $(PMLFILES:.ml=.cmx)
+
+# --------------
+# rawsock
+# --------------
+RCFILES=rawsockc.c
+RMLIFILES=rawsock.mli
+RMLFILES=rawsock.ml
+
+rawsock: $(RCFILES:.c=.obj) $(RMLIFILES:.mli=.cmi)\
+	 $(RMLFILES:.ml=.cmo) $(RMLFILES:.ml=.cmx)
+	$(OCAMLC) -a -custom -o $@.cma $(RMLFILES:.ml=.cmo)
+	$(OCAMLCOPT) -a -o $@.cmxa $(RMLFILES:.ml=.cmx)
+	$(MKLIB) $(MKLIBOPTS) /OUT:rawsockc.lib $(RCFILES:.c=.obj)
+
+
+# --------------
+# parser_hack
+# --------------
+PARSERHACK=parser_hack_script.ml
+REQOCAMLLIBS=
+
+parser_hack_script.exe: $(PARSERHACK:.ml=.cmo)
+		$(OCAMLC) -o $@ $(OCAMLCFLAGS) unix.cma str.cma $(PARSERHACK:.ml=.cmo)
+
+# -------------
+# threadparsing
+# -------------
+TPMLFILES=threadparsing.ml
+TPMLIFILES=threadparsing.mli
+
+threadparsing: $(TPMLIFILES:.mli=.cmi) $(TPMLFILES:.ml=.cmo)\
+	 $(TPMLFILES:.ml=.cmx)
+	$(OCAMLC) -thread -a -o threadparsing.cma $(TPMLFILES:.ml=.cmo)
+	$(OCAMLCOPT) -thread -a -o threadparsing.cmxa $(TPMLFILES:.ml=.cmx)
+
+# --------------
+
+clean:
+	$(RM) *.cmo *.cma *.obj *.cmx *.cmxa *.cmxo *.lib *.dll *.cmi *.idb parser_hack_script.exe
+
+.SUFFIXES: .ml .cmo .mli .cmi .cmx
+.ml.cmx:
+	$(OCAMLCOPT) -thread -c $(OCAMLOPTS) $<
+
+.mli.cmi:
+	$(OCAMLC) -thread -c -custom $(OCAMLOPTS) $<
+
+.ml.cmo:
+	$(OCAMLC) -thread -c -custom $(OCAMLOPTS) $<

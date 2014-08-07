@@ -1,0 +1,22 @@
+\documentclass[10pt]{report}
+
+\usepackage{ltsmunge}
+%\usepackage{udpstuff}
+
+\usepackage{tcp}
+
+\usepackage[a4paper]{geometry}
+
+\makeatletter
+\newcommand{\ps@idstyle}{%
+  \def\@evenhead{\thepage\hfil\slshape\rightmark}%
+  \def\@oddhead{{\slshape\leftmark}\hfil\thepage}%
+  \def\@evenfoot{\hfil\slshape\footnotesize Rule version: \rulesrcsid\hfil}%
+  \let\@oddfoot\@evenfoot
+}
+\makeatother
+
+\pagestyle{idstyle}
+
+\newcommand{\mignore}[1]{}
+

@@ -1,0 +1,55 @@
+fullthylist0=`echo $* | sed 's/\</\"/g; s/\>/Theory\"/g; s/ \"/, \"/g'`
+fullthylist="[$fullthylist0]"
+
+thylist0=`echo $* | sed 's/\</\"/g; s/\>/\"/g; s/ \"/, \"/g'`
+thylist="[$thylist0]"
+
+echo Working on $thylist
+
+hol.bare <<script
+val _ = quietdec := true;
+app load $fullthylist;
+fun order_calc ty = let
+  val {Thy,Tyop,Args} = dest_thy_type ty
+in
+  case (Thy,Tyop) of
+    ("min", "fun") => Int.max(order_calc (hd Args) + 1,
+                              order_calc (hd (tl Args)))
+  | ("finite_map", "fmap") => Int.max(order_calc (hd Args) + 1,
+                                      order_calc (hd (tl Args)))
+  | ("TCP1_hostTypes", "host") => 1
+  | _ => List.foldl (fn (ty, mx) => Int.max(mx, order_calc ty)) 0 Args
+end handle HOL_ERR _ => 0;
+
+val all_consts = let
+  fun filterthis t = let
+    val n = #1 (dest_const t)
+  in
+    not (is_substring "_fupd" n) andalso
+    not (is_substring "_case" n)
+  end
+  fun foldthis (thyname, acc) =
+    HOLset.addList(acc, List.filter filterthis (constants thyname))
+  fun pair t = (order_calc (type_of t), t)
+  val cmp = inv_img_cmp pair (pair_compare (Int.compare, Term.compare))
+  val empty = HOLset.empty cmp
+in
+  List.foldl foldthis empty $thylist
+end;
+
+val top_consts = List.take (List.rev(HOLset.listItems all_consts), 5)
+
+val _ = print "\n\nAnswers are:\n"
+
+fun print_contender t = let
+  val (name, ty) = dest_const t
+in
+  print (StringCvt.padRight #" " 18 name);
+  print "  ";
+  print (StringCvt.padRight #" " 40 (type_to_string ty));
+  print ("  ("^Int.toString (order_calc ty)^")\n")
+end;
+
+app print_contender top_consts;
+
+script

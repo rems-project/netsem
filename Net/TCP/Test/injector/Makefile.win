@@ -1,0 +1,36 @@
+OCAMLFLAGS=-I ../common -I ../ocamlext -I "$(OCAMLLIB)/ocaml" \
+	-I ../ocamllib
+CLIBS=-cclib /link -cclib /LIBPATH:../ocamllib/ -cclib /NODEFAULTLIB:LIBC.lib ../ocamlext/platformc.lib ../ocamlext/rawsockc.lib
+
+REQOCAMLLIBS=unix.cmxa threads/threads.cmxa ../ocamlext/rawsock.cmxa ../ocamlext/platform.cmxa
+OTHERLIBS=../ocamllib/ocamllib.cmxa ../common/nettypes.cmx \
+	../common/netconv.cmx ../common/holtypes.cmx \
+	../common/holparselib.cmx ../common/hol2net.cmx \
+	../common/tcpcbparserlib.cmx ../ocamlext/threadparsing.cmxa \
+	../common/parser.cmx ../common/lexer.cmx
+NSSOCKLIB=../nssock/libnssock.lib
+NTPLIB=../common/libntplib.lib
+
+OCAMLOPT=ocamlopt
+RM=del /Q /F
+
+FILES=injector.cmx
+
+all: injector.exe
+
+injector.exe: $(FILES)
+	$(OCAMLOPT) -o $@ $(OCAMLFLAGS) $(NSSOCKLIB) $(REQOCAMLLIBS) $(OTHERLIBS) \
+		$(NTPLIB) $(FILES) $(CLIBS)
+
+clean:
+	$(RM) *.obj *.lib *.cmo *.cmi *.cma *.cmx *.cmxa *.idb
+	$(RM) *.*~ \#* *~
+	$(RM) injector.exe
+
+.SUFFIXES:.ml .mli .cmo .cmi
+.mli.cmi:
+	$(OCAMLOPT) -thread -c $(OCAMLFLAGS) $<
+
+.ml.cmx:
+	$(OCAMLOPT) -thread -c $(OCAMLFLAGS) $<
+

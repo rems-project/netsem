@@ -1,0 +1,43 @@
+\newcommand{\hackedsendTIII}{\rrulecc{hackedsendTIII}{send\_3}{tcp: slow nonurgent succeed}{\tsholcomm{ Successfully return from blocked state having sent data }}
+{(\tsvar{h} \; \Mmagiclrec  \tsvar{ts} \Mass  \Mfupdate{\tsvar{ts}}{\tsvar{tid}}{\cg{\Mtimed{\tscon{Send2}(\tsvar{sid},*,\tsvar{str},\tsvar{opts})}{\tsvar{d}}}};{}\\{}
+\quad\quad\tsvar{socks} \Mass  \tsvar{socks} \oplus {}{}
+ [(\tsvar{sid},\tscon{Sock}(\Msome  \;\tsvar{fid},\tsvar{sf},\Msome  \;\tsvar{i}_{1},\Msome  \;\tsvar{p}_{1},\Msome  \;\tsvar{i}_{2},\Msome  \;\tsvar{p}_{2},*,\Mfalse ,\tsvar{cantrcvmore},{}\\{}
+\quad\quad\quad\quad\quad\quad\quad\quad\quad \tsaux{TCP\_Sock}(\tsvar{st},\tsvar{cb},*\hackhackhack{,\tsvar{sndq},\tsvar{rcvq}})))] \Mmagicrrec ,{}\\{}
+ \tsvar{S}_{0} \oplus  [(\tsaux{streamid\_of\_quad} (\tsvar{i}_{1},\tsvar{p}_{1},\tsvar{i}_{2},\tsvar{p}_{2}),\cg{\tsvar{s}})],\tsvar{M})}
+{\Mtransition{ \MLhtau  }{1}}
+{(\tsvar{h} \; \Mmagiclrec  \tsvar{ts} \Mass  \Mfupdate{\tsvar{ts}}{\tsvar{tid}}{\cg{\Mtimed{\tscon{Ret} (\tscon{OK} (\tsholop{IMPLODE} \;\tsvar{str}''))}{\tsunknown{sched\_timer}}}};{}\\{}
+\quad\quad\tsvar{socks} \Mass  \tsvar{socks} \oplus {}{}
+ [(\tsvar{sid},\tscon{Sock}(\Msome  \;\tsvar{fid},\tsvar{sf},\Msome  \;\tsvar{i}_{1},\Msome  \;\tsvar{p}_{1},\Msome  \;\tsvar{i}_{2},\Msome  \;\tsvar{p}_{2},*,\Mfalse ,\tsvar{cantrcvmore},{}\\{}
+\quad\quad\quad\quad\quad\quad\quad\quad\quad \tsaux{TCP\_Sock}(\tsvar{st},\tsvar{cb},*\hackhackhack{,\Mappend{\tsvar{sndq}}{\tsvar{str}'},\tsvar{rcvq}})))] \Mmagicrrec ,{}\\{}
+ \tsvar{S}_{0} \oplus  [(\tsaux{streamid\_of\_quad} (\tsvar{i}_{1},\tsvar{p}_{1},\tsvar{i}_{2},\tsvar{p}_{2}),\cg{\tsvar{s}'})],\tsvar{M})}
+{\tsvar{st} \;\in  \{\tscon{ESTABLISHED}; \tscon{CLOSE\_WAIT}\} \Mwedge {}\\{}
+% {}\\{}
+ \tsvar{space} \;\in  \;\tscon{UNIV} \Mwedge {}\\{}
+% {}\\{}
+ \tsvar{space} \geq  \tsholop{LENGTH} \;\tsvar{str} \Mwedge {}\\{}
+ \tsvar{str}'=\tsvar{str} \Mwedge  \tsvar{str}''=[\,] \Mwedge {}\\{}
+% {}\\{}
+ \tsvar{flgs} = \tsvar{flgs} \; \Mmagiclrec  \tsvar{SYN} \Mass  \Mfalse ; \tsvar{SYNACK} \Mass  \Mfalse ; \tsvar{FIN} \Mass  \Mfalse ; \tsvar{RST} \Mass  \Mfalse  \Mmagicrrec  \Mwedge {}\\{}
+ \tsaux{write} (\tsvar{i}_{1},\tsvar{p}_{1},\tsvar{i}_{2},\tsvar{p}_{2}) (\tsvar{flgs},\tsvar{str}') \tsvar{s} \;\tsvar{s}'}
+{\rulesubsection{Description}
+
+    Thread $\tsvar{tid}$ is blocked in state $\tscon{Send2}(\tsvar{sid},*,\tsvar{str},\tsvar{opts})$ where the TCP socket $\tsvar{sid}$ has
+    binding quad $(\Msome  \;\tsvar{i}_{1},\Msome  \;\tsvar{p}_{1},\Msome  \;\tsvar{i}_{2},\Msome  \;\tsvar{p}_{2})$, has no pending error, is not shutdown for
+    writing, and is in state $\tscon{ESTABLISHED}$ or $\tscon{CLOSE\_WAIT}$.
+
+    The space in the socket's send queue, $\tsvar{space}$ (calculated using \ltslink{sendTqueueTspace}{$\tsaux{send\_queue\_space}$}),
+    is greater than or equal to the length of the data to be sent, $\tsvar{str}$. The data is appended to
+    the socket's send queue and the call successfully returns the empty string. A $\MLhtau $
+    transition is made, leaving the thread state $\tscon{Ret} (\tscon{OK} \text{``''})$. If the data was marked as
+    out-of-band, $\tscon{MSG\_OOB} \;\in  \;\tsvar{opts}$, then the socket's urgent pointer will be updated to point to
+    the end of the socket's send queue.
+
+\rulesubsection{Model details}
+
+    The data to be sent is of type $\tstype{string}$ in the $\tsunknown{send}()$ call but is a $\tstype{byte}$ $\tstype{list}$ when
+    the datagram is constructed. Here the data, $\tsvar{str}$ is of type $\tstype{byte}$ $\tstype{list}$ and in the
+    transition $\tsholop{IMPLODE} \;\tsvar{str}$ is used to convert it into a string.
+
+
+\rrulepad }
+}

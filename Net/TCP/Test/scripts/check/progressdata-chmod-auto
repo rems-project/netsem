@@ -1,0 +1,11 @@
+#!/bin/sh
+
+# repeatedly patch the permissions for the results of the progressdata script in current check directory
+
+umask 002
+cd /usr/groups/tthee/check/current
+while true; do
+#echo "regenerating"
+chmod 664 progress.*
+sleep 600
+done

@@ -1,0 +1,105 @@
+\documentclass{article}
+
+\usepackage{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\newcommand{\n}{^{\mathrm{min}}}
+\newcommand{\x}{^{\mathrm{max}}}
+
+\begin{document}
+
+\section{Timers}
+
+These host-ticks timers are a bit weird.  In fact, originally I had
+them \emph{wrong}.
+
+Let $i\n$ be the minimum interval, $i\x$ the maximum.  $t_j$ is a
+ticker value, $r_j$ is a remainder, $d_j$ is a duration of time
+passage, $\delta_j$ is the amount by which the ticker advances.
+
+Consider
+\[
+\mathrm{Ticker}(t_0,r_0)\xrightarrow{d_1}
+\mathrm{Ticker}(t_1,r_1)\xrightarrow{d_2}
+\mathrm{Ticker}(t_2,r_2)
+\]
+where $t_1 = t_0+\delta_1$, $t_2=t_1+\delta_2 =
+t_0+\delta_1+\delta_2$.
+
+The original rule was:
+\[
+\exists i_j.\;
+i\n\leq i_j \wedge i_j\leq i\x \wedge
+\delta_j = \left\lfloor \frac{r_{j-1}+d_j}{i_j} \right\rfloor \wedge
+r_j = r_{j-1}+d_j - \delta_j i_j
+\]
+
+A crucial property is the following (roughly \textbf{S1} and
+\textbf{S2} in Lynch and Vaandrager 1996), which I shall call
+additivity:
+\[
+\mathrm{Ticker}(t_0,r_0)\xrightarrow{d_1}
+\mathrm{Ticker}(t_1,r_1)\xrightarrow{d_2}
+\mathrm{Ticker}(t_2,r_2)
+\Leftrightarrow
+\mathrm{Ticker}(t_0,r_0)\xrightarrow{d_1+d_2}
+\mathrm{Ticker}(t_2,r_2)
+\]
+
+This does not hold for the original rule!  If $d_1 > d_2$, and we
+choose $i_1=i\n$ and $i_2=i\x$, it can happen that even though $r_2 <
+i_2$, it is the case that $r_2 > i\x_{12}$, where $i\x_{12}$ is the
+greatest interval consistent with $t_2$, i.e., $i\x_{12} =
+\frac{r_0+d_1+d_2-r_2}{\delta_1+\delta_2}$.  This means that no
+$i_{12}$ satisfying the condition of the rule exists.
+
+For example: let $r_0 = 14$, $d_1=364$, $d_2=141$, $i_1=56$,
+$i_2=112$.  Then $\delta_1=6$, $r_1=42$, $\delta_2=1$, $r_2=71$.  But
+to achieve $r_{12}=71/56$ we must have
+$\delta_{12}i_{12}=r_0+d_{12}-r_{12}=448$; and since $\delta_{12}=7$,
+we must have $i_{12}=64$.  But $\delta_{12}=\left\lfloor \frac{519}{64}
+\right\rfloor = 8 \neq 7$, which is a CONTRADICTION.
+
+A new possible rule is as follows:
+\[
+\begin{array}{r@{}c@{}l}
+\exists \delta\n_j \delta\x_j.\;\\
+\delta\n_j &=& \left\lfloor \frac{r_{j-1}+d_j}{i\x} \right\rfloor \wedge\\[1ex]
+\delta\x_j &=& \left\lfloor \frac{r_{j-1}+d_j}{i\n} \right\rfloor \wedge\\
+\delta\n_j &{}\leq \delta_j\leq{}&\delta\x_j \wedge\\
+r_{j-1}+d_j-\delta_j i\x &{}\leq r_j \leq {}&r_{j-1}+d_j-\delta_j i\n \wedge\\
+0 &{}\leq r_j <{}& i\x
+\end{array}
+\]
+where the $\delta\n_j, \delta\x_j$ are now naturals as well as
+$\delta_j$ (note the strict inequality on $r_j < i\x$ is still
+necessary for the model).
+
+Does this have the desired properties?
+
+Argh, I'm an idiot!  The reason I was having trouble proving the
+properties was that the above rule is overconstrained.  It is
+sufficient to require:
+\[
+\begin{array}{r@{}c@{}l}
+r_{j-1}+d_j-\delta_j i\x &{}\leq r_j \leq {}&r_{j-1}+d_j-\delta_j i\n \wedge\\
+0 &{}\leq r_j <{}& i\x
+\end{array}
+\]
+The following results follow:
+\begin{itemize}
+\item $\delta_j$ lies in the range $[\left\lfloor
+\frac{r_{j-1}+d_j}{i\x} \right\rfloor,\left\lfloor
+\frac{r_{j-1}+d_j}{i\n} \right\rfloor]$.
+\item $r_j$ can then be determined
+from the inequations above---it is usually free in $[0,i\x]$, but when
+$\delta_j$ is chosen at or near the boundaries, it is restricted by
+the other inequation.
+\item The additivity property holds (this is trivial to verify: add
+the first inequations for $j=1$ and $j=2$, and subtract $r_1$
+through).
+\end{itemize}
+
+
+\end{document}

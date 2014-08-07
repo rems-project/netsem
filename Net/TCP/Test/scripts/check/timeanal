@@ -1,0 +1,45 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+my $step;
+my @rules;
+my $cpu;
+
+my %data = ();
+
+sub nextstep () {
+    if (defined($step)) {
+        # dump old step data
+        my $rules = join(', ',@rules);
+        defined($cpu) or $cpu = "0.0";
+        if (length($rules) > 100) {
+            $rules = substr($rules,0,15) . "..." . substr($rules,-82);
+        }
+        $data{sprintf("%06.0f",$cpu)." $step $rules"} = sprintf("Step %3d: %6.0fs %s\n",$step,$cpu,$rules);
+    }
+    undef $step;
+}
+
+while (<>) {
+    if (/^==Step (\d+):(\s*attempting time passage)?/) {
+        my @r = ($1,$2);
+        nextstep();
+        # start new step
+        $step = $r[0];
+        @rules = defined($r[1]) ? ('epsilon_*') : ();
+        undef $cpu;
+    } elsif (/^CPU time elapsed : (\d+\.\d+) seconds/) {
+        my $r = $1;
+        defined($cpu) && die "Strange, CPU time already set in step $step, died";
+        $cpu = $r;
+    } elsif (/^==Attempting ([^\s]+) --/) {
+        push @rules, $1;
+    }
+}
+
+nextstep();
+
+foreach my $k (sort(keys(%data))) {
+    print $data{$k};
+}

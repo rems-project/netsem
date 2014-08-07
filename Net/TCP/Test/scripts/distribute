@@ -1,0 +1,135 @@
+#!/bin/bash
+
+#
+# Usage:
+#
+#   distribute [machine_names]
+#       push updates to machines and do an incremental build
+#   distribute -c [machine_names]
+#       push updates to machines and do a realclean build
+#   distribute -f [machine_names]
+#       push updates to machines, check out a fresh copy and do a clean build
+#
+#   machine_names: do only on these hosts. Should be space delimited.
+#                  e.g. distribute -f john.netsem emil.netsem
+#
+
+TARNAME=cvs-distribute.tar.gz
+
+# Local cvs repository
+LOCAL_CVS_PATH=/usr/groups/netsem
+LOCAL_CVS="cvs/CVS cvs/CVSROOT \
+    cvs/Net/TCP/Test/nssock cvs/Net/TCP/Test/ocamllib \
+    cvs/Net/TCP/Test/ocamlext cvs/Net/TCP/Test/common \
+    cvs/Net/TCP/Test/libd cvs/Net/TCP/Test/slurp \
+    cvs/Net/TCP/Test/injector cvs/Net/TCP/Test/mirror \
+    cvs/Net/TCP/Test/scripts cvs/Net/TCP/Test/Makefile,v \
+    cvs/Net/TCP/Test/utils/holtcpcb-v8 cvs/Net/TCP/Test/utils/ns_logger"
+
+# Remote cvs repository
+REMOTE_CVS=/tmp
+REMOTE_CVS_ROOT=$REMOTE_CVS/cvs
+REMOTE_DIR=/home/Net/TCP/Test
+
+# ----------------------------------------------------------------------
+# Process command line arguments
+# ----------------------------------------------------------------------
+
+getopts "cfh" OPTS
+
+if [ $OPTS = "h" ]; then
+  head -n 16 $0
+  exit
+elif [ $OPTS == "c" ]; then
+  BUILD_CMD="minrealclean mindepend min"
+  BUILD_TXT="full"
+  UPDATE_TXT="incremental"
+  shift
+elif [ $OPTS == "f" ]; then
+  BUILD_CMD="minrealclean mindepend min"
+  BUILD_TXT="full"
+  UPDATE_TXT="full"
+  shift
+else
+  BUILD_CMD="min"
+  BUILD_TXT="incremental"
+  UPDATE_TXT="incremental"
+fi
+
+if [ '"$@"' ]; then
+  MACHINES="$@"
+else
+  MACHINES="john.netsem emil.netsem kurt.netsem alan.netsem"
+fi
+
+echo "----------------------------------------------------------------------"
+echo "Netsem distribution script v2.0"
+echo
+echo "  Machines: $MACHINES"
+echo "  Update: $UPDATE_TXT"
+echo "  Build: $BUILD_TXT"
+echo "----------------------------------------------------------------------"
+echo
+sleep 2
+
+# ----------------------------------------------------------------------
+
+# gzip tar the local cvs repository
+cd $LOCAL_CVS_PATH
+tar czf $TARNAME $LOCAL_CVS
+
+for mach in $MACHINES; do
+    echo "******************************"
+    echo "Machine: $mach"
+    echo "******************************"
+    echo "Mirroring the cvs repository..."
+
+    # Copy cvs tar to remote machine
+    scp $TARNAME root@$mach:$REMOTE_CVS
+
+    # Untar the cvs repository on remote machine
+    CMD="cd $REMOTE_CVS && rm -rf cvs && tar xzf $TARNAME"
+    echo -n "Unpacking and updating the cvs repository..."
+
+    if [ $OPTS == "f" ]; then
+	# If doing a full checkout, remote old tools directory and do cvs checkout
+	CMD="$CMD && rm -rf $REMOTE_DIR"
+	CMD="$CMD && cd /home && cvs -d $REMOTE_CVS_ROOT co Net/TCP/Test >&/home/cvs-log"
+    else
+	# else just do a cvs update
+	CMD="$CMD && cd /home && cvs -d $REMOTE_CVS_ROOT update Net/TCP/Test >&/home/cvs-log"
+    fi
+  # note that we redirect with >& instead of &> as the former is understood by sh as well as bash
+
+    # Remove the temporary cvs repository and cvs tarball
+    CMD="$CMD && rm -rf $REMOTE_CVS/cvs && rm -rf $REMOTE_CVS/$TARNAME"
+
+    # Actually do the commands so far
+    if ! ssh root@$mach "$CMD"; then
+	echo
+	echo "** FAILED: try checking $mach:/home/cvs-log **"
+    else
+	echo "OK."
+    fi
+
+    # Change into the tools directory
+    CM2="cd /home/Net/TCP/Test"
+    echo "Building..."
+
+    if [ $mach == "john.netsem" ] || [ $mach == "emil.netsem" ] || [ $mach == "alf.netsem2" ] || [ $mach == "ken.netsem2" ] || [ $mach == "dag.netsem2" ] || [ $mach == "tom.netsem2" ]; then
+	# If BSD, build using the bsd-script
+	CM2="$CM2 && chmod +x scripts/bsd-script && scripts/bsd-script $BUILD_CMD"
+    else
+	# If Linux, build using the linux-script
+	CM2="$CM2 && chmod +x scripts/linux-script && scripts/linux-script $BUILD_CMD"
+    fi
+
+    # Actually do the commands
+    if ! ssh root@$mach "$CM2"; then
+	echo "** BUILD FAILED : see $mach:/home/Net/TCP/Test/build-log **"
+    else
+	echo "Done."
+    fi
+    echo
+
+done

@@ -1,0 +1,171 @@
+#!/bin/bash
+
+
+
+# file with lines "traceXXXX" for each trace in run, in run order
+# (hand-edited from conf file)
+
+TRACES=run_xmas_length_data.txt
+
+# file with lines "traceXXXX NNN" for each trace in batch
+# (produced by tracelen script)
+
+LENGTHDATA=/usr/groups/tthee/batch/autotest-tcp-2004-10-01T16:28:00+0100/tracelengths.dat
+
+
+# check directory, from which we pull the index.html
+# xmas run
+# CHECKDIR=/auto/groups/tthee-scratch/check/check-2004-12-16T20:04:23+0000
+# xmas_pb run
+#CHECKDIR=/auto/groups/tthee-scratch/check/check-2004-12-23T19:41:11+0000
+# join of two
+#CHECKDIR=/auto/groups/tthee-scratch/check/check-2004-12-xmas-join
+
+CHECKDIR=/auto/groups/tthee-scratch/check/current
+
+
+# calculate file with lines "IIIIII  XXXX NNN" for each trace in run,
+# in run order
+
+./apply -map $LENGTHDATA < $TRACES | cut -c6- | nl -v0 >/tmp/runlengthsgraph.$$
+
+# calculate files with lines "XXXX" for each process{ed,ing} trace
+# that SUCCEEDED, is INCOMPLETE, or is something else (failed etc).
+
+cat $CHECKDIR/index.html|grep SUCCEEDED |grep trace | cut -b42-45 >/tmp/runlengthsgraph_succ.$$
+cat $CHECKDIR/index.html|grep INCOMPLETE |grep trace | cut -b42-45 >/tmp/runlengthsgraph_inco.$$
+cat $CHECKDIR/index.html | grep -v SUCCEEDED | grep -v INCOMPLETE | grep trace | cut -b37-45 |grep trace |cut -b6-9 >/tmp/runlengthsgraph_other.$$
+
+# and the union thereof - all those process{ed,ing}
+
+cat /tmp/runlengthsgraph_succ.$$ /tmp/runlengthsgraph_inco.$$ /tmp/runlengthsgraph_other.$$ > /tmp/runlengthsgraph_proc.$$
+
+# project the "IIIIII  XXXX NNN" data onto the first three and the inverse of the last
+
+filter -domain /tmp/runlengthsgraph_succ.$$  < /tmp/runlengthsgraph.$$ > /tmp/runlengthsgraph_succ_b.$$
+filter -domain /tmp/runlengthsgraph_inco.$$  < /tmp/runlengthsgraph.$$ > /tmp/runlengthsgraph_inco_b.$$
+filter -domain /tmp/runlengthsgraph_other.$$  < /tmp/runlengthsgraph.$$ > /tmp/runlengthsgraph_other_b.$$
+filter -invert -domain /tmp/runlengthsgraph_proc.$$  < /tmp/runlengthsgraph.$$ > /tmp/runlengthsgraph_unproc_b.$$
+
+# plot the resulting datasets, by position in run
+
+# TITLE="Trace lengths in run_xmas.conf, by position in run"
+# cat <<EOF | gnuplot -persist
+# set terminal x11
+# set key below
+# set title "$TITLE"
+# set ylabel 'Trace length'
+# set xlabel 'Index in run'
+# plot '/tmp/runlengthsgraph_succ_b.$$' using 1:3  title "succeed" with points pt 1 pointsize 1.0 ,\
+#      '/tmp/runlengthsgraph_inco_b.$$' using 1:3  title "incomplete" with points pt 2 pointsize 1.0 ,\
+#      '/tmp/runlengthsgraph_other_b.$$' using 1:3  title "non-succeed" with points pt 3 pointsize 1.0,\
+#      '/tmp/runlengthsgraph_unproc_b.$$' using 1:3 title "not begun" with points pt 4 pointsize 1.0;
+# EOF
+
+
+# plot the resulting datasets, by trace index
+
+TITLE="Trace outcomes and lengths, by trace index"
+cat <<EOF | gnuplot -persist
+set terminal postscript eps color
+set key below
+set title "$TITLE"
+set ylabel 'Trace length'
+set xlabel 'Trace index'
+plot '/tmp/runlengthsgraph_succ_b.$$' using 2:3  title "succeed" with points pt 2 pointsize 1.0 ,\
+     '/tmp/runlengthsgraph_inco_b.$$' using 2:3  title "incomplete" with points pt 3 pointsize 1.0 ,\
+     '/tmp/runlengthsgraph_other_b.$$' using 2:3  title "non-succeed" with points pt 20 pointsize 1.0,\
+     '/tmp/runlengthsgraph_unproc_b.$$' using 2:3 title "not begun" with points pt 14 pointsize 1.0;
+EOF
+
+
+
+# # ######################  and again #########################
+# # check directory, from which we pull the index.html
+# # xmas run
+# #CHECKDIR=/auto/groups/tthee-scratch/check/check-2004-12-16T20:04:23+0000
+# # xmas_pb run
+# CHECKDIR=/auto/groups/tthee-scratch/check/check-2004-12-23T19:41:11+0000
+#
+#
+#
+# # calculate file with lines "IIIIII  XXXX NNN" for each trace in run,
+# # in run order
+#
+# ./apply -map $LENGTHDATA < $TRACES | cut -c6- | nl -v0 >/tmp/runlengthsgraph.$$
+#
+# # calculate files with lines "XXXX" for each process{ed,ing} trace
+# # that SUCCEEDED, is INCOMPLETE, or is something else (failed etc).
+#
+# cat $CHECKDIR/index.html|grep SUCCEEDED |grep trace | cut -b42-45 >/tmp/runlengthsgraph_succ.$$
+# cat $CHECKDIR/index.html|grep INCOMPLETE |grep trace | cut -b42-45 >/tmp/runlengthsgraph_inco.$$
+# cat $CHECKDIR/index.html | grep -v SUCCEEDED | grep -v INCOMPLETE | grep trace | cut -b37-45 |grep trace |cut -b6-9 >/tmp/runlengthsgraph_other.$$
+#
+# # and the union thereof - all those process{ed,ing}
+#
+# cat /tmp/runlengthsgraph_succ.$$ /tmp/runlengthsgraph_inco.$$ /tmp/runlengthsgraph_other.$$ > /tmp/runlengthsgraph_proc.$$
+#
+# # project the "IIIIII  XXXX NNN" data onto the first three and the inverse of the last
+#
+# filter -domain /tmp/runlengthsgraph_succ.$$  < /tmp/runlengthsgraph.$$ > /tmp/runlengthsgraph_succ_b.$$
+# filter -domain /tmp/runlengthsgraph_inco.$$  < /tmp/runlengthsgraph.$$ > /tmp/runlengthsgraph_inco_b.$$
+# filter -domain /tmp/runlengthsgraph_other.$$  < /tmp/runlengthsgraph.$$ > /tmp/runlengthsgraph_other_b.$$
+# filter -invert -domain /tmp/runlengthsgraph_proc.$$  < /tmp/runlengthsgraph.$$ > /tmp/runlengthsgraph_unproc_b.$$
+#
+# # plot the resulting datasets, by position in run
+#
+# TITLE="Trace lengths in run_xmas.conf pb, by position in run"
+# cat <<EOF | gnuplot -persist
+# set terminal x11
+# set key below
+# set title "$TITLE"
+# set ylabel 'Trace length'
+# set xlabel 'Index in run'
+# plot '/tmp/runlengthsgraph_succ_b.$$' using 1:3  title "succeed" with points pt 2 pointsize 1.0 ,\
+#      '/tmp/runlengthsgraph_inco_b.$$' using 1:3  title "incomplete" with points pt 3 pointsize 1.0 ,\
+#      '/tmp/runlengthsgraph_other_b.$$' using 1:3  title "non-succeed" with points pt 20 pointsize 1.0,\
+#      '/tmp/runlengthsgraph_unproc_b.$$' using 1:3 title "not begun" with points pt 14 pointsize 1.0;
+# EOF
+#
+#
+# # plot the resulting datasets, by trace index
+#
+# TITLE="Trace lengths in run_xmas.conf pb, by trace index"
+# cat <<EOF | gnuplot -persist
+# set key below
+# set title "$TITLE"
+# set ylabel 'Trace length'
+# set xlabel 'Trace index'
+# plot '/tmp/runlengthsgraph_succ_b.$$' using 2:3  title "succeed" with points pt 2 pointsize 1.0 ,\
+#      '/tmp/runlengthsgraph_inco_b.$$' using 2:3  title "incomplete" with points pt 3 pointsize 1.0 ,\
+#      '/tmp/runlengthsgraph_other_b.$$' using 2:3  title "non-succeed" with points pt 20 pointsize 1.0,\
+#      '/tmp/runlengthsgraph_unproc_b.$$' using 2:3 title "not begun" with points pt 14 pointsize 1.0;
+# EOF
+#
+#
+#
+#
+# # TITLE="Trace lengths in run_xmas.conf, by position in run"
+# # cat <<EOF | gnuplot -persist > run_xmas_lengths_graph.ps
+# # set title "$TITLE"
+# # set ylabel 'Trace length'
+# # set xlabel 'Index in run'
+# # set nokey
+# # plot '/tmp/runlengthsgraph.$$' using 2;
+# # EOF
+# #
+# #sort /tmp/runlengthsgraph.$$ | cut --bytes=1-4,5- > /tmp/runlengthsgraph2.$$
+# # TITLE="Trace lengths in run_xmas.conf, by trace number"
+# # cat <<EOF | gnuplot -persist
+# # set title "$TITLE"
+# # set ylabel 'Trace length'
+# # set xlabel 'Trace number'
+# # set nokey
+# # plot '/tmp/runlengthsgraph2.$$' ;
+# # EOF
+#
+# #set terminal postscript eps color
+#
+#
+#
+#

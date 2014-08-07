@@ -1,0 +1,27 @@
+#!/bin/bash
+
+BINDIR=`dirname $0`
+
+
+# wlogs | grep "acute/paper" > /homes/pes20/tmp/wlogs-Netsem
+
+cat /homes/pes20/tmp/wlogs-all9 | grep -i "Netsem" |  grep "poster" | cut -d '[' -f2 | cut -c1-11 > /tmp/wlogs-dates.$$
+
+#cat /homes/pes20/tmp/wlogs-all9 |  cut -d '[' -f2 | cut -c1-11 > /tmp/wlogs-dates.$$
+
+/homes/pes20/Net/TCP/Test/scripts/check/histoplot2 /tmp/wlogs-dates.$$ > /tmp/wlogs-histo.$$
+
+
+
+cat <<EOF | gnuplot -persist
+set terminal postscript landscape color
+set output "wlogs-all9-poster-spike.ps"
+set title "cat /homes/pes20/tmp/wlogs-all9 | grep -i \"Netsem\" | grep \"poster\" "
+set xlabel 'day of month'
+set ylabel 'number of accesses'
+set timefmt "%d/%b/%Y"
+set xdata time
+set nokey
+plot '/tmp/wlogs-histo.$$' using 1:2 with steps;
+EOF
+

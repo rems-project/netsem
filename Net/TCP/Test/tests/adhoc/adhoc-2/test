@@ -1,0 +1,15 @@
+#! /bin/sh
+
+DIRNAME=/usr/groups/tthee/adhoc/adhoc-2-scratch
+
+mkdir $DIRNAME
+rm -r $DIRNAME/*
+
+  echo  "Not re-enabling ntp updates..."
+#  ssh john.netsem "echo -n glia:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'addserver astrocyte' glia"
+#  ssh john.netsem "echo -n john:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'addserver astrocyte' john"
+#  ssh john.netsem "echo -n emil:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'addserver astrocyte' emil"
+#  ssh john.netsem "echo -n alan:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'addserver astrocyte' alan"
+#  ssh john.netsem "echo -n kurt:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'addserver astrocyte' kurt"
+
+./adhoc-2 $DIRNAME

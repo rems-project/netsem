@@ -1,0 +1,58 @@
+*** FreeBSD 4.6 Installation Process ***
+
+Boot from the FreeBSD 4.6-RELEASE CD.
+
+Configure the kernel (this may require working out what hardware is in the
+machine). Choose to do a standard install. In fdisk, select the "use entire
+disk" option. Choose to install a standard MBR. Choose the automatic
+configuration option for partitioning the disk.
+
+Choose the 'developer' distribution. Decline to install the ports collection
+now. Exit the selection screen and choose to install from CD. Wait for a
+large amount of time.
+
+Configure ethernet devices: pick the interface (xl0 on the current crop of
+machines), decline to configure IPv6 or try DHCP. Enter the hostname (eg.
+dag.netsem2), the domain (netsemddress (eg. 192.168.13.105) and subnet mask
+(255.255.255.0). Allow FreeBSD to bring up the interface when it asks.
+
+Answer 'no' to questions about inetd, anonymous FTP, NFS and security
+profiles.
+
+In the system console configuration, select a code page 850 keymap and a
+screensaver of your choice, then exit. Set the time zone.
+
+Answer no to questions about linux compatibility, mouse configuration and the
+package collection.
+
+Create initial user accounts. Make sure anyone you want to be able to su to
+root is in group wheel.
+
+Exit install and reboot.
+
+*** Further things which need doing at this point ***
+
+Install libgcc and linuxthreads---see bsd-4.6-install-libgcc.txt.
+
+Set up passwordless SSH login---see passwordless-ssh.txt.
+
+Make various tweaks to the kernel and startup scripts in order to get more
+precise timestamping---see bsd-4.6-timekeeping.txt.
+
+Tweak rc.network so that ARP doesn't hang trying to find the nonexistent
+psyche---see bsd-4.6-install-arp.txt.
+
+Install OCaml---see bsd-4.6-ocaml.txt.
+
+Install bash, makedepend and GNU Make---see bsd-4.6-software.txt. Don't do this
+before building linuxthreads, as building ports requires BSD's default make.
+
+You need to change root's default shell to bash in order for some of the
+scripts to work; do this using chpass.
+
+*** When all that's done ***
+
+Modify and then run the distribute script to copy the build tree onto the new
+machine and then build the software. Then you'll have to modify autotest,
+testscommon and some other stuff to be aware of the existence of the new
+machine, and then you can start running tests!

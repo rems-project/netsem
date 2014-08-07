@@ -1,0 +1,3 @@
+sockclient - a telnet-line client that performs no translation and uses no specical telnet control codes.
+
+sockserv - a TCP echo-back-to-sender server

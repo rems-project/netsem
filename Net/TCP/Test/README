@@ -1,0 +1,274 @@
+$Id: README,v 1.3 2005/06/14 16:55:35 tjr22 Exp $
+
+START HERE!!!
+
+This document explains the structure of the TCP/Test subdirectory and
+gives pointers to documents explaining how to perform commonly
+required tasks.
+
+1. Live Directories:
+~~~~~~~~~~~~~~~~~~~~
+common/ : a collection of useful library functions including a lexer
+and parser for HOL labels, various pretty-printers to render HOL
+labels, NTP timestamping, definitions of common datatypes, parser for
+raw network segments (used by slurper) etc.
+
+nssock/ : the instrumented sockets API wrapper. All socket calls are
+prefixed with ns_.
+
+dynamic/ : libraries to assist attaching the instrument nssock,
+spoofed to be the real sockets API to a real application (e.g. lynx or
+Mozilla) to instrument its behaviour. See utils/dlhack/README.
+
+ocamlext/ : a set of useful Ocaml libraries (raw sockets, thread-safe
+parsing, platform identification etc)
+
+ocamllib/ : the Ocaml LIB interface (the Ocaml wrapper for nssock)
+
+libd/ : a daemon that listens on a TCP or UNIX domain socket for LIB
+calls (in HOL label format) and executes them using ocamllib,
+rendering the results to the command socket (results are also echoed
+to the instrumentation/logging socket opened by nssock).
+
+injector/ : a daemon that listens on a TCP or UNIX domain socket for
+HOL label style TCP/UDP/ICMP "packets" and injects them into a network.
+
+slurp/ : an Ocaml program that uses libpcap to sniff ("slurp") the
+network for packets that match a filter, rendering them to a TCP or
+UNIX domain socket.
+
+utils/holtcpcb-v8: a C program that reads events from BSD's TCP debug
+ring buffer and emits them over a socket a HOL rendered Lh_trace lables.
+
+tthee/ : an executive API for remotely starting and stopping libd, injector, slurp and
+holtcpcb-v8 processes on any of the test machines, merging their
+instrumented results, issuing socket-call commands and receiving
+results from libd over a command channel, issuing segments to inject
+to the injector and registering callbacks for a slurper.
+
+tests/common : a collection of useful functions and constant used with
+the test network (e.g. the IP addresses of each machine)
+
+tests/autotest : the autotest library and program in which all the
+test scripts are written. The library provides a common and simple way
+to start tests with a given test network configuration/environment,
+for initialising sockets into a pre-determined state and running a
+test script using the pre-initialised socket. The autotest program
+runs all the tests for TCP and UDP. Read test/autotest/README
+
+tests/* : everything else in tests is just a collection of adhoc
+tests. See the README files for more info.
+
+utils/ : a collection of useful utilities. See the individual README files.
+
+scripts/ : a collection of useful scripts for common tasks such as
+test tool distribution to all the test network machines, generation of
+ziggy-zaggy diagrams for directories of traces, etc.
+
+scripts/check : the scripts and programs that manage the distributed
+trace checking infrastructure.
+
+
+2. Documentation Directories:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+doc/ : useful documentation (a paper describing the test tools and
+infrastructure, a paper describing the merger behaviour (part of
+tthee)).
+
+notes/ : various scribblings
+
+notes/bsd-hosts
+notes/linux-hosts
+notes/winxpconfig_notes.txt: describe the exact procedure used to
+setup and install all the machines on the test network.
+
+
+3. Out-of-date Directories:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+identtest/ : An identity tester for the parser and renderers in
+common/. No longer up-to-date, but should be easily repairable.
+
+
+4. Deprected Directories:
+~~~~~~~~~~~~~~~~~~~~~~~~~
+bsd/ : proof-of-concept code using raw sockets on BSD
+
+merge/ : code to merge labels into a trace before tthee came along
+
+ocamlhack/ : proof-of-concept support for raw sockets in Ocaml
+
+winxp/ : proof-of-concept code using raw sockets on BSD
+
+
+5. Getting everything to build:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+This should be fairly simple:
+
+Ensure a version of libpcap (v2.4) is installed in /usr/groups/netsem/ix86_linux-glibc-2.3.2-27.9
+in the lib/ and include/ subdirectories.
+
+From the top-level TCP/Test/ type:
+  make clean depend
+  make all
+
+This should recurse the subdirectory tree and build everything in the
+correct dependency order.
+
+This, by default doesn't build the document directories. To build
+these simply type `make` within the directory.
+
+
+6. Distributing the test tools to the test machines:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Once the test network is up and running, distributing copies of the
+test tools to the non-Windows machines should be a rather simple
+task. (How to distributed to the windows machines is documented
+below). In order for this to work correctly (and test generation in
+general) you must setup ssh public-private key login capabilities for
+each of the test network machines (except for the windows
+machines). You ssh private key should not be password-protected such
+that typing something like:
+
+  ssh john.netsem
+
+logs you in with no further user intervention.
+You also must have ssh private key login as root enabled to each of
+the machines so that something like:
+
+  ssh root@john.netsem
+
+also "just works".
+
+The whole Net/TCP/Test source tree lives in /home/Net on all of the
+test machines, and autotest and tthee are configured to expect to find
+the test tools (e.g. slurp) there.
+
+To distributed a copy of the source tree to each of the machines from
+the Net/TCP/Test directory type:
+
+  scripts/distribute -f
+
+which will do a full and fresh (-f) build of the test toos on these
+machines (this is performed by copying a tarball of the cvs repository
+to each, removing the existing Net/ tree, checking a fresh copy out
+from cvs and buildinging it with `make clean depend all`.
+
+The distribute script accepts other command-lines:
+
+  scripts/distribute -c    : does a realclean build
+  scripts/distirbute       : does an incremental build
+                        (does cvs update to get the diffs then builds)
+  scripts/distribute john.netsem: an incremental build just on john.
+
+etc, etc...
+
+
+** Distributing to the WinXP machines:
+
+You need to have the whole PUTTY packet installed from ssh access, and
+within you current PATH. Setup public-private key login to a lab
+machine (suggest thalamus), load Pageant (the putty ssh key agent) and
+install your private key. NOTE: this private key MUST be password
+protected as it allows login to the lab network as you! Once your key
+is loaded into pageant you should be able to login to lab machines
+without supplying a password.
+
+The test tools directory is D:\Net.
+
+To update the tools do from a command shell:
+  D:\
+  cd\Net\TCP\Test\scripts\win
+  win-fresh-build
+
+This will remove D:\Net, checkout a fresh copy from cvs and do a fresh
+build.
+
+There are other useful scripts in the directory such as win-update
+that just does a cvs update, and win-update-build that does a cvs
+update and incremental build, to name a few.
+
+On Windows, the build process relys upon the installation of MS Visual
+Studio .NET to provide a C complier and a version of Make (Microsoft
+Make).
+
+The Microsoft Make utility (nmake) is used to build the source
+tree. Unfortunately it can't share the Unix Makefile, so all the tools
+that are designed to work on Windows also have a Makefile.win.
+
+From the top-level:
+
+  nmake /f makefile.win
+
+will build the directory.
+
+
+7. General test generation and checking overview:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Whenever new traces are generated they are placed in a new directory
+under /usr/groups/tthee/batch. The directory name is either:
+  autotest-tcp-`date -Iseconds`, or
+  autotest-udp-`date -Iseconds`
+so that the directory names are unique.
+
+Each test that is generated is given a unique sequential 4 digit trace
+number and the trace results are stored in a file named tracennnn,
+where nnnn is the 4 digit trace number.
+
+When trace generation completes after up to 72 hours, the "run" script
+runs two further scripts to create a html version of each trace and an
+index page (script: Test/scripts/check/prettytrace), and a ziggy-zaggy
+diagram postscript rendering of the trace (script:
+test/scripts/build-diags).
+
+The generation of test traces is performed by tests/autotest/autotest
+which runs each of the test scripts in turn. This is normally started
+by the script tests/autotest/run, which takes a few arguments, but the
+normal way of starting it is:
+
+  cd tests/autotest/autotest
+  ./run TCP_NORMAL 0 10000
+
+or
+
+  ./run UDP_NORMAL 0 10000
+
+where the digits are the numbers of the first and last traces to
+generate (as there are under 10000 tests these generates all traces).
+
+
+The trace results themselves are stored in their directory under
+/usr/groups/tthee/batch/autotest-* as describe above, but due to
+filespace, inode count and backup restricitions it is too much to
+store the html and postscript renderings of each trace there
+too. Instead these are stored in
+/usr/groups/tthee-scratch/batch/autotest-* where the autotest-* name
+is identically named (and dated) to the trace set they are related
+to. These are then symlinked to in the main directory
+tthee/batch/autotest-*. The autotest/run script (and associated helper
+scripts) deal with this automatically.
+
+
+The distributed trace checker (which relies upon a built version of
+the HOL TCP specification) lives in scripts/check. This produces
+output for each trace it checks in the batch to
+l/usr/groups/tthee/check/check-`date -Isecs`. The output is in the form
+of a html page per trace, an index page summarising the status of each
+checked trace and two files: log.dat and status.dat for reporting and
+debugging.
+
+For further information on the tthee and tthee-scratch directory
+strucures see the README files: /usr/groups/tthee/README and
+/usr/groups/tthee-scratch/README.
+
+
+8. Running test generation:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Read tests/autotest/README
+
+
+9. Running trace checking:
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Read scripts/check/README

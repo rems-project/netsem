@@ -1,0 +1,32 @@
+OCAMLOPT=ocamlopt
+RM=del /F /Q
+
+OCAMLINCL=-I ../common -I "$(OCAMLLIB)" -I ../ocamllib -I ../ocamlext
+CLIBS=-cclib /link -cclib /LIBPATH:../ocamllib/ -cclib /NODEFAULTLIB:LIBC.lib ../common/libntplib.lib ../ocamlext/platformc.lib
+
+REQLIBS="$(OCAMLLIB)/unix.cmxa" "$(OCAMLLIB)/threads/threads.cmxa" \
+	"../ocamllib/ocamllib.cmxa" ../common/nettypes.cmx \
+	../common/netconv.cmx ../common/libcalls.cmx \
+	../common/sock.cmx ../common/librender.cmx \
+	../common/holparselib.cmx ../common/parserlib.cmx \
+	../common/tcpcbparserlib.cmx ../ocamlext/threadparsing.cmxa \
+	../ocamlext/platform.cmxa ../common/parser.cmx \
+	../common/lexer.cmx
+NSSOCKLIB=../nssock/libnssock.lib
+
+FILES=libd.cmx
+
+all: libd.exe
+
+libd.exe: $(FILES)
+	$(OCAMLOPT) -thread -o $@ $(REQLIBS) $(FILES:.ml=.cmx) $(CLIBS)
+
+clean:
+	$(RM) *.o *.a *.cmo *.cmi *.cma *.cmx *.cmx *.cmxa *.obj *.lib
+	$(RM) libd.exe
+
+
+.SUFFIXES:.ml .cmx
+.ml.cmx:
+	$(OCAMLOPT) -thread -c $(OCAMLINCL) $<
+

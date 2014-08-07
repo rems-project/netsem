@@ -1,0 +1,392 @@
+Documentation tags for the spec
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+$Id: tags.txt,v 1.16 2005/01/04 15:13:06 kw217 Exp $
+
+Contents
+~~~~~~~~
+1. Tag syntax
+2. Cluster/Section comments
+3. Rule comments
+4. Other useful tags (e.g. chapters, positioning and references)
+5. Documenting LTS rules and sections
+6. Documenting HOL functions and section
+
+
+1. Tag syntax:
+~~~~~~~~~~~~~~
+Tags live inside (*: :*) TeX brackets.  They start at the beginning of
+a line (preceded only by whitespace), and continue to the end of that
+line.  Each tag consists of an @ sign followed immediately by the tag
+name, and then the tag argument (format defined by the tag itself).
+
+Some tags have a body that extends from the next line up until the
+next tag or the end of the comment.
+
+The order of tags in a comment is insignificant, but there is a
+defined order in the output (i.e., they will be reordered if
+necessary).  For consistency, where possible, the coding style is for
+tags to appear in the right order in the source code too.
+
+Each tag detailed in this document is marked as either REQUIRED or
+OPTIONAL for the sections it may appear in.
+
+
+2. Cluster/Section comments
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+These comments appear at the beginning of each cluster of rules and
+mark a new logical section in the document.  A cluster ends at the
+next cluster/section beginning, or at the end of the LTS definition.
+
+Tags are (in canonical order):
+
+@section [[name]] proto sectiontitle  (REQUIRED)
+  Marks the start of a new document section and contains a description
+  of the section suitable for type-setting.
+
+  The name is a single HOL identifier, used to refer to the section
+  elsewhere in the document.
+
+  The section protocol, proto, is either GEN, TCP, UDP or ALL. This records
+  the protocols covered by the rules in the section.  GEN (for
+  "general") typesets as whitespace, eg for protocol-unspecific list
+  utilities.
+
+  The title of the section is sectiontitle and is usually a name
+  describing the rules that appear in the section, e.g. accept().  The
+  sectionname can either be a HOL name, e.g. [[send()]] or plain TeX.
+
+  The body of the rule is the section detail - this is a description
+  of the rules or functions that appear within the section.
+
+@errors	 (OPTIONAL)
+
+  Marks the beginnning of the subsection in which the error conditions
+  produced by this section's rules are described. The tag's body is
+  typeset and appears before each of the individual errors. The
+  individual errors are specified by one or more @error tags and
+  appear in a table in the typeset output.
+
+@error [[EFOO]] Explanatory text for an error.   (OPTIONAL)
+
+  Multiple @error tags are allowed; they will be coalesced into a
+  table. Our documentation style is to ensure that the explanatory
+  text for errors is consistent for each occurence of the same error
+  across the whole document, whereever possible.
+
+  In the typeset output, @error's appear in alphabetical order. It is
+  convention that @error tags also appears in alphabetical order in
+  the source.
+
+  Unlike other tags the description of an error may commence after the
+  error name argument and it continues up until the start of the next
+  tag or the end of the TeX comment block, whichever appears first.
+
+@errorinclude [[cluster name]] [[errorname]]  (OPTIONAL)
+
+  In some sections several of the errors detailed within the section
+  preamble are covered by other rules, e.g. most socket call sections
+  detail the errors produced by rules [[badf_1]], [[notsock_1]], ...
+  etc. Rather than duplicating (copying and pasting) the error names
+  and descriptions it is convenient to include the errors
+  automatically.
+
+  This tag adds the error description for error, errorname, listed in
+  the named section comment, for inclusion in the error
+  table. Multiples occurrences of @errorinclude are permitted.  Note
+  that the name of a section is the name of the first rule in that
+  section.
+
+---
+NB: after the error table in the typeset document there will be an
+automatically-generated rule summary in the section comment.  This is
+a table of all the rule names, categories, and short-style
+descriptions in this section.
+---
+
+@commoncases   (OPTIONAL)
+
+  Exhibits the common use paths (rule sequences) for this system call
+  (cluster), e.g.
+
+  [[socket_1]], [[bind_1]], ..., [[close_2]].
+
+@api  (OPTIONAL)
+
+  Text explaining our abstraction: the relationship between the C API
+  and hostTypes. For socket calls this always contains the function
+  types of the socket calls as specified by Posix, BSD, Linux and WinXP.
+
+@modeldetails  (OPTIONAL)
+
+  Explanation of modelling decisions and limits within our model.
+
+
+
+3. Rule comment
+~~~~~~~~~~~~~~~
+Rules, definitions (both Define and xDefine), datatypes
+(Hol_datatype), and type abbreviations (type_abbrev) are all parsed
+and can be documented.  Furthermore, overload_on, add_record_field,
+and pure terms (val foo = ``bar``) are explicitly ignored.  Finally, a
+single Hol_reln is allowed, and is given the name "tlang_typing".  All
+other definitions are given the obvious name, except that type
+abbreviations have "type_abbrev_" prepended.
+
+Each rule or function definition is documented by a TeX rule comment
+that is delimited by the following tags:
+
+@description  (REQUIRED)
+
+  A description of the rule or function as per our agreed
+  documentation language standard.
+
+@modeldetails  (OPTIONAL)
+
+  Explanation of the modelling decisions and limits within this rule.
+
+@variation platform   (OPTIONAL)
+
+  It the rule or function behaves differently on some host
+  architectures (Posix, FreeBSD, Linux or WinXP) the details of the
+  difference are documented here.
+
+  One @variation tag is used per differing architecture.
+
+  Example:
+
+  @variation Posix
+
+  Posix defines such and such to be.....
+
+@internal  (OPTIONAL)
+
+  Internal comments not for public consumption -- typically the
+  comments from developers/HOL hackers!
+
+
+
+4. Other useful tags (e.g. chapters, positioning and references)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+@chapter [[name]] chaptertitle   (OPTIONAL)
+
+  Marks the start of a new documentation chapter. The chapter's title
+  is chaptertitle and can be either a HOL name, e.g. [[socket()]] or a
+  plain TeX name. The chapter continues until either the next @chapter
+  tag or the end of the document.
+
+  The name is a single HOL identifier, used to refer to the section
+  elsewhere in the document.
+
+@toappendix   (OPTIONAL)
+
+  If @toappendix appears at the start of a line within a rule (or
+  definition) comment, the rule (or definition) is moved into the
+  document's appendix.
+
+  If @toappendix appears at the start of a line within a section or
+  chapter comment, that section (or chapter) is moved into the
+  document's appendix.
+
+  The appendices appear at the end of the typeset document after all
+  chapters and sections.
+
+  Useful for moving blocks of associated auxillary functions into the
+  document's appendix.
+
+@toafter [[itemname]]   (OPTIONAL)
+
+  If @toafter appears at the start of a line within a rule (or
+  definition) comment, the rule (or definition) is moved to the
+  position immediately after the item itemname in the typeset
+  document.
+
+  If @toafter appears at the start of a line within a section or
+  chapter comment, that section (or chapter) is moved into the
+  position immediately after the item itemname in the typeset
+  document.
+
+  Useful for moving blocks of auxillary functions to appear
+  immediately after the main rule or function where they are used,
+  e.g. the di3_* auxillaries to after deliver_in_3.
+
+  (equivalent command moving the current *cluster* was originally
+  specified, but not yet implemented).
+
+@mergewithnext   (OPTIONAL)
+
+  If @mergewithnext appears at the start of a line within a definition
+  or type definition comment, the definition is merged with the
+  following rule (with an intervening newline).  The current
+  definition must have no other comment.
+
+  Useful for merging blocks of small auxiliary definitions.
+
+  It is illegal to use this on a rule, chapter, or section comment.
+
+@norender  (OPTIONAL)
+
+  If @norender appears in a rule comment, the rule and its description
+  do not appear in the typeset document.
+
+  If @norender appears in a cluster or section comment block, the
+  comment block (and its LaTeX section command) does not appear in the
+  typeset document.  The rules and/or definitions in the block do
+  appear, however; it is an error if any such do appear.  It is
+  intended for use on sections whose contents are entirely @norendered
+  or moved elsewhere by @toafter or @toappendix.  (Having a section
+  may be necessary to delimit the end of the previous section).
+
+  Useful for hiding the syntactic sugar and other definitions that
+  appear in the specification.
+
+{@link [[rulename]]}   (OPTIONAL)
+
+  Produce a hyperlink or reference to rule, rulename. This tag may be
+  used inline; thus it should ALWAYS be contained in curly braces to
+  resolve its scoping.
+
+  Generates "\ltslink{hypertag}{[[stuff]]}" in the TeX output.
+  Anchors are automatically generated for rules and definitions, and
+  passed to their defining commands.
+
+  Example use: See {@link [[badf_1]]} for further information.
+
+|verbatim_text|  (OPTIONAL)
+
+  Produce verbatim text, with underscores or any other
+  normally-illegal character.
+
+
+
+5. Documenting LTS rules and sections
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Rules are clustered into logical sections of related rules. Each
+cluster begins with a cluster/section and each rule is followed by a
+rule comment. Each LTS rule should have TWO blank lines following it
+before the rule comment, i.e. two blank lines after the last side
+condition.  Example:
+
+  /\
+
+  (*: @section ALL [[socket()]]
+
+      Preamble for the socket() rule...
+
+      @errors
+
+      A call to [[socket()]] may return with the following errors:
+
+      @error [[EFOO]] Something went wrong somewhere
+
+      @errorinclude [[badf_1]]
+
+      @api
+
+      Blah blah blah. See {@seealso [[dupfd()]]} for further details.
+
+ :*)
+
+  !h f g.
+   socket_1
+     h --> h'
+
+     P A /\
+     P B
+
+
+   (*:
+
+      @description
+
+      Description of socket_1
+
+    :*)
+
+  /\
+
+  !h f g.
+   socket_2
+     h --> h'
+
+     P A /\
+     P B
+
+
+   (*:
+
+      @description
+
+      Description of socket_2
+
+    :*)
+
+  /\
+
+
+6. Documenting HOL functions and section
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Auxillary functions are clustered into logical sections of related
+functionality. Each cluster begins with a cluster/section header and each
+function is followed by a rule comment.
+
+The section/cluster comment preamble should be within a TeX comment
+before the first function definition and not be enclosed within the
+associated ML expression.
+
+The individual function descriptions should follow the HOL definition
+of the function, appearing after the closing backtick but before any
+ML exception handling code, surrounded by appropriate whitespace. BE
+CAREFUL not to omit the trailing semi-colon after the rule comment and
+optional exception handler!
+
+The definition description string can be in (*: :*) or (* *) (as for
+rules), and must appear *first* after the opening backtick.
+
+Example:
+
+  (*:
+
+    @sectionname ALL Auxillary functions
+
+    Foo fooo fooo
+
+  :*)
+
+
+  val foo1_def = Define `
+    (*: make all foos unary :*)
+    foo1...`
+    (*:
+
+       @description
+
+       ...
+
+       @internal
+
+       ...
+
+     :*) ;
+
+
+  val foo2_def = Define `(* make all foos binary *) foo2...`
+    (*:
+
+       @description
+
+       ...
+
+       @internal
+
+       ...
+
+     :*) handle e => Raise e;
+
+
+--
+
+That's all, folks!
+
+--KW 8-) & SMB

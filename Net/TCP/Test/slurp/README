@@ -1,0 +1,14 @@
+To build: libpcap must be installed in /usr/groups/netsem/ix86_linux-glibc-2.3.2-27.9 under the include and lib subdirectories. This path is specifed in the X86_PATH variable at the top of Makefile
+
+slurp/ : an Ocaml program that uses libpcap to sniff ("slurp") the
+network for packets that match a filter, rendering them to a TCP or
+UNIX domain socket.
+
+Usage: slurp [-h hostip] iface TCP ip port [filter]
+       slurp [-h hostip] iface UNIX socket [filter]
+where iface is the interface to sniff on
+      ip and port specify the socket to output HOL labels to
+      sockets specifies the UNIX domain socket to output HOL labels to
+      filter is an option filter string (enclosed in double quotes)
+      TCP selects output to TCP socket mode
+      UNIX selects output to UNIX domain socket mode

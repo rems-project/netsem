@@ -1,0 +1,22 @@
+How the tests were produced:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Private network with only john and emil plugged into the hub.
+
+On john (FreeBSD v4.6 RELEASE with custom kernel (tcp_debug enabled)), the following processes were started in order:
+ - utils/ns_logger/ns_logger 127.0.0.1 2000 > socket_trace
+ - utils/ns_logger/ns_logger 127.0.0.1 2001 > slurp_trace
+ - slurp/slurp -h 192.168.0.12 ep0 TCP 127.0.0.1 2001 "(ip src 192.168.0.12) or (ip dst 192.168.012)"
+ - /utils/holtcpcb/holtcpcb -F -n > tcpdebug_trace
+
+The command:
+ - env NS_ADDR=127.0.0.1 NS_PORT=2000 NS_DEBUG=1 utils/socktools/sockclient 192.168.0.13 22
+
+was executed to connect to emil's ssh port. Then
+ - q
+followed by enter was typed. This not only sends 'q' to emil but also closes sockclient (tearing the ssh connection down nicely first).
+
+After a few seconds holtcpcb and slurp were killed and the output files (socket_trace, slurp_trace and tcpdebug_trace) checked and archived.
+
+
+

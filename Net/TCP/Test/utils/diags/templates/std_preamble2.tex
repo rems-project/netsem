@@ -1,0 +1,99 @@
+% -*-LaTeX-*-
+
+
+
+\definecolor{darkgray}{gray}{.5}
+\definecolor{lightgray}{gray}{.75}
+
+\newcommand{\maxwidthparbox}[2]{
+  \newbox\tempbox
+  \setbox\tempbox\hbox{#2}
+  \ifdim\wd\tempbox>#1 \parbox{#1}{#2} \else \parbox{\wd\tempbox}{#2} \fi
+  }
+
+% Define a command for drawing labelled arrows (pointing right)
+% \arrowr{(x,y)}{arrow length}{angle}{parbox maximum length}{label}{left ratio}{right ratio}
+\newcommand\arrowr[7]{%
+  \put#1{\rotatebox{#3}{%
+         \raisebox{-\fontdimen22\textfont2}[0pt][0pt]{%
+          \makebox[#2\unitlength][l]{%
+          \leaders\hbox{$\!-\!$}\hskip 0pt plus #6fill%
+              \scalebox{0.75}{%
+                \maxwidthparbox{#4\unitlength}{\raggedright\textbf{#5}}}%
+          \leaders\hbox{$\!-\!$}\hskip 0pt plus #7fill%
+          $\mskip-12mu\rightarrow$}}}}}
+
+
+% Define a command for drawing labelled arrows (pointing left)
+% \arrowl{(x,y)}{arrow length}{angle}{parbox maximum length}{label}{left ratio}{right ratio}
+\newcommand\arrowl[7]{%
+  \put#1{\rotatebox{#3}{%
+         \raisebox{-\fontdimen22\textfont2}[0pt][0pt]{%
+          \makebox[#2\unitlength][l]{%
+          \leaders\hbox{$\!-\!$}\hskip 0pt plus #6fill%
+              \scalebox{0.75}{%
+                \rotatebox{180}{
+                 \raisebox{-4\unitlength}[0pt][0pt]{
+                   \maxwidthparbox{#4\unitlength}{\raggedright\textbf{#5}}}}}%
+          \leaders\hbox{$\!-\!$}\hskip 0pt plus #7fill%
+          $\mskip-12mu\rightarrow$}}}}}
+
+
+% Define a command for drawing unlabelled arrows
+% \arrowu{(x,y)}{length}{angle}
+\newcommand\arrowu[3]{%
+  \put#1{\rotatebox{#3}{%
+         \raisebox{-\fontdimen22\textfont2}[0pt][0pt]{%
+          \makebox[#2\unitlength][l]{%
+          \leaders\hbox{$\!-\!$}\hfill%
+          $\mskip-12mu\rightarrow$}}}}}
+
+
+% Define a command for drawing line
+% \rline{(x,y)}{length}{angle}
+\newcommand\rline[3]{%
+  \put#1{\rotatebox{#3}{%
+          \raisebox{-\fontdimen22\textfont2}[0pt][0pt]{%
+          \makebox[#2\unitlength][l]{\leaders\hbox{$\!-\!$}\hfill}%
+        }}}}
+
+
+% Define a command for placing text
+% \rtext{(x,y)}{maximum width}{angle}{string}
+\newcommand\rtext[4]{%
+  \put#1{\rotatebox{#3}{%
+        \maxwidthparbox{#2\unitlength}{\small\raggedright #4}%
+        }}}
+
+% Define a command for drawing filled circles
+% \disc{(x,y)}{diam}
+\newcommand\disc[2]{%
+  \put#1{\color{darkgray}\circle*{#2}}%
+  }
+
+% Define a command for preparing new picture environment pages
+% \preppage{xpos 1st vertical line}{xpos 2nd vertical line}{page height}
+\newcommand\preppage[3]{%
+   {\color{lightgray}\rline{(#1,0)}{#3}{90}\rline{(#2,0)}{#3}{90}}%
+}
+
+
+
+%tasteless visual formatting:
+\newcommand{\labelenbox}[3]{\makebox[12cm][l]{#2\hfill\bfseries{}#3#1}}
+
+\newcommand{\labelcall}[3]{\labelenbox{ \rm{[#1]}}{#2}{#3}}
+\newcommand{\labelret}[3]{\labelenbox{ \rm{[#1]}}{#2}{#3}}
+
+\newcommand{\labeldgram}[2]{\labelenbox{ \rm{[#1]}}{#2}{}}
+
+\newcommand{\labelbetween}[2]{\labelenbox{}{\quad{}#2}{}}
+
+
+
+
+
+% Start document
+%\setlength{\unitlength}{0.9pt}
+%\scalebox{0.67}{{%\fbox{
+

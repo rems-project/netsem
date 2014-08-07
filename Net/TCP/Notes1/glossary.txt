@@ -1,0 +1,48 @@
+Thought a glossary of useful terms might be in order.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+We will try to use accepted terms here, and justify them.
+
+
+* message, datagram, packet, frame:
+
+TCPv2, p210:
+
+             <-- message              -->
+        [ IP | UDP | data               ]
+        <-- datagram                  -->
+
+        [ IP | UDP | data ] (fragment 1)
+        <-- packet      -->
+                     [ IP | data ] (fragment 2)
+                     <-- packet-->
+                            [ IP | data ] (fragment 3)
+                            <-- packet-->
+
+ [ link | IP | UDP | data ]
+ <-- frame              -->
+              [ link | IP | data ]
+              <-- frame        -->
+                     [ link | IP | data ]
+                     <-- frame        -->
+
+
+* flow:
+
+* session:
+
+* connection:
+
+What is established by TCP's 3-way handshake: a pair of streams.
+
+* stream:
+
+Just what it says: a sequence of bytes.
+
+* segment:
+
+A segment is a TCP message??  or is it the message plus the
+pseudoheader??  RFC793 says it's the unit of data that is transferred
+between TCPs, which would argue for "message + source/dest IP + ???",
+e.g., incl the pseudoheader.  [also: does it include IP options, TOS,
+security...]

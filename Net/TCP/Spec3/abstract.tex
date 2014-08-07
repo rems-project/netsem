@@ -1,0 +1,35 @@
+Despite more than 30 years of research on protocol specification, the
+major protocols deployed in the Internet, such as TCP, are described
+only in informal prose RFCs and executable code.  In part this is
+because the scale and complexity of these protocols makes them
+challenging targets for formal descriptions, and because techniques
+for mathematically rigorous (but appropriately loose) specification
+are not in common use.
+
+In this work we show how these difficulties can be addressed.  We
+develop a high-level specification for TCP and the Sockets API,
+describing the byte-stream service that TCP provides to users,
+expressed in the formalised mathematics of the HOL proof assistant.
+This complements our previous low-level specification of the protocol
+internals, and makes it possible for the first time to state what it
+means for TCP to be correct: that the protocol implements the service.
+We define a precise abstraction function between the models and
+validate it by testing, using verified testing infrastructure within
+HOL. Some errors may remain, of course, especially as our resources
+for testing were limited, but it would be straightforward to use the
+method on a larger scale.  This is a pragmatic alternative to full
+proof, providing reasonable confidence at a relatively low entry cost.
+
+Together with our previous validation of the low-level model, this
+shows how one can rigorously tie together concrete implementations,
+low-level protocol models, and specifications of the services they
+claim to provide, dealing with the complexity of real-world protocols
+throughout.
+
+Similar techniques should be applicable, and even more valuable, in
+the design of new protocols (as we illustrated elsewhere, for a MAC
+protocol for the SWIFT optically switched network).  For TCP and
+Sockets, our specifications had to capture the historical
+complexities, whereas for a new protocol design, such specification
+and testing can identify unintended complexities at an early point in
+the design.

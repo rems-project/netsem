@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# repeatedly get the progress graph from the current check directory
+
+
+# use wget and ghostview -watch instead of http autoreload to avoid
+# firing up multiple ghostviews (could use image embedded in html
+# instead)
+
+# cd /tmp ; ghostview -watch -scale -3 -antialias -spartan -geometry 820x768-0+0 progress.ps &
+#
+# that doesn't work in the script for reasons that are obscure to me, so just
+#   cd /tmp
+#   gg progress.ps
+# instead
+
+while true; do
+wget -r -N --http-user=netsem --http-passwd=pepito --output-document /tmp/progress.ps http://www.cl.cam.ac.uk/users/pes20/tthee/check/current/progress.ps
+touch /tmp/progress.ps
+# wget doesn't seem to leave a decent timestamp for ghostview -watch to pick up on, hence the touch...
+# was running wget with -N too
+sleep 300
+done

@@ -1,0 +1,92 @@
+From RFC0793p65ff (as corrected by RFC1122s4.2.2.20), looking at common case of data arriving.
+-----------------------------------------------------------
+
+
+
+Following the new UoC policy, this document is marked ***Confidential***
+
+    3.3.3 Level 2: Confidential information
+
+    This covers certain meeting minutes, general personal information,
+    financial information, or other information designated as confidential
+    but that may be dealt with by any staff with delegated responsibility
+    from the recipient (i.e. it is not, in a strict sense, information
+    'for your eyes only').
+
+       (i) documents should be marked 'Confidential'; hard copy (paper)
+         documents must enclosed in sealed envelopes also marked
+         'Confidential' (ii) envelopes should only be opened by the
+         designated recipient(s) or staff with appropriate delegated
+         authority (e.g. confidential secretary or designated staff during
+         absence) (iii) hard copy documents will normally be kept securely
+         (e.g. in a locked filing cabinet) (iv) electronic documents
+         should be properly protected against access by others (e.g. they
+         should be accessible only from the owner's password-protected
+         account) (v) documents may be freely copied for personal use by
+         recipients or staff with appropriate delegated authority. Copies
+         may not be passed to anyone else (vi) electronic documents in
+         this category will not normally appear on information servers
+         (World-Wide Web) without appropriate access controls
+         (e.g. password-protected)
+
+
+If a segment arrives, where st is not CLOSED, LISTEN or SYN_SENT:
+
+1: its sequence number is acceptable, ie
+   (LENGTH seg.data = 0 /\ cb.rcv_wnd = 0 ==>  seg.seq = cb.rcv_nxt) /\
+   (LENGTH seg.data = 0 /\ cb.rcv_wnd > 0 ==>  (cb.rcv_nxt <= seg.seq /\ seg.seq < cb.rcv_nxt+cb.rcv_wnd)) /\
+   (LENGTH seg.data > 0 /\ cb.rcv_wnd = 0 ==>  F) /\
+   (LENGTH seg.data > 0 /\ cb.rcv_wnd > 0 ==>
+           (  (cb.rcv_nxt <= seg.seq /\ seg.seq < cb.rcv_nxt+cb.rcv_wnd)
+           \/ (cb.rcv_nxt <= seg.seq+seg.len-1 /\ seg.seq+seg.len-1 < cb.rcv_nxt+cb.rcv_wnd)))
+2: seg.RST=F
+3: [security and precedence]
+4: seg.SYN=F
+5: seg.ACK=T
+
+  match st with
+
+  ESTABLISHED:
+
+    if cb.snd_una < seg.ack <= cb.snd_nxt (* ie this is an ack of some previously-unacked sent data *)
+    then
+       cb'.snd_una = seg.ack
+       sndq'       = DROP (cb'.snd_una - cb.snd_una) snq
+
+    if cb.snd_una <= seg.ack <= cb.snd_nxt
+       if ((cb.snd_wl1 < seg.seq) \/
+           (cb.snd_wl1 = seg.seq /\ cb.snd_wl2 <= seg.ack)) then
+          cb'.snd_wnd = seg.wnd
+          cb'.snd_wl1 = seg.seq
+          cb'.snd_wl2 = seg.ack
+
+    if seg.ack =< cb.snd_una (* this is an ack of previously-acked data *) ignore it
+
+    if seg.ack > cb.snd_nxt (* this is an ack of something not yet sent *) send an ack, drop the segment
+
+  FIN_WAIT_1, FIN_WAIT_2, CLOSE_WAIT, CLOSING, LAST_ACK, TIME_WAIT [...do more stuff...]
+
+6: [urg bit]
+
+7: match st with
+
+  ESTABLISHED, FIN_WAIT_1, FIN_WAIT_2:
+
+   rcvq' = rcvq @ [... the piece of seg.data that is (a) new, and (b)
+                       doesn't overrun the end of rcvq; taking care with SYN and FIN
+                       sequence numbers ...]
+
+                       (* if all is working proper, (b) should always
+                       be true (but if not, what if a FIN comes along
+                       out of the end of the window? *)
+
+   cb.rcv_nxt' = cb.rcv_nxt + ...
+
+   write down "there's something to ack" ?
+
+8: if seg.FIN=T then [...do stuff...]
+
+
+
+
+

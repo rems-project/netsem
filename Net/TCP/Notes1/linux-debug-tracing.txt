@@ -1,0 +1,5 @@
+I guess one of the linux networking lists would be a better place
+to ask this. Anyway, you can get cwnd through the TCP socket
+monitoring
+interface using the "ss"-tool from iproute2
+(http://developer.osdl.org/dev/iproute2) or by getsockopt(TCP_INFO).

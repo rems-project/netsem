@@ -1,0 +1,75 @@
+-------------------------------------------------
+Netsem Special Test Configuration for Linux Hosts
+-------------------------------------------------
+
+This document assumes the following network topology:
+
+192.168.0/24  john(BSD), kurt(linux), alan(linux)
+192.168.1/24  emil(BSD), alan(linux)
+
+with alan(linux) working as the router
+
+-------------------
+
+alan should be configured with two interfaces. One as 192.168.0.14
+netmask 255.255.255.0 connected to the private network, and the other
+as 192.168.1.14 netmask 255.255.255.0 connected via a cross-over cable
+to emil.
+
+-------------------
+
+- Add users root, smb50, kw217, pes20 to group 'wheel' by modifying
+  /etc/group
+
+- Create a directory /home/Net/TCP owner root, group wheel with
+  permissions 774
+
+- Create a directory /usr/groups/netsem owner root:wheel with
+  permission 775
+
+- Install Ocaml using the instructions in /usr/groups/netsem/INSTALL
+  on a CL NFS machine. Ensure posix-threads are enabled.
+
+- Add /usr/groups/netsem/ocaml/bin to each user's $PATH by modifing
+  ~/.bash_profile
+
+----------------
+
+/etc/hosts:
+
+# Do not remove the following line, or various programs
+# that require network functionality will fail.
+127.0.0.1               localhost.localdomain localhost
+192.168.0.1             astrocyte.cl.cam.ac.uk astrocyte
+192.168.0.2             thalamus.cl.cam.ac.uk thalamus
+192.168.0.3             glia.cl.cam.ac.uk glia
+192.168.0.11            kurt.netsem.cl.cam.ac.uk kurt
+192.168.0.12            john.netsem.cl.cam.ac.uk john
+192.168.1.13            emil.netsem.cl.cam.ac.uk emil
+192.168.0.14            alan.netsem.cl.cam.ac.uk alan
+192.168.0.99            psyche.netsem.cl.cam.ac.uk psyche
+
+---------------
+
+For alan(linux) acting as a router the lines:
+
+ # enable routing
+ cat "1" > /proc/sys/net/ipv4/ip_forward
+
+should be added to: /etc/rc3.d/S10network near end of the "start" section.
+
+  # delete the default
+  route delete default
+
+should be added ro: /etc/sysconfig/network-scripts/ifup near the end of the file
+
+----------------
+
+For kurt(linux) to communicate with hosts on the other subnet:
+
+  # add a default route
+  route add -net 192.168.1.0 netmask 255.255.255.0 gw 192.168.0.14
+  # delete the default
+  route delete default
+
+should be added ro: /etc/sysconfig/network-scripts/ifup near the end of the file

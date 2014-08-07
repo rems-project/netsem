@@ -1,0 +1,2 @@
+% override definition of \tsunknown, making it black not red.
+\renewcommand{\tsunknown}[1]{\tsvar{#1}}

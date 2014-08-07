@@ -1,0 +1,15 @@
+Installing OCaml
+
+OCaml 3.08 basically builds out-of-the-box on the FreeBSD 4.6 machines. Make
+sure to do 'configure -prefix=/usr/groups/netsem/ocaml-3.08 -with-pthreads'.
+
+The netsem1 install documentation suggests lots of tweaks to the configuration
+which look like they're redundant with the switching of linuxthreads for
+pthreads described earlier (but bear this in mind as a candidate if it turns
+out not to work).
+
+Suggest symlinking /usr/groups/netsem/ocaml to /usr/groups/netsem/ocaml-3.08.
+
+Once OCaml is installed, we need to also make copies of various bits of the
+build tree for later use, so copy the otherlibs, config and byterun
+directories from the build directory into /usr/groups/netsem/ocaml-3.08.

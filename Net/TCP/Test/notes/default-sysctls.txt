@@ -1,0 +1,304 @@
+In case you ever screw up the sysctl settings / registry settings on any of the test machines, here are the defaults.... Steve.
+
+
+
+=-=-=-=-
+FreeBSD john.netsem.cl.cam.ac.uk 4.6-RELEASE FreeBSD 4.6-RELEASE #2:
+	Tue Feb  4 12:51:27 GMT 2003
+	smb50@john:/usr/src/sys/compile/NEWKERNEL  i386
+
+
+john.netsem.cl.cam.ac.uk:smb50$ sysctl -a | grep "net\.inet\."
+net.inet.ip.portrange.lowfirst: 1023
+net.inet.ip.portrange.lowlast: 600
+net.inet.ip.portrange.first: 1024
+net.inet.ip.portrange.last: 5000
+net.inet.ip.portrange.hifirst: 49152
+net.inet.ip.portrange.hilast: 65535
+net.inet.ip.forwarding: 0
+net.inet.ip.redirect: 1
+net.inet.ip.ttl: 64
+net.inet.ip.rtexpire: 3600
+net.inet.ip.rtminexpire: 10
+net.inet.ip.rtmaxcache: 128
+net.inet.ip.sourceroute: 0
+net.inet.ip.intr_queue_maxlen: 50
+net.inet.ip.intr_queue_drops: 0
+net.inet.ip.accept_sourceroute: 0
+net.inet.ip.fastforwarding: 0
+net.inet.ip.keepfaith: 0
+net.inet.ip.gifttl: 30
+net.inet.ip.subnets_are_local: 0
+net.inet.ip.maxfragpackets: 256
+net.inet.ip.check_interface: 0
+net.inet.icmp.maskrepl: 0
+net.inet.icmp.icmplim: 200
+net.inet.icmp.drop_redirect: 0
+net.inet.icmp.log_redirect: 0
+net.inet.icmp.icmplim_output: 1
+net.inet.icmp.bmcastecho: 0
+net.inet.tcp.rfc1323: 1
+net.inet.tcp.rfc1644: 0
+net.inet.tcp.mssdflt: 512
+net.inet.tcp.keepidle: 7200000
+net.inet.tcp.keepintvl: 75000
+net.inet.tcp.sendspace: 32768
+net.inet.tcp.recvspace: 57344
+net.inet.tcp.keepinit: 75000
+net.inet.tcp.delacktime: 100
+net.inet.tcp.v6mssdflt: 1024
+net.inet.tcp.log_in_vain: 0
+net.inet.tcp.blackhole: 0
+net.inet.tcp.delayed_ack: 1
+net.inet.tcp.path_mtu_discovery: 1
+net.inet.tcp.slowstart_flightsize: 1
+net.inet.tcp.local_slowstart_flightsize: 4
+net.inet.tcp.newreno: 1
+net.inet.tcp.tcbhashsize: 512
+net.inet.tcp.do_tcpdrain: 1
+net.inet.tcp.pcbcount: 5
+net.inet.tcp.icmp_may_rst: 1
+net.inet.tcp.isn_reseed_interval: 0
+net.inet.tcp.syncookies: 1
+net.inet.tcp.syncache.bucketlimit: 30
+net.inet.tcp.syncache.cachelimit: 15359
+net.inet.tcp.syncache.count: 0
+net.inet.tcp.syncache.hashsize: 512
+net.inet.tcp.syncache.rexmtlimit: 3
+net.inet.tcp.msl: 30000
+net.inet.tcp.always_keepalive: 1
+net.inet.udp.checksum: 1
+net.inet.udp.maxdgram: 9216
+net.inet.udp.recvspace: 42080
+net.inet.udp.log_in_vain: 0
+net.inet.udp.blackhole: 0
+net.inet.accf.unloadable: 0
+net.inet.raw.maxdgram: 8192
+net.inet.raw.recvspace: 8192
+
+john.netsem.cl.cam.ac.uk:smb50$ sysctl -a | grep "kern\.ipc\."
+kern.ipc.maxsockbuf: 262144
+kern.ipc.sockbuf_waste_factor: 8
+kern.ipc.somaxconn: 128
+kern.ipc.max_linkhdr: 16
+kern.ipc.max_protohdr: 60
+kern.ipc.max_hdr: 76
+kern.ipc.max_datalen: 136
+kern.ipc.nmbclusters: 1024
+kern.ipc.semmap: 30
+kern.ipc.semmni: 10
+kern.ipc.semmns: 60
+kern.ipc.semmnu: 30
+kern.ipc.semmsl: 60
+kern.ipc.semopm: 100
+kern.ipc.semume: 10
+kern.ipc.semusz: 92
+kern.ipc.semvmx: 32767
+kern.ipc.semaem: 16384
+kern.ipc.shmmax: 33554432
+kern.ipc.shmmin: 1
+kern.ipc.shmmni: 192
+kern.ipc.shmseg: 128
+kern.ipc.shmall: 8192
+kern.ipc.shm_use_phys: 0
+kern.ipc.mbuf_wait: 32
+kern.ipc.mbtypes: 287 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+kern.ipc.nmbufs: 4096
+kern.ipc.maxsockets: 1064
+
+
+=-=-=-=-
+
+Linux alan 2.4.20-8 #1 Thu Mar 13 16:42:56 EST 2003 i586 i586 i386 GNU/Linux
+
+[smb50@alan ipv4]$ pwd
+/proc/sys/net/ipv4
+
+[smb50@alan ipv4]$ for nm in {tcp*,i*}; do echo -n $nm:; cat $nm; done
+tcp_abort_on_overflow:0
+tcp_adv_win_scale:2
+tcp_app_win:31
+tcp_dsack:1
+tcp_ecn:0
+tcp_fack:1
+tcp_fin_timeout:60
+tcp_frto:0
+tcp_keepalive_intvl:75
+tcp_keepalive_probes:9
+tcp_keepalive_time:7200
+tcp_max_orphans:4096
+tcp_max_syn_backlog:128
+tcp_max_tw_buckets:8192
+tcp_mem:5120    5632    6144
+tcp_orphan_retries:0
+tcp_reordering:3
+tcp_retrans_collapse:1
+tcp_retries1:3
+tcp_retries2:15
+tcp_rfc1337:0
+tcp_rmem:4096   43689   87378
+tcp_sack:1
+tcp_stdurg:0
+tcp_synack_retries:5
+tcp_syncookies:0
+tcp_syn_retries:5
+tcp_timestamps:1
+tcp_tw_recycle:0
+tcp_tw_reuse:0
+tcp_window_scaling:1
+tcp_wmem:4096   16384   65536
+icmp_echo_ignore_all:0
+icmp_echo_ignore_broadcasts:0
+icmp_ignore_bogus_error_responses:0
+icmp_ratelimit:100
+icmp_ratemask:6168
+igmp_max_memberships:20
+inet_peer_gc_maxtime:120
+inet_peer_gc_mintime:10
+inet_peer_maxttl:600
+inet_peer_minttl:120
+inet_peer_threshold:32832
+ip_autoconfig:0
+ip_default_ttl:64
+ip_dynaddr:0
+ip_forward:1
+ipfrag_high_thresh:262144
+ipfrag_low_thresh:196608
+ipfrag_time:30
+ip_local_port_range:1024        4999
+ip_nonlocal_bind:0
+ip_no_pmtu_disc:0
+
+
+=-=-=-=-
+
+Glia: Microsoft Windows XP Professional, Version 2002, Service Pack 1
+
+See http://msdn.microsoft.com/library/default.asp?url=/library/en-us/wcetcpip/html/cmconParametersConfigurableUsingRegistryEditor.asp for more info on the available options and default values
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters]
+"NV Hostname"="glia"
+"DataBasePath"=hex(2):25,53,79,73,74,65,6d,52,6f,6f,74,25,5c,53,79,73,74,65,6d,\
+  33,32,5c,64,72,69,76,65,72,73,5c,65,74,63,00
+"NameServer"=""
+"ForwardBroadcasts"=dword:00000000
+"IPEnableRouter"=dword:00000000
+"Domain"=""
+"Hostname"="glia"
+"SearchList"="ad.cl.cam.ac.uk,cl.cam.ac.uk"
+"UseDomainNameDevolution"=dword:00000001
+"EnableICMPRedirect"=dword:00000001
+"DeadGWDetectDefault"=dword:00000001
+"DontAddDefaultGatewayDefault"=dword:00000000
+"EnableSecurityFilters"=dword:00000000
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Adapters]
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Adapters\NdisWanIp]
+"LLInterface"="WANARP"
+"IpConfig"=hex(7):54,63,70,69,70,5c,50,61,72,61,6d,65,74,65,72,73,5c,49,6e,74,\
+  65,72,66,61,63,65,73,5c,7b,38,41,34,36,35,36,31,34,2d,44,44,36,38,2d,34,35,\
+  46,37,2d,42,39,43,34,2d,44,34,39,37,37,35,46,46,32,32,43,34,7d,00,54,63,70,\
+  69,70,5c,50,61,72,61,6d,65,74,65,72,73,5c,49,6e,74,65,72,66,61,63,65,73,5c,\
+  7b,44,36,35,39,30,45,36,44,2d,45,36,38,31,2d,34,30,41,30,2d,39,30,37,46,2d,\
+  37,34,35,45,38,44,31,31,45,38,43,36,7d,00,00
+"NumInterfaces"=dword:00000002
+"IpInterfaces"=hex:14,56,46,8a,68,dd,f7,45,b9,c4,d4,97,75,ff,22,c4,6d,0e,59,d6,\
+  81,e6,a0,40,90,7f,74,5e,8d,11,e8,c6
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Adapters\{A0BF9FFE-38B8-476A-B737-DB669DB64E9F}]
+"LLInterface"=""
+"IpConfig"=hex(7):54,63,70,69,70,5c,50,61,72,61,6d,65,74,65,72,73,5c,49,6e,74,\
+  65,72,66,61,63,65,73,5c,7b,41,30,42,46,39,46,46,45,2d,33,38,42,38,2d,34,37,\
+  36,41,2d,42,37,33,37,2d,44,42,36,36,39,44,42,36,34,45,39,46,7d,00,00
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Adapters\{E156046C-C2F7-44FC-B502-9FBAB66E211C}]
+"LLInterface"=""
+"IpConfig"=hex(7):54,63,70,69,70,5c,50,61,72,61,6d,65,74,65,72,73,5c,49,6e,74,\
+  65,72,66,61,63,65,73,5c,7b,45,31,35,36,30,34,36,43,2d,43,32,46,37,2d,34,34,\
+  46,43,2d,42,35,30,32,2d,39,46,42,41,42,36,36,45,32,31,31,43,7d,00,00
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\DNSRegisteredAdapters]
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces]
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\{8A465614-DD68-45F7-B9C4-D49775FF22C4}]
+"UseZeroBroadcast"=dword:00000000
+"EnableDHCP"=dword:00000000
+"IPAddress"=hex(7):30,2e,30,2e,30,2e,30,00,00
+"SubnetMask"=hex(7):30,2e,30,2e,30,2e,30,00,00
+"DefaultGateway"=hex(7):00
+"EnableDeadGWDetect"=dword:00000001
+"DontAddDefaultGateway"=dword:00000000
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\{A0BF9FFE-38B8-476A-B737-DB669DB64E9F}]
+"UseZeroBroadcast"=dword:00000000
+"EnableDeadGWDetect"=dword:00000001
+"EnableDHCP"=dword:00000000
+"IPAddress"=hex(7):31,32,38,2e,32,33,32,2e,31,33,2e,31,34,32,00,00
+"SubnetMask"=hex(7):32,35,35,2e,32,35,35,2e,32,34,30,2e,30,00,00
+"DefaultGateway"=hex(7):31,32,38,2e,32,33,32,2e,30,2e,31,00,00
+"DefaultGatewayMetric"=hex(7):30,00,00
+"NameServer"="128.232.1.1,128.232.1.2,128.232.1.3"
+"Domain"=""
+"RegistrationEnabled"=dword:00000001
+"RegisterAdapterName"=dword:00000000
+"TCPAllowedPorts"=hex(7):30,00,00
+"UDPAllowedPorts"=hex(7):30,00,00
+"RawIPAllowedProtocols"=hex(7):30,00,00
+"NTEContextList"=hex(7):30,78,30,30,30,30,30,30,30,33,00,00
+"DhcpClassIdBin"=hex:
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\{D6590E6D-E681-40A0-907F-745E8D11E8C6}]
+"UseZeroBroadcast"=dword:00000000
+"EnableDHCP"=dword:00000000
+"IPAddress"=hex(7):30,2e,30,2e,30,2e,30,00,00
+"SubnetMask"=hex(7):30,2e,30,2e,30,2e,30,00,00
+"DefaultGateway"=hex(7):00
+"EnableDeadGWDetect"=dword:00000001
+"DontAddDefaultGateway"=dword:00000000
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\{E156046C-C2F7-44FC-B502-9FBAB66E211C}]
+"UseZeroBroadcast"=dword:00000000
+"EnableDeadGWDetect"=dword:00000001
+"EnableDHCP"=dword:00000000
+"IPAddress"=hex(7):31,39,32,2e,31,36,38,2e,30,2e,33,00,00
+"SubnetMask"=hex(7):32,35,35,2e,32,35,35,2e,32,35,35,2e,30,00,00
+"DefaultGateway"=hex(7):00
+"DefaultGatewayMetric"=hex(7):00
+"NameServer"=""
+"Domain"=""
+"RegistrationEnabled"=dword:00000001
+"RegisterAdapterName"=dword:00000000
+"TCPAllowedPorts"=hex(7):30,00,00
+"UDPAllowedPorts"=hex(7):30,00,00
+"RawIPAllowedProtocols"=hex(7):30,00,00
+"NTEContextList"=hex(7):30,78,30,30,30,30,30,30,30,32,00,00
+"DhcpClassIdBin"=hex:
+"DhcpIPAddress"="128.232.15.220"
+"DhcpSubnetMask"="255.255.240.0"
+"DhcpServer"="128.232.1.213"
+"Lease"=dword:00000e10
+"LeaseObtainedTime"=dword:3d8af4f9
+"T1"=dword:3d8afc01
+"T2"=dword:3d8b0147
+"LeaseTerminatesTime"=dword:3d8b0309
+"IPAutoconfigurationAddress"="0.0.0.0"
+"IPAutoconfigurationMask"="255.255.0.0"
+"IPAutoconfigurationSeed"=dword:00000000
+"AddressType"=dword:00000000
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\PersistentRoutes]
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Winsock]
+"UseDelayedAcceptance"=dword:00000000
+"HelperDllName"=hex(2):25,53,79,73,74,65,6d,52,6f,6f,74,25,5c,53,79,73,74,65,\
+  6d,33,32,5c,77,73,68,74,63,70,69,70,2e,64,6c,6c,00
+"MaxSockAddrLength"=dword:00000010
+"MinSockAddrLength"=dword:00000010
+"Mapping"=hex:0b,00,00,00,03,00,00,00,02,00,00,00,01,00,00,00,06,00,00,00,02,\
+  00,00,00,01,00,00,00,00,00,00,00,02,00,00,00,00,00,00,00,06,00,00,00,00,00,\
+  00,00,00,00,00,00,06,00,00,00,00,00,00,00,01,00,00,00,06,00,00,00,02,00,00,\
+  00,02,00,00,00,11,00,00,00,02,00,00,00,02,00,00,00,00,00,00,00,02,00,00,00,\
+  00,00,00,00,11,00,00,00,00,00,00,00,00,00,00,00,11,00,00,00,00,00,00,00,02,\
+  00,00,00,11,00,00,00,02,00,00,00,03,00,00,00,00,00,00,00

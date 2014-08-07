@@ -1,0 +1,184 @@
+
+nssock is an instrumented wrapper around the standard sockets API
+designed to work on WinXP and Unix platforms.
+
+To link against nssock just use -lnssock
+
+When an application is linked to nssock some special variables should
+be set in the application's environment:
+
+NS_ADDR=a.b.c.d
+NS_PORT=ppp
+NS_DEBUG={0,1}
+
+One such way to do this is at the command-line:
+  $ env NS_ADDR=a.b.c.d NS_PORT=5566 NS_DEBUG=1 ./application
+
+Note: the use of `env` above is required - the variables should be in
+the program's environment not the shell's.
+
+NS_ADDR and NS_PORT should be the IP address and port of a listening
+TCP socket. When the application makes its FIRST socket call, nssock
+opens a TCP connection to the specified IP and port. HOL TCP model
+call and return labels are then rendered to this socket for each call
+(and its return) made by the application. If nssock fails to connect,
+the application is aborted with appropriate error messages to the
+console.
+
+NS_DEBUG should be off (0) on all platforms except for BSD built with
+TCP_DEBUG enabled in its kernel, where it should be turned on (1). In
+which case, any fresh sockets requested by the application (i.e. calls
+to socket()) are slightly modified by enabling SO_DEBUG on the new
+socket after the real socket() call is performed. This places the
+socket requested by the application into debug mode and TCP debug
+information is stored in BSD's TCP ring buffer. This can be accessed
+either by the standard BSD tool, trpt, or through our tool
+utils/holtcpcb-v8. See utils/holtcpcb-v8/README for further information.
+
+
+Some rationale and problems:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* IMPORTANT: ns_ioctl() may NOT be a correct implementation. It uses
+va_args and could be completely wrong.
+
+* On Linux/BSD -- the output socket uses a high-numbered FD (that is
+user-definable in ns_sockets.h). This is not the case on WIN32 due to
+the lack of a dup2() call.
+
+* Timing information: the windows timing functions only give
+millisecond accuracy --> need to update this to use high
+precision/resolution timer calls. Linux/BSD uses gettimeofday() which
+currently has microsecond accuracy.
+  --> need to use NTP in the future.
+
+* Global variable NS_ERROR_CODE, stores the last error returned in
+errno, or on Windows, by WSAGetLastError(). This is required by
+ocamllib as the error codes get lost if not saved somewhere (though
+according to MS documentation they shouldn't).
+
+* No pselect() on WIN32/BSD.
+
+* Library initialisation: the first time any ns_*() function calls
+print() to write something to our output socket the library is
+initialised (i.e. the socket to be written to is opened...). This code
+relies on three environment variables, NS_ADDR, NS_PORT and NS_DEBUG
+being set to appropriate values for the connection. If NS_DEBUG is set
+to 1 then the communication socket is created with SO_DEBUG set.
+
+* Naming: the standard POSIX socket calls, i.e. socket, accept,
+listen, close, connect, recv, send, select, pselect, bind,
+getsockname, getpeername are implemented as ns_[posixname],
+e.g. ns_socket()
+
+* ns_dup()/ns_dup2(): these are only implemented under
+Linux/BSD. Windows does not support use of dup(). See
+../notes/windows.txt for more information (as Windows does support
+alternative calls WSADuplicateSocket and DuplicateHandle --- the
+latter of which may be the standard dup() implementation for windows)
+
+
+####################################
+## Notes on specific socket calls ##
+####################################
+
+* ns_accept(): If this is called with a NULL pointer for the peername
+then no peername is returned to the caller. For LIB, we always require
+the peername after a successfuly connect so the actions of this call
+are slightly different. When ns_accept calls accept() it always passes
+a valid pointer for the peername so that the peername can be included
+in the HOL return label. The peername is only returned to the caller
+of ns_accept() if they passed in a valid pointer.
+
+* ns_bind(): None.
+
+* ns_close(): None.
+
+* ns_connect(): If the serv_addr argument has sin_family set to
+AF_UNSPEC, then this is disconnect() and that is the HOL call that is
+outputted.
+
+* ns_disconnect(): Just connect() with serv_addr->sin_family set to AF_UNSPEC.
+
+* ns_dup(): Not supported on Windows platforms (though may be
+implementable using WSADuplicateSocket or DuplicateHandle---see
+../Notes/windows.txt).
+
+* ns_dup2(): Not supported on Windows platforms.
+
+* ns_fcntl(): Not supported on Windows (uses ioctlsocket()
+instead). Implements getfilebfl() and setfilebf() calls.
+
+* ns_getsockname(): None.
+
+* ns_getpeername(): None.
+
+* ns_getsockopt(): Implements getsockbopt(), getsocknopt(),
+getsocktopt(), getsockerr() and getsocklistening().
+
+* ns_getifaddrs(): BSD only.
+
+* ns_ioctl(): Not supported on Windows. Implements sockatmark(). Also
+implements getifaddrs() on Linux - if the request is SIOCGIFCONF then
+it is treated as if it were a call to getifaddrs(). This means that
+two calls to ioctl() are made, with one being to get the interface
+info, the other to get the netmask for a given interface. If the
+request is for SIOCGIFNETMASK then the call is made, but no HOL output
+is done.
+  ==> Need to check the use of va_args
+
+* ns_ioctlsocket(): Windows only. Implements getfilebfl(),
+setfilebfl() and sockatmark().
+
+* ns_listen(): None.
+
+* ns_pselect(): Linux only.
+
+* ns_recv(): None.
+
+* ns_recvfrom(): None.
+
+* ns_recvmsg(): Not supported by Windows.
+
+* ns_select(): None.
+
+* ns_send(): None.
+
+* ns_sendto(): None.
+
+* ns_sendmsg(): Not supported by Windows.
+
+* ns_setsockopt(): Implements setsockbopt(), setsocknopt() and
+setsocktopt().
+
+* ns_shutdown(): None.
+
+* ns_sockatmark(): Linux only. Calls ns_ioctl() (as per the Linux
+implementation of sockatmark()).
+
+* ns_socket(): None.
+
+
+########################################
+# OLD PROBLEMS THAT HAVE BEEN RESOLVED #
+########################################
+
+* PROBLEM: unable to implement getfilebfl() exactly for Linux/BSD! A
+file's flags are returned by a call to fcntl(fd, F_GETFL) as a
+bitfield. Even though it is possible to mask the flags to reveal the
+status of O_NONBLOCK and O_ASYNC we don't necessarily know what the
+user has called fcntl() for.... This is NOT a problem under Windows as
+it doesn't support O_ASYNC, and O_NONBLOCK is returned uniquely by a
+call to ioctlsocket(sd, FIONBIO, ...) (and set similarly). (Though it
+is unclear from the MSDN library docs how you do *get* the flags -- it
+only tells you how to set them...)
+
+Also, it is not possible to implement setfilebfl()
+satisfactorily. File flags are also set using fcntl(fd, F_SETFL, ...),
+but a call specifies a bitmask that can set more than one flag at once
+and our semantics only allow individual flags to be altered on each
+call. This has the additional problem that if we wish to set for
+example just O_NONBLOCK, then we have to perform a call to GET the
+flags first, so that we can alter the required bit and then call SET
+flags with the updated bitfield. Otherwise, we risk altering flags
+that we really should not be altering!

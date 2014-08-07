@@ -1,0 +1,41 @@
+Boot from the CD.
+
+Select 'English', 'United Kingdom' and 'British English' for language, location
+and keymap respectively. Wait for things to load and DCHP auto-configuration to
+fail.
+
+Choose to configure the network manually. Enter the IP address (192.168.13.10x)
+and netmask (255.255.255.0) and leave the gateway and nameserver blank.
+
+Enter the hostname (jan/ada) and the domain (.netsem2). Wait for the device
+prove to do its stuff.
+
+Choose to erase the entire disk and then configure as a multi-user workstation.
+For reference, jan and ada both have the following partition setup:
+  #1 /     279.6MB
+  #5 /usr  2.3GB
+  #6 /var  1.1GB
+  #7 swap  345.4MB
+  #8 /tmp  189.1MB
+  #9 /home 2.3GB
+Write the changes to disk and confirm. Wait for a long time while the Debian
+base system is installed.
+
+Select 'yes' when asked if you want to install GRUB to the MBR. When prompted,
+remove the Debian CD and reboot the system.
+
+Set the time and time zone to whatever's correct, enter the root password twice
+and then follow the instructions to create an initial user account for yourself
+(suggest using your CRSid).
+
+Decline to set up PPP and tell the system to install from cdrom instead.
+Re-insert the Debian CD. When it's scanned that, say no when asked if you want
+to scan another CD and dismiss the warnings about not having the most recent
+security updates.
+
+You don't need to install any of the additional selections of packages (web
+server, desktop environment, etc.). You'll be asked to configure exim, but since
+we don't want or need it, just decline to configure it when prompted.
+
+If you're asked about configuring sshd, just select the default options (allow
+ssh login, disable version 1, install ssh-keysign setuid root).

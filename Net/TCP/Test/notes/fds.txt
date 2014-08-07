@@ -1,0 +1,6 @@
+
+For testing purposes, it would be nice to keep the low numbered FDs (fds >= 3) free.  This was originally requested by KW.
+
+A lot of the test code is written in OCAML and is by default compiled using ocamlc into bytecode. Using the OCAML bytecode interpreter to execute it consumes some low numbered file descriptors to link in the required libraries and the bytecode progrom being executed.
+
+A solution to this may be to use the ocamlopt compiler (i.e., native code compiler) instead.

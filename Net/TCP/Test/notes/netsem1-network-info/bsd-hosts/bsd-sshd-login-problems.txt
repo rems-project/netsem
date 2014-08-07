@@ -1,0 +1,3 @@
+For sshd to function correctly, all hosts connecting to a server and the server itself must have fully qualified hostname entries in the server's /etc/hosts file.
+
+Without such entries a pending ssh client connect just hangs with no helpful debug output.

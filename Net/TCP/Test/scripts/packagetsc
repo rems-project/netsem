@@ -1,0 +1,20 @@
+#!/bin/sh
+
+CURDIR=`pwd`
+TEST=$CURDIR/..
+TMP1=/tmp/tsc.$$
+DIR=tsctime
+TMP=$TMP1/$DIR
+mkdir -p $TMP/tsccal
+(cd $TEST/utils/tsccal
+ cp -a COPYRIGHT README TSCcal.cpp Makefile.win  $TMP/tsccal/)
+
+mkdir -p $TMP/tsctime
+(cd $TEST/nssock/tsctime
+ cp -a COPYRIGHT TSCtime.h TSCtime.c TSCtime_example.c Makefile.win  $TMP/tsctime/)
+
+cd $TMP1
+rm -f $CURDIR/tsctime.zip
+zip -r $CURDIR/tsctime.zip $DIR
+
+rm -rf $TMP1

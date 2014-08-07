@@ -1,0 +1,19 @@
+LEVELS of implementation:
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+0: POSIX alone
+
+1: POSIX + sock-visible TCP states + networky streamy thing
+
+   1': like 1, but in a reliable world  (useless)
+   1'': small frag of 1 in a reliable world (might be useful)
+
+2: POSIX + wire-format TCP states and messages,
+    nondeterministic flow control
+
+3: (virtual node :-)): a particular algorithm, deterministic.
+
+   3.1: 2 + flow control algorithms, but in other places still nondet
+   3.2: refinement of 3.1 which is deterministic in all the
+        algorithmic places.
+

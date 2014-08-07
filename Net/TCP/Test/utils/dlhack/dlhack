@@ -1,0 +1,45 @@
+#!/bin/bash
+CVSID="\$Id: dlhack,v 1.2 2004/01/13 15:53:47 smb50 Exp $"
+
+# --------------------------
+# User configurable options
+# --------------------------
+
+USE_IP=127.0.0.1
+USE_PORT=2345
+SOCK_DEBUG=0
+
+LOGGER_TOOL=$NETSEM_TOOLS_PATH/utils/ns_logger/logger
+SOCK_LIB=$NETSEM_TOOLS_PATH/dynamic/sockpreload.so
+
+# ------------
+# Do the work
+# ------------
+
+OUTFILE=$1
+shift
+
+echo
+echo "Netsem dlhack: $CVSID"
+echo "Starting logger on $USE_IP:$USE_PORT"
+echo "Output file: $OUTFILE"
+echo "Application: $@"
+echo
+
+# Give user the chance to see what's about to happen
+sleep 3
+
+# Start the ns_logger tool
+$LOGGER_TOOL $USE_IP $USE_PORT >$OUTFILE &
+LOGGER_TOOL_PID=$!
+
+# Start the application in the LD_PRELOAD environment
+env NS_ADDR=$USE_IP NS_PORT=$USE_PORT NS_DEBUG=$SOCK_DEBUG NS_DYNAMICLINK=1 LD_PRELOAD=$SOCK_LIB "$@"
+
+echo "Finished... tidying up"
+
+# Wait
+sleep 1
+
+# Send SIGKILL (just in case)
+kill -9 $LOGGER_TOOL_PID 2&>/dev/null

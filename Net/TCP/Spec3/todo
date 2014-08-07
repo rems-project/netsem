@@ -1,0 +1,25 @@
+Tue Nov 28 11:35:53 GMT 2006   TMP phone
+
+tentatively aim for SIGCOMM07 deadline (31 Jan) (constraints: Michael
+in Perth last two weeks December; Tom's scheduled interruption on 7
+Jan)
+
+look through trace set
+ - select traces that exemplify stuff (and maybe write a few new ones)
+ - look at Adam's mirror and make a few lossy traces (a bit later)
+ - maybe aim for 100 checked traces?
+
+polish and package abstractor
+
+write level3 checker and package  (run by hand at first, maybe adapt the
+ checking infrastructure to htmlize etc)
+
+change form of transition relation.  consensus seemed to be to move to
+  h,S,M ---l---> h',S',M' where S and M are _all_ the streams and messages
+  in the network
+
+abstraction relation and function - state a relation (just on low and high level network configurations, or low and high pairs-of-hosts-with-streams-and-messages?) explicitly, and prove (shock) that the abstraction function hits it
+
+make sure spec3 typesets
+
+muse on possible proofs of invariants about reachable pairs of TCPSTATEs and wire messages

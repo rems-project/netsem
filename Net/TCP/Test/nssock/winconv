@@ -1,0 +1,9 @@
+#! /usr/bin/perl -w
+
+print("  switch(errno) {\n");
+while(<>) {
+  if(/#define\s+([A-Z0-9_]+)\s+/) {
+    print "    case $1:\n      sprintf(str, \"$1\");\n      break;\n"
+  }
+}
+print("  }");

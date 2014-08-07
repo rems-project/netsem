@@ -1,0 +1,253 @@
+Dear Authors,
+
+We are very happy to inform you that the above named paper has been accepted for the proceedings of FM 2008. As usual, the competition was very stiff and we had 106 submissions, of which 23 were finally accepted for the programme. We include below the reviews of your submission and want you to take full account of the reviews to produce a final version of the submission for publication. We will again use EasyChair for the *final submission* and we will send you final instructions for this submission very soon.  THE DEADLINE FOR THIS FINAL SUBMISSION WILL BE *Feb 29th*.
+
+We hope very much that your participation will contribute to another very successful FM meeting. Please keep your eye on the conference web page (http://www.fm2008.abo.fi/) for programme and other information related to the conference.
+
+See you in Turku!
+
+Jorge and Tom
+FM'08 Co-Chairs
+
+---------
+
+
+
+---------------------------------------------
+
+Paper: 70
+Title: A rigorous approach to networking: TCP, from implementation to protocol to service
+
+
+-------------------- review 1 --------------------
+
+OVERALL RATING: 0 (borderline paper)
+----------------------- REVIEW --------------------
+
+Review form
+
+1) What problem(s) does the paper tackle?   What are the main idea of
+the proposal solution(s)?
+
+The paper tackles the question of how to tie together implementations
+with models of protocols at various layers.  This paper is one of a series
+by the authors on this topic, focusing TCP and testing implementations.
+The focus in this paper is on service-level specifications.
+
+
+2) Topic and Content: Is the topic suitable for FM'08?  What are the
+contributions of the paper?  How would you rate the technical quality
+of the paper?  Does the paper represent original work?
+
+The paper is absolutely on topic.    The paper is more a review
+of what they have done than a technical paper.  No formal claims are
+made.  The approach taken, builds upon their previous work and is
+of course related to a vast amount of research from the testing community.
+
+
+3) Presentation: Is the paper accurate, precise and rigorous?  Is the
+technical content accessible to non-specialists of the domain or
+notation?  Does the introduction clearly state the background and
+motivation?  Is the abstract an appropriate and adequate digest of the
+work presented?  Is the bibliography adequate? Is related work
+properly discussed?  Is the English satisfactory?  (Write in the next line)
+
+There are no technical results presented.  As for the description
+of the methodology taken: I found it NOT particularly easy to follow.
+The authors quickly take the reader into lots of details about TCP
+The methodology they took is more-or-less hidden among all the
+technical details.   Missing is a section that clearly outlines the general
+methodology here, properties it is believe to have, etc.    Some details
+were simply not clear to me, such as the generation of the test cases
+itself.   Perhaps these are described in other papers of the authors???
+
+
+4) Please highlight any further strong points and weak points of the paper.
+
+Strong points: they are addressing a real problem in its full complexity.
+Weak points: lack of clarity about the methodology taken.
+
+
+5) Please provide constructive comments to help author improve the
+paper. (Write in the next line)
+
+I add a new section (early on, e.g., 2 or even as part of the intro) clearly outlining, as abstractly
+as possible the general methodology taken and use it to structure your presentation
+of the remaining details.
+
+
+-------------------- review 2 --------------------
+
+OVERALL RATING: 2 (accept)
+----------------------- REVIEW --------------------
+
+Review form
+
+
+1) What problem(s) does the paper tackle?   What are the main idea of
+the proposal solution(s)?
+(Write in the next line(s), inserting new lines if required).
+The main problem addressed in this paper is the specification of
+real-world protocols; in particular, TCP. The author's have
+previously published several papers describing a detailed HOL
+specification of the TCP implementation.  This paper
+describes a new TCP service-level specification that
+defines what service a TCP  implementation  provides to the
+the socket interface. An abstraction function relates the
+low-level specification. The scale of both the low-level and
+high-level specifications means that it  is not practical to
+apply either model checking or theorem proving to verify the
+abstraction function. Instead, the authors generate traces from
+protocol runs on a testbed and validate the models against these
+traces.
+
+
+2) Topic and Content: Is the topic suitable for FM'08?  What are the
+contributions of the paper?  How would you rate the technical quality
+of the paper?  Does the paper represent original work? (Write in the next line)
+
+This topic is definitely suitable for FM08. The technical quality of the
+paper is quite good. The immediate contribution is the specification of
+TCP Socket services and the abstraction function that maps between
+the low-level specification and a high-level specification and the validation.
+
+
+
+3) Presentation: Is the paper accurate, precise and rigorous?  Is the
+technical content accessible to non-specialists of the domain or
+notation?  Does the introduction clearly state the background and
+motivation?  Is the abstract an appropriate and adequate digest of the
+work presented?  Is the bibliography adequate? Is related work
+properly discussed?  Is the English satisfactory?  (Write in the next line)
+
+The paper does meet standards of accuracy and rigor and
+the writing more than satisfactory. The abstract and bibliography
+are satisfactory.
+
+There is a presumption that the reader is familiar with
+some of the basics of TCP. A reader completely unfamiliar with
+the basic terminology (SYN, SYNACK, socket) would probably
+have a difficult time reading the paper.
+
+
+
+4) Please highlight any further strong points and weak points of the paper.
+
+The strongest point of the paper is the overall methodology employed
+and that the authors applied it to a protocol as complex as TCP.
+In performing this work, the authors  help blunt the, often  apt,
+criticism that formal methods only applied to small problems.
+
+5) Please provide constructive comments to help author improve the
+paper. (Write in the next line)
+
+A brief description of TCP terminology used in the paper would
+be welcome to those who have not done socket programming in a while.
+
+Section 4. The Abstraction Function could stand some revision
+even if further prose comes at the expense of Figure 4, which might
+be squeezed into columns to give more room for text.
+
+The system presented in this paper can be used as a basis for
+conformance testing. It would have been interesting if this had
+been used to test say one of the newer implementations of the
+TCP stack (say for real-time OSes) or even the implementation
+reported in citation  [13].
+
+ Both the low-level protocol specification and the
+service-level specification are about 30,000 lines of HOL - quite
+ a feat in and of itself - and I suspect that emacs and svn
+were probably the only tools used in support of this effort.
+Although the authors advocate the use of their technique in
+further protocol developments, it is not clear additional
+tool support would not be needed in order to make that practical.
+
+
+-------------------- review 3 --------------------
+
+OVERALL RATING: 2 (accept)
+----------------------- REVIEW --------------------
+
+Review form
+
+1) What problem(s) does the paper tackle?   What are the main idea of the proposal solution(s)?
+(Write in the next line(s), inserting new lines if required).
+
+This paper tackles the problem of rigorously specifying TCP.  Based on the
+author's previous work on low-level specs of TCP internals, this paper
+proposes a high-level, end-to-end specification of TCP and validates that
+the low-level spec implements it.
+
+2) Topic and Content: Is the topic suitable for FM'08?  What are the
+contributions of the paper?  How would you rate the technical quality
+of the paper?  Does the paper represent original work? (Write in the next line)
+
+The topic is suitable for FM'08.  The main contributions are:
+
+a) a high-level specification of TCP
+   (in contrast to the previous low-level spec)
+b) validation of correspondence between the high-level and low-level specs.
+
+The technical quality is high and this paper definitely represent original work.
+
+3) Presentation: Is the paper accurate, precise and rigorous?  Is the
+technical content accessible to non-specialists of the domain or
+notation?  Does the introduction clearly state the background and
+motivation?  Is the abstract an appropriate and adequate digest of the
+work presented?  Is the bibliography adequate? Is related work
+properly discussed?  Is the English satisfactory?  (Write in the next line)
+
+The paper is accurate, precise and rigorous.
+The technical content is accessible to non-specialists of the domain or
+notation, although to fully understand it, one should be familar with the
+authors' previous work.
+The introduction clearly states the background and motivation.
+The abstract is appropriate and adequate.
+Related work is well discussed.
+The English is great.
+
+4) Please highlight any further strong points and weak points of the paper.
+
+The amount of work accomplished by the authors is quite impressive.
+Overall, I like the service-level spec and the overall architecture of
+their formal framework. In fact, I think this spec should have been written
+down as the first step when this line of work is started, before working on
+the protocol-level details! I think this paper is a good move towards the
+right direction in the line of work on formalizing TCP.
+
+I think these points already make it a good paper. I do have some more
+thoughts about the paper but I wouldn't list it as a weak point --- see my
+comments below.
+
+5) Please provide constructive comments to help author improve the
+paper. (Write in the next line)
+
+My major question is: can we make this work more ¡°formal¡±?  Maybe not
+in this paper, but in the future work! You have verified (in your
+previous work) that the protocol-level spec admits thousands of traces
+generated in real-world systems; this paper used similar techniques to
+verify the relationships between the service-level and protocol-level
+specs. Although I agree that trace validation is the appropriate technique
+in the former case, I think the latter could, and should, be made more
+rigorous for a number of reasons:
+
+* Both specs are already written precisely in HOL; it seems a shame
+  if we can¡¯t prove anything about them!
+* The service-level and protocol-level specs are very similar in their
+  nature: the rules are almost in one-to-one mapping and the relationship
+  between the two specs does not seem very difficult to understand.
+
+Of course, the devil is in all the details. I agree with you that any
+formal reasoning at this scale is nontrivial and the trace-based
+validation is a reasonable choice to begin with. But, without a
+rigorous proof, the trace validation can only show that the
+protocol-level spec "probably" implements TCP, which itself is not a
+very interesting statement. There are other informal ways to show this
+too --- for example, using the protocol-level spec as a reference to
+build a working TCP implementation.  After all, I think the ultimate
+goal is not to verify whether the spec implements TCP faithfully, but
+rather to eliminate bugs in the low-level spec.  My personal opinion
+is that, even a tiny amount of formal proof would be a huge advance in
+this line of work.  It could mean a lot of work, but it could also
+discover much more bugs in the spec.
+

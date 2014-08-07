@@ -1,0 +1,125 @@
+List of invariants and desirable sanity properties.
+
+These need to be turned into HOL some day.
+
+
+
+
+When in LISTEN state, the socket has SOME fid, SOME i1, SOME p1 all
+set.
+
+Unless in CLOSED or LISTEN, all of is1 is2 ps1 ps2 are fully specified
+(not NONE).
+
+If fid_of_fd(te.fds,fd) = SOME fid, then fid IN FDOM h.files.
+
+If (fid,File(Socket(sid),ff)) then (sid,Socket(SOME fid, ...)).
+
+"block" rule class: LHS t is Run and RHS t is *2.
+
+"slow" rule class: LHS t is *2 and RHS t is Ret.
+
+If sid in h.bound, then sid in FDOM h.socks.
+
+If sid|->s with s.ss = Listen(_), then sid in h.bound.
+
+All "IP(i)" and "Port(p)" are nonzero and within range.
+
+!n n'. SO_LINGER n IN sf /\ SO_LINGER n' IN sf ==> (n = n').
+(this wouldn't be required in the record implementation of socket
+options)
+
+In Listen(q,qlimit), LENGTH q <= qlimit
+
+(sf.t(SO_RCVTIMEO) <> SOME 0) /\ (sf.t(SO_SNDTIMEO) <> SOME 0)
+
+Socket buffer size really is SO_RCVBUF / SO_SNDBUF
+
+Urgent pointer in tcpStream is never zero.
+
+You might think LENGTH sndq <= SO_SNDBUF, but you would be wrong.  See
+TCPv2p1016 (or see sosend).  You should always be allowed to send OOB
+data; BSD implements this by adding an arbitrary extra space for OOB
+data of 1024 bytes to the available space.
+
+s.t_state <> LISTEN <=> s.lis = NONE
+
+seg.ACK == F ==> seg.ts.ts_ecr = 0
+
+we think snd_nxt >= snd_una always (TCPv2p948) (and some other window
+invariants too)
+
+snd_una <= snd_nxt <= snd_max  (pace TCPv2p978: we should avoid this
+transient case, as does FreeBSD 4.6 tcp_input.c:1826)
+
+snd_max > snd_una + LENGTH sndq ==> we have sent a FIN (and it's just +1).
+
+tt_persist <> NONE ==> cb.snd_wnd - (cb.snd_nxt - cb.snd_una) <= 0 =
+snd_wnd  or something (we need to read the persist stuff again to
+figure out exactly what).
+
+seg.ws <= 14 in all segments emitted.
+
+cb.last_ack_sent and cb.rcv_adv are what they say they are; i.e., in a
+trace, immediately after emitting a segment, these have the values
+respectively of ack and seq+win.  Probably similar properties for
+other cb fields.
+
+lis.q0 are all in SYN_RCVD (??), lis.q are all in ESTABLISHED (or
+later?).  Maybe both are not true if we receive a FIN etc...
+
+Time passage (Time_Pass_host) never causes a host to become urgent
+unless it causes a timer to reach zero (see comment at Time_Pass).
+
+The following three timers are never active simultaneously:
+  tt_rexmtsyn, tt_rexmt, tt_persist  (and their associated shifts).
+  (this means that they can share the same t_rxtshift backoff counter,
+  and the same timer).
+
+The following timers are never active simultaneously:
+  tt_conn_est, tt_keep
+  tt_fin_wait_2, tt_2msl
+  (this means each pair can use a single timer)
+
+architecture never changes. (presumably there are others that also
+don't change).
+
+!h:host with nonempty h.iq
+  ?!rn from those that take sth from h.iq.
+    h goes under rn
+(this is intended to say that we cover all segment * states with
+  exactly one rule)
+(Keith thinks it would be nice if rn was determined only by HD h.iq
+  and the state of the matching socket if any, rather than by the
+  whole host, but not sure if this is true - probably not.)
+
+
+bzero_cb covers all fields (can this be shown?).  ARGH: HOL feature
+request: building a record from scratch without specifying all fields
+should be a TYPE ERROR; it shouldn't magically stick in unwanted ARBs.
+
+If cantrcvmore is set, then rcvq never grows.
+
+Hypothesis:
+  cantrcvmore <== st IN { CLOSE_WAIT; LAST_ACK; FIN_WAIT_1;
+                          FIN_WAIT_2; CLOSING; TIME_WAIT }
+  ~cantrcvmore <== st IN { ESTABLISHED; SYN_SENT; SYN_RCVD }
+  think we don't care in LISTEN or CLOSED.
+==> if we believe this, we should remove cantrcvmore.
+
+(note that cantsndmore is different; it merely records that we intend
+to send a FIN (and change state) at some point in the future (not
+necessarily now).)
+
+Better prove that make_* segment-creators always yield at least one
+possible segment; they are never the reason a rule becomes stuck
+(modulo appropriate sanity requirements).
+
+A `Timer(e,dmin,dmax)` always has `dmin <= dmax`.
+
+h.rttab and h.ifds should be consistent: there should always be routes
+to at least the entire subnet of each interface:
+!i. is_localnet h.ifds i ==>
+ ?rte. rte IN FRANGE h.rttab /\ i IN routeable rte
+
+retType and host_redn agree.

@@ -1,0 +1,182 @@
+------------------------------------------------
+Installation of RedHat Linux v9 on Alan and Kurt
+------------------------------------------------
+
+Create boot floppies
+--------------------
+- download the floppy disk images 'bootdisk.img' and 'drvnet.img' from
+  ftp://ftp.mirror.ac.uk/sites/ftp.redhat.com/pub/redhat/linux/9/en/os/i386/images
+
+- use 'dd if=xxxxx.img of=/dev/fd0 bs=1440k' to write both images to blank
+  floppy disks
+
+
+Setup network access for package installation
+---------------------------------------------
+- on john.netsem, as root, setup port forwarding:
+  ssh -N -L 80:astrocyte:7000 -g smb50@john
+
+- on astrocyte as an ordinary user setup port forwarding:
+  ssh -N -L 7000:ftp.redhat.com:80 -g -b 192.168.0.1 astrocyte
+
+- this setup allows port 80 on john (which is locally accessible by
+  alan and kurt) to masquerade as http://ftp.redhat.com/
+
+
+Beginning the installation
+--------------------------
+- insert the floppy containing the image 'bootdisk.img' and reboot
+
+- at the Redhat installation welcome screen type:
+  linux text <enter>
+
+- wait for the linux kernel to boot and the redhat installer to load
+
+- select the language 'English' and press 'OK'
+
+- select the keyboard layout 'UK' and press 'OK'
+
+- select the installation media type as 'HTTP' and press 'OK'
+
+- At the 'drivers' screen select 'Use driver disk', insert the
+  'drvnet.img' floppy and select 'OK'
+
+- After a while you will be told that 'no drivers were found'. Select
+  'manually select'.
+
+- Select the network device '3com Etherlink III (3C509)' and press
+  'OK'.
+
+- At the network configuation screen uncheck 'Use dynamic IP
+  Configuartion' and manually enter the following:
+  IP: 192.168.0.11 or 192.168.0.14 (depending upon the host)
+  Netmask: 255.255.255.0
+  Default Gateway: 192.168.0.1
+  Leave the primary nameserver entry blank
+
+- Select 'OK' and wait whilst the hostname is determined
+
+- Next you are prompted to enter the web site name and directory where
+  the redhat packages can be found. Enter:
+  Website name: 192.168.0.12
+  RedHat Directory: pub/redhat/linux/9/en/os/i386/
+
+- Select 'OK' and wait whilst the base packages are retrieved
+
+- In the next installer program, press 'OK' at the welcome screen.
+
+- Select 'Generic 3-button mouse (PS/2)', ensure 'Emulate 3-buttons' is not
+  ticked and press 'OK'
+
+- If the installer detects a previous RedHat installation you should
+  select 'Reinstall system' and press 'OK' at this point (if a
+  previous RedHat system is not present this stage is skipped)
+
+- Select 'Custom' installation and then 'Disk Druid' for partitioning
+  the disk
+
+- In Disk druid, delete all existing partitions and create:
+  /dev/hda1, 1291MB, ext2, Mount point /
+  /dev/hda2, 255MB, swap
+
+- Select 'OK' and then 'OK' again to enable the swap partition because
+  of the low memory warning
+
+- Select 'Lilo' as the preferred bootloader
+
+- Select 'OK' at the lilo kernal optional parameters screen leaving the
+  options field blank
+
+- Select 'OK' at the 'Boot Manager Configuration' screen, leaving the
+  default options in place (i.e., the ability to boot /dev/hda1 from
+  lilo)
+
+- Select to install lilo on /dev/hda (the MBR), not /dev/hda1 and press 'OK'
+
+- At the 'Network Configuration' screen, delete the IP address for the
+  'Primary Nameserver' then select 'OK' to accept the default options
+
+- Enter the computer's hostname (i.e., alan or kurt) and press 'OK'.
+
+- Select the 'No firewall' option and press 'OK'.
+
+- Select extra language support 'English (Great Britain)' then press
+  'OK'
+
+- Select the default language as 'English (Great Britain)' and press
+  'OK'.
+
+- Select the default timezone as 'Europe/London' leaving 'Hardware
+  clock set to GMT' unchecked, then press 'OK'
+
+- Enter a password to become the root password and press 'OK'
+
+- At the 'Authentication Configuration' screen hit 'OK' to accept the
+  defaults (i.e., shadow and MD5 passwords enabled).
+
+- Wait whilst 'Package information' is read
+
+
+Package Installation
+--------------------
+
+- At the 'Package Group Selection' screen uncheck everything except:
+  Administration Tools
+  Development Tools
+  Kernel Development
+  System Tools
+  Text-based internet
+
+- Leave 'Select individual packages' unchecked and press 'OK'
+
+- Wait for the dependency check to finish then press 'OK' to select
+  the default installation logging option
+
+- while(true) sleep++;
+  (You have to wait a long time before the package installation
+  begins. The installer leaves you with a blue screen and no message
+  windows explaining what is going on for approximately 5
+  minutes.... and there is no give away disk or network activity...)
+
+- Then wait even longer whilst the 800Mb of packages install :-)
+  (approx 1 hr)
+
+- Provide a blank floppy to create a bootdisk (in case anything ever
+  goes wrong)
+
+- Reboot and enjoy
+
+
+Post-install configuration
+--------------------------
+
+- create users smb50, kw217, pes20 by running 'useradd' as root. Use
+  'passwd {username}' to set the user passwords
+
+- run 'hostname kurt.netsem.cl.cam.ac.uk' or 'hostname
+  alan.netsem.cl.cam.ac.uk' to configure the hostname
+
+- sshd is configured sanely already so sshd_config can be left as is
+
+- edit '/etc/hosts':
+  127.0.0.1	localhost.localdomain localhost
+  192.168.0.1	astrocyte.cl.cam.ac.uk astrocyte
+  192.168.0.2	thalamus.cl.cam.ac.uk thalamus
+  192.168.0.3	glia.cl.cam.ac.uk glia
+  192.168.0.11	kurt.netsem.cl.cam.ac.uk kurt
+  192.168.0.12	john.netsem.cl.cam.ac.uk john
+  192.168.0.13	emil.netsem.cl.cam.ac.uk emil
+  192.168.0.14	alan.netsem.cl.cam.ac.uk alan
+  192.168.0.99	psyche.netsem.cl.cam.ac.uk psyche
+
+- copy RSA1 public keys into /home/{username}/.ssh to enable RSA1
+  authentication. Note: the version of openssh with Redhat v9 forces
+  RSA1 keys to be >= 768 bits!
+
+
+
+
+
+
+
+

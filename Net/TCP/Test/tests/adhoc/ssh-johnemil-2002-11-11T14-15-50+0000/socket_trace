@@ -1,0 +1,13 @@
+(* ns_socket library initialised: connected to 127.0.0.1:2000 *)
+(* Date: Mon Nov 11 16:55:35 2002  Host: john *)
+(* BEGIN *)
+(* 1037033735.399304 *) Lh_call (TID 13420, socket());
+(* 1037033735.404365 *) Lh_return (TID 13420, OK(FD 4));
+(* 1037033735.404557 *) Lh_call (TID 13420, setsockbopt(FD 4, SO_REUSEADDR, T));
+(* 1037033735.404683 *) Lh_return (TID 13420, OK(one));
+(* 1037033735.404943 *) Lh_call (TID 13420, connect(FD 4, IP 192 168 0 13, Port 22));
+(* 1037033735.406568 *) Lh_return (TID 13420, OK(one));
+(* 1037033737.118213 *) Lh_call (TID 13420, send(FD 4, "q\x00a", []));
+(* 1037033737.118959 *) Lh_return (TID 13420, OK(""));
+(* 1037033737.120083 *) Lh_call (TID 13420, close(FD 4));
+(* 1037033737.120452 *) Lh_return (TID 13420, OK(one));

@@ -1,0 +1,19 @@
+*** tcp_debug.h	Tue Feb  4 11:05:23 2003
+--- tcp_debug.h	Tue Feb  4 11:09:13 2003
+***************
+*** 38,44 ****
+  #define	_NETINET_TCP_DEBUG_H_
+
+  struct	tcp_debug {
+! 	n_time	td_time;
+  	short	td_act;
+  	short	td_ostate;
+  	caddr_t	td_tcb;
+--- 38,44 ----
+  #define	_NETINET_TCP_DEBUG_H_
+
+  struct	tcp_debug {
+!  	struct timeval	td_time;
+  	short	td_act;
+  	short	td_ostate;
+  	caddr_t	td_tcb;

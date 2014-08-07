@@ -1,0 +1,31 @@
+#!/bin/bash
+
+OCAMLPATH=/usr/groups/netsem/ocaml/bin
+
+export -p PATH=$OCAMLPATH:$PATH
+export -p OCAMLPATH=$OCAMLPATH
+export -p OSTYPE=freebsd-4.6
+
+# Build
+cd /home/Net/TCP/Test
+if ! make "$@" >build-log 2>&1; then
+    exit 1
+fi
+
+# BSD custom component build
+cd /home/Net/TCP/Test/utils/holtcpcb-v8
+if ! make realclean depend all >>../../build-log 2>&1; then
+    exit 1
+fi
+
+cd /home/Net/TCP/Test
+
+# Set permission correctly on executables
+chown root:wheel utils/holtcpcb-v8/holtcpcb-v8
+chmod +s utils/holtcpcb-v8/holtcpcb-v8
+chown root:wheel slurp/slurp
+chmod +s slurp/slurp
+chown root:wheel injector/injector
+chmod +s injector/injector
+chown root:wheel libd/libd
+chmod +s libd/libd

@@ -1,0 +1,57 @@
+#!/bin/bash
+
+# Options (must be given in order listed)
+#
+# -i  show merge index graph superimposed
+# -p  show per-step times (rather than total)
+
+MERGEINDICES=false
+if [ "$1" = '-i' ] ; then
+    MERGEINDICES=true
+    shift
+fi
+
+PERSTEP=false
+if [ "$1" = '-p' ] ; then
+    PERSTEP=true
+    shift
+fi
+
+BINDIR=`dirname $0`
+FILE="$1"
+TITLE=`basename "$FILE"`
+
+if $MERGEINDICES; then
+    COMMENT=''
+else
+    COMMENT='#'
+fi
+if $PERSTEP; then
+    TIMECOL="3 with boxes"
+else
+    TIMECOL=2
+fi
+
+grep ^==Step "$FILE" | cut -d' ' -f2,9 | sed 's/://g' | $BINDIR/stepgraph-rezero > /tmp/stepgraphtimed.$$
+cat <<EOF | gnuplot -persist
+set terminal postscript eps color
+set title "$TITLE"
+set xlabel 'Check step index'
+set ylabel 'log10(total wall-clock time, seconds)'
+${COMMENT} set ylabel 'log10(per-step wall-clock time, seconds)'
+${COMMENT} set y2label 'Merge index'
+${COMMENT} set y2tics
+set ytics nomirror
+set xrange [-0.5:]
+set boxwidth 0.3
+set grid
+set nokey
+plot '/tmp/stepgraphtimed.$$' using 0:${TIMECOL} \
+${COMMENT} ,'/tmp/stepgraphtimed.$$' using 0:1 axes x1y2 with points pt 13\
+;
+EOF
+
+#set xlabel 'Time (wall-clock, s)'
+#set ylabel 'Trace step number'
+
+#plot '/tmp/stepgraphtimed.$$' using 1:(log($2)>0 ? log($2) : 1/0);

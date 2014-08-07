@@ -1,0 +1,23 @@
+OCAMLC=ocamlc
+OCAMLOPT=ocamlopt
+OCAMLLEX=ocamllex
+OCAMLYACC=ocamlyacc
+OCAMLFLAGS= -thread -I "$(OCAMLLIB)" -I . -I "../../ocamlext"
+OCAMLLIBS=unix.cmxa threads.cmxa platform.cmxa
+RM=del /q f
+CLIBS=-cclib /link -cclib /NODEFAULTLIB:LIBC.lib ../../ocamlext/platformc.lib
+
+all: custom_rsh.exe
+
+custom_rsh.exe:
+	$(OCAMLLEX) lexer.mll
+	$(OCAMLYACC) parser.mly
+	$(OCAMLOPT) -c $(OCAMLFLAGS) parsetypes.mli parsetypes.ml
+	$(OCAMLOPT) -c $(OCAMLFLAGS) parser.mli
+	$(OCAMLOPT) -c $(OCAMLFLAGS) parser.ml
+	$(OCAMLOPT) -c $(OCAMLFLAGS) lexer.ml
+	$(OCAMLOPT) -c $(OCAMLFLAGS) custom_rsh.ml
+	$(OCAMLOPT) -o $@ $(OCAMLFLAGS) $(OCAMLLIBS) parsetypes.cmx parser.cmx lexer.cmx custom_rsh.cmx $(CLIBS)
+
+clean:
+	$(RM) *.cm* *.o* parser.mli custom_rsh.exe parser.ml lexer.ml

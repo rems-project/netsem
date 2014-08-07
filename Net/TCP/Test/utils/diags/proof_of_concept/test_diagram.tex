@@ -1,0 +1,187 @@
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+% Warning: this file was automatically generated. Edit with care
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+% -*-LaTeX-*-
+\documentclass[oneside,notitlepage]{report}
+
+% Magic to capture RCSID:
+{\catcode`\$=9\gdef\rcsid{$Id: test_diagram.tex,v 1.1 2003/10/28 11:44:42 smb50 Exp $}}
+
+% Get a decent sized page and enable graphics modes
+\usepackage[a4paper,margin=15mm]{geometry}
+\usepackage{graphics}
+\usepackage{color}
+\pagestyle{empty}
+
+\definecolor{darkgray}{gray}{.5}
+\definecolor{lightgray}{gray}{.75}
+
+\newcommand{\maxwidthparbox}[2]{
+  \newbox\tempbox
+  \setbox\tempbox\hbox{#2}
+  \ifdim\wd\tempbox>#1 \parbox{#1}{#2} \else \parbox{\wd\tempbox}{#2} \fi
+}
+
+% Define a command for drawing labelled arrows (pointing right)
+% \arrowr{(x,y)}{arrow length}{angle}{parbox maximum length}{label}{left ratio}{right ratio}
+\newcommand\arrowr[7]{%
+  \put#1{\rotatebox{#3}{%
+	 \raisebox{-\fontdimen22\textfont2}[0pt][0pt]{%
+	  \makebox[#2\unitlength][l]{%
+	  \leaders\hbox{$\!-\!$}\hskip 0pt plus #6fill%
+	      \scalebox{0.75}{%
+		\maxwidthparbox{#4\unitlength}{\raggedright\textbf{#5}}}%
+	  \leaders\hbox{$\!-\!$}\hskip 0pt plus #7fill%
+	  $\mskip-12mu\rightarrow$}}}}}
+
+% Define a command for drawing unlabelled arrows
+% \arrowu{(x,y)}{length}{angle}
+\newcommand\arrowu[3]{%
+  \put#1{\rotatebox{#3}{%
+	 \raisebox{-\fontdimen22\textfont2}[0pt][0pt]{%
+	  \makebox[#2\unitlength][l]{%
+	  \leaders\hbox{$\!-\!$}\hfill%
+	  $\mskip-12mu\rightarrow$}}}}}
+
+% Define a command for drawing labelled arrows (pointing left)
+% \arrowl{(x,y)}{arrow length}{angle}{parbox maximum length}{label}{left ratio}{right ratio}
+%\newcommand\arrowl[7]{%
+%  \put#1{\rotatebox{#3}{%
+%	  \raisebox{-\fontdimen22\textfont2}[0pt][0pt]{%
+%	  \makebox[#2\unitlength][l]{%
+%	  $\leftarrow$%
+%	  $\mskip-12mu$\leaders\hbox{$\!-\!$}\hskip 0pt plus #6fill%
+%	      \scalebox{0.75}{%
+%		\maxwidthparbox{#4\unitlength}{\raggedright\textbf{#5}}}%
+%	  \leaders\hbox{$\!-\!$}\hskip 0pt plus #7fill}}}}}
+\newcommand\arrowl[7]{%
+  \put#1{\rotatebox{#3}{%
+	 \raisebox{-\fontdimen22\textfont2}[0pt][0pt]{%
+	  \makebox[#2\unitlength][l]{%
+	  \leaders\hbox{$\!-\!$}\hskip 0pt plus #6fill%
+	      \scalebox{0.75}{%
+		\rotatebox{180}{
+		 \raisebox{-4\unitlength}[0pt][0pt]{
+		   \maxwidthparbox{#4\unitlength}{\raggedright\textbf{#5}}}}}%
+	  \leaders\hbox{$\!-\!$}\hskip 0pt plus #7fill%
+	  $\mskip-12mu\rightarrow$}}}}}
+
+% Define a command for drawing unlabelled arrows (pointing left)
+% \arrowlu{(x,y)}{length}{angle}
+%\newcommand\arrowlu[3]{%
+%  \put#1{\rotatebox{#3}{%
+%	  \raisebox{-\fontdimen22\textfont2}[0pt][0pt]{%
+%	  \makebox[#2\unitlength][l]{%
+%	  $\leftarrow$%
+%	  $\mskip-12mu$\leaders\hbox{$\!-\!$}\hfill%
+%	  }}}}}
+
+% Define a command for drawing line
+% \rline{(x,y)}{length}{angle}
+\newcommand\rline[3]{%
+  \put#1{\rotatebox{#3}{%
+	  \raisebox{-\fontdimen22\textfont2}[0pt][0pt]{%
+	  \makebox[#2\unitlength][l]{\leaders\hbox{$\!-\!$}\hfill}%
+	}}}}
+
+
+% Define a command for placing text
+% \rtext{(x,y)}{maximum width}{angle}{string}
+\newcommand\rtext[4]{%
+  \put#1{\rotatebox{#3}{%
+	\maxwidthparbox{#2\unitlength}{#4}%
+	}}}
+
+
+% Define a command for preparing new picture environment pages
+% \preppage{xpos 1st vertical line}{xpos 2nd vertical line}{page height}
+\newcommand\preppage[3]{%
+   {\color{lightgray}\rline{(#1,0)}{#3}{90}\rline{(#2,0)}{#3}{90}}%
+}
+
+% Start document
+\begin{document}
+
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+% Start of page 1
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+\begin{picture}(480,680)
+\arrowl{(133,650)}{701}{248}{300}{Hello}{0.15}{0.85}
+\rline{(400,680)}{679}{270}
+\rline{(100,680)}{679}{270}
+\rline{(0,680)}{740}{293}
+\rline{(0,680)}{830}{235}
+\rtext{(10,1)}{30}{30}{Testing 4 5 6}
+\rtext{(0,680)}{100}{0}{Testing 1 2 3}
+\end{picture}
+
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+% Start of page 2
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+\clearpage
+\begin{picture}(480,680)
+\arrowu{(0,680)}{346}{248}
+\rline{(400,680)}{679}{270}
+\rline{(100,680)}{679}{270}
+\rline{(295,680)}{458}{293}
+\end{picture}
+
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+% Start of page 3
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+\clearpage
+\begin{picture}(480,680)
+\rline{(400,680)}{679}{270}
+\rline{(100,680)}{679}{270}
+\end{picture}
+
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+% Start of page 4
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+\clearpage
+\begin{picture}(480,680)
+\rline{(400,680)}{679}{270}
+\rline{(100,680)}{679}{270}
+\end{picture}
+
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+% Start of page 5
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+\clearpage
+\begin{picture}(480,680)
+\rline{(400,680)}{679}{270}
+\rline{(100,680)}{679}{270}
+\end{picture}
+
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+% Start of page 6
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+\clearpage
+\begin{picture}(480,680)
+\rline{(400,680)}{679}{270}
+\rline{(100,680)}{679}{270}
+\end{picture}
+
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+% Start of page 7
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+\clearpage
+\begin{picture}(480,680)
+\rline{(400,680)}{679}{270}
+\rline{(100,680)}{679}{270}
+\end{picture}
+
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+% Start of page 8
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+\clearpage
+\begin{picture}(480,680)
+\rline{(400,680)}{240}{270}
+\rline{(100,680)}{240}{270}
+\end{picture}
+
+
+% End document
+\end{document}
+

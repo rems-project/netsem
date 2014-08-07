@@ -1,0 +1,31 @@
+=== GRIPES ===
+
+* The build process for Net/TCP/Test is really fragile. Lots of things apparently fail to build because they require libraries which aren't specified in the Makefile or whatever. I assume this is because whoever was building this last time had some clever path magic set up in their environment or something. Some of these omissions I have fixed.
+
+* Recursive Make Considered Harmful. Specifically, the dependencies in Net/TCP/Test are not terribly well documented and are not correctly captured in the build process. Modifying tthee and then attempting to remake autotest doesn't detect that autotest has any dependencies on tthee, so autotest has to be rebuilt from scratch.
+
+* The existing structure for autotest has a huge amount of redundancy and duplicated code. Also, there is no proper modularity in the way tests are added to autotest. Enabling or disabling a test changes the number of all subsequent tests. Generated traces should be named, not numbered, ie. trace-connect3-john-alan-01 rather than trace0433. The test modules should depend on autotest, not the other way around, such that rebuilding autotest does not require rebuilding every test module if it's not being used. Tools should actually used the host data in testscommon, or better still, should take it from a configuration file. At some point, I may rewrite autotest such that some of these things are true.
+
+* Parts of the build process require the makedepend tool. At present, this is only available on thalamus and fornix, as far as I can tell, but you can install it on any machine for which you are the registered user by adding the 'develop' bundle.
+
+* Various things are changed between OCaml 3.06 and 3.08. Notably, earlier versions of OCaml truncate oversized integer literals to 31 bits, whereas later versions raise an error if a constant is too large. Parts of ocamlext used 32-bit integers as masks, so these stopped compiling. Given the silent truncation, I'm surprised that this code ever did what was intended, but the relevant constants have now been replaced with long integer constants.
+
+* Ocaml 3.08 also changes the name of one of the internal C routines from "parse_engine" to "caml_parse_engine". Part of ocamlext calls this as a native code function, and so has to be changed according to the version of OCaml used. The change is not backwards-compatible, so I haven't committed it anywhere yet.
+
+* fornix has a different architecture to the rest of the machines. Since we're using ocamlc -custom, this means that most of the bytecode built on fornix won't run on these machines, and vice versa. Experiments to persuade fornix to use the same format as the i686 machines have not produced promising results.
+
+* the conceptual separation between the various tools is not very well explained anywhere. investigation appears to suggest that ocamlext and common are shared libraries used on both the test hosts and the executive, injector and slurp are self-contained tools which use these libraries, libd is the same but additionally draws on ocamllib, tthee is a library of functions including the merger (which is not a distinct entity, as implied in various papers) and depends on common, autotest is a program which uses the functions in tthee and holtcpcb-v8 is totally self-contained and written in c.
+
+=== TROUBLESHOOTING ===
+
+* if autotest seems to hang as soon as it runs any tests, it's probably
+because it hasn't been told the IP of the machine it's running on. This is
+specified near the bottom in the "initialise tests fornix_priv_ip fname
+sseq smin smax ..." line. If the second argument differs from the IP of the
+machine which you're actually running autotest on, it will get as far as
+printing "socket()" (or whatever the category of the first test is), pause for
+about thirty minutes and then return "Unix_error:Protocol not supported". The
+problem arises when autotest attempts to open a listening socket for the
+logging channel on the local machine, which it then tries to bind to the wrong
+IP. Why this error takes so long to detect and gives such a stupid error
+message is not clear.

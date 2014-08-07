@@ -1,0 +1,9 @@
+Here's how to get a list of test descriptions for all the traces in the
+current directory which contain a trace of the auxiliary host as well. As of
+writing (24/4/06), it looks like all of the traces for which an .aux file
+exists are "genuine", ie. don't make use of the injector. This isn't
+guaranteed in general; one can check by greeping for the existence of the
+strings "Injector: not running" and "Injector: running on" in the trace files
+in question.
+
+head -n 2 `echo *.aux | sed d -e 's/\.aux//g'` | sed -ne '/Description/ p'

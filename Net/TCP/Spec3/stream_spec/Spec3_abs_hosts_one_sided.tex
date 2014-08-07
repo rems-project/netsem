@@ -1,0 +1,63 @@
+\newcommand{\hackeddefnabsThostsToneTsided}{\ddefnn{hackedabsThostsToneTsided}{\iA{abs\_hosts\_one\_sided}}{\subddefnA[{ unidirectional abstraction function }]{abs\_hosts\_one\_sided}{\tsaux{abs\_hosts\_one\_sided} (\tsvar{i}_{1},\tsvar{p}_{1},\tsvar{i}_{2},\tsvar{p}_{2}) (\tsunknown{h},\tsunknown{msgs},\tsvar{i}) = ({}\\{}
+% {}\\{}
+\quad \tsholcomm{ messages that we are interested in, including $\tsvar{oq}$ and $\tsvar{iq}$ }{}\\{}
+\quad \Mlet  (\tsunknown{hoq},\tsunknown{iiq}) ={}\\{}
+\quad\quad\quad \Mcase  (\tsunknown{h}.\tsvar{oq},\tsvar{i}.\tsvar{iq}) \Mof  (\Mtimed{\tsunknown{msgs}}{\tsunknown{\_1}}, \Mtimed{\tsunknown{msgs'}}{\tsunknown{\_2}}) \Mtotype  (\tsunknown{msgs},\tsunknown{msgs'}) \Min {}\\{}
+\quad \Mlet  \;\tsunknown{msgs} = \tsholop{LIST\_TO\_SET} \;\tsunknown{hoq} \;\cup  \;\tsunknown{msgs} \;\cup  (\tsholop{LIST\_TO\_SET} \;\tsunknown{iiq}) \Min {}\\{}
+\quad \tsholcomm{ only consider TCP messages \ldots }{}\\{}
+\quad \Mlet  \;\tsunknown{msgs} = \{\tsvar{msg} \mid  \tsunknown{TCP} \;\tsvar{msg} \;\in  \;\tsunknown{msgs}\} \Min {}\\{}
+\quad \tsholcomm{ \ldots that match the quad }{}\\{}
+\quad \Mlet  \;\tsunknown{msgs} = \tsunknown{msgs} \;\cap {}\\{}
+\quad\quad\quad \{\tsvar{msg} \mid  \tsvar{msg} = \tsvar{msg} \; \Mmagiclrec  \tsvar{is}_{1} \Mass  \Msome  \;\tsvar{i}_{1}; \tsvar{ps}_{1} \Mass  \Msome  \;\tsvar{p}_{1}; \tsvar{is}_{2} \Mass  \Msome  \;\tsvar{i}_{2}; \tsvar{ps}_{2} \Mass  \Msome  \;\tsvar{p}_{2} \Mmagicrrec  \} \Min {}\\{}
+ {}\\{}
+\quad \tsholcomm{ pick out the send and receive sockets }{}\\{}
+\quad \Mlet  \;\tsunknown{smatch} \;\tsvar{i}_{1} \;\tsvar{p}_{1}
+ \;\tsvar{i}_{2} \;\tsvar{p}_{2} \;\tsunknown{s} = \\
+\quad\quad((\tsunknown{s}.\tsvar{is}_{1},\tsunknown{s}.\tsvar{ps}_{1},\tsunknown{s}.\tsvar{is}_{2},\tsunknown{s}.\tsvar{ps}_{2}) = (\Msome  \;\tsvar{i}_{1},\Msome  \;\tsvar{p}_{1},\Msome  \;\tsvar{i}_{2},\Msome  \;\tsvar{p}_{2})) \Min {}\\{}
+\quad \Mlet  \;\tsunknown{snd\_sock} = \tsunknown{Punique\_range} (\tsunknown{smatch} \;\tsvar{i}_{1} \;\tsvar{p}_{1} \;\tsvar{i}_{2} \;\tsvar{p}_{2}) \tsunknown{h}.\tsvar{socks} \;\Min {}\\{}
+\quad \Mlet  \;\tsunknown{rcv\_sock} = \tsunknown{Punique\_range} (\tsunknown{smatch} \;\tsvar{i}_{2} \;\tsvar{p}_{2} \;\tsvar{i}_{1} \;\tsvar{p}_{1}) \tsvar{i}.\tsvar{socks} \;\Min {}\\{}
+% {}\\{}
+\quad \Mlet  \;\tsunknown{tcpsock\_of} \;\tsunknown{sock} = \Mcase  \;\tsunknown{sock}.\tsvar{pr} \;\Mof {}\\{}
+\quad\quad\quad \tsunknown{TCP1\_hostTypes}\;\tsunknown{\$TCP\_PROTO} \;\tsunknown{tcpsock} \Mtotype  \tsunknown{tcpsock}{}\\{}
+\quad\quad \Mdpipe  \tsunknown{\_3} \Mtotype  \tsunknown{ERROR} \text{``abs\textunderscore{}hosts\textunderscore{}one\textunderscore{}sided:tcpsock\textunderscore{}of''}{}\\{}
+\quad \Min {}\\{}
+% {}\\{}
+\quad \tsholcomm{ the core of the abstraction function is to compute $\tsvar{data}$ }{}\\{}
+\quad \Mlet  (\tsvar{data}:\tstype{byte} \;\tstype{list}) = \Mcase  (\tsunknown{snd\_sock},\tsunknown{rcv\_sock}) \Mof {}\\{}
+\quad\quad\quad (\Msome  (\tsunknown{\_8},\tsunknown{hsock}),\Msome (\tsunknown{\_9},\tsunknown{isock})) \Mtotype  ({}\\{}
+\quad\quad\quad\quad\quad \Mlet  \;\tsunknown{htcpsock} = \tsunknown{tcpsock\_of} \;\tsunknown{hsock} \;\Min {}\\{}
+\quad\quad\quad\quad\quad \Mlet  \;\tsunknown{itcpsock} = \tsunknown{tcpsock\_of} \;\tsunknown{isock} \;\Min {}\\{}
+\quad\quad\quad\quad\quad \Mlet  (\tsunknown{snd\_una}, \tsvar{sndq}) = (\tsunknown{htcpsock}.\tsvar{cb}.\tsunknown{snd\_una}, \tsunknown{htcpsock}.\tsvar{sndq}) \Min {}\\{}
+\quad\quad\quad\quad\quad \Mlet  (\tsunknown{rcv\_nxt}, \tsvar{rcvq}) = (\tsunknown{itcpsock}.\tsvar{cb}.\tsunknown{rcv\_nxt}, \tsunknown{itcpsock}.\tsvar{rcvq}) \Min {}\\{}
+\quad\quad\quad\quad\quad \Mlet  \;\tsunknown{rcv\_nxt} = \tsunknown{tcp\_seq\_flip\_sense} \;\tsunknown{rcv\_nxt} \;\Min {}\\{}
+\quad\quad\quad\quad\quad \Mlet  \;\tsvar{sndq}' = \tsunknown{DROP} ((\tsholop{Num} (\tsunknown{rcv\_nxt} - \tsunknown{snd\_una}))) \tsvar{sndq} \;\Min {}\\{}
+\quad\quad\quad\quad\quad \tsvar{rcvq} ++ \tsvar{sndq}'){}\\{}
+ {}\\{}
+\quad\quad \Mdpipe  (\Msome  (\tsunknown{\_8},\tsunknown{hsock}),*) \Mtotype  ({}\\{}
+\quad\quad\quad\quad\quad \Mlet  \;\tsunknown{htcpsock} = \tsunknown{tcpsock\_of} \;\tsunknown{hsock} \;\Min {}\\{}
+\quad\quad\quad\quad\quad \tsunknown{htcpsock}.\tsvar{sndq}){}\\{}
+ {}\\{}
+\quad\quad \Mdpipe  (*,\Msome (\tsunknown{\_9},\tsunknown{isock})) \Mtotype  ({}\\{}
+\quad\quad\quad\quad\quad \Mlet  \;\tsunknown{itcpsock} = \tsunknown{tcpsock\_of} \;\tsunknown{isock} \;\Min {}\\{}
+\quad\quad\quad\quad\quad \Mlet  (\tsunknown{rcv\_nxt}:\tsunknown{tcpLocal} \;\tsunknown{seq32},\tsvar{rcvq}:\tstype{byte} \;\tstype{list}) ={}\\{}
+\quad\quad\quad\quad\quad\quad\quad (\tsunknown{tcp\_seq\_flip\_sense} (\tsunknown{itcpsock}.\tsvar{cb}.\tsunknown{rcv\_nxt}),\tsunknown{itcpsock}.\tsvar{rcvq}) \Min {}\\{}
+\quad\quad\quad\quad\quad \tsvar{rcvq} ++ (\tsaux{stream\_reass} \;\tsunknown{rcv\_nxt} \;\tsunknown{msgs})){}\\{}
+ {}\\{}
+\quad\quad \Mdpipe  (*,*) \Mtotype  \tsunknown{ERROR} \text{``abs\textunderscore{}hosts\textunderscore{}one\textunderscore{}sided:data''}{}\\{}
+\quad \Min {}\\{}
+\quad \Mmagiclrec   \tsvar{i} \Mass  \tsvar{i}_{1};{}\\{}
+ \tsvar{p} \Mass  \tsvar{p}_{1};{}\\{}
+ \tsvar{flgs} \Mass {}\\{}
+ \Mmagiclrec   \tsvar{SYN}    \Mass  (\exists  \tsvar{msg}. \tsvar{msg} \;\in  \;\tsunknown{msgs} \Mwedge  \tsvar{msg} = \tsvar{msg} \; \Mmagiclrec  \tsvar{SYN} \Mass  \Mtrue ; \tsunknown{ACK} \Mass  \Mfalse \Mmagicrrec );{}\\{}
+ \tsvar{SYNACK} \Mass  (\exists  \tsvar{msg}. \tsvar{msg} \;\in  \;\tsunknown{msgs} \Mwedge  \tsvar{msg} = \tsvar{msg} \; \Mmagiclrec  \tsvar{SYN} \Mass  \Mtrue ; \tsunknown{ACK} \Mass  \Mtrue \Mmagicrrec );{}\\{}
+ \tsvar{FIN}    \Mass  (\exists  \tsvar{msg}. \tsvar{msg} \;\in  \;\tsunknown{msgs} \Mwedge  \tsvar{msg} = \tsvar{msg} \; \Mmagiclrec  \tsvar{FIN} \Mass  \Mtrue \Mmagicrrec );{}\\{}
+ \tsvar{RST}    \Mass  (\exists  \tsvar{msg}. \tsvar{msg} \;\in  \;\tsunknown{msgs} \Mwedge  \tsvar{msg} = \tsvar{msg} \; \Mmagiclrec  \tsvar{RST} \Mass  \Mtrue \Mmagicrrec ){}\\{}
+ \Mmagicbolrrec ;{}\\{}
+ \tsvar{data} \Mass  \tsvar{data};{}\\{}
+ \tsvar{destroyed} \Mass  (\Mcase  \;\tsunknown{snd\_sock} \;\Mof {}\\{}
+ \Msome  (\tsunknown{sid},\tsunknown{hsock}) \Mtotype  ((\tsunknown{tcpsock\_of} \;\tsunknown{hsock}).\tsvar{st} = \tscon{CLOSED}){}\\{}
+ \Mdpipe  * \Mtotype  \Mtrue ){}\\{}
+ \Mmagicbolrrec )}
+}
+{}
+}

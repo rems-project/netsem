@@ -1,0 +1,55 @@
+ocaml-3.06
+~~~~~~~~~~
+
+WARNING: THIS INSTALL require linuxthreads port to be installed on the FreeBSD 4.6 systems. Without linuxthreads FreeBSD only has user-level threads which interact badly with ocaml!
+
+
+Download source distribution from
+
+http://caml.inria.fr/ocaml/distrib.html
+http://caml.inria.fr/distrib/ocaml-3.06/ocaml-3.06.tar.gz
+
+Installation instructions are in ocaml-3.06/INSTALL, but this is what I did:
+
+cd /usr/groups/netsem
+umask 022
+tar zxvf ~/Downloads/ocaml-3.06.tar.gz
+
+./configure -prefix /usr/groups/netsem/ocaml-3.06 -with-pthread
+
+Modify the following variables in /usr/groups/netsem/ocaml-3.06/config/Makefile:
+
+  PTHREAD_LINK=-llthread -llgcc_r
+
+  BYTECC=gcc
+  BYTECCCOMPOPTS=-fno-defer-pop -Wall -Wno-unused -D_FILE_OFFSET_BITS=64 -D_REENTRANT -D_THREAD_SAFE -I/usr/local/include/pthread/linuxthreads
+  BYTECCLINKOPTS= -Wl,-E -L/usr/local/lib
+  BYTECCLIBS= -lm  -lcurses -llthread -llgcc_r
+
+  NATIVECC=gcc
+  NATIVECCCOMPOPTS=-Wall -Wno-unused -D_FILE_OFFSET_BITS=64 -D_REENTRANT -D_THREAD_SAFE -I/usr/local/include/pthread/linuxthreads
+  NATIVECCPROFOPTS=-Wall -Wno-unused -D_FILE_OFFSET_BITS=64 -D_REENTRANT -D_THREAD_SAFE
+  NATIVECCLINKOPTS= -L/usr/local/lib
+  NATIVECCRPATH=-Wl,-rpath,
+  NATIVECCLIBS= -lm -llthread -llgcc_r
+
+In /usr/groups/netsem/ocaml-3.06:
+
+make world
+make bootstrap
+  (succeeded, so no problems here)
+make opt
+make opt.opt
+make install
+make clean
+cd /usr/groups/netsem
+ln -sf ocaml-3.06 ocaml
+  (and put your umask back how it was, or exit the shell)
+
+Now people can invoke the latest OCaml by putting
+
+  PATH=/usr/groups/netsem/ocaml/bin:$PATH
+
+in their .profile, and invoking
+
+  ocaml

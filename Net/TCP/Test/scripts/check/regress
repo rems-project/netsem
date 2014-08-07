@@ -1,0 +1,614 @@
+#!/usr/bin/perl -w
+
+# regression checking: how have results changed for "the same traces"?
+
+# typical invocation:
+#
+# ./regress -t /usr/groups/tthee/batch/autotest-tcp-2004-03-15T15:36:54+0000 \
+#           -t /usr/groups/tthee/batch/autotest-2004-02-18T17:56:50+0000 \
+#           /usr/groups/tthee/check/old/check-* \
+#           /usr/groups/tthee/check/check-*
+
+use strict;
+
+# look first for modules in the same directory as this program:
+BEGIN {
+    my $bindir = $0;
+    $bindir =~ s|/[^/]+$||;
+    unshift @INC, $bindir;
+}
+
+use Netsem::Util;
+# SHOULD USE Netsem::LogParse as well, rather than duplicating code...
+
+
+umask 002;
+
+# ugly but it works:
+my $OUTFILE = "/usr/groups/tthee/check/regression.html";
+my $WARNFILE = "/usr/groups/tthee/check/regression-warnings.html";
+
+# progress indicator stuff:
+  my $progresscount = 0;
+  my @indicators = ('|','/','-','\\');
+  my $nind = scalar(@indicators);
+  my $scale = 40;
+  my $mod = $nind * $scale;
+
+# getcheckruninfo stuff:
+  my %shortclass = ('SUCCEEDED'       => 'S',
+                    'FAILED'          => 'F',
+                    'CRASHED'         => 'C',
+                    'KILLED'          => 'K',
+                    'TOO_COMPLICATED' => 'T',
+                    'INTERNAL_ERROR'  => 'I',
+                    'SEND_DATAGRAM_MISMATCH'  => 'M',
+                    'EXCESSIVE_BACKTRACKING'  => 'E',
+                    'INCOMPLETE'      => '.'
+                    );
+
+# main stuff:
+
+my @infos = ();
+my @order = ();
+
+$| = 1;  # hot flushes
+
+my $normalisefail = "";
+for (my $i = 0; $i <= $#ARGV; $i++) {
+    my $dir = $ARGV[$i];
+    if ($dir =~ /^--?[h?]/) {
+        print "Usage: $0 [ <checkdir> | -t <tracedir> ] ...\n";
+        print "  Each <checkdir> adds a column to the output\n";
+        print "  A <tracedir> simply gives a preferred list of traces (and preferred names)\n";
+        print "    earlier <tracedir>s have priority over later ones;\n";
+        print "    but later <checkdir>s have priority over earlier ones.\n";
+        exit 0;
+    }
+    if ($dir =~ /^-t(.+)?$/) {
+        my $dir = $1;
+        if (!defined($dir)) {
+            $dir = $ARGV[++$i];
+            if (!defined($dir)) {
+                die "Bad -t option\n";
+            }
+        }
+        print STDERR "Processing trace directory $dir...\n";
+        print STDERR "\rScanning...";
+        my $x = gettraceruninfo($dir);
+        print STDERR "\rProcessing...";
+        my $y = normaliseruninfo($x,\$normalisefail);
+        my @yinfos = ($y);
+        keyorder(\@order,\@yinfos);
+        print STDERR "\r";
+        print STDERR "...done $dir.\n";
+        next;
+    }
+
+    print STDERR "Processing check directory $dir...\n";
+    print STDERR "\rScanning...";
+    my $x = getcheckruninfo($dir);
+    print STDERR "\rProcessing...";
+    my $y = normaliseruninfo($x,\$normalisefail);
+    push @infos, $y;
+    print STDERR "\r";
+    print STDERR "...done $dir.\n";
+}
+
+$normalisefail && print STDERR "*** WARNING: Normalisation failed; alignment may be inaccurate.  Caveat lector!\n";
+
+my $grid = aligninfos(\@infos);
+keyorder(\@order,\@infos);
+
+print STDERR "Writing...";
+progressstart();
+
+open OUT, ">$OUTFILE"
+    or die "Couldn't open file $OUTFILE for writing: $!\n";
+
+open OUTWARN, ">$WARNFILE"
+    or die "Couldn't open file $WARNFILE for writing: $!\n";
+
+print OUT <<"EOF"
+<html>
+<head>
+<title>HOL Trace Regression Check</title>
+EOF
+;
+print OUT css();
+print OUT <<"EOF"
+</head>
+<body>
+<h1>HOL Trace Regression Check</h1>
+
+<p>
+EOF
+;
+
+if ($normalisefail) {
+    my @foo = ($normalisefail =~ m/^/gm);
+    my $nlines = scalar(@foo);
+    my $relwarnfile = relpath($OUTFILE,$WARNFILE);
+    print OUT <<"EOF"
+<h1>Warnings:</h1>
+<p>There were $nlines lines of warnings.  <a href="$relwarnfile">See this file for details</a>.
+EOF
+    ;
+}
+
+print OUT "<h1>Abbreviations:</h1>\n";
+print OUT "<table>\n";
+foreach my $k (sort(keys(%shortclass))) {
+    print OUT "<tr><td>$k</td><td>$shortclass{$k}</td></tr>\n";
+}
+print OUT "<tr><td>anything else</td><td>?</td></tr>\n";
+print OUT "</table>\n";
+print OUT "<p>You can click on a symbol to see its expansion.</p>\n";
+
+print OUT "<h1>Results:</h1>\n";
+
+print OUT rendergrid(\@infos,\@order);
+
+if (!$normalisefail) {
+    $normalisefail = "(none)\n";
+}
+print OUTWARN <<"EOF"
+<html>
+<head>
+<title>HOL Trace Regression Check: Warnings</title>
+<body>
+<h1>HOL Trace Regression Check: Warnings</h1>
+<h2>Warnings:</h2>
+<pre>
+$normalisefail
+</pre>
+</body>
+</html>
+
+EOF
+;
+
+print OUT <<'EOF'
+</body>
+</html>
+EOF
+;
+
+close OUTWARN
+    or die "Couldn't close file $WARNFILE for writing: $!\n";
+
+close OUT
+    or die "Couldn't close file $OUTFILE for writing: $!\n";
+
+progressend();
+print STDERR "\r...done writing.\n";
+
+exit 0;
+
+# ----------------------------------------------------------------------
+
+# render regression grid
+
+sub rendergrid {
+    my ($infos,$order) = @_;
+
+    my $OUT = "<table>\n";
+    my $evenodd = "even";
+
+    my @headers = ();
+    push @headers, "<b>Trace</b>";
+    foreach my $info (@$infos) {
+        my $k = (keys(%$info))[0];  # get a random key
+        my $v = $info->{$k};
+        my $tracedir = $v->{'tracefile'};
+        $tracedir =~ s{/[^/]*$}{};
+        my $stracedir = $tracedir;
+        $stracedir =~ s{.*/}{};
+        $tracedir = relpath($OUTFILE,$tracedir);
+        my $checkdir = $v->{'checkfile'};
+        $checkdir =~ s{/[^/]*$}{};
+        my $scheckdir = $checkdir;
+        $scheckdir =~ s{.*/}{};
+        $checkdir = relpath($OUTFILE,$checkdir);
+        push @headers, qq{<a href="$tracedir">$stracedir</a><br><a href="$checkdir">$scheckdir</a>};
+    }
+    push @headers, "<b>Description</b>";
+    my $colspan = scalar(@headers);
+    my $colskip = 0;
+    foreach my $h (@headers) {
+        $OUT .= "<tr>" . ("<td></td>" x $colskip) . "<td colspan=\"$colspan\">$h</td></tr>\n";
+        $colskip++;
+        $colspan--;
+    }
+
+    foreach my $o (@$order) {
+        my ($k,$dw,$n,$d,$dd) = ($o->{'key'},$o->{'dupwarn'},$o->{'name'},$o->{'desc'},$o->{'longdesc'});
+        $dw = $dw ? "***$dw: " : "";
+
+        my $description2 = $dd;
+        $description2 =~ s/\n/\\n/g;
+        $description2 =~ s/\"/\\\"/g;
+        $description2 =~ s/\'/\\\'/g;
+        my $clickcode = qq{onclick="alert('$dw$n:\\n$description2');"};
+        my $desccode = qq{[<span class="link" $clickcode>D</span>]};
+        $evenodd = ($evenodd eq "even" ? "odd" : "even");
+        my $bodyline = qq{<tr class=\"$evenodd\"><td class="one">$n $desccode</td>};
+        $OUT .= $bodyline;
+        foreach my $info (@$infos) {
+            my $cell;
+            if (defined($info->{$k})) {
+                my $v = $info->{$k};
+                my $reltracefile = relpath($OUTFILE,$v->{'tracefile'});
+                my $relcheckfile = relpath($OUTFILE,$v->{'checkfile'});
+                $cell = qq{<td><span class="class"><span class="$v->{'class'}"><font style="color: blue; text-decoration: underline" onclick="alert('$dw$n:\\n$v->{'state'}\\n$description2')">$v->{'sclass'}</font>: <a href="$relcheckfile">$v->{'basename'}</a> (<a href="$reltracefile.html">s</a>/<a href="$reltracefile">p</a>/<a href="$reltracefile.ps.gz">ps</a>)</span></span></td>};
+            } else {
+                $cell = qq{<td>---</td>};
+            }
+            $OUT .= $cell;
+        }
+        $OUT .= qq{<td nowrap class="two">&nbsp;&nbsp;&nbsp;$dw$d</td></tr>\n};
+
+        progress(1);
+    }
+
+    $OUT .= "</table>\n";
+
+    return $OUT;
+}
+
+sub css {
+    return <<EOT
+<style type="text/css">
+SPAN.class SPAN                , DIV.summary TR { background-color: #ffc0ff }
+SPAN.class SPAN.SUCCEEDED      , DIV.summary TR.SUCCEEDED { background-color: #00ff00 }
+SPAN.class SPAN.FAILED         , DIV.summary TR.FAILED { background-color: #ff0000 }
+SPAN.class SPAN.TOO_COMPLICATED, DIV.summary TR.TOO_COMPLICATED { background-color: #ffff00 }
+SPAN.class SPAN.INTERRUPTED    , DIV.summary TR.INTERRUPTED { background-color: #ff8080 }
+SPAN.class SPAN.INTERNAL_ERROR , DIV.summary TR.INTERNAL_ERROR { background-color: #ff8000 }
+SPAN.link { color: blue; text-decoration: underline }
+TD { white-space: nowrap }
+TR.even { background-color: #f0f0f0 }
+</style>
+EOT
+    ;
+}
+
+# ----------------------------------------------------------------------
+
+# print ASCII regression grid
+
+sub printgrid {
+    my ($infos,$order) = @_;
+
+    foreach my $o (@$order) {
+        my ($k,$dw,$d,$dd) = ($o->{'key'},$o->{'dupwarn'},$o->{'desc'},$o->{'longdesc'});
+        $dw = $dw ? "***$dw: " : "";
+        print "Test $dw$d\n";
+        my $first = 1;
+        foreach my $info (@$infos) {
+            print ($first ? "  " : " -> ");
+            if (defined($info->{$k})) {
+                my $v = $info->{$k};
+                print "$v->{'class'}";
+            } else {
+                print "ooooo";
+            }
+            $first = 0;
+        }
+        print "\n";
+        foreach my $info (@$infos) {
+            if (defined($info->{$k})) {
+                my $v = $info->{$k};
+                print "  - $v->{'class'}: $v->{'checkfile'}\n";
+            } else {
+                print "  - ooooo\n";
+            }
+            $first = 0;
+        }
+    }
+}
+
+# ----------------------------------------------------------------------
+
+# extract a good key order (and canonical names for keys)
+#   - the order of the trace numbers in the most recent check,
+#     followed by anything in the previous check not yet covered, in order
+#       of trace numbers there,
+#     and so on.
+#   - extends an existing order.  Initial value should be ().
+
+sub keyorder {
+    my ($order,$infos) = @_;
+
+    my %havekey = map { $_->{'key'} => 1 } @$order;
+    my $nprefix = "";
+    my $n = 0;
+    foreach my $info (reverse(@$infos)) {
+        foreach my $v (sort keyorder_cmp values(%$info)) {
+            my $k = $v->{'key'};
+            if (!defined($havekey{$k})) {
+                push @$order,{'key'      => $k,
+                              'name'     => $nprefix . $v->{'basename'},
+                              'dupwarn'  => $v->{'dupwarn'},
+                              'desc'     => $v->{'desc'},
+                              'longdesc' => $v->{'longdesc'}};
+                $havekey{$k} = 1;
+            }
+        }
+        $nprefix = ++$n . ":";
+    }
+
+    return $order;
+}
+
+# compare two traceinfos on trace number
+sub keyorder_cmp {
+    $a->{'basename'} cmp $b->{'basename'}
+}
+
+
+# ----------------------------------------------------------------------
+
+# align a list of run info structures
+
+sub aligninfos {
+    my ($infos) = @_;
+
+    my %grid = ();
+    foreach my $info (@$infos) {
+        foreach my $k (keys(%$info)) {
+            if (!defined($grid{$k})) {
+                $grid{$k} = [];
+            }
+            push @{$grid{$k}}, $info->{$k};
+        }
+    }
+
+    return \%grid;
+}
+
+
+# ----------------------------------------------------------------------
+
+# normalise a run info structure, indexing it by a standard identifier
+#  (namely the linear description string, suitably munged)
+# set $normalisefail if there is a problem (leave alone if not)
+#  (set it by appending an error description)
+#
+# %tracedata should be indexed by basename, and entries should have a
+#   desc field and a tracefile field.
+# the resulting %normdata will be indexed by key, and entries will have
+#   additional fields key and dupwarn.
+
+sub normaliseruninfo {
+    my ($tracedata,$normalisefail) = @_;
+
+    my %normdata = ();
+    my %dupmap = ();
+    foreach my $t (sort keys(%$tracedata)) {
+        my $ent = $tracedata->{$t};
+        my $tracefile = $ent->{'tracefile'};
+
+        # faffing with description here
+        if ($tracefile =~ /2003-08-08|2004-02-11|2004-03-15/) {
+            $ent->{'desc'} = "TCP " . $ent->{'desc'};
+            $ent->{'longdesc'} = "TCP " . $ent->{'longdesc'};
+        }
+        if ($tracefile =~ /2004-02-18/) {
+            $ent->{'desc'} = "UDP " . $ent->{'desc'};
+            $ent->{'longdesc'} = "UDP " . $ent->{'longdesc'};
+        }
+        # end of faffing
+
+        my $k = $ent->{'desc'};
+
+        # normalisation of $k here:
+        $k = lc($k);
+        $k =~ s/privel/privil/g;
+        $k =~ s/ipaddr/ip addr/g;
+        # end of normalisation
+
+        my $dw = 0;  # no duplicate warning (yet)
+        if (defined($dupmap{$k})) {
+            my $n = $dupmap{$k};
+            my $realk = $k;
+            $dupmap{$k}++;
+            $dw = "DUP $dupmap{$k}";
+            $k = "$dw: $realk";
+            my $dw0 = "DUP 1";
+            my $k0 = "$dw0: $realk" ;
+            if ($n == 1) {
+                $normdata{$k0} = $normdata{$realk};
+                $normdata{$k0}->{'key'} = $k0;
+                $normdata{$k0}->{'dupwarn'} = $dw0;
+                delete($normdata{$realk});
+            }
+            $$normalisefail .= <<EOF
+WARNING: Normalised description string insufficiently unique, please disambiguate:
+  $normdata{$k0}->{'tracefile'}
+  $tracedata->{$t}->{'tracefile'}
+  "$realk"
+EOF
+            ;
+        } else {
+            $dupmap{$k} = 1;
+        }
+        $normdata{$k} = $tracedata->{$t};
+        $normdata{$k}->{'key'} = $k;
+        $normdata{$k}->{'dupwarn'} = $dw;
+    }
+
+    return \%normdata;
+}
+
+
+# ----------------------------------------------------------------------
+
+# read in all the data from a single directory
+
+sub gettraceruninfo {
+    my ($indir) = @_;
+
+    progressstart();
+    my %tracedata = ();
+    foreach my $file (glob("$indir/trace????")) {
+        my $basename = $file;
+        $basename =~ s{.*/}{};
+        my ($description) = gettracefileinfo($file);
+        my $description2 = $description;
+        $description =~ s/\n/: /g;
+        $description =~ s/\(\* Test (?:Hosts?|Description): | \*\)//g;
+        if (defined($tracedata{$basename})) {
+            die "Duplicate check $basename ($file and $tracedata{$basename}->{'checkfile'}.\n";
+        }
+        $tracedata{$basename} = {
+            'tracefile' => $file,           # the (plain) trace input file
+            'basename'  => $basename,       # the basename (trace0001)
+            'desc'      => $description,    # linear version of description string
+            'longdesc'  => $description2,   # full version of description string
+        };
+        progress(1);
+    };
+
+    progressend();
+
+    return \%tracedata;
+}
+
+# ----------------------------------------------------------------------
+
+# read in all the data from a single directory
+
+sub getcheckruninfo {
+    my ($indir) = @_;
+
+    progressstart();
+    my %tracedata = ();
+    foreach my $file (glob("$indir/*.out.html")) {
+        my $basename = $file;
+        $basename =~ s{.*/}{};
+        $basename =~ s/\.out\.html$//;
+        my ($tracefile,$description,$state) = getcheckfileinfo($file,$basename);
+        my $description2 = $description;
+        $description =~ s/\n/: /g;
+        $description =~ s/\(\* Test (?:Hosts?|Description): | \*\)//g;
+        $state =~ m/Trace [^ ]+ ([^ ]+)/;
+        my $class = defined($1) ? $1 : "other";
+        my $sclass = $shortclass{$class};
+        defined($sclass) or $sclass = "?";
+        if (defined($tracedata{$basename})) {
+            die "Duplicate check $basename ($file and $tracedata{$basename}->{'checkfile'}.\n";
+        }
+        $tracedata{$basename} = {
+            'checkfile' => $file,           # the (html) trace output file
+            'tracefile' => $tracefile,      # the (plain) trace input file
+            'basename'  => $basename,       # the basename (trace0001)
+            'state'     => $state,          # the state string
+            'class'     => $class,          # the class
+            'sclass'    => $sclass,         # the class, short-form
+            'desc'      => $description,    # linear version of description string
+            'longdesc'  => $description2,   # full version of description string
+        };
+        progress(1);
+    };
+
+    progressend();
+
+    return \%tracedata;
+}
+
+# ----------------------------------------------------------------------
+
+# progress indicator:
+
+sub progressstart {
+    print STDERR " ";
+}
+
+sub progress {
+    $progresscount = ($progresscount+$_[0]) % $mod;
+    print STDERR "\b$indicators[$progresscount / $scale]"
+        if $progresscount % $scale == 0;
+}
+
+sub progressend {
+    "\b \b";
+}
+
+# ----------------------------------------------------------------------
+
+# read in the properties from a single trace file
+
+sub gettracefileinfo {
+    my ($tracefile) = @_;
+
+    my ($description);
+
+    if (open(IN2, "<$tracefile")
+        || ($tracefile =~ s{batch}{batch/old}
+            and open(IN2, "<$tracefile"))
+        || ($tracefile =~ s{batch/old}{batch/pre-udp-merge}
+            and open(IN2, "<$tracefile"))
+        ) {
+        $description = <IN2>;
+        $description .= <IN2>;
+        chomp $description;
+        close IN2
+            or die "Couldn't close tracefile $tracefile for reading: $!\n";
+    } else {
+        $description = "unknown";
+    }
+
+    return ($description);
+}
+
+# ----------------------------------------------------------------------
+
+# read in the properties from a single check file
+
+# SHOULD JUST USE Netsem::LogParse, rather than duplicating code here.
+
+sub getcheckfileinfo {
+    my ($file,$basename) = @_;
+
+    my ($tracefile, $description, $state);
+
+    open IN, "<$file"
+        or die "Couldn't open file $file for reading: $!\n";
+
+    $tracefile = "unknown";
+    while (<IN>) {
+        if (/^==Working on trace file (?:<a href=[^>]*>)?([^<]*)/) {
+            $tracefile = $1;
+            chomp $tracefile;
+            last;
+        }
+    }
+    $tracefile =~ s/^==Working on trace file //;
+
+    # some files have stray NULs in, oops
+    $tracefile =~ s/\000+//g;
+
+    ($description) = gettracefileinfo($tracefile);
+
+    seek IN,-65536,2;
+    while (<IN>) {
+        last if /^==(Trace|Complicated constraint list ends)/;
+    }
+    if (!defined($_)) {
+        $state = "**Trace $basename INCOMPLETE";
+    } elsif (/Complicated constraint list ends/) {
+        $state = "==Trace $basename TOO_COMPLICATED";
+    } else {
+        $state = $_;
+        chomp $state;
+        $state =~ s/:$//;
+    }
+
+    close IN
+        or die "Couldn't close file $file for reading: $!\n";
+
+    return ($tracefile,$description,$state);
+}
+
+# ----------------------------------------------------------------------

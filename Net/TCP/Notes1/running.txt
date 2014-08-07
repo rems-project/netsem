@@ -1,0 +1,41 @@
+Running the checker
+~~~~~~~~~~~~~~~~~~~
+
+I strace'd a run of CheckTraces.exe on astrocyte on 2004-02-11, and
+looked at the files opened.
+
+- lots of files had open() attempted while looking for dynamic
+  libraries; this doesn't count.  (note that some were NFS accesses,
+  though - but this was probably because I ran from my shell, with a
+  fairly long LD_LIBRARY_PATH: if this was pruned/nonexistent, there
+  would be less).
+
+- In terms of actually successfully opened files, there were:
+
+open("/etc/ld.so.cache", O_RDONLY)      = 3
+open("/lib/tls/libm.so.6", O_RDONLY)    = 3
+open("/lib/libdl.so.2", O_RDONLY)       = 3
+open("/lib/tls/libc.so.6", O_RDONLY)    = 3
+open("/usr/groups/netsem/mosml-2.0.0/bin/camlrunm", O_RDONLY) = 3
+open("/usr/groups/tthee/local/Net/TCP/Spec1/CheckTraces.exe", O_RDONLY) = 3
+open("/usr/groups/netsem/mosml-2.0.0/lib/libmregex.so", O_RDONLY) = 3
+open("/etc/localtime", O_RDONLY)        = 3
+# writes: open("/tmp/trace0000.out.html", O_WRONLY|O_CREAT|O_TRUNC, 0666) = 3
+# reads first line: open("/usr/groups/tthee/batch/autotest-2004-01-30T16:13:55+0000/trace0000", O_RDONLY) = 4
+# reads data file: open("/usr/groups/tthee/batch/autotest-2004-01-30T16:13:55+0000/trace0000", O_RDONLY) = 4
+
+NFS-mounted stuff:
+  camlrunm is           77168 bytes
+  CheckTraces.exe is 11800578 bytes
+  libmregex.so is       35803 bytes
+all of which is read in immediately (not lazily).
+
+Total NFS traffic at startup:
+
+  11913549 bytes = 11.4MB
+
+or almost 1 second at 100Mbps.
+
+
+Might be a problem when things first start.
+

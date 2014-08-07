@@ -1,0 +1,83 @@
+This document assumes the following network topology:
+
+192.168.0/24  john(BSD), kurt(linux), alan(linux)
+192.168.1/24  emil(BSD), alan(linux)
+
+with alan(linux) working as the router
+
+-------------------
+
+/etc/hosts:
+
+# Do not remove the following line, or various programs
+# that require network functionality will fail.
+127.0.0.1               localhost.localdomain localhost
+192.168.0.1             astrocyte.cl.cam.ac.uk astrocyte
+192.168.0.2             thalamus.cl.cam.ac.uk thalamus
+192.168.0.3             glia.cl.cam.ac.uk glia
+192.168.0.11            kurt.netsem.cl.cam.ac.uk kurt
+192.168.0.12            john.netsem.cl.cam.ac.uk john
+192.168.1.13            emil.netsem.cl.cam.ac.uk emil
+192.168.0.14            alan.netsem.cl.cam.ac.uk alan
+192.168.0.99            psyche.netsem.cl.cam.ac.uk psyche
+
+-------------------
+
+In order to facilitate testing the following patch
+(bsd-hosts/rc.network.patch-{john,emil}) has to be applied to /etc/rc.network. The
+patch polutes the ARP cache with a permanent entry for the virtual
+host psyche (192.168.0.99) and allows the host to publish this to all
+other hosts on the network. It also makes the kernel timecounter
+(getmicrotime) more accurate by forcing a real time query each time
+getmicrotime is called (rather than using the last cached time which
+could be upto 10ms old).
+
+Finally, it configures routing such that hosts can see the other
+subnet:
+
+
+For john.netsem:
+
+*** rc.network  Tue Jun 11 05:20:09 2002
+--- rc.network  Mon Aug  4 14:01:13 2003
+***************
+*** 525,530 ****
+--- 525,539 ----
+        esac
+        echo '.'
+
++       ## Added by SMB ##
++       echo -n "Polluting ARP cache with pscyhe entry."
++       arp -s 192.168.0.99 12:34:56:df:84:f4 pub
++	arp -s 192.168.0.88 12:34:56:df:84:ff pub
++       echo -n " Making the kernel timecounter more accurate."
++       sysctl kern.timecounter.method=1
++       echo -n " Adding some routing entries"
++       route add -net 192.168.1.0 192.168.0.14 255.255.255.0
++       route delete default
+        # Let future generations know we made it.
+        #
+        network_pass1_done=YES
+
+
+
+For emil.netsem:
+
+*** rc.network  Tue Jun 11 05:20:09 2002
+--- rc.network  Mon Aug  4 14:01:13 2003
+***************
+*** 525,530 ****
+--- 525,536 ----
+        esac
+        echo '.'
+
++       ## Added by SMB ##
++       echo -n " Making the kernel timecounter more accurate."
++       sysctl kern.timecounter.method=1
++       echo -n " Adding some routing entries"
++       route add -net 192.168.0.0 192.168.1.14 255.255.255.0
++       route delete default
+        # Let future generations know we made it.
+        #
+        network_pass1_done=YES
+

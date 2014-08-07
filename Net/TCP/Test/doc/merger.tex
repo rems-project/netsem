@@ -1,0 +1,100 @@
+% -*-LaTeX-*-
+% merger.tex - explain algorithm used in the near-online merger
+
+\documentclass{article}
+\usepackage[a4paper]{geometry}  % squeeze lots onto the page
+
+\usepackage{alltt}
+
+\begin{document}
+\title{The Merger Algorithm}
+\author{Keith Wansbrough\and Steven Bishop}
+\date{\today}
+\maketitle
+
+We have a number of logs, each of which generates a stream of events
+paired with timestamps.  Furthermore, each log has a fixed offset that
+must be applied to timestamps on that log, to correct for inaccuracies
+in the generating clock and for propagation delay.  The aim is to make
+all the corrected timestamps use the same timebase.
+
+Clearly we maintain a queue for each log -- this may need to be a
+priority queue in (corrected) timestamp order if events can be
+reordered between source and merger, or it may not.  We may apply the
+correction to the timestamps immediately on receipt, and thereafter
+use corrected timestamps exclusively.
+
+The merger must generate a stream of events in chronological order.
+Easy enough, except that we want it to be reasonably live, even when
+one of the logs is slow or even silent.
+
+So: how to decide when we can emit the earliest event we have, even
+when one of the log queues is empty?
+
+Imagine we record the local time at which each event arrives, as well
+as its corrected timestamp.  We must make an assumption about the maximum difference in propagation
+delay: \emph{If event~$A$ occurred before event~$E$, then event~$A$
+cannot arrive at the merger more than $\Delta$ seconds after
+event~$E$ arrived.}  Note that $\Delta$ is a global constant.
+
+Now when we wish to emit an event, we may determine the event~$E$
+that, of all events on all queues, has the earliest (corrected)
+timestamp.  If we have an empty queue~$q$ at time~$t$, but $t$ is more
+than $\Delta$ seconds after event~$E$ arrived, then by the assumption
+it is impossible that an event on~$q$ will ever precede~$E$.  Thus
+event~$E$ may safely be emitted.
+
+More precisely:
+\begin{itemize}
+\item Calculate the earliest event (by event timestamp) of all events on all
+queues.  Call it~$E$.  We now test to see if it is safe to emit~$E$.
+\item At current time ~$t$, test whether
+$t-\mathit{arrival}(E)>\Delta$.  (Note that it is safe to use the
+current time here; once the condition holds, it cannot cease to hold.)
+\item If the condition holds then proceed: emit event~$E$.
+\item Otherwise, wait until either $\mathit{currenttime}-\mathit{arrival}(E)\geq\Delta$,
+i.e., $\mathit{currenttime} \geq \mathit{arrival}(E)+\Delta$, or
+until another event arrives at the head of a queue (if using priority
+queues, this could be on any queue; otherwise, this could only be on
+an empty queue; in either case, it may change $E$).
+\item If the delay has been waited out, $E$ may be emitted; if an
+event has arrived, start from the beginning, redetermining $E$.
+\end{itemize}
+
+This is pretty much the implementation of the ``pull next event off
+the queues and emit it'' loop.  The only detail needed to be filled in
+is the actual implementation of the wait.  A reasonable way to do it
+is as follows: have a condition variable for the condition.  Signal it
+when an event arrives on the head of a queue; also, immediately before
+the wait, spawn a thread which simply sleeps for the desired interval,
+signals the condition, and dies.  This is annoying, though, because
+we'll get spurious wakeups from old threads.  Maybe we can code around
+this.  Recall, though, that we'll get spurious wakeups anyway: either
+we accept this, and just make sure that the algorithm above is fairly
+cheap; or we arrange a boolean in conjunction with the condition
+variable, that is set when there really is an event on the head of the
+queue.
+
+Or try this:
+\newpage
+\begin{verbatim}
+timed_wait cond mut d =
+    let c = Condition.create () in
+    let m = Mutex.create () in
+    let v = ref None in
+    let done_wait_time () = Mutex.lock m; v := Some(false); Mutex.unlock m; Condition.signal c in
+    let done_wait_cond () = Mutex.lock m; v := Some(true); Mutex.unlock m; Condition.signal c in
+    Thread.create (function d -> Thread.delay d; done_wait_time ()) d;
+    Thread.create (function cond -> Condition.wait cond mut; done_wait_cond ()) cond;
+    Mutex.lock m;
+    while !v = None do
+      Condition.wait c m
+    done;
+    Mutex.unlock m;
+    match !v with
+      Some(b) -> b
+    | None -> raise exception_cant_get_here;;
+\end{verbatim}
+
+\end{document}
+

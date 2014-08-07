@@ -1,0 +1,39 @@
+Wed Jul 16 08:59:47 BST 2003
+
+
+Some quick thoughts on TCP connection states (maybe Steve can flesh
+out?).
+
+A TCP connection can be in various `modes' -- slow start, persisting,
+retransmitting, etc.
+
+We would like to identify those modes precisely, defining predicates
+over our HOL model host states.  Two motivations:
+
+- testing: these are really key aspects of TCP; we want to ensure the
+  automatic testing covers all the different modes (and transitions?).
+
+- exposition: by understanding what they are, and especially which are
+  disjoint and which cover the whole state space, we'll be able to
+  explain TCP better.  We might also be able to restructure the model.
+
+
+Question: is a mode a property just of a single host, or of a pair of
+hosts and a set of segments-in-transit?  Don't know.
+
+Question: is a mode a property just of one direction of communication,
+or of the duplex pair?  Don't know.  Guess some are one, some are the
+other.
+
+Think a mode should be an instantaneous property, not (eg) a predicate
+on a subtrace.
+
+It's perhaps enough to restrict attention in which both endpoints are
+ESTABLISHED?  (many modes are also sensical in some later states, but
+it would be tiresome to explore those boundaries)
+
+So, what are the modes?
+
+...
+
+

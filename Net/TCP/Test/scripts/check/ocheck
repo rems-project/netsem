@@ -1,0 +1,8 @@
+#!/bin/sh
+HERE="`dirname $0`"
+if ( echo $HERE | grep -v -q '^/' ) ; then
+    HERE="`pwd`/$HERE"
+fi
+echo $HERE
+
+"$HERE/otracechecker" -j1 -jthalamus:1 -jstriatum:1 -jcortex:1 -c "$HERE/dummyclient" \; -y -w3 "$@"

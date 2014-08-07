@@ -1,0 +1,22 @@
+This directory contains:
+
+i) rawsock -- raw socket extensions to OCAML's unix library
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  * must do 'open Unix;;' before 'open Rawsock;;' when this library is used
+  * must link againsts OCAML's unix.cma, rawsock.cma and librawsock.a
+  * exports two functions:
+
+    raw_socket: socket_domain -> int -> file_descr
+      where socket_domain = Unix.PF_INET | Unix.PF_UNIX
+      and   int is the protocol  number   (e.g. 6=TCP)
+      Returns a file descriptor (socket descriptor)
+
+    raw_sockopt_hdrincl: file_descr -> unit
+      Sets the socket option to include your own header
+      in the raw socket output. N.B. UNDER BSD you MUST leave the
+      IP checksum as ZERO as the BSD kernel inserts its own checksum
+
+
+ii) platform - a set of library functions to report platform specifics such as the hostname
+
+iii) threadparsing - a threadsafe implementation of the Ocaml parser. Works alongside parser_hack_script which is compatiable with Ocaml v3.06 and takes the .ml output by post-ocaml-yacc and makes it thread safe by forcing it to use the ThreadParsing library implemented here. See ../common/Makefile for a demonstration of how to use this.

@@ -1,0 +1,18 @@
+#! /bin/sh
+
+DIRPATH=/usr/groups/tthee/adhoc
+FILENAME=adhoc-2-`date -Iseconds`
+
+TEMPNAME=$DIRPATH/temp-$FILENAME
+REALNAME=$DIRPATH/$FILENAME
+
+mkdir $TEMPNAME
+
+  echo  "Re-enabling ntp updates..."
+  ssh john.netsem "echo -n glia:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'addserver astrocyte' glia"
+  ssh john.netsem "echo -n john:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'addserver astrocyte' john"
+  ssh john.netsem "echo -n emil:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'addserver astrocyte' emil"
+  ssh john.netsem "echo -n alan:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'addserver astrocyte' alan"
+  ssh john.netsem "echo -n kurt:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'addserver astrocyte' kurt"
+
+./adhoc-2 $TEMPNAME && mv $TEMPNAME $REALNAME

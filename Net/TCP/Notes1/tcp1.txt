@@ -1,0 +1,330 @@
+tcp1.txt  --  Thoughts on TCP and how to model it
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+$Id: tcp1.txt,v 1.5 2002/06/12 15:13:31 kw217 Exp $
+
+References: * Beej's Guide to Network Programming,
+                rev 2.3.1, October 8, 2001.
+                http://www.ecst.csuchico.edu/~beej/guide/net/
+            * Man pages
+            * Unix Network Programming, volume 1, by W. Richard
+                Stevens (UNPv1).
+            * TCP/IP Illustrated, volume 1, by W. Richard Stevens
+                (TCPv1).
+            * TCP/IP and Linux Protocol Implementation, by Jon
+                Crowcroft and Iain Phillips (basically rubbish)
+                (TLPI).
+
+
+Common sequence: client setup:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(actual C calls, more or less)
+
+fd := socket(PF_INET,SOCK_STREAM,proto=6)
+           (6 for TCP from /etc/protocols or getprotobyname)
+           (can pass 0 for "OS, please choose one" (and there's only
+            one to choose from anyway))
+
+bind(fd, {AF_INET,port^,addr^,junk}, length_of_addr)
+           (optional for client)
+
+connect(fd,{AF_INET,port,addr,junk},length_of_addr)
+
+[DON'T FORGET, connect() ACTUALLY DOES SOMETHING IN TCP!]
+
+Common sequence: server setup:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(socket and bind as above)
+
+setsockopt(fd,SOL_SOCKET,SO_REUSEADDR,&{1},length{1})
+           (so we don't get "Address in use" err)
+
+listen(fd,backlog)
+           (backlog is an integer related to the length of the backlog
+            queue)
+
+fd_new := accept(fd,&addr_out,&addr_len_out)
+           (fd is called the "listening socket",
+            fd_new is called the "connected socket" -- UNPv1,pp99f)
+
+
+Common sequence: send/receive:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+bytes_sent := send(fd,{message},length,flags)
+
+bytes_received := recv(fd,&buf,length,flags)
+
+[of course, normal IO calls also work]
+[sendto() and sendmsg() presumably work too]
+
+getpeername(fd,&addr_out,&len_inout)
+
+Common sequence: teardown:
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+shutdown(fd,0 | 1 | 2)
+           ( 0: shut down receive channel
+             1: shut down send channel
+             2: shut down both channels )
+           (does not free socket and fd)
+
+close(fd)
+           (shut down, free socket and fd)
+           (only shuts down the connection when this is the *last*
+            close of the fd (by reference counting); see UNPv1,p107.
+            This is in the context of multithreaded/multiprocess
+            servers, that share fds.  fork() becomes important in TCP!)
+
+
+Application POV of states:
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+socket .........
+  |            :
+  v            :
+bound----------+
+  |            |
+  v            v
+listening   connected
+  |            |
+  v            |
+closed <-------+
+
+but accepting creates a new socket which has the following states:
+
+
+        (queued)
+           |
+           v
+      > accepted
+          / \
+         /   \
+        v     v
+  recvshut   sendshut
+        \     /
+         \   /
+          v v
+       shutdown
+           |
+           v
+        closed
+
+
+Plus: * the behaviour of send and receive, with a buffer each way
+      * a timeout on socket (address in use)
+      * a queue of waiting connections
+
+Question: is the socket created on `accept', or on receipt of a new
+connection?  If the latter, we may need to distinguish socket IDs and
+file descriptors (and I think we should anyway).
+
+Answer: the socket must be created on receipt of a new connection,
+because (UNPv1, p.98) data that arrives before accept() must be queued
+up to the size of the connected socket's receive buffer.
+
+
+
+From man page for accept(2), notice that the connected socket is a
+clone of the listening socket, *mostly*.  But also note that while
+per-socket flags are cloned, per-fd flags are *not* cloned (things set
+with F_SETFL fcntl, such as non-blocking or async state).  Ugh!
+
+Notice some more weirdness - according to the man page, unlike most
+BSD, accept() returns errors already pending on the new socket,
+forcing a retry of the accept()!!  This means that ENETDOWN, EPROTO,
+EPROTOOPT, EHOSTDOWN, ENONET, EHOSTUNREACH, EOPNOTSUPP, and
+ENETUNREACH should be treated as EAGAIN.  Surely the right thing is to
+hand out the fd for the socket, and let the next recv() or send()
+discover the problem, once it has a socket for the problem to be
+pinned on!!!!!  Ugh!!
+
+
+In listen(), various Unices have various ways of converting backlog to
+the length of the queue(s).  Linux simply says it's the actual length,
+with no fudging.  Also, W. Richard Stevens says that to deal with the
+SYN-flooding attack, it's the *completed* queue that is of interest,
+not the total of incomplete and completed.  Linux < 2.2 had it as the
+total (acc. man page of listen(2)).  See UNPv1 pp93ff for this.
+
+
+Some thoughts about the socket data structure:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For UDP, it was:
+
+val _ = Hol_datatype
+  `socket = <| fd : fd ;
+               is1 : ip option ; ps1 : port option;
+               is2 : ip option ; ps2 : port option;
+               es : error option; f : flags; mq : (msg # ifid) list |>`;
+
+i.e., (fd, is1, ps1, is2, ps2, es, f, mq).
+
+For TCP, we want:
+
+fd    - file descriptor (actually binds to a sid separately)
+
+sid   - socket ID
+is1   - local IP
+ps1   - local port
+f     - flags
+EITHER: listening socket:
+         es??  - pending errors?  (if here then really before EITHER)
+         incomplete connection queue UNPv1,p94
+         completed connection queue UNPv1,p94  ** these may have their
+                                                  own errors etc, and
+                                                  are accepted in order **
+OR:     connected socket:
+         is2   - remote IP
+         ps2   - remote port
+         es    - pending errors
+         imq   - incoming message queue
+         omq   - outgoing message queue I think (flow control)
+         rshutp  - receive direction shutdown flag
+         sshutp  - send direction shutdown flag
+
+
+
+Q: is it possible to send/receive on a listening socket?
+
+
+Urk!
+~~~~
+
+TLPIp151/ linux/net/socket.c line 312ff: a fresh fd may be closed by
+the time it's returned to the socket()-ing application, by another
+thread which (presumably) guesses the fd!!  The kernel takes care not
+to deref the fd after the first time.
+
+Useful in TLPI / TLPI scribble:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Explanation of SKBs pp 184ff.
+
+There's a TIME_WAIT space optimisation p198.
+
+TCP details around p491.
+
+Why UDP? (i.e., what uses it?): A: p539.
+
+Peter:
+~~~~~~
+
+write down states as cross product of two TCP state machines and the
+stuff on the wire; then figure out what is reachable.
+
+and some more, from an internal POV
+-----------------------------------
+From TCP/IPv1 p225 a TCP header is
+
+ps1 : port^
+ps2 : port^
+sequence_number       : word32
+acknowledgment_number : word32
+window_size           : word16
+urgent_pointer        : word16
+URG, ACK, PSH, RST, SYN, FIN  : bool
+
+and 4 bits of header length, 6 bits reserved, 16 bit checksum
+
+and perhaps some options ....
+
+
+
+From TCP/IPv1 p241 the endpoint states are:
+
+(CLOSED)
+
+LISTEN         setup
+SYN_RCVD    
+SYN_SENT
+
+ESTABLISHED    data transfer
+
+CLOSE_WAIT     passive close
+LAST_ACK
+
+FIN_WAIT_1     active close
+FIN_WAIT_2
+CLOSING
+TIME_WAIT
+
+
+looking at data flow first, ignoring connection setup/close, looking
+one-way only
+ 
+in the sender:
+  send_buffer_size : nat
+  send_buffer : byte list     (length <= send_buffer_size)
+    (* these are bytes that haven't yet been acked.  they may or may
+       not have been sent yet *)
+
+  segment_retransmission_timer : time 
+
+  sequence_number : word32   (* the number of the start of send_buffer *)
+? sequence_number_to_send : word32  (* the number of the byte to send next *)
+
+  recv_advertised_window : word16 
+
+  congestion_window : word32  (cwnd) (for slow start)
+  slow_start_threshold_size : word32 (ssthresh)
+
+  retransmission_timer : time
+  persist_timer  : time
+
+  keepalive_timer   2MSL_timer  (these not relevant for data flow)
+
+  RTT estimation data - need to remember for un-acked segments when
+  they were sent (if they were not retransmitted)
+
+  Congestion avoidance data - need to know about duplicate acks - and how many
+
+  some of this stuff gets stashed in the routing table and used for
+  new connections
+
+  persist timer backoff and bound
+
+
+
+
+in the network:
+ ...some packets of rather constrained form...
+
+
+
+
+in the receiver:
+  recv_buffer_size : nat
+  recv_buffer : byte list     (length <= recv_buffer_size)
+  delayed_ack        : bool       (bool for the 'ACK every other segment' strategy)
+
+  stash_of_out_of_order_segments : ?
+
+
+
+
+
+
+Questions for Networking Guys
+-----------------------------
+
+so, when you write a new TCP/IP stack, how _do_ you test it?
+
+are there any model implementations out there?
+
+what's changed since Stevens?  since RFC1122 ?
+
+how do we receive our own IP packets - with IP chains?
+
+does anyone use a better interface than sockets?
+
+
+
+
+
+
+
+[eof]

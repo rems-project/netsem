@@ -1,0 +1,32 @@
+TSCcal
+~~~~~~
+
+This Win32 console application calibrates the IA32 timestamp counter
+register accessed by the RDTSC instruction.  It uses
+GetSystemTimeAsFileTime as a time reference, assuming that it is
+correct if invoked as soon as possible after a Sleep() (i.e., a
+scheduler tick, 1/64sec on WinXP).  The calibration data is written to
+the registry, at HKEY_LOCAL_MACHINE\SOFTWARE\NetSem\TTHEE, as follows:
+
+  tscfreq        REG_QWORD  TSC frequency in ticks per second
+  tscsd          REG_QWORD  measurement error (standard deviation) in above
+  tcslastupdate  REG_SZ     ISO date of last update
+
+TSCcal can accept two command-line arguments:
+
+  TSCcal.exe n m
+
+where n is the number of measurements to make, and m is the duration
+(in milliseconds) of each measurement.  An OK choice would be 10
+10000, which takes 100 seconds; a good one would be 10 100000, which
+takes 1000 seconds.  This latter is the default.
+
+If the DEBUG symbol is turned on, various output appears at stdio
+describing what's going on, and at the end the application waits for a
+character on the console (NOT stdio!) before it exits.
+
+Ideally, this would be a Windows Service, but I couldn't be bothered
+making it one, since that's a bit complicated.
+
+--KW 8-), 2003-09-19.
+

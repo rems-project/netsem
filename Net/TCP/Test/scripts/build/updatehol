@@ -1,0 +1,26 @@
+#!/bin/sh
+
+set -e
+
+umask 002
+
+. `dirname $0`/waprc
+
+pushd .
+if [ -d $HOLSRC ]; then
+    cd $HOLSRC
+    cvs update -APd
+else
+    echo "hol98 tree at $HOLSRC not found; checking out again from SourceForge..."
+    sleep 5
+    cd `dirname $HOLSRC`
+    cvs -d :pserver:anonymous@hol.cvs.sourceforge.net:/cvsroot/hol co -d `basename $HOLSRC` hol98
+fi
+popd
+
+cd `dirname $0`
+
+./relinkhol98
+./doconfig
+./dobuild
+

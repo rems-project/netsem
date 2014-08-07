@@ -1,0 +1,10 @@
+--- /etc/rc.d/ntpd.orig	Thu Dec  1 12:37:04 2005
++++ /etc/rc.d/ntpd	Thu Dec  1 14:34:12 2005
+@@ -12,6 +12,7 @@
+ . /etc/rc.subr
+
+ name=ntpd
++command_args="-g"
+ rcvar=`set_rcvar`
+ command="/usr/sbin/${name}"
+ pidfile="/var/run/${name}.pid"

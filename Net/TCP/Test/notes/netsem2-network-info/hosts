@@ -1,0 +1,13 @@
+::1			localhost.netsem2 localhost
+127.0.0.1		localhost.netsem2 localhost
+
+192.168.13.101		alf.netsem2 alf
+192.168.13.102		ken.netsem2 ken
+192.168.13.103		jan.netsem2 jan
+192.168.13.104		ada.netsem2 ada
+192.168.13.105		dag.netsem2 dag
+192.168.13.106		tom.netsem2 tom
+
+192.168.13.199		psyche.netsem2 psyche
+192.168.13.200		fornix.cl.cam.ac.uk fornix
+192.168.13.201    zonule.cl.cam.ac.uk zonule

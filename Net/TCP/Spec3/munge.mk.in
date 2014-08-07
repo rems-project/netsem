@@ -1,0 +1,8 @@
+# DO NOT EDIT THIS MASTER FILE (munge.mk.in) - edit munge.mk instead.
+# munge.mk - user-specific configuration file for munging:
+
+#
+# Location of mng_to_latex:
+#
+HOLDOCDIR=${HOME}/WAP/HOLDoc
+

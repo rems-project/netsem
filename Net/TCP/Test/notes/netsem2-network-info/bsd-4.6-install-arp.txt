@@ -1,0 +1,15 @@
+Since psyche doesn't really exist, attempts to send ethernet packets to it
+will generally fail due to the inability to determine the correct ethernet
+address to send them to. We get around this by adding a fake entry to the ARP
+cache on each of the machines on the test network, by adding the following
+line to /etc/rc.network, just above the "let future generations know we made
+it" comment:
+
+  arp -s 192.168.13.199 12:34:56:df:84:f4 pub
+
+I don't think there's any significance at all to the ethernet address chosen,
+but at the moment all the machines on the network are using the ones above.
+Also note that it would theoretically be sufficient to do this on one machine
+and specify the 'pub' option allowing it to act as an ARP server for this
+address, but specifying it on every machine will hopefully avoid any nasty
+surprises later on when we start changing the network topology or similar.

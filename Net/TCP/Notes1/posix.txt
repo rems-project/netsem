@@ -1,0 +1,110 @@
+Notes on the POSIX standard
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(skip next two sections to get to the meaty bit)
+
+Availability
+~~~~~~~~~~~~
+
+POSIX 1003.1-2001 is in the Computer Laboratory library as ST.8.7 1
+through ST.8.7 7.
+
+It's also available on the Web (a first!!) as
+
+http://www.opengroup.org/onlinepubs/007904975/toc.htm
+
+and I've downloaded it (from
+http://www.opengroup.org/onlinepubs/007904975/download/susv3.tar.bz2)
+and installed it at
+
+/usr/groups/netsem/Std/susv3/index.html
+
+(please note terms and conditions at
+/usr/groups/netsem/Std/susv3/help/terms.html)
+
+Bibliographic data
+~~~~~~~~~~~~~~~~~~
+
+The standard is called:
+
+IEEE Std 1003.1\texttrademark{}-2001\\
+Standard for Information Technology ---\\
+Portable Operating System Interface (POSIX\textsuperscript{\textregistered})
+
+- Base Definitions, Issue 6         [sometimes called XBD]
+- System Interfaces, Issue 6        [sometimes called XSH]
+- Shell and Utilities, Issue 6      [sometimes called XCU]
+- Rationale (Informative), Issue 6  [sometimes called XRAT]
+
+Author is:
+
+IEEE and The Open Group
+
+Published 6 December 2001 by IEEE
+Published 6 December 2001 by The Open Group
+
+So I guess we could refer to it as:
+
+@Book{
+   IEEE01:1003.1,
+   author="IEEE and Open Group, The",
+   title="{IEEE} {S}td 1003.1\texttrademark{}-2001 Standard for
+     Information Technology --- {P}ortable {O}perating {S}ystem
+     {I}nterface ({POSIX}\textsuperscript{\textregistered})",
+   publisher="IEEE and The Open Group",
+   year="2001",
+   edition="Issue 6",
+   month=dec,
+   note="Available \url{http://www.opengroup.org/onlinepubs/007904975/toc.htm}",
+   status="sighted:CLlib:ST.8.7",
+   abstract="opt",
+   keywords="opt",
+}
+
+and possibly we could add specific volumes to the end of the title
+(Base Definitions, System Interfaces, Shell and Utilities, Rationale
+(Informative)).
+
+
+Interesting things
+~~~~~~~~~~~~~~~~~~
+
+ERRORS:
+- no function sets errno to zero
+- errno is per thread
+- implementations may add extra errors unless expressly forbidden,
+  either existing error codes or new ones.  But if an error condition
+  occurs that is described in the standard, the prescribed error code
+  shall be used for it.
+- an implicit "[EINTR] forbidden" is assumed for all functions with
+  "Threads" option (THR) that don't mention EINTR explicitly.
+(all from XSH2.3).
+- short descriptions appear in <errno.h> entry in XBD;
+  long descriptions appear in XSH2.3.
+
+SIGNALS:
+- see XSH2.4
+- async-signal-safe functions listed in XSH2.4.3.
+
+XSI STREAMS:
+- POSIX specifies XSI STREAMS as well as sockets, but only as an
+  option (code "XSR").  See XSH2.6.  We say no more.
+
+THREADS:
+- Threads are an option ("THR").  XSH2.9.
+
+FILES:
+- XBD3.253: a "file descriptor" (a small integer) points to an "open
+  file description" (a structure that describes an open file).  Good
+  terminology.
+
+SOCKETS:
+- discussed in XSH2.10.
+- terminology is good.  "Connection Indication Queue" for the queue of
+  completed incoming connections pending accept()ance.
+- SIGURG is sent when socket is notified of OOB data, not when it
+  actually arrives (which may be later).
+- table of pending erros at XSH2.10.15
+- desc of all POSIX SOL_SOCKET SO_* at XSH2.10.16
+
+

@@ -1,0 +1,62 @@
+Call		UNIX		Windows
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+accept		accept		accept
+
+bind		bind		bind
+
+close		close		closesocket
+
+connect		connect		connect
+
+dup		dup			(WSADuplicateSocket)
+
+dupfd		dup2		n/a
+
+getfilebfl	fcntl		ioctlsocket
+  O_ASYNC	  F_GETFL	  n/a
+  O_NONBLOCK  F_GETFL	  FIONBIO
+
+setfilebfl  fcntl(F_SETFL)  ioctlsocket
+  O_ASYNC	  F_SETFL	  n/a
+  O_NONBLOCK  F_SETFL	  FIONBIO
+
+getsockname	getsockname	getsockname
+
+getpeername	getpeername	getpeername
+
+getsockbopt
+getsocknopt	getsockopt	getsockopt
+getsocktopt
+
+setsockbopt
+setsocknopt	setsockopt	setsockopt
+setsocktopt
+
+listen		listen		listen
+
+pselect		pselect 	n/a
+		  (LINUX ONLY)
+
+ --			select		select
+
+recv		recv		recv
+ --			recvfrom	recvfrom
+ --			recvmsg		n/a
+
+send		send		send
+ --			sendto		sendto
+ --			sendmsg		n/a
+
+shutdown	shutdown	shutdown
+
+sockatmark	sockatmark	ioctlsocket (SIOCATMARK)
+			ioctl (SIOCATMARK)
+
+
+socket		socket		socket
+
+getsockerr	getsockopt	getsockopt
+			(SOL_ERROR)	(SOL_ERROR)
+
+getsocklistening getsockopt	getsockopt
+				 (SOL_ACCCEPTCONN)  (SOL_ACCEPTCONN)

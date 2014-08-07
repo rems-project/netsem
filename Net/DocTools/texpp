@@ -1,0 +1,93 @@
+#!/usr/bin/perl -w
+#
+# texpp  -- unfold \input commands in LaTeX source
+#
+# Keith Wansbrough 2001-06-20..
+
+require 5.004;
+
+use strict;
+use POSIX;
+
+# assumptions:
+#
+#   - \input always appears at the beginning of a line, and
+#     is followed by just the filename, with nothing else on the line.
+
+my $datestamp;
+
+
+my $text = (process(\*ARGV));
+
+# $text = whichv($text,1);
+
+print $text;
+
+
+# process the given file handle for \input directives, returning the
+# resulting text
+
+sub process {
+
+    my $fh = shift;
+
+
+    my $out = "";
+
+    while (<$fh>) {
+        if (/^\\input (.*)$/) {
+            # process input directive
+            my $file = $1;
+            chomp;
+            local *FH2;
+            $datestamp = POSIX::strftime("%a %b %e %T %Y",locatime($^T));
+            $out .= "%\n% $_\n%\n% (file $file included inline by texpp on $datestamp)\n%\n";
+            open FH2, "<$file"
+                or die "Couldn't open input file $file for input: $!\n";
+            $out .= process(\*FH2);
+            close FH2
+                or die "Error closing input file $file: $!\n";
+            $out .= "%\n% (end of included file $file)\n%\n";
+        } else {
+            # copy through
+            if (/^([^%]|\\%)*\\input/) {
+                # warn if input appears not at beginning of line
+                print STDERR "WARNING: may have missed \\input (not at beginning of line):\n\t$_";
+            }
+            $out .= $_;
+        }
+    }
+
+    $out;
+
+}
+
+
+sub whichv {
+
+    my ($in,$ver) = @_;
+
+    my ($out, $pre, $left, $right);
+
+    while ($in =~ /^(.*?)\\whichversion\{/m) {
+        $in = $'; $out .= $`; $pre = $1;
+        if ($pre eq "") {
+            # only a whichversion.[12] match if starts at beginning of line
+            $in =~ /\}\{%whichversion.1/;   # doesn't deal with recursion!
+            $in = $'; $left = $`;
+            $in =~ /\}%whichversion.2/;     # doesn't deal with recursion!
+            $in = $'; $right = $`;
+            if ($ver == 1) {
+                $out .= $left;
+            } else {
+                $out .= $right;
+            }
+        } else {
+            # must be single-line then
+            $out .= $pre . "\\whichversion\{";
+        }
+    }
+
+    $out;
+
+}

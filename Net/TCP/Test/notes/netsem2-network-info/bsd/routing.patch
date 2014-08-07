@@ -1,0 +1,12 @@
+--- /etc/rc.d/routing.orig	Thu Dec  1 12:27:28 2005
++++ /etc/rc.d/routing	Thu Dec  1 12:28:41 2005
+@@ -158,6 +158,9 @@ options_start()
+ 		;;
+ 	esac
+
++# added by tjr 2005-12-01, psyche.netsem2 arp info
++arp -s 192.168.13.199 12:34:56:df:84:f4
++
+ 	echo '.'
+ }
+

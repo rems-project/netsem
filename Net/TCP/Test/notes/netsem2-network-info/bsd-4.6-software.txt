@@ -1,0 +1,35 @@
+Installing bash and GNU Make
+
+bash is easy, since it's in the FreeBSD 4.6 standard distribution. Run
+/stand/sysinstall and select to install packages, it's under shells. Now make
+/bin/bash a symlink to /usr/local/bin/bash, because our build scripts seem to
+expect it.
+
+makedepend is, for some reason, a ridiculously awkward piece of software to
+get hold of. You get it automatically if you install XFree86, but we don't
+want to waste time doing that. Instead, install it using sysinstall (it's in
+devel), which doesn't really install it, but puts some stuff in
+/usr/ports/devel/makedepend, because that's the way the ports collection
+works. So then, we need to download ftp://ftp.andrew.cmu.edu/pub/cyrus-mail/
+OLD_VERSIONS/imap/cyrus-imapd-2.0.9.tar.gz and put it in /usr/ports/distfiles.
+Once that's done, as root, cd to /usr/ports/devel/makedepend and type make.
+
+We need GNU Make because the autotest toolchain's makefiles don't work in BSD's
+default make. It's easier to install it directly than bother with the ports
+collection in this case, so:
+
+First back up the old make in case you need it later to build ports:
+
+  cp /usr/bin/make /usr/bin/bsd-make
+
+Get http://ftp.gnu.org/pub/gnu/make/make-3.80.tar.gz, put it on the machine
+in question and extract it. Run /configure -prefix=/usr, make, make check, su,
+make install.
+
+Suggest doing this in case you do end up swapping makes around:
+
+  mv /usr/bin/make /usr/bin/gmake
+  ln -s /usr/bin/gmake /usr/bin/make
+
+Note that gmake is no good for building ports; specifically, don't install it
+until you've built linuxthreads and makedepend!

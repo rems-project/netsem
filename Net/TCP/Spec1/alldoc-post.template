@@ -1,0 +1,10 @@
+% -*-LaTeX-*-
+\def\rulesrcsid{}
+
+\backmatter
+
+\addcontentsline{toc}{chapter}{Index}
+
+\printindex
+
+\end{document}

@@ -1,0 +1,7 @@
+server0 and client0 are two spec1 traces.
+
+laurel and hardy are example inputs from the adhoc-2 test on the freebsd-4.6
+machines. bill/ben and pinky/brain are the results of an older version of the
+test on the linux and freebsd-4.6 machines respectively, which are retained
+because they demonstrate an error in the TCP specification to do with the
+behaviour of listening sockets whose backlog queue length limit is 0.

@@ -1,0 +1,100 @@
+# this is a hacked up Makefile to replace Holmake: I'm never sure what Holmake is doing...
+
+################################################################################
+# files in this directory I don't understand
+# fmap_match.sig fmap_match.sml word32relnorm.sig word32relnorm.sml
+
+################################################################################
+# main targets
+
+# final theories, on which nothing but the exes depend
+ENTRYTHEORIES=TCP3_bettersTheory.uo fastRulesTheory.uo TCP3_urgencyTheory.uo
+
+all: alltheories
+
+alltheories: $(ENTRYTHEORIES)
+allexes: check_3trace evalAbsFun.exe GroundConflate.exe
+
+# use this, e.g. when altering documentation, to avoid HOL recompile
+touch:
+	touch tmp.txt # ensure all touched files have the same time info
+	touch -r tmp.txt $(wildcard *Theory.sig) $(wildcard *Theory.sml) $(wildcard *Theory.ui) $(wildcard *Theory.uo)
+
+.PHONY: all alltheories allexes touch
+
+################################################################################
+# executables
+
+#MOSMLC=/usr/groups/netsem/mosml-moreglobals/bin/mosmlc
+MOSMLC=/usr/groups/netsem/mosml/bin/mosmlc
+
+#HOLMOSMLC=$(MOSMLC) -q -I /auto/groups/tthee/local/hol98/sigobjmosmlc
+HOLMOSMLC=$(MOSMLC) -q -I /auto/groups/tthee/local/hol98/sigobj -I ../Spec1
+
+#HOLMAKE=Holmake --no_holmakefile -I ../Spec1 -r # avoids going via the Holmakefile
+HOLMAKE=Holmake
+
+
+################################################################################
+# theory dependencies
+# WARNING fastRules takes forever to compile
+
+TCP3_hostTypesTheory.uo:
+TCP3_streamTypesTheory.uo:
+
+TCP3_host0Theory.uo: TCP3_hostTypesTheory.uo TCP3_streamTypesTheory.uo
+TCP3_auxFnsTheory.uo: TCP3_hostTypesTheory.uo TCP3_streamTypesTheory.uo
+TCP3_streamTheory.uo: TCP3_streamTypesTheory.uo
+
+TCP3_hostLTSTheory.uo: TCP3_host0Theory.uo TCP3_auxFnsTheory.uo TCP3_streamTheory.uo
+
+fmapUtilsTheory.uo:
+TCP3_netTheory.uo: TCP3_hostLTSTheory.uo
+
+TCP3_absFunTheory.uo: fmapUtilsTheory.uo TCP3_netTheory.uo
+fastRulesTheory.uo: TCP3_hostLTSTheory.uo
+TCP3_urgencyTheory.uo: TCP3_hostLTSTheory.uo
+
+TCP3_bettersTheory.uo: TCP3_absFunTheory.uo
+
+# theory files depend on their own script files
+%Theory.uo: %Script.sml
+	$(HOLMAKE) $*Theory.uo
+
+
+################################################################################
+# exe dependencies
+
+# how to build .uo files in following
+%.uo: %.sml
+	$(HOLMAKE) $*.uo
+
+# FIXME GroundConflate.exe is a Spec1 file really
+GroundConflate.exe: GroundConflate.uo
+	$(HOLMOSMLC) -o $@ $<
+
+check_3trace: check-sketch.uo $(ENTRYTHEORIES)
+	$(HOLMOSMLC) -o $@ $<
+
+# horrible- but couldn't get mosml to compile .ml file FIXME why not just call it .sml?
+evalAbsFun.sml: evalAbsFun.ml
+	cp evalAbsFun.ml evalAbsFun.sml
+
+evalAbsFun.exe: evalAbsFun.uo GroundConflate.exe $(ENTRYTHEORIES)
+	$(HOLMOSMLC) -o $@ $<
+
+
+################################################################################
+# junk ?
+
+# where is this used?
+word32relnorm.uo: word32relnorm.sml word32relnorm.ui
+	$(HOLMOSMLC) -c Overlay.ui GenRelNorm.ui $<
+
+#%Theory.uo: %Script.sml
+#	$(HOLMAKE) $*Theory.uo
+
+#check-sketch.uo: check-sketch.sml
+#	$(HOLMAKE) $@ #$<
+##	$(HOLMOSMLC) -o $@ $<
+

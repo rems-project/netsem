@@ -1,0 +1,39 @@
+% -*-LaTeX-*-
+\documentclass[oneside,notitlepage]{report}
+
+\usepackage{graphics}
+
+% Magic to capture RCSID:
+{\catcode`\$=9\gdef\rcsid{$Id: std_prepreamble2.tex,v 1.3 2004/12/18 14:41:31 pes20 Exp $}}
+
+% Get a decent sized page and enable graphics modes
+\usepackage[a4paper,margin=15mm]{geometry}
+
+%use same geometry as tr
+  \geometry{%
+    a4paper,
+%    letterpaper,
+    dvips,
+    twoside,
+    twosideshift=0mm,
+    left=25.4mm, right=25.4mm,
+    top=20mm,  bottom=30mm,
+    headheight=\baselineskip,
+    headsep=10mm, footskip=10mm, %should be equal
+%
+%20pc (3.33in) wide and 54pc (9in) tall with a column gutter of 2pc (0.33in)
+% so 7in wide, 9in tall.
+%    177.8mm   228.6
+% leaving from a4:  32.2mm   68.4mm
+% dividing by 2:    16.1mm    ...
+%    left=16.1mm, right=16.1mm,
+%    top=20mm,  bottom=28.4mm,
+  }
+
+
+\usepackage{graphics}
+\usepackage{color}
+\pagestyle{empty}
+
+\begin{document}
+%\begin{figure}

@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Kill all CheckTraces.exe on donated machine. Must be run as user who
+# started the check run, or root.
+
+# Default signal is -9; can be changed by giving a signal on command
+# line.
+
+SIGNAL=${1:--9}
+
+INUSE_CONF_DIR=/usr/groups/tthee/conf
+INUSE_MPHIL_MACH="`hosts mphil`"
+
+MACHINES=""
+
+echo "Getting list of donated machines"
+
+# Get the list of donated machines
+cd $INUSE_CONF_DIR
+for f in *; do
+  if /usr/bin/ssh $f "echo -n" >/dev/null; then
+    MACHINES="${MACHINES} $f"
+  fi
+done
+cd -
+
+# Donated machines + mphil machines
+ALL_MACHINES="`echo $MACHINES $INUSE_MPHIL_MACH | sed "s/[\t' ']*//"`"
+
+# ----------------------------------------------------------------------
+
+for f in $ALL_MACHINES; do
+  echo -n "Killing $f with $SIGNAL..."
+  ssh $f "killall $SIGNAL CheckTraces.exe"
+  echo "Done"
+done;

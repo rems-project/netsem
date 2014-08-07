@@ -1,0 +1,3 @@
+#!/bin/bash
+
+holtcpcb $@ | nc $NC_IP $NC_PORT

@@ -1,0 +1,26 @@
+#!/usr/bin/perl -w
+
+# run as "tracelen trace????" in the same directory as the traces.
+# Generates a lookup table of trace lengths (well, maximum merge indices).
+
+use strict;
+
+open OUT, ">tracelengths.dat"
+    or die "Couldn't open output file: $!\n";
+
+foreach my $tracefile (@ARGV) {
+    open IN, "<$tracefile"
+        or die "Couldn't open trace file $tracefile: $!\n";
+    my $mergeindex = "-1";
+    while (<IN>) {
+        next unless /^\(\* Merge Index: (\d+) \*\)/;
+        $mergeindex = $1;
+    }
+    print OUT "$tracefile $mergeindex\n";
+    close IN
+        or die "Couldn't close trace file $tracefile: $!\n";
+}
+
+close OUT
+    or die "Couldn't close output file: $!\n";
+

@@ -1,0 +1,26 @@
+*** Getting accurate timing information from the BSD 4.6 hosts ***
+
+There are several different changes which need making in order to get
+sufficiently accurate timestamps in traces from the BSD hosts.
+
+First we need to set a sysctl meaning "use precise versions of calls such as
+microuptime() rather than approximations". To do this, add the following line
+to /etc/sysctl.conf:
+
+  kern.timecounter.method=1
+
+This only takes effect at reboot, although you can use sysctl to set it right
+away. But you'll be rebooting anyway before you're done, because the next step
+is:
+
+Rebuilding the kernel
+
+Detailed instructions on doing this can be found in
+netsem1-network-info/bsd-kernel-rebuild.txt. The salient points are: TAKE A
+BACKUP FIRST, add TCPDEBUG to the options in the configuration file and apply
+the patches to four files in /sys/netinet and one in /usr/include/netinet.
+Also note that the newer machines need to be I686_CPU rather than I586_CPU (so
+following the instructions exactly will, yes, cause the machines to kernel
+panic on boot).
+
+Finally, you need to set up NTP. [TODO]

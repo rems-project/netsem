@@ -1,0 +1,20 @@
+*** rc.network  Tue Jun 11 05:20:09 2002
+--- rc.network  Mon Aug  4 14:01:13 2003
+***************
+*** 525,530 ****
+--- 525,539 ----
+        esac
+        echo '.'
+
++       ## Added by SMB ##
++       echo -n "Polluting ARP cache with pscyhe entry."
++       arp -s 192.168.0.99 12:34:56:df:84:f4 pub
++	arp -s 192.168.0.88 12:34:56:df:84:ff pub
++       echo -n " Making the kernel timecounter more accurate."
++       sysctl kern.timecounter.method=1
++       echo -n " Adding some routing entries"
++       route add -net 192.168.1.0 192.168.0.14 255.255.255.0
++       route delete default
+        # Let future generations know we made it.
+        #
+        network_pass1_done=YES

@@ -1,0 +1,21 @@
+When we were trying to make the spec work for FreeBSD 6.0, some things were
+changed temporarily and found to work, but then changed back when we started
+working with 4.6 again because we hadn't made them parameterisable yet. These
+are things which should be reintroduced if we start working with FreeBSD 6.0
+again:
+
+Change defaults:
+
+  SO_RCVBUF default on FreeBSD changed to 65536
+
+  HZ changed from 100 to 1000 (changed from FreeBSD 5.4-6.0)
+
+Change logic:
+
+  Additional logic in calculate_buf_sizes for rfc3390 (see FreeBSD-5.4
+  tcp_input.c, line 3139)
+
+  Something needs to be done about silly window avoidance in
+  make_syn_segment, make_syn_ack_segment, make_ack_segment and
+  bsd_make_phantom_segment. This may technically be a bug in the spec even
+  under 4.6, but didn't come up in previous tests against 4.6 traces.

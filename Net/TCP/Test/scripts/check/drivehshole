@@ -1,0 +1,17 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+my $sourcehost = shift;
+
+my $targethost = 'localhost';
+my $targetbaseport = 22700;
+
+die "unrecognised host name format" unless ($sourcehost =~ /^pccl([0-9]{3})\./);
+my $targetport = $1 + $targetbaseport;
+
+print "Trying $targethost:$targetport\n";
+
+exec("./hshole",$targethost,$targetport,@ARGV);
+die "Couldn't exec: $!\n";
+

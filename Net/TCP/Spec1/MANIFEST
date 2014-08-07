@@ -1,0 +1,135 @@
+In this file, an initial 'X' on a line denotes a file that is
+CONFIDENTIAL and should be deleted from all public versions.  The
+filename should follow after a single space.  Obtain a list of all
+such files as follows:
+
+grep ^X MANIFEST | awk '{print $2}'
+
+
+Evaluator
+~~~~~~~~~
+- general interest:
+
+X Chaining.sig - utility, ordering an unordered list of pairs, norman hardy algorithm (used in testEval)
+X Chaining.sml - utility, ordering an unordered list of pairs, norman hardy algorithm (used in testEval)
+
+X LetComputeLib.sig - helper, used in testEval and TCP1_boundsInference
+X LetComputeLib.sml - helper, used in testEval and TCP1_boundsInference
+X LetComputeScript.sml - helper, used in testEval and TCP1_boundsInference
+
+X integer_word32Script.sml - theorems about word32
+
+X numrelnorm.sig - ??
+X numrelnorm.sml - ??
+
+X Net_fmap_analyse.sig - support for symeval of fmaps
+X Net_fmap_analyse.sml - support for symeval of fmaps
+
+- theorems relating to parts of the spec:
+
+X TCP1_boundsInference.sml - tickers stuff for symeval
+X TCP1_rangeAnalysisScript.sml - range analysis support for symeval
+X TCP1_urgencyScript.sml - approximation of urgency for symeval
+X TCP1_timerPropsScript.sml - support for symeval of timers
+X TCP1_utilPropsScript.sml - support for symeval of basic helper functions
+
+- rewriting the spec to be more evaluable:
+
+X TCP1_bettersScript.sml - rewrite to be more useful to symeval
+X NetEvalScript.sml - "provides an alternate view of the spec, one that is more amenable to symbolic evaluation"
+
+- the evaluator:
+
+X Evaluator.sml - helper functions for the symbolic evaluator (used in NetEvalScript)
+X testEval.sml - the symbolic evaluator
+
+- parsing:
+
+X TraceFiles.sml - trace file parser
+X trace_checker.sml - standalone syntax-checker for trace files
+
+- reporting:
+
+X genstrings.sml - symeval reporting stuff
+X html_header - symeval reporting stuff
+X html_trailer - symeval reporting stuff
+
+- the checking application main module:
+
+X CheckTraces.sml - obviously, the checker itself (main module)
+
+- building:
+
+  Holmakefile - for building spec and evaluator
+
+- documentation:
+
+X interactive-checking - helpful stuff for interactive trace checking
+X README.testing - some info on testing (internal document)
+
+
+Specification
+~~~~~~~~~~~~~
+
+- spec support:
+
+  Net_Hol_reln.sig - turn <== to ==> and do Hol_reln (defines the spec constructor)
+  Net_Hol_reln.sml - turn <== to ==> and do Hol_reln (defines the spec constructor)
+
+  Version.sig - version tracking constructs - used in spec but not essential
+  Version.sml - version tracking constructs - used in spec but not essential
+
+- phasing spec support: should really be stripped, but code depends on it:
+
+  Phase.sig - phase control constructs - used in spec, but for symeval purposes only
+  Phase.sml - phase control constructs - used in spec, but for symeval purposes only
+
+- spec proper (contains phasing info throughout, oops):
+
+  TCP1_LIBinterfaceScript.sml - system calls
+  TCP1_auxFnsScript.sml - auxiliary functions
+  TCP1_baseTypesScript.sml - base types and typing
+  TCP1_errorsScript.sml - error codes
+  TCP1_evalSupportScript.sml - typical initial hosts
+  TCP1_host0Script.sml - host labels and rule categories
+  TCP1_hostLTSScript.sml - host labelled transition system and some auxiliary defs
+  TCP1_hostTypesScript.sml - host datatypes
+  TCP1_netTypesScript.sml - network datatypes, and .is1/.is2 hack
+  TCP1_paramsScript.sml - host behavioural constants
+  TCP1_ruleidsScript.sml - rule names
+  TCP1_signalsScript.sml - signal names
+  TCP1_timersScript.sml - timers
+  TCP1_utilsScript.sml - basic syntax and helper functions
+
+- typesetting:
+
+  TCP1_.imn - typesetting info
+  Makefile - for building documentation
+  doc-black.template - typesetting stuff
+  doc-inplace-post.template - typesetting stuff
+  doc-inplace-pre.template - typesetting stuff
+  doc-post.template - typesetting stuff
+  doc-pre.template - typesetting stuff
+  tinydoc-pre.template - typesetting stuff
+  munge.mk.in - typesetting support file
+  nocomment.imn - typesetting support file (??)
+  tcp.sty - typesetting support file (hardly used)
+
+
+Miscellaneous
+~~~~~~~~~~~~~
+
+MANIFEST - this file
+
+glossary.mng - start of a glossary; never continued.
+
+hosthistory.xls - ??
+
+invariants.txt - list of supposed invariants (not maintained)
+
+position.txt - philosophical-position statement (out of date?)
+
+rationale.txt - rationale for implementation decisions - out of date
+
+rules.txt - documentation progress - internal document
+

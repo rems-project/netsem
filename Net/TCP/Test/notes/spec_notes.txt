@@ -1,0 +1,187 @@
+-------------------------------------------
+Responses to comments/questions in the spec
+-------------------------------------------
+
+listen_1/rationale:
+  Is it legal to call listen() multiple times to alter the size of the
+  backlog queue? Rationale says that listen() should return an error
+  if already in LISTEN state...
+
+    A: On Win32 it is certainly allowed (see http://msdn.microsoft.com/library/default.asp?url=/library/en-us/winsock/winsock/windows_sockets_functions_2.asp)
+
+  ##TODO: SMB to test
+
+-------------------------------------------
+
+bind_5/listen_2/rationale:
+  Questions regarding what POSIX means by "socket has been shutdown"
+  and why this affects bind() and listen().
+
+    A:  shutdown(how=write) means send FIN to other end (and
+  half-close the connection) shutdown(how=read) means (by POSIX and
+  the implementations) discard all data that comes in.
+  Thus a shutdown(how=read) or a shutdown(how=read|write) discards all
+  data that arrives on a given socket. This is a socket level (not TCP
+  level) thing. Thus at the TCP level ip1,ps1 are still bound ==>
+  calls to bind() or listen() on the same socket *should* fail. If
+  ip1,ps1 were not still bound for a shutdown(how=read), then sends
+  would either fail or autobind ip1,ps1 again.... I think.
+
+  KW to insert this into the spec.
+  ==> done.
+
+bind (win32--taken from MSDN setsockopt):
+  "If the setsockopt function is called before the bind function,
+  TCP/IP options will not be checked with TCP/IP until the bind
+  occurs. In this case, the setsockopt function call will always
+  succeed, but the bind function call may fail because of an early
+  setsockopt failing."
+
+  KW to insert this into the spec.
+  ==> done.
+
+-------------------------------------------
+
+accept_5:
+  Connection aborted locally?
+
+    A: Believe this might have the same answers as bind_5/listen_2
+    above.
+
+  KW to think about this. Does this mean "shutdown READ"?
+  ==> can't be that.  See notes now in spec, and google for
+  "ECONNABORTED".  There have been relevant *BSD changes recently.
+
+-------------------------------------------
+
+connect:
+  If is1=* then connect binds is1 using auto_outroute. What happens if this fails
+  due to the interface being down? It should return EADDRNOTAVAIL I
+  think. This isn't modelled by our connect rules.
+
+  KW to add to spec
+  ==> my reading is that it should return ENETDOWN or EHOSTUNREACH, as
+  appropriate, and this already happens (no interfaces to reach it at
+  all gives EHOSTUNREACH, no up interfaces to reach it gives ENETDOWN;
+  see connect_5a / test_outroute).
+
+connect:
+  What about trying to connect to broadcast addresses etc...?
+
+  ##TODO: SB to generate tests for this
+
+connect_3:
+  ECONNREFUSED vs ECONNRESET
+
+    A: These could have different meanings when using protocols other than
+    TCP. Different OSes could *in theory* report either of these
+    during a failed connection attempt. With TCP they probably mean
+    the same thing...
+
+connect_5:
+  What is "_1 -> ...." ? I assume so kind of catch-all pattern
+  matching.
+
+    A: Yes. This is a workaround for a HOL type-checker problem.
+
+  ##TODO: KW to fix the HOL type checker!
+
+-------------------------------------------
+
+close_2:
+  sf.t(SO_LINGER) = infinity   (not a possible value)
+
+    A: I don't believe you can specify a value of infinity with TCP
+    DONT_LINGER ==> normal close but don't block;
+    LINGER = 0 ==> reset and don't block;
+    LINGER != 0 ==> normal close and block until either the socket is
+    closed or the lingfer timer expires.
+
+    In ocamllib we have no infinity...
+
+  KW to check this and ensure the spec is correct and clear here!
+  ==> Spec is absolutely fine, although I've clarified it a little.
+  In ocamllib we certainly do have infinity: the type is (int * int)
+  option, and NONE means infinity, SOME(s,n) means s seconds and n
+  nanoseconds.  I think the code in ocamllibc.c:nssock_setsocktopt
+  should be checked for correct behaviour against the discussion at
+  close_2 of the representations of the three cases.
+
+  ##TODO: SMB to look at ocamllibc.c:nssock_setsocktopt.
+
+close_5:
+  The comment says this rule is urgent, although the actual rule is
+  marked as "slow nonurgent succeed".
+
+    A: This rule should be URGENT.
+
+  KW to reclassify the rule as URGENT.
+  ==> done
+
+close_6:
+  How can a lingering close be unsuccessful once the timer expires? On
+  WIN32 the connection is reset after the time expires and then close
+  returns successfully. On BSD/Linux it is a little more unclear,
+  although I believe that a blocked closed should always return
+  successfully. Before close blocks a FIN is sent to the remote
+  host. Either the remote host receives it or it doesn't. In either
+  case the required action has been taken so close should be
+  successful.
+
+    A: Unsuccessful means that the close occurs before the send queue
+    is emptied, therefore the linger is unsuccessful.
+
+-------------------------------------------
+
+dupfd_1/dupfd_3:
+  We are here modelling POSIX's fcntl(_,F_DUPFD,_) and not
+  dup2(). This should be explained in the comments for these rules
+  otherwise the sideconditions look and feel wrong!
+
+  KW to add to rule's comments.
+  ==> done.
+
+
+dupfd_3:
+  Our abstraction of the sockets layer appears a little inconsistent
+  as here we test to ensure that we are not calling dupfd with a bogus
+  fd.  The only way we can create a fd is via a call to [[socket]],
+  [[accept]] or [[dup]] and these should always return a well-formed
+  fd. I think?  We can compare this to the construction of IP
+  addresses in LIB -- we can only construct well-formed addresses so
+  our interface abstracts away the things that can go wrong in
+  practice (e.g. passing the wrong length of the address structure to
+  [[bind]]). (*)
+
+     A: This is perfectly true. KW and SMB agree that dupfd should be
+     defined as dupfd: fd -> int -> fd in order to model the real
+     behaviour correctly.
+
+  KW to alter the spec accordingly
+  ==> done.
+
+  ##TODO: SMB to alter ocamllib, libd and the other test tools
+
+-------------------------------------------
+
+shutdown_1:
+  Allowing shutdown(fd, F, F) to be legal is probably a bad thing as
+  in reality calling shutdown with a how value that is not SHUT_RD,
+  SHUT_WR or SHUT_RDWR raises error EINVAL which is not modelled
+  here. The problem is due to our abstraction not being strong enough
+  to mask the unwanted poor interface behaviour exhibited by the real
+  shutdown function. We probably should have a type for "how" defined,
+  e.g.  datatype how = SHUT_RD | SHUT_WR | SHUT_RDWR;;
+
+    A: The definition of shutdown is correct (KW). We define a
+    type-safe interface that masks many EINVALs deliberately.
+    shutdown(fd, F, F) should just return successfully.
+
+-------------------------------------------
+
+
+
+
+
+
+

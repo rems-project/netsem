@@ -1,0 +1,76 @@
+tcp3.txt - some notes on TCP
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Contents:
+~~~~~~~~~
+
+Contents
+SYN caches and SYN cookies
+Karn's algorithm
+
+
+SYN caches and SYN cookies
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+K: read paper by Jonathan Lemon of the FreeBSD Project, _Resisting SYN
+flood DoS attacks with a SYN cache_.
+
+Two techniques to deal with SYN floods:
+
+- SYN cache: store a mini-structure when receiving a SYN and emitting
+  a SYN,ACK.  Only turn it into a full tcpcb when you get the final
+  ACK.  This means you can do everything you otherwise would have,
+  including retransmitting the SYN,ACK.
+
+  It does mean you still have limited space, though.  FreeBSD deals
+  with this by putting all syncache entries into a big hash table of
+  fixed size and limited bucket size maintained by the protocol.  If
+  more space is needed, the oldest entry in the bucket is expired (=
+  sort-of random dropping from listen queue) or the oldest entry in
+  the entire cache.
+
+- SYN cookie: don't store anything on the host; do it all in the net.
+  There's 32 bits of ISN which can contain a cookie.  How?  Compute
+
+    peer_ISS XOR
+    MD5(laddr,faddr,lport,fport,secret) << 7 XOR
+    a << 7 XOR
+    idx
+
+  and use that as the ISN, where "a" is 0..3, coding for four
+  different possible peer MSSs, and "idx" is 0..127, coding for the
+  window size somehow.  (the trick is to remember the options somehow;
+  that's what we're doing here)
+
+  The secret is a 32-bit value from a table of 128 random values
+  obtained at protocol startup.  It cycles every 1/32 sec, for a total
+  of 4 seconds wraparound time.
+
+  This stops T/TCP from working, and is a small risk because it allows
+  a non-SYN (i.e., just an ACK) packet that gets lucky (guesses the
+  secret) to open a new connection, defeating some firewalls.  Also,
+  is the entropy of the ISN enough?
+
+  It also stops timestamps from working.
+
+How used?
+
+ - FreeBSD used to simply drop a random entry from the listen queue
+   when it needed more space.  This was bad (not helped by the fact
+   that the random entry was located by linear search!).
+
+ - FreeBSD now uses SYN cache always, but when the SYN cache
+   overflows, it may fall back to using SYN cookies.  (acc. the paper).
+
+ - Linux uses normal processing, but when queue overflows, it uses SYN
+   cookies.  (acc. the paper).
+
+
+Karn's algorithm
+~~~~~~~~~~~~~~~~
+
+Message-ID: <H0J0CM.173KxJ@world.std.com> on comp.protocols.tcpip refers to:
+
+http://portal.acm.org/citation.cfm?doid=205447.205455
+
+which says how to compute RTT correctly.

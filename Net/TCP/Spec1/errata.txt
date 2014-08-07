@@ -1,0 +1,44 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+deliver_in_1:
+
+submitted by: Li Peng
+
+    (let t_rttseg' = SOME (ticks_of h.ticks, cb.snd_nxt (* = seg.seq *) ) in
+
+should be changed from cb.snd_nxt to iss (or possibly iss+1).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+di3_newackstuff:
+
+submitted by: Li Peng
+
+         (*: Finally update the control block:  :*)
+         modify_cb (\cb'.cb' with <|
+                                     (*: RFC2582 partial window deflation: deflate the congestion
+                                         window by the amount of data freshly acknowledged and add
+                                         back one maximum segment size :*)
+                                     snd_cwnd := Num (int_of_num cb'.snd_cwnd -
+                                                     (ack - cb'.snd_una) + int_of_num cb'.t_maxseg);
+                                     snd_nxt :=  cb'.snd_nxt |>) (*: restore previous value :*)
+
+snd_nxt := cb'.snd_nxt is formally redundant. Probably an error with
+the scoping - the call was trying to restore a previous snd_nxt value,
+and should be referring to the outer-scope cb'.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+deliver_in_3,deliver_in_8
+
+submitted by: Li Peng
+
+rules overlap. deliver_in_8 then applies in a simultaneous open,
+allowing a RST to be sent. However, tjr vaguely thinks that this is
+what happens under BSD and simultaneous open: for instance, a RST is
+only explicitly created for the BSD case. For the non-BSD case a RST
+may be generated in dropwithreset. Needs investigation.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+epsilon_2
+
+It is not clear what the intention of this rule is. This rule should
+probably be removed. See comments in current version of rule in
+TCP1_hostLTSScript.

@@ -1,0 +1,16 @@
+% -*-LaTeX-*-
+\def\rulesrcsid{}
+
+\backmatter
+
+%\bibliographystyle{alpha}
+\bibliographystyle{abbrv}
+\bibliography{tr}
+
+\addcontentsline{toc}{chapter}{Index}
+
+\printindex
+
+
+
+\end{document}

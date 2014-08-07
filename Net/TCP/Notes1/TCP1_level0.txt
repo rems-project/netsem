@@ -1,0 +1,875 @@
+Fri Jul 11 13:37:13 BST 2003   -*-SML-*-
+
+
+Some recreational thoughts on the 'level 0' spec, ie an accurate
+version of the 'TCP state diagram' that is bandied about so freely.
+(can't cope with dynamic linking today, hence this...  don't want to
+divert anyone else with this, though (though it might be useful in
+thinking about test coverage))
+
+The Steven's version is conveniently on-line at:
+http://www.kohala.com/start/pocketguide1.ps
+
+This should be a graph with
+- nodes as the abstract state of a single socket (whatever that is...)
+- arrows for all state changes, annotated with abstract labels
+  (whatever they are...)
+
+We should ultimately define it (and the abstraction
+functions/relations) in HOL, and prove that there is an abstract
+transition if and only if there is a concrete transition.
+
+Note, though, that the diagram must make sense to those with only a
+practical TCP knowledge, who haven't read our spec.
+
+Perhaps this model (or slightly more concrete ones in the same style) would be useful for high-speed
+testing.
+
+
+For abstract states, there's a technical choice as to whether we
+define an equivalence relation over hosts or define another datatype
+and an abstraction function.  Think it's cleaner to do the former
+(more robust under changes and development of more refined diagrams).
+
+The diagram is (I know Steven's isn't quite, but it should be) about a
+_single_ socket, so have a relation indexed by a sid.
+
+The first cut, then, is
+
+h ~sid h'  <=>
+  ?sock,sock'.
+    FAPPLY h.socks sid = sock /\
+    FAPPLY h'.socks sid = sock' /\
+    sock.st = sock'.st
+
+For abstract labels, more thought is required.   The existing
+datatypes (reordered but unchanged) are:
+
+  `Lhost0 =
+           Lh_call of tid # LIB_interface                     (* in  *)
+         | Lh_return of tid # TLang                           (* out *)
+         | Lh_senddatagram of msg                             (* out *)
+         | Lh_recvdatagram of msg                             (* in  *)
+         | Lh_interface of ifid # bool(*up*)                  (* in  *)
+         | Lh_console of string                               (* out *)
+         | Lh_tau                                             (* tau *)
+
+here we only care about Lh_tau and (the combination of) Lh_call and
+Lh_return.  The datagram transitions shouldn't be here as the diagram
+talks about enqueuing and dequeuing datagrams, not about what happens
+on the network interface.  Looking at LIB:
+
+
+  `LIB_interface =
+        accept      of fd
+      | close       of fd
+      | connect     of (fd # ip # port)
+      | listen      of (fd # int)
+
+These four above are interesting.
+
+      | socket      of one
+
+and socket, albeit as a special case (a transition from nowhere to a state)
+
+      | shutdown    of (fd # bool # bool)
+
+hmm. shutdown reveals that _perhaps_ our abstract state should pay
+attention to cantsndmore/cantrcvmore???
+
+
+
+
+
+All of those below seem to be dull (ie, we can put them all in a big
+equivalence class of transitions that do not change the abstract
+state, and do not get shown on the diagram(?)).
+For the blocking ones, that means that neither the call nor the slow
+transitions change the abstract state...
+
+
+      | bind        of (fd # ip option # port option)
+      | dup         of fd
+      | dupfd       of (fd # int)
+      | getfileflags of fd
+      | setfileflags of (fd # filebflag list)
+      | getsockname of fd
+      | getpeername of fd
+      | getsockbopt of (fd # sockbflag)
+      | getsocknopt of (fd # socknflag)
+      | getsocktopt of (fd # socktflag)
+      | setsockbopt of (fd # sockbflag # bool)
+      | setsocknopt of (fd # socknflag # int)
+      | setsocktopt of (fd # socktflag # (int # int) option)
+      | pselect     of (fd list # fd list # fd list # (int # int) option # signal list option)
+      | recv        of (fd # int # msgbflag list)
+      | send        of (fd # string # msgbflag list)
+      | sockatmark  of fd
+      | getsockerr  of fd
+      | getsocklistening of fd
+
+
+      (* and now the non-POSIX stuff: *)
+      | port_of_int         of int
+      | int_of_port         of port
+      | ip_of_string        of string
+      | string_of_ip        of ip
+      | int_of_fd           of fd
+      | delay               of int
+      | print_ef            of string
+      | exit                of one
+
+
+The main thing (as this is a protocol diagram, after all) is what gets
+queued/dequeued.  Therefore define also _abstract segments_ (going to
+ignore ICMP? is that smart? No, it isn't -- we should include them) by
+an equivalence relation over tcpsegment, with
+
+seg ~ seg' iff they have the same ACK,RST,SYN,FIN flags.
+
+Have abstract transitions labelled with a {close,connect,listen} (or
+whatever) and also two abstract-segment options, one representing the
+dequeued ('recv') and one the enqueued ('sent') segments.
+(hmm - maybe an option is not enough, esp. for the rule that generates
+lots of RSTs. Have a special case abstract segment just for that?)
+
+Should also have transitions for the timer-expiry rules, labelled with their timer.
+
+All transitions on the diagram should also be labelled by the rule
+name that gives rise to them.
+
+Fixing sid, we should then have something like:
+
+abstract-host --(user-label,abstract-recv-option,abstract-send-option)--> abstract-host'
+
+iff exists h IN abstract-host, h' IN abstract-host', label IN user-label,
+           recv-option IN map ... abstract-recv-option,
+           send-option IN map ... abstract-send-option.
+
+    h --?--> h' /\
+    h.iq and h'.iq are related by recv-option
+    h.oq and h'.oq are related by send-option
+
+
+(hmm - then the network rules deliver_out_99 (and whatever analogue we
+have for input) are no longer quite 'dull' in the sense above, as they
+change iq,oq.  They should be treated differently in the theorem, but
+still not appear in the diagram)
+
+Include (so can easily see coverage) all the different kinds of
+incoming segment, even if they don't affect the abstract state.
+
+Perhaps should restrict to segments that are sane and that match the
+socket in question, even though that'll make the abstraction
+relationship more delicate, as otherwise the abstract model has some
+very liberal transitions.
+
+
+The remainder of this file is the result of pasting in
+TCP1_hostLTSScript.sml and cutting out everything that doesn't seem
+required.  For most rules it's boiled down enough -- deliver_in_3
+needs more work, unsurprisingly.
+
+
+
+Fairly-dull rules:
+(ie can affect the queues, but not the state)
+
+   recv_*
+   send_*
+
+
+
+Dull rules:
+
+   return_1 /* misc nonurgent (* return result of system call to caller *) */
+
+   accept_1 /* rc (* normal case *) */
+   accept_2 /* block (* waiting for connection *) */
+   accept_3 /* fast fail (* no connections, non-blocking semantics requested *) */
+   accept_6 /* slow nonurgent fail (* system call interrupted by signal *) */
+   accept_7 /* rc (* socket not in LISTEN state *) */
+   accept_8 /* rc (* out of resources *) */
+   accept_8a /* rc (* out of file descriptors *) */
+
+   bind_*
+
+   close_1 /* fast succeed (* not the last file descriptor for this file *) */
+   close_2 /* fast succeed (* normal close of established connection without blocking  *) */
+      (mutates cantsndmore,cantrcvmore)
+   close_4 /* block (* normal close of established connection with blocking (lingering)  *) */
+   close_5 /* slow urgent succeed (* successful completion of lingering close *) */
+   close_6 /* slow nonurgent fail (* unsuccessful completion of lingering close *) */
+   close_9 /* slow nonurgent fail (* system call interrupted by signal *) */
+
+   connect_2 /* slow urgent succeed (* normal case *) */
+   connect_3 /* slow urgent fail (* connection rejected by remote host *) */
+   connect_4 /* slow nonurgent fail (* system call interrupted by signal *) */
+   connect_5 /* fast fail (* socket already in use *) */
+   connect_5a /* fast fail (* no route *) */
+   connect_5b /* fast fail (* address already in use *) */
+   connect_5c /* fast fail (* no ephemeral ports available *) */
+   connect_6 /* rc (* out of resources *) */
+
+   dup_*
+
+   dupfd_*
+
+   listen_2 /* fast fail (* socket not bound *) */
+   listen_3 /* fast fail (* socket in wrong state *) */
+   listen_6 /* fast badfail (* out of resources *) */
+
+   getfileflags_1 ..  getsocklistening_1
+
+   shutdown_*
+
+   sockatmark_*
+
+   pselect_*
+
+   socket_2 /* fast fail (* too many file descriptors for this process *) */
+   socket_3 /* fast badfail (* out of resources *) */
+
+   getsockname_*
+   getpeername_*
+   badf_1 /* fast fail (* bad file descriptor *) */
+   notsock_1 /* fast fail (* not a socket *) */
+
+
+Non-dull rules:
+
+   accept_5 /* rc (* connection aborted (locally?) *) */
+   CLOSED -- lbl --> NONEXISTENT
+
+   close_3 /* fast succeed (* forced (abortive) close of established connection without blocking  *) */
+     st --  Lh_call (tid,close(fd)) --> NONEXISTENT
+     st IN {ESTABLISHED;FIN_WAIT_1;CLOSING;FIN_WAIT_2;
+            TIME_WAIT;CLOSE_WAIT;LAST_ACK} /\
+
+   close_7 /* fast succeed (* closing a [[CLOSED]] or [[SYN_SENT]] socket *) */
+     st --  Lh_call (tid,close(fd)) --> NONEXISTENT
+     st IN {CLOSED; SYN_SENT}
+
+   close_8 /* fast succeed (* closing a listening socket *) */
+     st --  Lh_call (tid,close(fd)) --> NONEXISTENT
+     st = LISTEN
+     send = ...rsts_to_go...
+
+
+   connect_1 /* block (* normal case *) */
+   CLOSED  -- Lh_call (tid,connect(fd,i2,p2)) --> SYN_SENT
+   send: ~A,~R, S, ~F                (ignore possibility this seg gets lost, as for all the others)
+
+
+   listen_1 /* fast succeed (* normal case *) */
+     CLOSED   -- Lh_call (tid,listen(fd,n)) -->  LISTEN
+
+   socket_1 /* fast succeed (* normal case *) */
+     NONEXISTENT    -- Lh_call (tid,(socket ())) -->   CLOSED
+
+   deliver_in_1 /* network nonurgent (* passive open normal case: receive SYN, send SYN,ACK *) */
+      NONEXISTENT( with exists a LISTEN. Sometimes there's also a TIME_WAIT, which moves to CLOSED) --> SYN_RECEIVED
+      recv = ~A, ~R, S, FIN
+      send =  A, ~R, S, F
+
+   (* hmm. not sure how the formal abstract LTS deals with that TIME_WAIT bit *)
+   (* or, indeed, the exists-a-LISTEN bit *)
+
+
+   deliver_in_1b /* network nonurgent (* receive bad or boring datagram and RST or ignore for LISTEN socket *) */
+     LISTEN --> LISTEN
+     recv ACK, ~R, SYN, FIN
+       (ACK \/
+       (~SYN /\ ~ACK) \/
+       (SYN /\ ~ACK /\ i1 = i2 /\ p1 = p2) \/
+       accept_incoming_q0 lis F
+     send = if ~ACK then  NONE else ~ACK, R, ~S, FIN?
+
+    (* hmm, that condition is a bit complex to say on a diagram... *)
+
+
+
+
+   deliver_in_2 /* network nonurgent (* simultaneous open or completion of active open, in SYN_SENT: receive SYN, send SYN,ACK or receive SYN,ACK, send ACK *) */
+     SYN_SENT --> st'
+     recv = ACK, ~R, S, FIN
+
+     FIN' = (if data' = data_deoobed then FIN else F) /\
+
+     send = nothing, or if ACK then  A, ~R, S, ~F , or if ~ACK then A,~R,~S,~F
+
+     (if ACK then
+          (* completion of active open *)
+          (if ~FIN' then
+             (st' = ESTABLISHED /\
+              cantrcvmore' = F)  (* weird - is this just initialising it? *)
+           else
+             (st' = CLOSE_WAIT /\
+              cantrcvmore' = T))
+      else
+          (* simultaneous open *)
+          (if ~FIN' then
+             (st' = SYN_RECEIVED /\
+              cantrcvmore' = F)
+            else
+              (* should go to "SYN_RECEIVED*", i.e., remember we want to go to CLOSE_WAIT not ESTABLISHED later *)
+             (st' = CLOSE_WAIT /\  (* yes, really! (in BSD) even though we've not yet had our initial SYN acknowledged! *)
+                                    (* we belive this based on a reading of tcp_input.c:2065 +/-2000 *)
+              cantrcvmore' = T))
+     )
+
+
+
+   deliver_in_2a /* network nonurgent (* receive bad or boring datagram and RST or ignore for SYN_SENT socket *) */
+      SYN_SENT --> SYN_SENT
+      recv = ACK, ~R, SYN, FIN
+      send = nothing, or (ack unacceptable)  ~ACK, R, ~S, FIN'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+   deliver_in_3 /* network nonurgent (* receive data (and maybe do other things...  cope with any non-RST,non-SYN segment in >=SYN_RECEIVED states ) *) */
+
+    st --> st'
+    recv = ACK, ~R, ~S, FIN
+
+
+
+    let topstuff =
+
+
+            (* test for stupid ACK in SYN_RECEIVED, and for LAND DoS attack *)
+            if sock.st = SYN_RECEIVED /\
+                ((ACK /\ (ack <= cb.snd_una \/ ack > cb.snd_max)) \/  (* stupid ACK in SYN_RECEIVED state *)
+                 seq < cb.irs)  (* partial LAND DoS fix *)
+            then
+                send = maybe ACK?, R, ~S, FIN?  ; stop
+
+            (* test for data arriving after process has gone away *)
+            else if sock.st IN {FIN_WAIT_1; CLOSING; LAST_ACK; FIN_WAIT_2; TIME_WAIT} /\
+                    sock.fid = NONE /\  (* why not check cantrcvmore instead?? *)
+                    int_of_num (LENGTH sock.rcvq) - (cb.rcv_nxt - seq) > 0
+            then
+                (* OK to ignore tt_keep', tt_fin_wait_2' and t_idletime' here, since we're closing anyway *)
+                send = maybe ACK?, R, ~S, FIN? ; st' = CLOSED
+
+            (* PAWS: test for wrapped sequence numbers or 1509 whatever *)
+            else if ... then
+                either send = maybe ACK?, R, ~S, FIN?  OR A,~R,~S,FIN?
+            else
+                continue
+
+
+    and synrcvdstuff =
+
+        (if sock.st = SYN_RECEIVED then
+             let st' =
+                 (if cb.tf_needfin then
+                      FIN_WAIT_1  (* think this is unreachable via sockets API *)
+                  else
+                      ESTABLISHED
+                 ) in
+         else (* not SYN_RECEIVED *)
+             cont
+        )
+
+
+    and ackstuff =
+        (get_cb \ cb.
+
+        (* test if duplicate ACK *)
+        if ack <= cb.snd_una /\ data = [] /\ win = cb.snd_wnd /\
+           mode_of cb.tt_rexmt NOTIN {SOME Rexmt; SOME RexmtSyn} (* think can never be in RexmtSyn *) then
+
+            (* test if <=2nd duplicate ack.  If so, continue *)
+            if t_dupacks' < 3  then
+                 cont
+
+            (* test if >=third duplicate ack. If so, do fast retransmit or false retransmit or something*)
+            else
+                mlift_tcp_output_perhaps_or_fail (ticks_of h.ticks) h.rttab h.ifds andThen
+                stop)
+
+
+
+        (* test if an old ack but neither a duplicate ack, nor an ack of a new sequence number. If so, that's the end of ackstuff *)
+        else if ack <= cb.snd_una /\ ~(data = [] /\ win = cb.snd_wnd /\ mode_of cb.tt_rexmt NOTIN {SOME Rexmt; SOME RexmtSyn} (* think can never be in RexmtSyn *) /\ ack = cb.snd_una) then
+
+             cont)
+
+
+
+        (* ack of new sequence number (thus not an old or duplicate ack) *)
+        else (* ack > cb.snd_una *)
+
+
+            (get_cb \ cb''.
+
+            if ack > cb''.snd_max then    (* P is astonished that this happens after the cwnd messing above... *)
+                (mlift_dropafterack_or_fail seg h.rttab h.ifds (ticks_of h.ticks) andThen
+                 stop)
+
+            else
+
+                if sockv.st = LAST_ACK /\ ack > cb.snd_una + LENGTH sockv.sndq then
+                    (modify_sock tcp_close andThen
+                     stop)
+                else if sockv.st = TIME_WAIT /\ ack > cb.snd_una  then
+                     mlift_dropafterack_or_fail seg h.rttab h.ifds (ticks_of h.ticks) andThen
+                     stop)
+                else (* rest of rule *)
+
+                (* change state and we're done as far as ackstuff goes (nb datastuff can change
+                state aswell); maybe play with timers *)
+                (case (sock.st, ack > cb.snd_una + LENGTH sockv.sndq (* ourfinisacked; note time travel *)) of
+                     (LAST_ACK,T)    -> modify_sock tcp_close andThen
+                                        stop ||
+
+                     (TIME_WAIT,_95) -> mlift_dropafterack_or_fail seg h.rttab h.ifds (ticks_of h.ticks) andThen
+                                        stop ||
+
+                     (FIN_WAIT_1,T)  -> modify_sock (\s.s with <| cb := s.cb with
+                                             st := FIN_WAIT_2 |>) ||
+
+                     (CLOSING,T)     -> modify_sock (\s.s with <| cb := s.cb with
+                                              st := TIME_WAIT |>) ||
+
+                     ___             -> cont)
+                )  (* sockv *)
+                )  (* cbiv *)
+            ) (* cb'' *)
+        (* end of ACK processing *)
+        ) (* cb *)
+
+
+    and datastuff =
+        (get_sock \ sock.
+
+        (if FIN_reass = F then (* we didn't get a FIN *)
+              case sock.st of
+                  SYN_RECEIVED-> if ack >= cb.iss + 1 then (* SYN has been ACKed *)
+                                     modify_sock (\s.s with <| st := ESTABLISHED |>)
+                                 else
+                                     (* or should we do a RST or something? *)
+                                     cont ||
+                  ESTABLISHED -> cont ||
+                  CLOSE_WAIT  -> (* weird; RFC says ignore *)
+                                 cont ||
+                  FIN_WAIT_1  -> if ourfinisacked then
+                                     modify_sock (\s.s with <| st := FIN_WAIT_2;
+                                 else (* nothing interesting *)
+                                     cont ||
+                  FIN_WAIT_2  -> (* weird; guess we ignore it.  Must (?) be an ACK of 0 new bytes *)
+                                 cont ||
+                  CLOSING     -> if ourfinisacked then
+                                     modify_sock (\s.s with <| st := TIME_WAIT;
+                                 else (* nothing interesting *)
+                                     cont
+         else (* we got a FIN *)
+              case sock.st of
+                  SYN_RECEIVED-> modify_sock (\s.s with <| st := CLOSE_WAIT |>) ||
+                  ESTABLISHED -> modify_sock (\s.s with <| st := CLOSE_WAIT |>) ||
+                  CLOSE_WAIT  -> (* second FIN, with another sequence number - RFC793 says ignore *)
+                                 cont ||
+                  FIN_WAIT_1  -> if ourfinisacked then (* normal close *)
+                                     (* note that this case in the BSD code is handled by moving first to FW2 and then to TIME_WAIT *)
+                                     modify_sock (\s.s with <| st := TIME_WAIT;
+                                 else (* simultaneous close *)
+                                     modify_sock (\s.s with <| st := CLOSING |>) ||
+                  FIN_WAIT_2  -> modify_sock (\s.s with <| st := TIME_WAIT;
+                  CLOSING     -> (* second FIN, with another sequence number - RFC793 says ignore *)
+                                 cont
+        )
+        ) (* chooseM FIN_reass *)
+        ) (* get_sock sock *)
+
+    in
+
+    (*: \leaders\hbox{~~-=-~~}\hfill :*)
+    (* fancy glue code to munge them all together *)
+
+    (topstuff      andThen
+     synrcvdstuff  andThen
+     ackstuff      andThen
+     datastuff)
+       (sock,bndlm) ((sock',bndlm',outsegs),continue') /\
+
+
+%% P HAVEN@T READ THE BIT JUST BELOW
+
+    (if sock.st = SYN_RECEIVED then
+         ?sid' lis q0L q0R.
+         sid' <> sid /\ (socks ' sid').lis = SOME lis /\ lis.q0 = APPEND q0L (sid :: q0R) /\
+         if sock'.st IN {ESTABLISHED; FIN_WAIT_1; FIN_WAIT_2; CLOSE_WAIT} then
+             choose ok :: accept_incoming_q lis.
+             if ok then  (* room in lis.q? *)
+                 let lis' = lis with <| q0 := APPEND q0L q0R; q := sid :: lis.q |> in
+                 socks' = socks FUPDATE_LIST
+                            [(sid,sock');
+                             (sid', (socks ' sid') with <| lis := SOME lis' |>)]
+             else
+                 (* drop the connection on the floor; FreeBSD comment points out that a RST
+                    will be sent anyway, if the peer resends the ACK *)
+                 let lis' = lis with <| q0 := APPEND q0L q0R |> in
+                 socks' = socks |+ (sid', (socks ' sid') with <| lis := SOME lis' |>) /\  (* delete socket from listen queue *)
+                 sid NOTIN FDOM socks'  (* delete socket from set of sockets *)
+         else
+             F  (* shouldn't happen *)
+     else
+         socks' = socks |+ (sid,sock')
+    ) /\
+
+    (* NB: we use the relational form of the specification to good
+       effect here, and it feels a bit like an attribute grammar.  The
+       specification above decides which segments to emit, but it is the
+       enqueueing operation below that decides whether each segment is
+       queued successfully or not.  Thus the first element of each pair
+       (the message) is constrained above, and the second element (the
+       queued flag) is constrained here.  That flag is then used above
+       to decide whether state must be rolled back to account for the
+       queueing failure. *)
+    enqueue_oq_list_qinfo(oq,outsegs,oq')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+   deliver_in_4 /* network nonurgent (* receive and drop (silently) a non-sane or martian segment *) */
+      st --> st
+      recv = ?,?,?,?
+      send = []
+
+ugh. that -- in this abstraction -- is just a touch liberal...
+
+
+
+
+
+   deliver_in_5 /* network nonurgent (* receive and drop (maybe with RST) a sane segment that doesn't match any socket*) */
+      st --> st
+      recv = ?,?,?,?
+      send = maybe ACK?, R, ~S, FIN?
+
+perhaps the abstraction should be i1,p1,i2,p2 specific?
+
+
+
+
+   deliver_in_6 /* network nonurgent (* receive and drop (silently) a sane segment that matches a CLOSED socket*) */
+      CLOSED --> CLOSED
+      recv = ?,?,?,?
+      send = []
+
+
+
+   deliver_in_7 /* network nonurgent (* receive RST and zap non-{CLOSED;LISTEN;SYN_SENT;SYN_RECEIVED;TIME_WAIT} socket *) */
+     st ==> CLOSED
+     recv = ?, R,?,?
+
+     sock.st NOTIN {CLOSED; LISTEN; SYN_SENT; SYN_RECEIVED; TIME_WAIT} /\
+
+(* looks to P as if the code might let a RST out, though never-rst-a-rst suggests it shouldn't *)
+
+
+   deliver_in_7a /* network nonurgent (* receive RST and zap SYN_RECEIVED socket *) */
+     SYN_RECEIVED --> NONEXISTENT
+     recv = ?, R, ?, ?
+
+
+
+
+   deliver_in_7b /* network nonurgent (* receive RST and ignore for LISTEN socket *) */
+     LISTEN --> LISTEN
+     recv = ?, R, ?, ?
+
+
+
+
+   deliver_in_7c /* network nonurgent (* receive RST and ignore for SYN_SENT(unacc ack) or TIME_WAIT socket *) */
+     st --> st
+     st IN {SYN_SENT; TIME_WAIT} /\
+     recv = ?, R, ?, ?
+
+
+   deliver_in_7d /* network nonurgent (* receive RST and zap SYN_SENT(acc ack) socket *) */
+     SYN_SENT --> NONEXISTENT
+     recv = A, R, ?, ?
+
+
+
+
+   deliver_in_8 /* network nonurgent (* receive SYN in non-{CLOSED;LISTEN;SYN_SENT;TIME_WAIT} state *) */
+     st --> st
+     st NOTIN {CLOSED;LISTEN;SYN_SENT;TIME_WAIT} /\
+     recv = ?, ~R, S, ?
+     send = maybe ?, R, ~S, ?
+
+
+   deliver_in_9 /* network nonurgent (* receive SYN in TIME_WAIT state if there is no matching LISTEN socket *) */
+     TIME_WAIT --> TIME_WAIT
+     recv = ?,~R, S, ?
+     send = maybe ?, R, ~S, ?
+
+
+
+
+
+
+
+   deliver_in_icmp_1 /* network nonurgent (* receive ICMP_UNREACH_NET etc for known socket *) */
+     st --> st'
+     recv = ICMP
+     icmp.t IN { ICMP_UNREACH c |
+                 c IN {NET; HOST; SRCFAIL; NET_UNKNOWN; HOST_UNKNOWN; ISOLATED;
+                       TOSNET; TOSHOST; PREC_VIOLATION; PREC_CUTOFF}} /\
+
+     st = st' OR
+     if sock.st = ESTABLISHED then
+          sock' = sock /\  (* ignore transient error while connected *)
+          oq' = oq
+     else if sock.st IN {CLOSED;LISTEN;SYN_SENT;SYN_RECEIVED} /\ ... then
+             tcp_drop_and_close (SOME EHOSTUNREACH) sock (sock',outsegs) /\
+         else
+             sock' = sock with <| cb := sock.cb with <| t_softerror := SOME EHOSTUNREACH |> |> /\
+             oq' = oq  (* TODO: frame below too *)
+     else
+         (* TODO: if it would be a syncache entry, should do syncache_unreach() instead *)
+         sock' = sock /\
+         oq' = oq
+
+
+
+
+
+
+
+   deliver_in_icmp_2 /* network nonurgent (* receive ICMP_UNREACH_NEEDFRAG for known socket *) */
+     st --> st
+     recv = ICMP
+     icmp.t = ICMP_UNREACH (NEEDFRAG icmpmtu) /\
+     send = maybe just tcp_output
+
+
+
+
+
+   deliver_in_icmp_3 /* network nonurgent (* receive ICMP_UNREACH_PORT etc for known socket *) */
+      st --> st'
+     recv = ICMP
+     icmp.t IN { ICMP_UNREACH c |
+                 c IN {PROTOCOL; PORT; NET_PROHIB; HOST_PROHIB; FILTER_PROHIB}} /\
+         if sock.st = SYN_SENT and ... then
+             tcp_drop_and_close (SOME ECONNREFUSED) sock (sock',[])  (* know from definition of tcp_drop_and_close that no segs will be emitted *)
+         else
+             nop
+
+
+
+
+   deliver_in_icmp_4 /* network nonurgent (* receive ICMP_PARAMPROB etc for known socket *) */
+     st --> st'
+     recv = ICMP
+     icmp.t IN { ICMP_PARAMPROB c |
+                 c IN {BADHDR; NEEDOPT}} /\
+    if sock.st IN {CLOSED;LISTEN;SYN_SENT;SYN_RECEIVED} /\ ... then
+             tcp_drop_and_close (SOME ENOPROTOOPT) sock (sock',outsegs) /\
+    else
+       nop
+
+
+
+
+   deliver_in_icmp_5 /* network nonurgent (* receive ICMP_SOURCE_QUENCH for known socket *) */
+     st --> st
+     recv = ICMP
+     icmp.t = ICMP_SOURCE_QUENCH QUENCH
+
+
+
+
+   deliver_in_icmp_6 /* network nonurgent (* receive and ignore other ICMP *) */
+      st --> st
+      recv = ICMP
+     (icmp.t IN { ICMP_TIME_EXCEEDED INTRANS; ICMP_TIME_EXCEEDED REASS } \/
+      icmp.t IN { ICMP_UNREACH       (OTHER x) | x IN UNIV } \/
+      icmp.t IN { ICMP_SOURCE_QUENCH (OTHER x) | x IN UNIV } \/
+      icmp.t IN { ICMP_TIME_EXCEEDED (OTHER x) | x IN UNIV } \/
+      icmp.t IN { ICMP_PARAMPROB     (OTHER x) | x IN UNIV })
+
+
+
+
+
+
+
+   deliver_in_icmp_7 /* network nonurgent (* receive and ignore invalid or unmatched ICMP *) */
+     st --> st
+     recv = ICMP
+
+very liberal!
+
+
+
+
+   deliver_in_99 /* network nonurgent (* really receive things *) */
+
+not in the abstraction LTS
+
+
+
+
+
+
+
+
+
+
+
+   timer_tt_rexmtsyn_1 /* misc nonurgent (* SYN retransmit timer expires *) */
+     SYN_SENT --> SYN_SENT   (* follows from some invariant??? *)
+     either (if last timeout)
+        tcp_drop_and_close (SOME ETIMEDOUT) sock (sock',[]) /\  (* since socket state is SYN_SENT, no segments can be output *)
+     or
+        send =  maybe make_syn_segment cb' (i1,i2,p1,p2) (ticks_of h.ticks).
+
+
+
+
+
+   timer_tt_rexmt_1 /* misc nonurgent (* retransmit timer expires *) */
+     st --> st
+     sock.st NOTIN {CLOSED; LISTEN; SYN_SENT; TIME_WAIT} /\  (* assertion; makes intended dynamic restriction a static one *)
+
+     sometimes
+        tcp_drop_and_close (SOME ETIMEDOUT) sock (sock',[TCP seg'])  (* will always get exactly one segment *)
+
+     else
+        (if sock.st = SYN_RECEIVED then
+             make_syn_ack_segment cb' (i1,i2,p1,p2) (ticks_of h.ticks) /\
+             )
+         else (* ESTABLISHED, CLOSE_WAIT, FIN_WAIT_1, CLOSING, LAST_ACK, FIN_WAIT_2 *)
+              (* i.e., can't be CLOSED, LISTEN, SYN_RECEIVED, SYN_SENT, TIME_WAIT *)
+             tcp_output_really F (ticks_of h.ticks) h.ifds (sock with <| cb := cb' |>) (sock',[TCP seg'])  (* force segment out *) (* always emits exactly one segment *)
+        )
+
+
+
+
+   timer_tt_persist_1 /* misc nonurgent (* persist timer expires *) */
+     st --> st (but some invariant restricts it!)
+     send = A, ~R, ~S, ?
+
+
+
+
+
+   timer_tt_keep_1 /* network nonurgent (* keepalive timer expires *) */
+     st --> st  (but some invariant restricts it!)
+     send = A, ~R, ~S, ~F
+
+
+
+
+
+
+
+   timer_tt_2msl_1 /* misc nonurgent (* 2*MSL timer expires *) */
+     st --> CLOSED  (but some invariant restricts st!)
+
+
+
+
+
+   timer_tt_delack_1 /* misc nonurgent (* delayed-ACK timer expires *) */
+     st --> st (but some invariant restricts it!)
+     send = A, ~R, ~S, ?
+
+
+
+
+
+
+   timer_tt_conn_est_1 /* misc nonurgent (* connection establishment timer expires *) */
+     st --> CLOSED (but some invariant restricts st!)
+     send = A, R, ~S, ?
+
+
+
+
+
+
+
+
+   timer_tt_fin_wait_2_1 /* misc nonurgent (* FIN_WAIT_2 timer expires *) */
+     st --> CLOSED (but some invariant enforces st=FIN_WAIT_2 ???)
+
+
+
+
+
+
+
+
+
+   deliver_out_1 /* network nonurgent (* send some stuff (common case) *) */
+     st --> st
+     st IN {ESTABLISHED;CLOSE_WAIT;FIN_WAIT_1;FIN_WAIT_2;
+            CLOSING;LAST_ACK;TIME_WAIT} /\
+     send = A, ~R, ~S, FIN
+     st' = if FIN then
+                 case sock.st of
+                   ESTABLISHED -> FIN_WAIT_1 ||
+                   CLOSE_WAIT  -> LAST_ACK ||
+                   FIN_WAIT_1  -> sock.st ||          (* FIN retransmission *)
+                   FIN_WAIT_2  -> sock.st ||          (* can't happen       *)
+                   CLOSING     -> sock.st ||          (* FIN retransmission *)
+                   LAST_ACK    -> sock.st ||          (* FIN retransmission *)
+                   TIME_WAIT   -> sock.st             (* can't happen       *)
+           else
+             st
+
+
+argh - think i've probably missed some of the tcp_output_really state changes above.....
+should grep through the original for tcp_output_really.
+
+
+
+
+
+
+
+
+
+
+   deliver_out_99 /* network nonurgent (* really send things *) */
+
+
+not in the abstract model
+
+
+
+
+
+---------------------------------
+
+Not yet examined (the rest of this file is just paste from TCP1_hostLTSScript.sml):
+

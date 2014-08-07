@@ -1,0 +1,22 @@
+#!/bin/sh
+while true; do
+    sleep 1;
+    head -c1 /dev/random | od -b | head -1 | grep -q '3$'
+    if [ $? -eq 0 ] ; then
+        echo "Simulating crash before Ready."
+        exit 11
+    fi
+    echo Ready.
+    read FILE
+    if [ "$FILE" = "" -o "$FILE" = "quit" ]; then
+	echo Bye.
+        exit 0
+    fi
+    echo Processing $FILE...
+    sleep 2
+    head -c1 /dev/random | od -b | head -1 | grep -q '3$'
+    if [ $? -eq 0 ] ; then
+        echo "Simulating crash during processing."
+        exit 22
+    fi
+done

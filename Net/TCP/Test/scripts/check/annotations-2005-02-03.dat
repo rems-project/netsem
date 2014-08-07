@@ -1,0 +1,253 @@
+Annotations file for check run.
+
+Keywords (first on line after tag):
+
+  KNOWN - no intention to fix just now
+  FIXED - think fixed
+    NB: don't use this if you fix something that's broken in the
+    current run; set it in the _next_ run.
+
+######################################################################
+# NON-SPEC ISSUES
+
+*!LastMoreMem KNOWN these crashed once due to lack of memory, but were fixed with more memory or better CheckTraces
+0345,0348,0363,0444,0463,0464,0483,0503,0505,1073,1266,1267,1274,1275,1276,1277,1278,1279,1280,1281,1282,1287,1876
+
+*!LastMem KNOWN these crashed once due to some memory issue (out of memory, sig11, free invalid ptr sig6, or Uncaught exception: Problem)
+trace1167 ,,2269
+,, trace0891
+ trace0884 trace0885 trace0887 trace0886 trace0888
+ trace1703 trace1804 trace1805
+trace1806 trace1807 trace1808 trace1809 trace1810 trace1811 trace1812
+trace1813 trace1814 trace1815 trace1816 trace1817 trace1818 trace1819
+trace1868 trace1869 trace1950 trace1951 trace1953 trace1955 trace1960
+trace1962 trace1957
+
+*!Mem KNOWN these crashed this time due to out-of-memory at the 160MB limit
+0433,1301,1302
+
+*!Prob KNOWN crash once due to Uncaught exception: Problem  (perhaps memory issue)
+2250,2251
+
+*!LastCrash crashed once
+0295,1167,0891
+0350,1258
+
+*!Crash KNOWN crash (machine in use too long or switched off, mostly <code>pons</code> screwing up)
+0334, 0879, 1303, 1307, 1430, 1451
+
+*!IE1 Internal error: Exception raised at Conv.RAND_CONV: REWR_CONV: lhs of thm doesn't match term
+0487
+
+*!IE2 Internal error: Exception raised at Drule.EQT_ELIM
+1603
+
+*!Rt KNOWN rate bounds build up when no time data is available
+1113
+
+*!Rt2 rate constants building up when there is no ticker info available
+0889,0890,0892,0893
+
+
+######################################################################
+# FUNDAMENTAL SPEC ISSUES
+
+*-Tim KNOWN problematic timing issue - model is more atomic than it should be
+0324,0347,
+
+The problem is the 0.011077sec in step 22->23, which is the time
+interval between the call to connect() and the "segment output"
+holtcpcb-v8 trace event.  BSD doesn't pick the ts value at the moment
+of the call being made in user-land; it picks it when it wants to
+generate the segment, while executing soconnect in kernel-land.  In
+this case there's been a scheduling delay between call and execution.
+
+This is a timing problem in our model.
+
+
+######################################################################
+# TEST GENERATION ISSUES
+
+*+Fd KNOWN test generation incorrect: dupfd returns the wrong FD
+2254,2255,2257
+Description: [[dupfd()]] is Posix [[fcntl()]] using the |F_DUPFD|
+command but the test generation tool incorrectly uses dup2() instead.
+
+*+RST KNOWN test generation incorrect: RST test gen problem
+1170
+Description: The test generation tool injects a RST segment with the
+source and destination addresses the wrong way round causing the trace
+to fail on the last step.
+
+(and perhaps 1167 but that also has another issue, crashing)
+
+*+Gse KNOWN test generation incorrect: getsockerr() test gen problem
+1659
+Description: [[getsockerr()]] is implemented incorrectly in the test
+generation tool and so returns the wrong error.
+
+*+TSR KNOWN holtcpcb-v8 incorrectly reports a valid ts_recent as invalid when timestamping not negotiated (holtcpcb-v8 now fixed, but test not regen'ed)
+1427
+
+
+######################################################################
+# SPEC ISSUES
+
+*C5a KNOWN connect_5a underspecified is1; now fixed in new run
+0240
+
+*Di2-1 KNOWN deliver_in_2: BSD updates info even from dropped packet
+1728 - step 30, but fails at step 40
+Description: In SYN_SENT, on receiving a SYN,ACK segment with an
+out-of-range ACK, BSD erroneously updates rcv_wnd and ts_recent even
+though the packet is dropped.  See large comment in [[deliver_in_2]].
+
+*Di2-2 SYN_SENT with FIN: issue with trace ts_recent and snd_cwnd after d_i_2
+1428 - ts_recent and snd_cwnd (and also, but unchecked: last_ack_sent, snd_recover) at step 60
+Note that the ts_recent issue is a trace gen one (see +TSR above) that
+has been fixed.  I think the cwnd issue is new though.
+
+*Re-R1 Long time passage can't be done / SYN,ACK rexmt behaviour?
+2065 - step 45
+Description: Can't do time passage because epsilon_2 not implemented -
+or is it in fact because we have [[TCP_SYNACKMAXRXTSHIFT]] wrong?
+
+*Re-R Model has RST where SYN,ACK rexmt expected
+1564
+Description: In this trace there are four retransmits of a SYN,ACK
+instead of three as expected. (See trace2065 which has 3.)
+
+*Re-N retransmit timer
+0392
+Description: The retransmit timer fires in the model but no SYN is
+retransmitted in the trace despite the presence of trace records
+indicating one should have been emitted. Probably a test generation
+problem.
+
+*C8-N close_8 - attempting this rule here gives TOO_COMPLICATED
+1146,1149
+NB: the other 30 times it is attempted, there is no problem.
+
+*Fp1 FIXED trace not matching after di3, with snd_wl1 differing (fastpath code incorrect?)
+1790 - at step 48
+1900,1901
+,1923,1925,1911
+1939
+
+*Fp1a FIXED t_dupacks difference now believe fixed (was Fp1)
+1899
+
+*Rcv-O FIXED recv() returning ECONNRESET (fixed in the latest version of the spec)
+1590
+
+*Di3-gen deliver_in_3 lifts socket details into variable sock2 and oq into oq'
+1429,1828,1829,1830,1831,1832,1833
+,2260,2262
+
+Moving all the detail from the host to the constraints makes the
+constraints too complicated, and fails.  Need to look at how d_i_3 is
+written, and see what's causing this.
+
+*TW No rule matches incoming SYN in TIME_WAIT (d_i_9 issue)
+1772, - at step 101
+1774, - at step 103
+1775 - at step 82
+Description: One connection is in TIME_WAIT; another connection is
+listening on the same local pair.  A SYN from the same remote pair to
+the same local pair is received: with an invalid iss, is ignored; with
+a valid iss, is RSTed; with no listener, is RSTed.  Model doesn't match this.
+KW has changed something in d_i_9, but not sure it will yield the
+desired result.  No fundamental reason for not fixing yet, just needs
+more investigation.
+
+*Fp2 FIXED rcv_wnd and rcv_nxt are wrong after data delivered by d_i_3 in TIME_WAIT (believe fixed now)
+They're out by the length of the data, indicating that the model
+accepts the data but BSD does not.
+1788 - at step 80
+1877 - at step 92
+1884
+1891
+,1898
+,1927
+,,1941,
+2113,
+
+*Fp2a FIXED rcv_wnd and rcv_nxt are wrong after data delivered by d_i_3 (fastpath incorrect?) (believe fixed now)
+They're out by the length of the data, indicating that the model
+accepts the data but BSD does not.
+1909,1913,1937
+
+*Fp3 mystery snd_cwnd difference (was Fp2, but those are now fixed)
+1875,1882,1889,1896
+
+*Shu Shutting down and then connecting on BSD emits a zero-window SYN! (BUG!)
+This would appear to be a BSD bug or infelicity.
+2226 - was rcv_wnd on sending SYN, nothing done
+
+*Pipe Trace is expected to return EPIPE on getting a RST but it returns OK - send_3/3a return eagerly despite SND_LOWAT
+2267
+Description: BSD actually returns EPIPE, but send has apparently
+already succeeded.  Reason: SND_LOWAT is not implemented correctly in
+send_3 and send_3a; furthermore, the search doesn't notice that it has
+introduced an impossible constraint ``nrange (space + LENGTH str') 13
+5`` in transitioning send_3.  Too much effort to fix just now for
+little gain.
+
+Reason: send_3 and send_3a return after shifting
+less than SND_LOWAT bytes; in fact, those rules don't even look at the
+low-water mark.  This is presumably incorrect, but only relevant when
+the low-water mark is set.
+
+*MSS-loop maximum segment size is actually 14336 (not 1460 as model says) on loopback
+0447 - at step 116
+
+*Ph1 phantom seg not generated - timer incorrectly not firing
+0822
+
+*Ph2 phantom seg correctly generated, but incorrectly has FIN set (or some other difference)
+0815,0816,0817
+0823
+0824
+0825,0826,0827,0828,0829,0830,0831
+0832,0833,0834,0835,0836
+0837,0838,0839,0840,0841,0842,0843
+0864,0865,0866,0867,0868,0869,0870,0871,0872,0873,0874,0875
+
+*PhOK FIXED phantom seg completely correct
+trace2127,trace2294
+
+*LoWat getsocknopt RCVLOWAT and SNDLOWAT should be OK, but model has ENOPROTOOPT
+1410,1411
+
+*BadLis when LISTEN gets a bad seg, it generates an TA_OUTPUT trace not matched by model
+1698,1701
+
+Specifically, the trace record has all four parts of quad filled in,
+whereas model is expecting only 2.  Interestingly, it generates this
+even for 1698, which has a martian source and so the TA_OUTPUT segment
+is never actually emitted.  FIX: allow TA_OUTPUT for LISTEN to be
+overspecified for is2 ps2.
+
+*Rxmt timer_tt_rexmt_1 not firing when it should in CLOSE_WAIT
+1821 - at step 92
+1823 - at step 98
+1825 - at step 92
+1827 - at step 92
+
+*RU2 rcv_up (and sometimes snd_cwnd) incorrect after di3
+1954,1956,1961,1963 - at step 84
+
+*Tp can't do long time passage for some reason
+,2060,2063,,2072,2079,2082,
+
+*Data wrong amount of data in segment
+2070 - segment at step 56 should carry one byte of data, but model says none
+2259 - emits 14 bytes not 12 in segment (d_o_1 timing issue?)
+
+*FW12 FIN_WAIT_1 vs FIN_WAIT_2; two apparently-conflicting trace records
+2078 - two conflicting trace records?  or are they different sids?
+
+
+
+# END
+######################################################################

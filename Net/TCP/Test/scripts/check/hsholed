@@ -1,0 +1,118 @@
+#!/usr/bin/perl -w
+
+# Listens on a specific port; when it receives a connection, gives it
+# a shell, in the current environment, with stdin and (stdout&stderr)
+# connected to the connected socket.  Closes the socket when the
+# command terminates.
+
+# THIS IS (obviously) A HUGE SECURITY HOLE!
+
+# To make it a very little bit secure, the protocol involves a
+# challenge-response that depends on a shared secret.
+
+# much of the code is from perlipc(1)
+
+use strict;
+
+use Socket;
+use Carp;
+use Digest::MD5;
+
+my $PORT = 20784;
+my $SECRETFILE = "$ENV{'HOME'}/.hshole";
+my $WORKER = "/bin/bash";
+
+# --------------------------------------------------------------------
+
+die "Secret file $SECRETFILE not found!\n" unless -e $SECRETFILE;
+die "Secret file $SECRETFILE not owned by you!\n" unless -o $SECRETFILE;
+die "Secret file $SECRETFILE accessible by others!\n" if ((stat($SECRETFILE))[2] & 0077);
+my $SECRET = '';
+open my $sfh, "<$SECRETFILE" or die "Couldn't read secret file $SECRETFILE: $!\n";
+{
+    local $/;
+    $SECRET = <$sfh>;
+}
+close $sfh or die "Couldn't close secret file $SECRETFILE: $!\n";
+
+# --------------------------------------------------------------------
+
+sub logmsg { print "$0 $$: @_ at ", scalar localtime, "\n" }
+
+my $proto = getprotobyname("tcp");
+socket(LISTENER, PF_INET, SOCK_STREAM, $proto)
+    or die "Couldn't create socket: $!\n";
+setsockopt(LISTENER, SOL_SOCKET, SO_REUSEADDR, pack("l",1))
+    or die "Couldn't set SO_REUSEADDR: $!\n";
+bind(LISTENER, sockaddr_in($PORT, INADDR_ANY))
+    or die "Couldn't bind socket: $!\n";
+listen(LISTENER, SOMAXCONN)
+    or die "Couldn't listen on socket: $!\n";
+
+logmsg "Listening on port $PORT";
+
+my $waitedpid = 0;
+my $paddr;
+
+use POSIX ":sys_wait_h";
+sub REAPER {
+    my $child;
+    while (($waitedpid = waitpid(-1,WNOHANG)) > 0) {
+        logmsg "reaped $waitedpid" . ($? ? " with exit $?" : '');
+    }
+    $SIG{CHLD} = \&REAPER;  # loathe sysV
+}
+
+$SIG{CHLD} = \&REAPER;
+
+for ( $waitedpid = 0;
+      ($paddr = accept(Client,LISTENER)) || $waitedpid;
+      $waitedpid = 0, close Client)
+{
+    next if $waitedpid and not $paddr;
+    my($port,$iaddr) = sockaddr_in($paddr);
+    my $name = gethostbyaddr($iaddr,AF_INET);
+
+    logmsg "connection from $name [",
+            inet_ntoa($iaddr), "]
+            at port $port";
+
+    spawn (sub {
+        $|=1;
+        my $chall = scalar(localtime);
+        print "$chall\n";
+        my $resp = <STDIN>;
+        chomp $resp;
+        my $expect = Digest::MD5::md5_hex($SECRET,$chall);
+        if ($resp eq $expect) {
+            exec $WORKER or confess "can't exec $WORKER: $!";
+        } else {
+            # don't say anything here; just drop the connection silently.
+            exit 255;
+        }
+    });
+
+}
+
+sub spawn {
+    my $coderef = shift;
+
+    unless (@_ == 0 && $coderef && ref($coderef) eq 'CODE') {
+        confess "usage: spawn CODEREF";
+    }
+
+    my $pid;
+    if (!defined($pid = fork)) {
+        logmsg "cannot fork: $!";
+        return;
+    } elsif ($pid) {
+        logmsg "begat $pid";
+        return; # I'm the parent
+    }
+    # else I'm the child -- go spawn
+
+    open(STDIN,  "<&Client")   || die "can't dup client to stdin";
+    open(STDOUT, ">&Client")   || die "can't dup client to stdout";
+    open(STDERR, ">&STDOUT") || die "can't dup stdout to stderr";
+    exit &$coderef();
+}

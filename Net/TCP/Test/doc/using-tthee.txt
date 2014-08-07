@@ -1,0 +1,40 @@
+Keith tried to use tthee and tthee1/test.  Here are his experiences.
+
+* Make sure that .ssh/authorized_keys on each isolated-subnet machine
+(especially john.netsem, for tthee1/test) contains your
+.ssh/identity.pub.  Otherwise you'll get prompted for a password.
+
+* Delta isn't working properly - even setting it to 1000000usec (1
+second) isn't sufficient to avoid time going backwards, even when the
+difference is only 1msec:
+
+   (** 1043427091.679998 "slurp0" **)
+   Lh_senddatagram(TCP(<|
+   [..]
+   (* ## WARNING: time went backwards (negative epsilon transition) ## *)
+   Lh_epsilon(duration(0, -998));
+
+   (** 1043427091.679000 "debug0" **)
+   (* 167 SYN_SENT:output [bb34fe62..bb34fe4e)@0(win=e000)<SYN> -> SYN_SENT *)
+   Lh_trace(SOME(SOME(IP 192 168 0 12), SOME(Port 2299), SOME(IP 192 168 0 13), SOM
+   [..]
+
+(observed this with high debugging level; could it be related?  Would
+be good if debugging didn't screw up the timing code...)
+
+* Lots of blank lines are output to the console.
+
+* Output of warnings etc only appears on the console at exit (not
+  being flushed properly?).
+
+* Sometimes (not always) hangs when debugging is set to OFF.
+
+* When the test process is killed by ^C, not all the processes die -
+  one remains.  The one remaining is blocked in a "select", if that
+  helps:
+
+    (gdb) bt
+    #0  0x4013ab8e in __select () from /lib/libc.so.6
+    #1  0x080a34dc in _GLOBAL_OFFSET_TABLE_ () at eval.c:41
+    #2  0x080c6d88 in ?? () at eval.c:41
+

@@ -1,0 +1,54 @@
+#!/usr/bin/perl -w
+#
+# Script to count the clauses in a HOL inductive definition, by
+# looking at the *Script.sml file.
+#
+# Acts as a filter: $0 file1 > output or $0 < input > output.
+
+require 5.003;
+
+use strict;
+
+my $NOISY = 0;
+
+my $QUIET = 0;
+if (defined($ARGV[0]) && $ARGV[0] eq "-q") {
+    $QUIET = 1;
+    shift;
+}
+
+$| = 1;
+
+print STDERR "Scanning file...\n" if $NOISY;
+
+while (<>) {
+    last if /Net_Hol_reln\s*\`/;
+}
+
+die "No Net_Hol_reln found\n" if !defined($_);
+
+my ($count1,$count2,$count3) = (0,0,0);
+
+$count1++;
+while (<>) {
+    last if /^\s*\`/;
+    $count1++ if /^\s{0,4}\/\\/;
+    $count2++ if /^\s*<==\s*$/;
+    $count3++ if /^\s*--\s+.*-->\s*$/;
+}
+
+die "No ` terminator found\n" if !defined($_);
+
+print STDERR "Counters: $count1 by /\\, $count2 by <==, $count3 by -- -->\n" if $NOISY;
+
+if ($count1 == $count2) {   # && $count2 == $count3  -- only works for hostLTS
+    print "$count1\n";
+} else {
+    if ($QUIET) {
+        print "-1";
+    } else {
+        die "Counters failed to match";
+    }
+}
+
+exit 0;

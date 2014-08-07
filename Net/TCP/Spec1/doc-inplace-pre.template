@@ -1,0 +1,32 @@
+\documentclass[10pt]{article}
+
+\usepackage{ltsmunge}
+%\usepackage{udpstuff}
+
+\usepackage{tcp}
+
+\usepackage[a4paper]{geometry}
+
+\makeatletter
+\newcommand{\ps@idstyle}{%
+  \def\@evenhead{\thepage\hfil\slshape\rightmark}%
+  \def\@oddhead{{\slshape\leftmark}\hfil\thepage}%
+  \def\@evenfoot{\hfil\slshape\footnotesize Rule version: UNKNOWN\hfil}%
+  \let\@oddfoot\@evenfoot
+}
+\makeatother
+
+\pagestyle{idstyle}
+
+\newcommand{\mignore}[1]{}
+
+\begin{document}
+
+\pagenumbering{roman}
+
+THIS DOCUMENT IS A CONFIDENTIAL DRAFT -- PLEASE DO NOT DISTRIBUTE.
+
+\tableofcontents
+
+\clearpage
+\pagenumbering{arabic}

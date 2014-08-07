@@ -1,0 +1,99 @@
+To:      Andrew.Pitts@cl.cam.ac.uk, Alan.Mycroft@cl.cam.ac.uk,
+         Peter.Sewell@cl.cam.ac.uk, Anuj.Dawar@cl.cam.ac.uk,
+         Keith.Wansbrough@cl.cam.ac.uk,
+         David.Richerby@cl.cam.ac.uk, mrs30@cam.ac.uk,
+         Marcelo.Fiore@cl.cam.ac.uk,
+         Glynn.Winskel@cl.cam.ac.uk,
+         Matthew.Parkinson@cl.cam.ac.uk, Gareth.Stoyle@cl.cam.ac.uk,
+         mywyb2@cam.ac.uk,
+         ss368@cam.ac.uk, Richard.Gibbens@cl.cam.ac.uk,
+         Shu-Yan.Chan@cl.cam.ac.uk,
+         Steven.Bishop@cl.cam.ac.uk,
+         Alan.Lawrence@cl.cam.ac.uk, Matthew.Fairbairn@cl.cam.ac.uk,
+         Lucy.Saunders-Evans@cl.cam.ac.uk, Alisdair.Wren@cl.cam.ac.uk,
+         Francesco.Zappa-Nardelli@cl.cam.ac.uk,
+         Robin.Milner@cl.cam.ac.uk,pwh21@cl.cam.ac.uk,
+         Hasan.Amjad@cl.cam.ac.uk,
+         Michael.Compton@cl.cam.ac.uk,
+         Anthony.Fox@cl.cam.ac.uk,
+         Mike.Gordon@cl.cam.ac.uk,
+         David.Greaves@cl.cam.ac.uk,
+         Joe.Hurd@cl.cam.ac.uk,
+         Juliano.Iyoda@cl.cam.ac.uk,
+         Mateja.Jamnik@cl.cam.ac.uk,
+         Larry.Paulson@cl.cam.ac.uk,
+         Martin.Richards@cl.cam.ac.uk,
+         jm318@cl.cam.ac.uk,
+         opera-internal
+cc:pes20,kw217,smb50,matthew.fairbairn,Michael.Norrish@nicta.com.au
+Subject: request for compute cycles
+--------
+
+
+Dear lab members of {theory,hvg,opera},
+
+As you may know, a group of us are working on a post-hoc specification
+of the behaviour of TCP, UDP, and the Sockets API.  An introduction to
+the project can be found at
+
+  http://www.cl.cam.ac.uk/~pes20/Netsem/www-internal/index.html
+
+(CL access only).  "The TCP Specification: A Quick Introduction" is
+the place to start.
+
+To validate the spec, checking that it includes all the real-world
+behaviour, we run a special-purpose model checker (written above HOL)
+over some 4000 captured traces.  This is fairly compute-heavy: each
+full check run takes of the order of 50 cpu-days, and we need to
+repeat them as we improve the spec.
+
+Accordingly, we're trying to gather as much compute resource as
+possible, and would greatly appreciate your permission to use the
+otherwise-idle cycles on your machine.
+
+We would run our jobs at the lowest possible priority (nice 19),
+limited to 100MB per CPU, and only when you allow us to.
+
+We're looking for CL Linux machines with at least a 600MHz processor and
+256MB of memory (machines that do not meet this requirement are
+automatically deselected by our tools). If you wish to check your own
+machine's specification:
+
+  cat /proc/cpuinfo
+  cat /proc/meminfo
+
+To enable your machine to be used, please create a world-readable
+file in /usr/groups/tthee/conf/ with the same (fully-qualified) name
+as your computer, for example /usr/groups/tthee/conf/yourmachine.cl.cam.ac.uk,
+as follows.
+
+To allow us to use your computer at any time 24/7, simply create an
+empty file:
+
+  cd /usr/groups/tthee/conf
+  touch yourmachine.cl.cam.ac.uk
+  chmod 644 yourmachine.cl.cam.ac.uk
+
+Under normal circumstances you should not notice our jobs running at
+all and allowing 24/7 use (as we do for our own machines) should not
+be a problem.
+
+To allow more restricted use, eg only outside working hours (0900-1759
+Monday to Friday), see the further details at:
+
+  http://www.cl.cam.ac.uk/~pes20/Netsem/www-internal/timedonors.html
+
+which describes also how you can terminate our usage (within 60s) at
+any time.
+
+
+many thanks,
+
+Steve Bishop
+Matthew Fairbairn
+Michael Norrish
+Peter Sewell
+Keith Wansbrough
+
+
+

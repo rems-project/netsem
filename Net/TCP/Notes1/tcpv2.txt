@@ -1,0 +1,143 @@
+Thoughts on reading TCP/IP Illustrated, volume 2
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(KSW)
+
+Note that the 4.4BSD-Lite sources (referred to as Net/3 in the book)
+are available at
+
+/rnfs/uxsup/bsd/4.4BSD-Lite/
+
+
+
+p26: Interrupts: BSD seems to take this a lot more seriously than
+Linux; we have multiple service(?) priority levels SPL, and different
+things operate at different levels.  Thus Ethernet preempts protocol
+processing preempts socket processing and application processing,
+strictly, in that order.
+
+p15: mbufs are pretty weird - they're not just a neat chaining
+arrangement and a way to prepend and append data to a packet; they
+also apply m_flags to a *region*: e.g., p22, MT_SONAME on the
+sockaddr_in{} of a received packet, and MT_DATA on the body.
+
+p33: MCLBYTES (defined constant) is the size of a "cluster", used for
+packets larger than 208 bytes (2 mbufs).  It's probably 2048, but may
+be 1024; since Net/3 doesn't emit >1 cluster per TCP segment, if it's
+1024 then the behaviour of the impl will be affected.
+
+p60: points out that mbufs are a bit silly in a world of cheap memory.
+
+p114: interface ioctl behaviour, and how the ioctl is routed into the
+kernel.
+
+p156: suggests 127.0.0.2 should loop back to lo0, but then be dropped
+because it doesn't match the assigned loopback address 127.0.0.1.
+This is not the behaviour I observe with linux on astrocyte with ping.
+
+p155: the book is pre-CIDR, i.e., it mentions class A/B/C etc, which
+is no longer relevant.
+
+p209: what's SNMP?  Why all this talk of SNMP variables?
+
+p210: official terminology:
+
+             <-- message              -->
+        [ IP | UDP | data               ]
+        <-- datagram                  -->
+
+        [ IP | UDP | data ] (fragment 1)
+        <-- packet      -->
+                     [ IP | data ] (fragment 2)
+                     <-- packet-->
+                            [ IP | data ] (fragment 3)
+                            <-- packet-->
+
+ [ link | IP | UDP | data ]
+ <-- frame              -->
+              [ link | IP | data ]
+              <-- frame        -->
+                     [ link | IP | data ]
+                     <-- frame        -->
+
+p226: aha!  the "network" in ENETUNREACH is a block of IP addresses,
+e.g., 192.168.0.0/24.  These days redirects cannot be sent for a
+network, only for a host, because the ICMP network redirect does not
+include the subnet mask (the mask used to be determinable from the
+address).
+
+[aside: just looked at the docs for Cisco IOS v12.2 and v10.3 (this is
+the software that runs on Cisco's routers), and it would appear that
+only ICMP_HOST_UNREACHs are sent, not NET.
+
+Cisco documentation CD is locally available at
+http://www.cl.cam.ac.uk/UniverCD/cd/home/home.htm
+]
+
+p292: reassembly of fragments: RFC1122 says reassembly time limit
+should be 60-120sec; Net/3 has 30sec.  Also says that an
+ICMP_TIME_EXCEEDED should be returned if fragment 0 has been received
+but the others haven't; Net/3 doesn't do this.
+
+p293: gackgh!  It's possible for fragments to *overlap*m, since some
+implementations (not Net/3) may be able to force the same ip_id on a
+retransmit of a packet, and it may get fragmented differently.
+
+[skipping most of multicast and IGMP]
+
+p440: promises that OOB data will be discussed in Secs 16.11 and 29.7.
+
+p440: the use of two queues, and the rather small maximum queue size,
+in Net/3 has been deprecated since the publishing of this book.  Take
+it with a grain of salt; it's vulnerable to SYN flooding attacks, and
+also not much good for busy web servers.  
+
+p451: socket must know whether it was created by a privileged uid,
+because some ops are permitted by a privileged user, and others are
+permitted by a privileged *socket*.  eg., binding to a low port
+requires privileged user, but changing the address of an interface
+requires only a privileged *socket*.  (see also p166).
+
+passim: "local" and "foreign", not "local" and "remote" (for addresses
+etc).
+
+p435: if we want to model TCP *and* UDP (and perhaps raw sockets),
+we'd better model the delegation of system calls to the appropriate
+protocols properly!  tcp_connect and udp_connect are two different
+things, called via (differing) jump tables indirected to from the
+sockets.
+
+p468: you can do a disconnect on BSD by doing a connectc with an
+invalid "name" argument, such as a structure filled with all zeros or
+an invalid length.  You get an error (EAFNOSUPPORT or EADDRNOTAVAIL),
+but you get a disconnected socket.  Workaround!
+
+p469: shutdown takes how=0 or 1 or 2 as arg; but BSD just does how++
+and then treats it as 1 or 2 or 1|2.
+
+passim: as well as using the same variable names, maybe we could use
+the same auxiliary names?
+
+p470: a half-close for READING simply marks the socket to reject any
+more data; it doesn't actually do anything on the wire.
+
+p473: if so_linger (linger time) is 0, this means *infinite*, not
+*zero*.
+
+
+p505-6: best explanation yet of the *socket* concept of OOB data (see
+elsewhere for TCP's concept of urgent data).  Notice that OOB data is
+always received *separately* - even if SO_OOBINLINE is set, there will
+be two separate reads, one with the OOB data and one with the non-OOB
+data.  Apparently.  I wonder if Linux treats it like this.
+
+p510: all that control message stuff applies to unix domain sockets
+only; TCP doesn't support control messages.
+
+p515: BSD has different semantics for "socket has data in inqueue and
+also has error set": it returns the data first, and then the error,
+rather than v.v!  (apparently)
+
+p516: SO_RCVTIMEO is an *inactivity* timer, not a syscall timer.
+
+p524: has a table of which events trigger which set in a select.

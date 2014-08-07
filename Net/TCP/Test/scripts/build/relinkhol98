@@ -1,0 +1,14 @@
+#!/bin/sh
+
+. `dirname $0`/waprc
+
+export HOLLOC
+export HOLDIR
+
+umask 007
+mkdir -p $HOLDIR
+cd $HOLDIR
+lndir $HOLSRC
+find $HOLLOC -type f -print | perl -pe 's/\Q$ENV{HOLLOC}\E/$ENV{HOLDIR}/' | xargs rm -f __rm_food
+lndir $HOLLOC
+find . -follow -printf '' 2>&1 | cut -c 7- | cut -d: -f1 | xargs rm -f __rm_food

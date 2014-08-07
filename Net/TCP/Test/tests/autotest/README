@@ -1,0 +1,172 @@
+All the TCP and UDP test scripts are defined here.
+
+autotest.ml is the main program that defines the properties of the
+machines on the test network and an order in which to perform the
+tests. The list of tests in autotest.ml is actually a list of thunks
+(functions) that when supplied with the appropriate arguments (some
+machine definitions etc) will run the tests they define on the
+machines they are told to use.
+
+Sets of related tests are grouped into other .ml files. Tests for
+socket calls are normally in the-socket-call-name.ml, whereas tests
+for TCP behaviour are in the spec-rule-name.ml files.
+
+Each test in these files is normally a quadruple of the test script
+thunk, the test description string and two tuples of booleans, eg
+
+let test =
+ ( function id -> function ts -> ..... test script .....,
+   "a description of the test",
+   ((a1,b1),c1,d1,e1),
+   ((a2,b2),c2,d2,e2)))
+
+The test script function takes as argument the environment in which to
+run the test, i.e. on which machines with what settings to run the
+tests, an a set of tthee handles to the running tools.
+
+The tuples of booleans tell autotest which test tools to start on
+which machine. Each test uses two machines: the test host (which is
+the machine of interest that is being instrumented), and an auxillary
+host (useful for other tasks such as injecting packets into the
+network). (Note: some tests run libd on the auxillary host too in
+order to achieve the desired behaviour, in which case the test also
+outputs a .aux file containing the sequeunce of socket calls and
+returns for the auxillary host. This isn't really part of the
+instrumented output from the trace - it is there for completeness and
+debugging purposes.)
+
+The first tuple (a1,b1),c1,d1,e1 specifies the tools to start up on
+the test host, the latter the tools to start on the auxillary. The
+tuples have the following order:
+
+  ((libd, privileged),slurper,holtcpcb-v8,injector)
+
+So ((T,T),F,F,T) would start libd with root privileges (useful for
+privileged port binding) and the injector, all on the same machine.
+
+Each test .ml file contains many test thunks, all of which are
+concatenated into a list. Some scripts have an added layer of
+complexity: it is sometimes required that the same test is run
+multiple times with the TCP socket in a different state each time. In
+this case the basic test is mapped over a list of socket states.
+
+Each test .ml file exports a function that is used by autotest.ml to
+start the set of tests it contains. It takes the tthee environment and
+test machine information from autotest, and for each test defined
+within starts up the tools on the machine, calls the test function to
+perform the test, closes down all the tools on the machine and then
+continues to the next test. It is responsible for providing the name
+of the trace output file to tthee's merger.
+
+
+Running tests:
+~~~~~~~~~~~~~~
+
+* Before attempting to run any tests, the test tools must be
+distributed to all the machines on the test network, ssh private-key
+login to all the machines must work without user-intervention
+(ie. without requiring a password), and on windows the custom-rsh2 in
+Test/utils/custom-rsh2 must be built and running as a service. For
+information on doing all this see Section 6 "Distributing the test
+tools to the test machines" of Test/README
+
+Rather than calling autotest directly, two scripts are used to make
+testing easier
+
+run
+~~~
+
+is the script most often used. It creates the directory
+/usr/groups/tthee/batch/autotest-`date -Iseconds` to output the trace
+files to, starts autotest, and upon completion creates html and
+ziggy-zaggy postscript versions of the traces. See
+/usr/groups/tthee/batch/README and Test/scripts/build-diags and
+Test/scripts/prettytrace for further details.
+
+It has the following syntax:
+
+  ./run {TCP_NORMAL, UDP_NORMAL,...} start-no end-no
+
+So `./run TCP_NORMAL 10 16` would run all the TCP_NORMAL tests numbered
+10 through 16. The choice of test type, \ie TCP_NORMAL etc, are the
+same that autotest takes as arugment, namely: TCP_NORMAL, UDP_NORMAL,
+ALL_NORMAL, TCP_EXHAUSTIVE, UDP_EXHAUSTIVE,  ALL_EXHAUSTIVE.
+
+To run ALL the tests we have select a start-no of 0 and a big end-no,
+say 100000.
+
+If `run` is terminated by a signal (e.g. ctrl-c) it terminates autotest
+and continues to create the html and postscript diagrams.
+
+This script also does a few extra things: it updates the symlink
+/usr/groups/tthee/batch/current to point to the directory it is
+currently creating traces in, and updates the status file
+/usr/groups/tthee/batch/status with the current status of the test
+generation process.
+
+
+test
+~~~~
+
+is identical to run, except that is outputs the traces into
+/usr/groups/tthee/batch/temp-testing-runs/. It is intended for just
+testing that freshly written tests have the desired effect, without
+interfering with live batches of traces in ...tthee/batch/.
+
+$Id: README,v 1.2 2005/02/04 11:04:12 mf266 Exp $
+
+Regenerating specific tests
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Sometimes specific traces need to be regenerated but because new test
+scripts are often added we can't rely on the ability of autotest to
+regenerate a trace given its number. Here is how to do it:
+
+1. If the test infrastructure code has been changed then update the
+test machines:
+
+cd Net/TCP/Test/scripts
+./distribute -f
+
+2. Go to Net/TCP/Test/tests/autotest and use the test description to
+locate the test you want to regen. For example for
+/usr/groups/tthee/batch/
+autotest-tcp-2004-10-01T16:28:00+0100/trace1427 I opened shutdown.ml
+and searched for "remote host not ACKing the FIN" which was the
+description for test7, and for
+/usr/groups/tthee/batch/autotest-tcp-2004-10-01T16:28:00+0100/trace1428
+it was test7b.
+
+3. In the file with the tests you want to run in there will be a line
+along the lines of:
+
+let tcp_tests = [...]
+
+Add a line below this listing the tests you want to regenerate; in
+this example:
+
+let tcp_tests = [test7; test7b]
+
+4. Now move to autotest.ml. There is a line that begins:
+
+let tests = [...
+
+In this list comment out all the list elements except the one with the
+traces you want to regenerate. In this example the only element left
+in the list was:
+
+   do_shutdown_tests test_hnd all_test_platforms, 1.00;
+
+5. Rebuild the tests. In Net/TCP/Test/tests/autotest:
+
+make
+
+6. Now run them. In the same directory:
+
+./autotest TCP_NORMAL trace_filename_prefix logging_filename
+
+7. Now copy the traces to the test directory
+(/usr/groups/tthee/batch/autotest-tcp-2004-10-01T16:28:00+0100 at the
+moment), making sure they are numbered correctly (in the example you
+have to copy trace0000 to trace1427 in the test directory, trace0001
+to trace1428).

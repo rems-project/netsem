@@ -1,0 +1,25 @@
+NSSOCKPATH=../../nssock/
+NSSOCKLIB=libnssock.lib
+NTPLIBPATH=../../common/
+NTPLIB=libntplib.lib
+
+# CFLAGS= /O2 /D "WIN32" /I $(NSSOCKPATH) /I $(NTPLIBPATH)
+CFLAGS=/O2 /Ob1 /Oy /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_CONSOLE" \
+       /GF /FD /EHsc /ML /GS /Gy /W4 /nologo /c /Wp64 /Zi /TC \
+       /I $(NSSOCKPATH) /I $(NTPLIBPATH)
+
+CLIBS= /link /LIBPATH:../../nssock/ /LIBPATH:../../common/ /NODEFAULTLIB:LIBC.lib
+
+SERVERC=sockserv.c
+CLIENTC=sockclient.c
+
+all: sockserv.exe sockclient.exe
+
+sockserv.exe: $(SERVERC)
+	$(CC) $(CFLAGS) /Fe$@ $(SERVERC) $(CLIBS) $(NSSOCKLIB) $(NTPLIB)
+
+sockclient.exe: $(CLIENTC)
+	$(CC) $(CFLAGS) /Fe$@ $(CLIENTC) $(CLIBS) $(NSSOCKLIB) $(NTPLIB)
+
+clean:
+	del /q /f *.obj sockclient.exe sockserv.exe

@@ -1,0 +1,45 @@
+\begin{picture}(0,0)%
+\includegraphics{endtoend.pstex}%
+\end{picture}%
+\setlength{\unitlength}{987sp}%
+%
+\begingroup\makeatletter\ifx\SetFigFont\undefined%
+\gdef\SetFigFont#1#2#3#4#5{%
+  \reset@font\fontsize{#1}{#2pt}%
+  \fontfamily{#3}\fontseries{#4}\fontshape{#5}%
+  \selectfont}%
+\fi\endgroup%
+\begin{picture}(10945,7411)(9921,-7610)
+\put(12143,-2656){\makebox(0,0)[b]{\smash{{\SetFigFont{6}{7.2}{\familydefault}{\mddefault}{\updefault}{\color[rgb]{0,0,0}\textsf{TCP}}%
+}}}}
+\put(12736,-3473){\makebox(0,0)[b]{\smash{{\SetFigFont{6}{7.2}{\familydefault}{\mddefault}{\updefault}{\color[rgb]{0,0,0}\textsf{IP}}%
+}}}}
+\put(16343,-2656){\makebox(0,0)[b]{\smash{{\SetFigFont{6}{7.2}{\familydefault}{\mddefault}{\updefault}{\color[rgb]{0,0,0}\textsf{TCP}}%
+}}}}
+\put(16936,-3473){\makebox(0,0)[b]{\smash{{\SetFigFont{6}{7.2}{\familydefault}{\mddefault}{\updefault}{\color[rgb]{0,0,0}\textsf{IP}}%
+}}}}
+\put(13793,-2836){\makebox(0,0)[b]{\smash{{\SetFigFont{5}{6.0}{\familydefault}{\mddefault}{\updefault}{\color[rgb]{0,0,0}\textsf{ICMP}}%
+}}}}
+\put(13201,-2536){\makebox(0,0)[b]{\smash{{\SetFigFont{5}{6.0}{\familydefault}{\mddefault}{\updefault}{\color[rgb]{0,0,0}\textsf{UDP}}%
+}}}}
+\put(17993,-2836){\makebox(0,0)[b]{\smash{{\SetFigFont{5}{6.0}{\familydefault}{\mddefault}{\updefault}{\color[rgb]{0,0,0}\textsf{ICMP}}%
+}}}}
+\put(17401,-2536){\makebox(0,0)[b]{\smash{{\SetFigFont{5}{6.0}{\familydefault}{\mddefault}{\updefault}{\color[rgb]{0,0,0}\textsf{UDP}}%
+}}}}
+\put(12991,-5776){\makebox(0,0)[lb]{\smash{{\SetFigFont{6}{7.2}{\rmdefault}{\mddefault}{\updefault}{\color[rgb]{0,0,0}\textsf{IP network}}%
+}}}}
+\put(11851,-1261){\makebox(0,0)[lb]{\smash{{\SetFigFont{5}{6.0}{\familydefault}{\mddefault}{\updefault}{\color[rgb]{0,0,0}\textsf{applications}}%
+}}}}
+\put(11851,-961){\makebox(0,0)[lb]{\smash{{\SetFigFont{5}{6.0}{\familydefault}{\mddefault}{\updefault}{\color[rgb]{0,0,0}\textsf{libraries and}}%
+}}}}
+\put(11851,-661){\makebox(0,0)[lb]{\smash{{\SetFigFont{5}{6.0}{\familydefault}{\mddefault}{\updefault}{\color[rgb]{0,0,0}\textsf{Distributed}}%
+}}}}
+\put(16126,-661){\makebox(0,0)[lb]{\smash{{\SetFigFont{5}{6.0}{\familydefault}{\mddefault}{\updefault}{\color[rgb]{0,0,0}\textsf{Distributed}}%
+}}}}
+\put(16126,-961){\makebox(0,0)[lb]{\smash{{\SetFigFont{5}{6.0}{\familydefault}{\mddefault}{\updefault}{\color[rgb]{0,0,0}\textsf{libraries and}}%
+}}}}
+\put(16126,-1261){\makebox(0,0)[lb]{\smash{{\SetFigFont{5}{6.0}{\familydefault}{\mddefault}{\updefault}{\color[rgb]{0,0,0}\textsf{applications}}%
+}}}}
+\put(20851,-2236){\makebox(0,0)[lb]{\smash{{\SetFigFont{5}{6.0}{\familydefault}{\mddefault}{\updefault}{\color[rgb]{0,0,0}\texttt{Sockets API interface}}%
+}}}}
+\end{picture}%

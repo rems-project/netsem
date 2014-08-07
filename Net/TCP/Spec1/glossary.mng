@@ -1,0 +1,71 @@
+% -*- LaTeX -*-
+\documentclass{article}
+
+\usepackage[a4paper]{geometry}
+\usepackage{ltsmunge}
+\usepackage{url}
+
+%\usepackage{float}
+%\floatstyle{ruled}
+%\restylefloat{table}
+
+\newcommand{\holmod}[1]{\textbf{#1}}
+\newif\ifdraft\drafttrue
+\ifdraft
+  \newcommand{\mlabel}[1]{\label{#1}\raisebox{1.85ex}[0pt][0pt]{\makebox[0pt]{\scriptsize\hspace*{-4em}#1}}}
+  \newcommand{\mref}[1]{\ref{#1}\raisebox{1.85ex}[0pt][0pt]{\makebox[0pt]{\fontseries{m}\selectfont\scriptsize#1}}}
+  \newcommand{\meqref}[1]{\eqref{#1}\raisebox{1.85ex}[0pt][0pt]{\makebox[0pt]{\fontseries{m}\selectfont\scriptsize#1}}}
+\else
+  \newcommand{\mlabel}[1]{\label{#1}\raisebox{1.85ex}[0pt][0pt]{\makebox[0pt]{}}}
+  \newcommand{\mref}[1]{\ref{#1}\raisebox{1.85ex}[0pt][0pt]{\makebox[0pt]{}}}
+  \newcommand{\meqref}[1]{\eqref{#1}\raisebox{1.85ex}[0pt][0pt]{\makebox[0pt]{}}}
+\fi
+
+\newcommand{\xref}[1]{\textbf{#1}}  % should generate a hyperlink, secref, pageref, or whatever.
+                                    % should take care to be case-insensitive in matching.
+\newcommand{\see}[1]{See \xref{#1}}
+
+\begin{document}
+
+\title{The TCP Specification: Glossary}
+\author{The specification team}
+\maketitle
+
+\section{Introduction}
+
+This document lists the terminology we use in documenting the
+specification.  We aim to be consistent with common usage, as
+appearing in POSIX, RFCs, man pages, Stevens, source code, and so on
+(in that order???).
+
+\section{The glossary}
+
+\begin{description}
+
+\item[Binding-quad] refers to the quadruple formed by a socket's local
+  IP address, local port, peer IP address, and peer port:
+  [[(sock.is1,sock.ps1,sock.is2,sock.ps2)]].
+
+\item[File descriptor] some kind of thing you might use to get a hold of something useful in *nix.
+
+\item[File description] the thing a \xref{file descriptor} points to.
+
+\item[Graceful close]
+
+\item[Open file description] \see{file description}.  POSIX term.
+
+\item[Socket] if you don't know what that is then you shouldn't be
+here.  Go figure it out for yourself.
+
+\item[Synchronised socket]
+
+\item[Three way handshake]
+
+\end{description}
+
+\end{document}
+
+%%% Local Variables:
+%%% LaTeX-label-sequence-N: 1
+%%% LaTeX-label-prefix: "a"
+%%% End:

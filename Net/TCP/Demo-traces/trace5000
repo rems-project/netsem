@@ -1,0 +1,286 @@
+(* Test Host: BSD(john)  Aux Host: LINUX(alan) *)
+(* Test Description: [TCP normal] Demonstration: create a listening socket on the auxiliary host; create a socket on the local host and connect to the listening socket; accept the connection; send a string and then receive the string on the auxiliary host; close both sockets (no tcpcb) *)
+
+(* -------------------------------------------------------------------------- *)
+(* Netsem logging & merging tool (mlogger) - Date: Thu Dec  9 17:24:58 2004   *)
+(* -------------------------------------------------------------------------- *)
+(* Netsem Slurper - Initialised on host:  *)
+(* Date: Thu Dec  9 17:25:02 2004 Source Host Option (-h): Some 192.168.0.12 *)
+(* NTP STATUS:
+status=06f4 leap_none, sync_ntp, 15 events, event_peer/strat_chg,
+offset=0.691
+ *)
+(* -------------------------------------------------------------------------- *)
+(* Applying NTP offset: 691us *)
+(* -------------------------------------------------------------------------- *)
+
+(* ns_socket library initialised: connected to 192.168.0.1:37698 *)
+(* Date: Thu Dec  9 17:25:07 2004 Host:  *)
+(* NTP STATUS:
+status=06f4 leap_none, sync_ntp, 15 events, event_peer/strat_chg,
+offset=0.691
+ *)
+(* -------------------------------------------------------------------------- *)
+(* Applying NTP offset: 691us *)
+(* -------------------------------------------------------------------------- *)
+
+(* -------------------------------------------------------------------------- *)
+(* HOST *)
+initial_host (IP 192 168 0 12) (TID 79441) (FreeBSD_4_6_RELEASE) F [] [(ETH 0, <| ipset := {IP 192 168 0 12}; primary := IP 192 168 0 12; netmask := NETMASK 24; up := T |>); (LO, <| ipset := {IP 127 0 0 1}; primary := IP 127 0 0 1; netmask:= NETMASK 8; up := T |>)] [<| destination_ip := IP 127 0 0 1; destination_netmask := NETMASK 8; ifid := LO |>;<| destination_ip := IP 192 168 0 0; destination_netmask := NETMASK 24; ifid := ETH 0 |>; <| destination_ip := IP 192 168 1 0; destination_netmask := NETMASK 24; ifid := ETH 0 |>] initial_ticker_count initial_ticker_remdr
+(* TSOH *)
+(* Injector: not running *)
+(* -------------------------------------------------------------------------- *)
+(* BEGIN  *)
+
+(* BASETIME *)
+abstime 1102613107 614477
+(* EMITESAB *)
+
+(** 1102613107.614477 "ns0" **)
+(* Merge Index: 0 *)
+ Lh_call(TID 79441, socket(SOCK_STREAM));
+
+(* Merge Index: 1 *)
+Lh_epsilon(duration 0 33006);
+
+(** 1102613107.647483 "ns1" **)
+(* Merge Index: 2 *)
+ Lh_return(TID 79441, OK(FD 8));
+
+(* Merge Index: 3 *)
+Lh_epsilon(duration 0 87315);
+
+(** 1102613107.734798 "ns2" **)
+(* Merge Index: 4 *)
+ Lh_call(TID 79441, bind(FD 8, NONE, SOME(Port 3333)));
+
+(* Merge Index: 5 *)
+Lh_epsilon(duration 0 386);
+
+(** 1102613107.735184 "ns3" **)
+(* Merge Index: 6 *)
+ Lh_return(TID 79441, OK());
+
+(* Merge Index: 7 *)
+Lh_epsilon(duration 0 3002);
+
+(** 1102613107.738186 "ns4" **)
+(* Merge Index: 8 *)
+ Lh_call(TID 79441, connect(FD 8, IP 192 168 0 14, SOME(Port 3333)));
+
+(* Merge Index: 9 *)
+Lh_epsilon(duration 0 516);
+
+(** 1102613107.738702 "slurp0" **)
+(* Merge Index: 10 *)
+Lh_senddatagram(TCP(<|
+    is1 := SOME(IP 192 168 0 12);
+    is2 := SOME(IP 192 168 0 14);
+    ps1 := SOME(Port 3333);
+    ps2 := SOME(Port 3333);
+    seq := tcp_seq_local(n2w 2634140288);
+    ack := tcp_seq_foreign(n2w 0);
+    URG :=   F;
+    ACK :=   F;
+    PSH :=   F;
+    RST :=   F;
+    SYN := T  ;
+    FIN :=   F;
+    win := n2w 57344;
+    ws := SOME(CHR 0);
+    urp := n2w 0;
+    mss := SOME(n2w 1460);
+    ts := SOME(ts_seq (n2w 572641697), ts_seq (n2w 0));
+    data := []   (*""*)
+    |>) );
+
+(* Merge Index: 11 *)
+Lh_epsilon(duration 0 432);
+
+(** 1102613107.739134 "slurp1" **)
+(* Merge Index: 12 *)
+Lh_recvdatagram( TCP(<|
+    is1 := SOME(IP 192 168 0 14);
+    is2 := SOME(IP 192 168 0 12);
+    ps1 := SOME(Port 3333);
+    ps2 := SOME(Port 3333);
+    seq := tcp_seq_local(n2w 260964823);
+    ack := tcp_seq_foreign(n2w 2634140289);
+    URG :=   F;
+    ACK := T  ;
+    PSH :=   F;
+    RST :=   F;
+    SYN := T  ;
+    FIN :=   F;
+    win := n2w 5792;
+    ws := SOME(CHR 0);
+    urp := n2w 0;
+    mss := SOME(n2w 1460);
+    ts := SOME(ts_seq (n2w 78216088), ts_seq (n2w 572641697));
+    data := []   (*""*)
+    |>) );
+
+(* Merge Index: 13 *)
+Lh_epsilon(duration 0 226);
+
+(** 1102613107.739360 "slurp2" **)
+(* Merge Index: 14 *)
+Lh_senddatagram(TCP(<|
+    is1 := SOME(IP 192 168 0 12);
+    is2 := SOME(IP 192 168 0 14);
+    ps1 := SOME(Port 3333);
+    ps2 := SOME(Port 3333);
+    seq := tcp_seq_local(n2w 2634140289);
+    ack := tcp_seq_foreign(n2w 260964824);
+    URG :=   F;
+    ACK := T  ;
+    PSH :=   F;
+    RST :=   F;
+    SYN :=   F;
+    FIN :=   F;
+    win := n2w 57920;
+    ws := NONE;
+    urp := n2w 0;
+    mss := NONE;
+    ts := SOME(ts_seq (n2w 572641697), ts_seq (n2w 78216088));
+    data := []   (*""*)
+    |>) );
+
+(* Merge Index: 15 *)
+Lh_epsilon(duration 0 100);
+
+(** 1102613107.739460 "ns5" **)
+(* Merge Index: 16 *)
+ Lh_return(TID 79441, OK());
+
+(* Merge Index: 17 *)
+Lh_epsilon(duration 0 497543);
+
+(** 1102613108.237003 "ns6" **)
+(* Merge Index: 18 *)
+ Lh_call(TID 79441, send(FD 8, NONE, "Hello!", []));
+
+(* Merge Index: 19 *)
+Lh_epsilon(duration 0 973);
+
+(** 1102613108.237976 "slurp3" **)
+(* Merge Index: 20 *)
+Lh_senddatagram(TCP(<|
+    is1 := SOME(IP 192 168 0 12);
+    is2 := SOME(IP 192 168 0 14);
+    ps1 := SOME(Port 3333);
+    ps2 := SOME(Port 3333);
+    seq := tcp_seq_local(n2w 2634140289);
+    ack := tcp_seq_foreign(n2w 260964824);
+    URG :=   F;
+    ACK := T  ;
+    PSH := T  ;
+    RST :=   F;
+    SYN :=   F;
+    FIN :=   F;
+    win := n2w 57920;
+    ws := NONE;
+    urp := n2w 0;
+    mss := NONE;
+    ts := SOME(ts_seq (n2w 572641747), ts_seq (n2w 78216088));
+    data := [CHR 72; CHR 101; CHR 108; CHR 108; CHR 111; CHR 33 ]   (*"Hello!"*)
+    |>) );
+
+(* Merge Index: 21 *)
+Lh_epsilon(duration 0 175);
+
+(** 1102613108.238151 "ns7" **)
+(* Merge Index: 22 *)
+ Lh_return(TID 79441, OK(""));
+
+(* Merge Index: 23 *)
+Lh_epsilon(duration 0 161);
+
+(** 1102613108.238312 "slurp4" **)
+(* Merge Index: 24 *)
+Lh_recvdatagram( TCP(<|
+    is1 := SOME(IP 192 168 0 14);
+    is2 := SOME(IP 192 168 0 12);
+    ps1 := SOME(Port 3333);
+    ps2 := SOME(Port 3333);
+    seq := tcp_seq_local(n2w 260964824);
+    ack := tcp_seq_foreign(n2w 2634140295);
+    URG :=   F;
+    ACK := T  ;
+    PSH :=   F;
+    RST :=   F;
+    SYN :=   F;
+    FIN :=   F;
+    win := n2w 5792;
+    ws := NONE;
+    urp := n2w 0;
+    mss := NONE;
+    ts := SOME(ts_seq (n2w 78216138), ts_seq (n2w 572641747));
+    data := []   (*""*)
+    |>) );
+
+(* Merge Index: 25 *)
+Lh_epsilon(duration 0 4529);
+
+(** 1102613108.242841 "ns8" **)
+(* Merge Index: 26 *)
+ Lh_call(TID 79441, close(FD 8));
+
+(* Merge Index: 27 *)
+Lh_epsilon(duration 0 468);
+
+(** 1102613108.243309 "slurp5" **)
+(* Merge Index: 28 *)
+Lh_senddatagram(TCP(<|
+    is1 := SOME(IP 192 168 0 12);
+    is2 := SOME(IP 192 168 0 14);
+    ps1 := SOME(Port 3333);
+    ps2 := SOME(Port 3333);
+    seq := tcp_seq_local(n2w 2634140295);
+    ack := tcp_seq_foreign(n2w 260964824);
+    URG :=   F;
+    ACK := T  ;
+    PSH :=   F;
+    RST :=   F;
+    SYN :=   F;
+    FIN := T  ;
+    win := n2w 57920;
+    ws := NONE;
+    urp := n2w 0;
+    mss := NONE;
+    ts := SOME(ts_seq (n2w 572641747), ts_seq (n2w 78216138));
+    data := []   (*""*)
+    |>) );
+
+(* Merge Index: 29 *)
+Lh_epsilon(duration 0 93);
+
+(** 1102613108.243402 "ns9" **)
+(* Merge Index: 30 *)
+ Lh_return(TID 79441, OK());
+
+(* Merge Index: 31 *)
+Lh_epsilon(duration 0 32162);
+
+(** 1102613108.275564 "slurp6" **)
+(* Merge Index: 32 *)
+Lh_recvdatagram( TCP(<|
+    is1 := SOME(IP 192 168 0 14);
+    is2 := SOME(IP 192 168 0 12);
+    ps1 := SOME(Port 3333);
+    ps2 := SOME(Port 3333);
+    seq := tcp_seq_local(n2w 260964824);
+    ack := tcp_seq_foreign(n2w 2634140296);
+    URG :=   F;
+    ACK := T  ;
+    PSH :=   F;
+    RST :=   F;
+    SYN :=   F;
+    FIN :=   F;
+    win := n2w 5792;
+    ws := NONE;
+    urp := n2w 0;
+    mss := NONE;
+    ts := SOME(ts_seq (n2w 78216142), ts_seq (n2w 572641747));
+    data := []   (*""*)
+    |>) );

@@ -1,0 +1,507 @@
+% ltsmunge.sty  --  munging support for LTS / HOL
+%
+% Keith Wansbrough and Peter Sewell 2001
+
+%%% <identification>::
+
+\NeedsTeXFormat{LaTeX2e}[1998/06/01]
+\ProvidesPackage{ltsmunge}[2001/07/01 1.00 LTS munging support]
+
+%%% <initial code>::
+
+% need the following packages:
+\RequirePackage{amsmath}
+\RequirePackage{amssymb}
+\RequirePackage{color}
+\RequirePackage{leftdisplay}
+
+\RequirePackage[latin1]{inputenc}
+\RequirePackage{ae}      % fake most characters of the EC Type1 fonts with CM Type1 fonts
+\RequirePackage{aecompl} % fill in the rest with bitmapped fonts
+  % (note that this replacement is necessary to get good results from pdflatex)
+\RequirePackage[T1]{fontenc}
+\RequirePackage{makeidx}
+\RequirePackage{longtable}
+
+%%% <declaration of options>::
+
+%(no options)
+
+%%% <execution of options>::
+
+\ProcessOptions
+
+%%% <package loading>::
+
+%(no loading)
+
+\makeindex
+\setlongtables
+
+%%% <main code>::
+
+% Width of text within boxed figures
+\newlength{\shorttextwidth}%
+\setlength{\shorttextwidth}{\textwidth}%
+\addtolength{\shorttextwidth}{-0.0em}%
+
+% Indent of text below boxed figures
+\newlength{\shorterindentwidth}%
+\setlength{\shorterindentwidth}{4em}%
+
+% Width of text below boxed figures
+\newlength{\shortertextwidth}%
+\setlength{\shortertextwidth}{\shorttextwidth}%
+\addtolength{\shortertextwidth}{-\shorterindentwidth}%
+
+% Don't vertically stretch pages to fit
+\raggedbottom
+
+% one style smaller in math mode:
+\newcommand{\smaller}[1]{%
+  \mathchoice{{\textstyle #1}}%
+             {{\scriptstyle #1}}%
+             {{\scriptscriptstyle #1}}%
+             {{\scriptscriptstyle #1}}%
+}
+
+% support for typesetting tokens:
+
+\newcommand{\tsrule}[1]{\mathit{#1}}
+\newcommand{\tscon}[1]{\textsc{#1}}
+\newcommand{\tsaux}[1]{\mathop{\mathrm{#1}}}
+\newcommand{\tsauxinfix}[1]{\mathbin{\mathrm{#1}}}
+\newcommand{\tstype}[1]{\mathsf{#1}}
+%\newcommand{\tslib}[1]{\text{\usefont{T1}{bchx}{m}{n}#1}}    % Charter shrunk (using t1bchx.fd)
+\newcommand{\tslib}[1]{\text{\usefont{T1}{bchy}{m}{n}#1}}    % Charter shrunk (using t1bchy.fd)
+\newcommand{\tsvar}[1]{{\mathit{#1}}}
+\newcommand{\tsfield}[1]{{\mathit{#1}}}
+\newcommand{\tsholop}[1]{\mathop{\textbf{\lowercase{#1}}}\nolimits}
+\newcommand{\tsunknown}[1]{{\color{red}\tsvar{#1}}}
+
+
+\newcommand{\tscomm}[1]{\text{\rrsmall{(*#1*)}}}  % overridden in rrfoo
+\newcommand{\no@tscomm}[1]{#1}
+
+% comments were forced to appear on a line of their own; since they
+% almost always appear on a line of their own anyway, this was
+% wasteful of vspace!
+%% \newcommand{\tslongcomm}[1]{$\par\noindent{\rrsmall{(*#1*)}}\par\noindent$\displaystyle}  % overridden in rrfoo
+%% \newcommand{\tsholcomm}[1]{$\par\noindent{\rrsmall{(*#1*)}}\par\noindent$\displaystyle}   % overridden in rrfoo
+
+\newcommand{\tslongcomm}[1]{$\linebreak[2]\parbox[t]{\linewidth}{\rrsmall(*#1\nolinebreak\mbox{*)}}\linebreak[2]$\displaystyle}  % overridden in rrfoo
+\newcommand{\tsholcomm}[1]{\ $\linebreak[2]\parbox[t]{\linewidth}{\rrsmall(*#1\nolinebreak\mbox{*)}}\linebreak[2]$\displaystyle}   % overridden in rrfoo
+\newcommand{\un@comm}[1]{{\let\tscomm\no@tscomm\let\tslongcomm\no@tscomm\let\tsholcomm\no@tscomm{}#1}}
+
+\newdimen\@tabbingcomm
+\newcommand{\tabbingtslongcomm}[1]{$\linebreak[2]\ifltsm@gicalign\=\@tabbingcomm\linewidth\advance\@tabbingcomm -\dimen\@curtab\else\@tabbingcomm\linewidth\fi\parbox[t]{\@tabbingcomm}{\rrsmall(*#1\nolinebreak\mbox{*)}}\linebreak[2]$\displaystyle}  % overridden in rrfoo
+\newcommand{\tabbingtsholcomm}[1]{\ $\linebreak[2]\ifltsm@gicalign\=\@tabbingcomm\linewidth\advance\@tabbingcomm -\dimen\@curtab\else\@tabbingcomm\linewidth\fi\parbox[t]{\@tabbingcomm}{\rrsmall(*#1\nolinebreak\mbox{*)}}\linebreak[2]$\displaystyle}   % overridden in rrfoo
+
+% tabbing command handling: just disable them when not in tabbing env
+\newif\ifltsm@gicalign\ltsm@gicalignfalse
+
+% symbols:
+
+\newcommand{\Mlrec}{\langle\![}
+\newcommand{\Mrrec}{]\!\rangle}
+
+\newcommand{\Mmagiclrec}{%
+  \ifltsm@gicalign$\=\+$\displaystyle\Mlrec\;$\=\+$\displaystyle\else\Mlrec\fi}
+\newcommand{\Mmagicrrec}{%
+  \ifltsm@gicalign$\-\-$\displaystyle\fi\Mrrec}
+\newcommand{\Mmagicbolrrec}{%
+  \ifltsm@gicalign$\<\-\-$\displaystyle\fi\Mrrec}
+
+\newcommand{\Mwedge}{\mathbin{\smaller{\wedge}}}
+\newcommand{\Mvee}{\mathbin{\smaller{\vee}}}
+\newcommand{\Mexunq}{\exists!}
+\newcommand{\Mass}{\mathop{:=}}
+%\newcommand{\Mupdby}{\mathop{:\circeq}}
+\newcommand{\Mupdby}{\mathop{{:}\hat{=}}}
+\newcommand{\Mcons}{\mathbin{::}}
+\newcommand{\Msome}{\mathord{\uparrow}}
+\newcommand{\Mtrue}{\textbf{T}}
+\newcommand{\Mfalse}{\textbf{F}}
+\newcommand{\Mif}{\textbf{if}\;}
+\newcommand{\Mthen}{\;\textbf{then}\;}
+\newcommand{\Melse}{\;\textbf{else}\;}
+\newcommand{\Mlet}{\textbf{let}\;}
+\newcommand{\Min}{\;\textbf{in}\;}
+\newcommand{\Mand}{\;\textbf{and}\;}
+\newcommand{\Mcase}{\textbf{case}\;}
+\newcommand{\Mof}{\;\textbf{of}\;}
+\newcommand{\Mexp}{\mathbin{{}^{**}}}
+\newcommand{\Mtotype}{\rightarrow}
+\newcommand{\MLhtau}{\tau}
+\newcommand{\MLhexit}{\tscon{exit}}
+\newcommand{\Mdpipe}{\mathrel{\|}}
+\newcommand{\MPar}{\;\mid\;}
+\newcommand{\MEmpty}{\mathbf{0}}
+\newcommand{\MI}{\mathbf{I}}
+
+% curried symbols:
+
+\newcommand{\Mfupdate}[3]{#1\oplus(#2\mapsto #3)}
+\newcommand{\Mfapply}[2]{#1[#2]}
+\newcommand{\Mfdom}[1]{\textbf{dom}(#1)}
+\newcommand{\Mfrange}[1]{\textbf{rng}(#1)}
+\newcommand{\Mdrestrict}[2]{\left.#1\right|_{#2}}
+\newcommand{\Mcompl}[1]{\overline{#1}}
+\newcommand{\Mtimed}[2]{\left(#1\right)_{#2}}
+\newcommand{\Mtimewindow}[2]{\left(#1\right)^{\textsc{TimeWindow}}_{#2}}
+\newcommand{\MLhcall}[2]{#1\mathord{\cdot}#2 }
+\newcommand{\MLhreturn}[2]{\co{\MLhcall{#1}{#2}}}
+\newcommand{\MLhsenddatagram}[1]{\co{#1}}
+\newcommand{\MLhrecvdatagram}[1]{#1 }
+\newcommand{\MLhloopdatagram}[1]{\bico{#1}}
+\newcommand{\Meps}[1]{#1} % WAS: \epsilon(#1)
+\newcommand{\MLhconsole}[1]{\co{\tscon{console}\;#1}}
+\newcommand{\Mappend}[2]{#1\mathbin{@}#2}
+\newcommand{\Mspii}[2]{\;#1\;#2}
+\newcommand{\Mspiii}[3]{\;#1\;#2\;#3}
+\newcommand{\Mspmii}[2]{{\ltsm@gicalignfalse
+                         \;\begin{array}[t]{@{}l@{}}#1\end{array}%
+                         \;\begin{array}[t]{@{}l@{}}#2\end{array}}}
+
+\newcommand{\xRightarrow}[2][]{\ext@arrow 0359\Rightarrowfill@{#1}{#2}}
+\newcommand{\Mtransitionerr}[1]{\typeout{^^J^^J**** #1 without --, %
+    rendered incorrectly as numeral at line \the\inputlineno^^J}\stop}
+\newcommand{\Mtransition}[2]{%
+  \ifcase#2%
+  \or\mathrel{\mbox{$\xrightarrow{\textstyle{#1}}$}}% -- -->
+  \or\mathrel{\mbox{$\xRightarrow{\textstyle{#1}}$}}% -- --=>
+  \else XXXX\typeout{^^J^^J**** Unrecognised arrow on -- transition at %
+    line \the\inputlineno^^J}\stop%
+  \fi
+}
+
+
+% \newcommand{\Mboxedor}[2]{% note that this takes multi-line arguments}
+%   \begin{array}[b]{@{}|l@{}}%
+%   \hline
+%   \begin{array}{@{}l@{}}#1\end{array}\\
+%   \hline
+%   \vee\\
+%   \hline
+%   \begin{array}{@{}l@{}}#2\end{array}\\
+%   \hline
+%   \end{array}%
+% }
+\newcommand{\Mboxedor}[2]{% note that this takes multi-line arguments}
+  {\ltsm@gicalignfalse
+  \left(\left(\begin{array}{@{}l@{}}#1\end{array}\right)%
+  \vee
+  \left(\begin{array}{@{}l@{}}#2\end{array}\right)\right)%
+  }%
+}
+
+% additional symbols for munge_ocaml (some of these may not be necessary)
+
+\newcommand{\Mcaret}{\mathord{\uparrow}}
+\newcommand{\Marrow}{\mathop{\rightarrow}}
+\newcommand{\Maarrow}{\tran{}}
+\newcommand{\MArrow}{\implies}
+\newcommand{\MDArrow}{\iff}
+\newcommand{\Msemicolon}{\mathrel{\vdash}}
+\newcommand{\Msemisemicolon}{;}
+\newcommand{\Mce}{\mathop{:=}}
+\newcommand{\Mcce}{\mathop{::=}}
+\newcommand{\Mcoloncolon}{\mathop{::}}
+\newcommand{\Mcolon}{\oftype}
+\newcommand{\Mquotedstring}[1]{\texttt{"}\tsaux{#1}\texttt{"}}
+\newcommand{\Mcomment}[1]{\text{#1}}
+\newcommand{\Mindent}{\ }
+\newcommand{\Mbrackets}{[\,]}
+
+% a smaller underscore:
+
+\newcommand{\narrowunderscore}{\hspace{0.02em}\rule{0.40em}{0.1ex}\hspace{0.02em}}
+\let\textunderscore\narrowunderscore
+
+% gumph:
+
+\newcommand{\showrule}[1]{\par\vspace{1.0ex}\noindent#1\par\vspace{1.0ex}\noindent}
+
+\newcommand{\co}[1]{{\overline{#1}}}
+
+% next two defs stolen from LaTeX (fontmath.ltx) and hacked.
+\def\overleftrightarrow#1{\vbox{\m@th\ialign{##\crcr
+      \leftrightarrowfill\crcr\noalign{%\kern-\p@
+\nointerlineskip}
+      $\hfil\displaystyle{#1}\hfil$\crcr}}}
+\def\leftrightarrowfill{\rlap{$\leftarrow$}$\m@th\smash-\mkern-7mu%
+  \cleaders\hbox{$\mkern-2mu\smash-\mkern-2mu$}\hfill
+  \mkern-7mu\mathord\rightarrow$}
+
+\newcommand{\bico}[1]{{\overleftrightarrow{#1}}}
+
+\newcommand{\tranbiglabel}[1]{\mathrel{\mbox{$\xrightarrow{\textstyle{#1}}$}}}
+\newcommand{\transmalllabel}[1]{\mathrel{\mbox{$\xrightarrow{{#1}}$}}}
+\newcommand{\tran}{\transmalllabel}
+
+\newcommand{\inp}[1]{\tran{#1}}
+\newcommand{\out}[1]{\tran{\co{#1}}}
+\newcommand{\ttau}{\tran{\tau}}
+
+% typesetting comments:
+
+\newenvironment{ltstabular}{%
+  \begin{longtable}{|p{0.2\linewidth}|p{0.75\linewidth}|}%
+  \hline
+  \endhead
+  \hline
+  \endfoot
+  }{%
+  \end{longtable}%
+  \smallskip
+  }
+
+\newenvironment{ltstabulariii}{%
+  \begin{longtable}{p{0.15\linewidth}p{0.25\linewidth}p{0.55\linewidth}}%
+  }{%
+  \end{longtable}%
+  \smallskip
+  }
+
+\newcommand{\clustersection}[2]{%
+  \section{#2 #1}%
+  \markboth{#2 #1}{#2 #1}%
+}
+\newcommand{\clustersubsection}[1]{\subsection{#1}}
+
+% typesetting rules:
+
+\newcommand{\rsection}[2]{\subsection{#1}\ \par{#2}}
+\newcommand{\rsubsection}[2]{\subsubsection*{#1}\ \par{#2}}
+
+%\newcommand{\rulesubsection}[1]{\subsubsection*{#1}}
+\newcommand{\rulesubsection}[1]{\vspace{0.5\baselineskip}\par\noindent{\normalsize\bfseries{#1}}
+\quad
+}
+
+
+%notused:% \newcommand{\typerulehead}[1]{\framebox{\mbox{${#1}$}}}
+\newcommand{\heading}[1]{\paragraph{#1}}
+
+\newcommand{\withcomment}[1]{#1}
+\newcommand{\withoutcomment}[1]{}
+\newcommand{\rulecomment}{\withcomment}
+
+\newcommand{\chaptersection}[1]{\chapter{#1}\markboth{#1}{#1}}
+\newcommand{\chapcomm}[1]{#1}
+
+\newcommand{\seccomm}[1]{#1}
+
+\newcommand{\rrsmall}{\small}
+\newcommand{\rrnormalsize}{\normalsize}
+
+\newsavebox{\rrlhsbox}
+\newsavebox{\rrlabelbox}
+\newsavebox{\rrrhsbox}
+\newcommand{\rrulefront}[7]{%
+  \markboth{$\tsrule{#2}$}{$\tsrule{#2}$}%
+  \addcontentsline{toc}{subsection}{\protect\numberline{--}$\tsrule{#2}$}%
+  \index{#2@$\protect\tsrule{#2}$}%
+  $\tsrule{#2}$\quad\textbf{\underline{#3} \rrsmall\un@comm{#4}}%
+  \ltslabel{#1}%
+  \vspace*{0.5\baselineskip}%
+  \sbox{\rrlhsbox}{$\displaystyle\begin{array}[t]{@{}l@{}}#5\end{array}$}%
+  \sbox{\rrlabelbox}{$\displaystyle#6$}%
+  \sbox{\rrrhsbox}{$\displaystyle\begin{array}[t]{@{}l@{}}#7\end{array}$}%
+  \@tempdima\wd\rrlabelbox\advance\@tempdima\wd\rrrhsbox\advance\@tempdima1em%
+  \ifdim\@tempdima<\linewidth
+    \advance\@tempdima\wd\rrlhsbox\advance\@tempdima1em%
+    \ifdim\@tempdima<\linewidth
+      % |h --> h'
+      \par\noindent\box\rrlhsbox\quad\box\rrlabelbox\quad\box\rrrhsbox%
+    \else
+      % |  h
+      % |--> h'
+      \par\noindent\qquad\box\rrlhsbox%
+      \par\noindent\box\rrlabelbox\quad\box\rrrhsbox%
+    \fi
+  \else
+    % |  h
+    % |-->
+    % |  h'
+    \par\noindent\qquad\box\rrlhsbox%
+    \vspace*{1ex}%
+    \par\noindent\box\rrlabelbox%
+    \par\noindent\qquad\box\rrrhsbox%
+  \fi
+}
+
+
+
+\newcommand{\rruledescronly}[7]{%
+%  \markboth{$\tsrule{#2}$}{$\tsrule{#2}$}%
+%  \addcontentsline{toc}{subsection}{\protect\numberline{--}$\tsrule{#2}$}%
+%  \index{#2@$\protect\tsrule{#2}$}%
+$\tsrule{#2}$ & \noindent\textbf{\sf\rrsmall\un@comm{\noindent{}#4}}%
+%   \ltslabel{#1}%
+%   \vspace*{0.5\baselineskip}%
+%   \sbox{\rrlhsbox}{$\displaystyle\begin{array}[t]{@{}l@{}}#5\end{array}$}%
+%   \sbox{\rrlabelbox}{$\displaystyle#6$}%
+%   \sbox{\rrrhsbox}{$\displaystyle\begin{array}[t]{@{}l@{}}#7\end{array}$}%
+%   \@tempdima\wd\rrlabelbox\advance\@tempdima\wd\rrrhsbox\advance\@tempdima1em%
+%   \ifdim\@tempdima<\linewidth
+%     \advance\@tempdima\wd\rrlhsbox\advance\@tempdima1em%
+%     \ifdim\@tempdima<\linewidth
+%       % |h --> h'
+%       \par\noindent\box\rrlhsbox\quad\box\rrlabelbox\quad\box\rrrhsbox%
+%     \else
+%       % |  h
+%       % |--> h'
+%       \par\noindent\qquad\box\rrlhsbox%
+%       \par\noindent\box\rrlabelbox\quad\box\rrrhsbox%
+%     \fi
+%   \else
+%     % |  h
+%     % |-->
+%     % |  h'
+%     \par\noindent\qquad\box\rrlhsbox%
+%     \vspace*{1ex}%
+%     \par\noindent\box\rrlabelbox%
+%     \par\noindent\qquad\box\rrrhsbox%
+%   \fi
+}
+
+
+
+% Non-enclosing figure brackets, by Keith Wansbrough
+%   (after Andy Gordon and Don Syme)
+\newlength{\BrackWidth}\setlength{\BrackWidth}{0.7pt}
+\newlength{\DashLength}\setlength{\DashLength}{6pt}
+\newcommand{\TopBracket}{%
+  \par\noindent
+  \rlap{\rule[-\DashLength]{\BrackWidth}{\DashLength}}%
+  \rule{\linewidth}{\BrackWidth}%
+  \llap{\rule[-\DashLength]{\BrackWidth}{\DashLength}}%
+  \par
+}
+\newcommand{\BottomBracket}{%
+  \par\noindent
+  \rlap{\rule{\BrackWidth}{\DashLength}}%
+  \rule{\linewidth}{\BrackWidth}%
+  \llap{\rule{\BrackWidth}{\DashLength}}%
+  \par
+}
+\newcommand{\rrenbox}[1]{%
+  \TopBracket
+  \rrnormalsize{}#1%
+  \BottomBracket
+}
+
+% Definition scope is only a single cell inside a tabbing, so we
+% have to be clever.  \\ is defined to be \@tabcr, so we redef that.
+\let\@ltsoldtabcr\@tabcr
+\newcommand{\rrtabcr}{$\@ltsoldtabcr$\displaystyle}
+\newcommand{\rrenside}[1]{%
+  {\let\@tabcr\rrtabcr\ltsm@gicaligntrue\let\tslongcomm\tabbingtslongcomm\let\tsholcomm\tabbingtsholcomm
+   \begin{tabbing}$\displaystyle #1$\end{tabbing}}%
+}
+
+\newcommand{\rrencmt}[1]{%
+  \par\vspace{0.5ex}%
+  \begin{list}{}{\leftmargin\shorterindentwidth\rightmargin\shorterindentwidth}%
+  \item[]\rrsmall\un@comm{#1}{}%
+  \end{list}%
+}
+
+\newcommand{\rrulecc}[9]{%
+  \rrenbox{%
+    \rrulefront{#1}{#2}{#3}{#4}{#5}{#6}{#7}%
+    \vspace*{1\baselineskip}%
+    \rrenside{#8}%
+  }%
+  \rulecomment{#9}%
+}
+\newcommand{\rrulecn}[9]{%
+  \rrenbox{%
+    \rrulefront{#1}{#2}{#3}{#4}{#5}{#6}{#7}%
+    \vspace*{1\baselineskip}%
+    \rrenside{#8}%
+  }%
+}
+\newcommand{\rrulenc}[9]{%
+  \rrenbox{%
+    \rrulefront{#1}{#2}{#3}{#4}{#5}{#6}{#7}%
+  }%
+  \rulecomment{#9}%
+}
+\newcommand{\rrulenn}[9]{%
+  \rrenbox{%
+    \rrulefront{#1}{#2}{#3}{#4}{#5}{#6}{#7}%
+  }%
+}
+
+\newcommand{\rrulepad}{%  appears at end of nonempty descripion/model/variations/internal block
+  \bigskip
+}
+
+% Index commands are given as \iA{defname} for the first, and
+% \iB{defname} for all subsequent definitions in this block.
+% Redefine those commands appropriately, then do them.
+\newcommand{\dodefnindex}[1]{{%
+    \def\iA##1{\markboth{$\tsrule{##1}$}{$\tsrule{##1}$}%
+      \addcontentsline{toc}{subsection}{\protect\numberline{--}$\tsrule{##1}$}%
+      \index{##1@$\protect\tsrule{##1}$}}%
+    \def\iB##1{\addcontentsline{toc}{subsection}{\protect\numberline{--}$\tsrule{##1}$}%
+      \index{##1@$\protect\tsrule{##1}$}}%
+    #1%
+}}
+
+\newcommand{\subddefnA}[3][]{% \subddefnX[description]{name}{definition} appears
+                             % multiple times within arg#3 of \ddefn*
+                             % and \tyddefn*, with X=A first and X=B
+                             % subsequently.
+  \textbf{-- #1:}\\\relax
+  #3%
+}
+\newcommand{\subddefnB}[3][]{% \subddefnX[description]{name}{definition} appears
+                             % multiple times within arg#3 of \ddefn*
+                           % and \tyddefn*, with X=A first and X=B subsequently.
+  \\
+  \rule{0pt}{3ex}\textbf{-- #1:}\\\relax
+  #3
+}
+\newcommand{\ddefnn}[4]{%
+  \rrenbox{%
+    \dodefnindex{#2}%
+    \ltslabel{#1}%
+    \rrenside{#3}%
+  }%
+}
+\newcommand{\ddefnc}[4]{%
+  \rrenbox{%
+    \dodefnindex{#2}%
+    \ltslabel{#1}%
+    \rrenside{#3}%
+  }%
+  \rulecomment{#4}%
+}
+
+\newcommand{\tyddefnn}[4]{%
+  \rrenbox{%
+    \dodefnindex{#2}%
+    \ltslabel{#1}%
+    \rrenside{#3}%
+  }%
+}
+\newcommand{\tyddefnc}[4]{%
+  \rrenbox{%
+    \dodefnindex{#2}%
+    \ltslabel{#1}%
+    \rrenside{#3}%
+  }%
+  \rulecomment{#4}%
+}
+
+% hyperlinks
+\newcommand{\ltslabel}[1]{\label{#1}}
+\newcommand{\ltslink}[2]{\mbox{#2 (p\pageref{#1})}}
+  % NB: section references won't work, because of the hackery involved
+  % in \showrule{}.
+
+%
+% <end>

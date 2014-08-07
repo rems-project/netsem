@@ -1,0 +1,244 @@
+FreeBSD v4.6 Installation Process
+----------------------------------
+
+- download from a BSD mirror (e.g. ftp2.uk.freebsd.org) copies of the kern.flp and mfsroot.flp floppy images from /pub/FreeBSD/releases/i386/4.4-RELEASE/floppies
+
+N.B. IT IS IMPORTANT THAT YOU DOWNLOAD THE V4.4 FLOPPIES AS THE V4.6 INSTALLER IS BROKEN!
+
+- make boot disks from these files using dd
+
+- construct a hardware list (incl model nos and current settings) before beginning the install
+
+- boot from boot disks (using kernel image disk first)
+
+- configure kernel options by removing all drivers for hardware that the machine does not have (this should resolve all resource conflicts)
+
+- reboot by saving and quitting. After reboot DO NOT select to reconfigure kernel drivers (as you've already done this and want to commit to your choice!)
+
+- change keymap option to UK codepage 850
+
+- In Options, turn on debugging. Also change the release name to 4.6-RELEASE (from 4.4-RELEASE)
+
+- select custom installation
+
+- auto configure disk slices (i.e. one large slice) in Partition option
+
+- manually configure partitions on slice (/=128M, swap=96M, /var=64M, /tmp=128M, /USR=remaining space) in Label option
+
+- choose CUSTOM installation -- select the distributions you wish to install.
+  Recommend: bin, compat 1x - 4x, dict, doc, info, man, catman, proflibs, ports, src [base, contrib, etc, include, lib, libexec, release, bin, sbin , scrypto, share, ssecure, sys (kernel), tools, ubin, usbin]
+
+- choose Media Type as FTP via HTTP PROXY -- enter the port-forwarded address of the gateway machine (e.g. 192.168.0.1:7000 -- see NOTE below)
+
+- begin installation (by choosing the commit option)
+
+- after installation exit out to top-level menu and choose the post-installation menu.
+
+- configure a root password
+
+- configure user accounts
+
+- there is no need to change any networking options
+
+N.B. TCP EXTENSIONS AS DEFINED IN RFC 1323 AND 1644 ARE TURNED ON BY DEFAULT. LEAVE THEM TURNED ON!
+
+- set the system security level to medium
+
+- turn off the sendmail module option
+
+- select a screensaver
+
+- set the time zone
+
+- go to the packages menu: select emacs, vim, XFree86 clients....., then choose install
+
+- quit the installer and reboot
+
+- configure sshd, turn off sendmail and configure X
+
+
+Build and install GNU make:
+---------------------------
+- firstly save the version of BSD make - it is useful for building ports:
+
+  mv /usr/bin/make /usr/bin/bsd-make
+
+- download GNU make from http://ftp.gnu.org/pub/gnu/make/
+
+- version 3.80 was highest at time of writing (as was installed)
+
+- Build by running configure -prefix=/usr, make, make check and make install
+
+- Make up some links:
+  cp /usr/bin/make /usr/bin/gmake
+  ln -f -s /usr/bin/gmake /usr/bin/make
+
+
+Install libgcc and linuxthreads:
+--------------------------------
+NB: the initial machine install was done almost 1.75 years ago and
+linux threads was added later. FreeBSD 4.6 is no longer available on
+ftp download sites hence the change to use the ports FreeBSD 4.9
+throughout the documentation in this section.
+
+By default, BSD 4.6 only supports user-level threading. Applications
+link against libc_r instread of libc to use multiple threads. Using
+user-level threads has some issues as all blocking system calls are
+made non-blocking and faked up as blocking by libc_r. In some cases
+this faking up isn't possible/perfect and the application can from
+time to time see a call that it thought was blocking behave in a
+non-blocking manner.
+
+This has a knock-on effect for modelling TCP/UDP as our multi-threaded
+test harness witnesses some blocking calls returning immediately when
+they really should not, or vice versa (see
+TCP1_hostLTSScript.sml,1.672,1.673). The solution is to install the
+linuxthreads port.
+
+BSD ports are sets of patches that must be applied to standard Linux
+packages in order for them to build and work correctly under BSD. As
+such when installing and building a port you must have (a) access to
+the internet to download the source code of the required package, and
+(b) a copy of BSD's make installed (not GNU make).
+
+
+- YOU SHOULD BE ROOT for the whole of this procedure!
+
+- Re-enable BSD's make:
+  ln -f -s /usr/bin/bsd-make /usr/bin/make
+
+- ensure that you have access to the internet (i.e. set-up the port
+  forwarding on astrocyte explained in the NOTES section below
+
+- You need sufficient disk space available for this procedure.
+  Suggest doing this otherwise things go badly wrong:
+    mv /usr/X11R6/bin/makedepend /usr/bin
+    rm -rf /usr/X11R6
+
+- before continuing setup the port forwarding on the gateway machine
+  (astrocyte) to allow access to the web proxy. See the NOTES section
+  below for a description on how to do this.
+
+==
+** Installing and building libgcc **
+==
+
+- run the BSD system configuration tool /stand/sysinstall
+
+- selection Options and change Release to "4.9-RELEASE" and then
+  return to the main menu
+
+- select Configure (post-install configuration)
+
+- select Distributions
+
+- Ensure Src is checked in the list of available distributions and
+press OK.
+
+- Ensure Gnu is checked in the list of Src packages and ensure Exit
+Menu is highlighted by the selector bar and press OK
+
+- You are returned to the previous list of distributions, ensure Exit
+Menu is highlighted by the selector bar and press OK to exit this.
+
+- select HTTP download (option 4)
+
+- select UK ftp.uk.freebsd.org and answer "yes" to the multi-homed
+  question
+
+- enter a web proxy address of 192.168.0.1:7000 when prompted and
+  press OK.
+  - The system now downloads and installs the gnu src pacakges
+  - If the install fails with a write failure, ignore it. It has
+  probably installed enough to include the libgcc package that we
+  require.
+
+- exit sysinstall and change directory:
+  cd /usr/src/gnu/lib/libgcc
+
+- run: make
+
+- run: make install
+
+- libgcc should now be installed successfully!
+
+
+==
+** Installing and building linuxthreads **
+==
+
+- run the BSD system configuration tool /stand/sysinstall
+
+- selection Options and change Release to "4.9-RELEASE" and then
+  return to the main menu
+
+- select Configure (post-install configuration)
+
+- Ensure Ports is checked in the list of available distributions and
+press Install.
+
+- select HTTP download (option 4)
+
+- select UK ftp.uk.freebsd.org and answer "yes" to the multi-homed
+  question
+
+- enter a web proxy address of 192.168.0.1:7000 when prompted and
+  press OK.
+  - The system now downloads and installs the gnu src pacakges
+  - If the install fails with a write failure, ignore it. It has
+  probably installed enough to include the required port
+  linuxthreads.
+
+- exit sysinstall
+
+- download
+  http://ftp.scarlet.be/pub/gnu/glibc/glibc-linuxthreads-2.2.3.tar.gz
+  into /usr/ports/distfiles
+
+- change directory: cd /usr/ports/devel/linuxthreads
+
+- run: make install
+
+
+====
+Emulating pthreads and finishing up
+====
+
+- Finally to emulate pthreads:
+
+  ln -s /usr/local/lib/liblthread.a /usr/lib/libpthread.a
+  ln -s /usr/local/lib/liblthread_p.a /usr/lib/libpthread_p.a
+  ln -s /usr/local/lib/liblthread.so.2 /usr/lib/libpthread.so.2
+  ln -s /usr/local/lib/liblthread.so.2 /usr/lib/libpthread.so
+  /sbin/ldconfig -m /usr/lib
+
+- Now any application built with
+
+  -D_THREAD_SAFE -I/usr/local/include/pthread/linuxthreads -lpthread
+  -llgcc_r
+
+  will use pthreads
+
+- Put the GNU version of make back:
+  ln -f -s /usr/bin/gmake /usr/bin/make
+
+
+
+NOTES:
+------
+
+* The machines are on a private network. The gateway machine
+192.168.0.1 has two interfaces -- this can be used to connect to the
+outside world. On the gateway machine run: ssh -N -L
+7000:wwwcache.cam.ac.uk:8080 -g -b 192.168.0.1 astrocyte.  The machines
+on the private network can now connect to 192.168.0.1:7000 to talk to
+the web proxy.
+
+* /etc/default/rc.conf APPEARS TO BE A VERY IMPORTANT CONFIGURATION
+FILE WITH *LOTS* OF NETWORKING OPTIONS.  Update 20030106:
+/etc/default/rc.conf contains important default configuration
+information (incl lots of networking options). It then references
+/etc/rc.conf for more specific configuration options, e.g. ip/netmask
+configuration of local interfaces, hostname setup, keyboard mappings
+etc, etc...
+

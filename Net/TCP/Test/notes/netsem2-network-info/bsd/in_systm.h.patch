@@ -1,0 +1,10 @@
+--- in_systm.h.orig	Wed Nov 30 16:43:22 2005
++++ in_systm.h	Wed Nov 30 16:46:34 2005
+@@ -53,6 +53,7 @@ typedef	u_int32_t n_time;		/* ms since 0
+
+ #ifdef _KERNEL
+ n_time	 iptime(void);
++void iptime_usec __P((struct timeval*));
+ #endif
+
+ #endif

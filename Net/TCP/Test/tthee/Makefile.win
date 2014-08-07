@@ -1,0 +1,38 @@
+OCAMLC=ocamlc
+OCAMLOPT=ocamlopt
+OCAMLMKLIB=ocamlmklib
+OCAMLDEP=ocamldep
+RM=del /Q /F
+
+OCAMLCFLAGS=-I "$(OCAMLLIB)" -I ../common -I ../ocamlext -I ../ocamllib
+OCAMLREQLIBS=
+
+TARGETS=mergelib.cmx tthee.cmx ttheehelper.cmx
+INTERFS=mergelib.cmi tthee.cmi ttheehelper.cmi
+
+all: tthee.cmxa
+
+tthee.cmxa: $(INTERFS) $(TARGETS)
+	$(OCAMLOPT) -thread -a -o $@ $(TARGETS)
+
+clean:
+	$(RM) $(INTERFS) $(TARGETS) *.cma *.cmx
+	$(RM) *.cmxa *.o *.a *.cmi *.obj *.lib
+	$(RM) .depend
+
+depend:	.depend
+
+.SUFFIXES:.ml .mli .cmi .cmx
+
+.ml.cmx:
+	$(OCAMLOPT) -thread -c $(OCAMLCFLAGS) $<
+
+.mli.cmi:
+	$(OCAMLOPT) -thread -c $(OCAMLCFLAGS) $<
+
+.depend: *.mli *.ml
+	$(OCAMLDEP) *.mli *.ml > $@
+
+!IF EXIST(.depend)
+!INCLUDE .depend
+!ENDIF

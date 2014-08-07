@@ -1,0 +1,52 @@
+% hostlts.tex  --  wrapper for munged host LTS
+%
+% Keith Wansbrough 2001
+
+\documentclass[10pt]{llncs}
+
+\usepackage{ltsmunge}
+
+\setlength{\textwidth}{150mm}
+\setlength{\textheight}{210mm}
+\setlength\oddsidemargin{10mm}  
+\setlength\evensidemargin{-1.8mm}  % 210 - 2*25.4 - textwidth - oddsidemargin
+
+
+
+
+
+
+\newcommand{\mignore}[1]{}
+
+
+% These strings are taken from the comments in errno.h.  Perhaps
+% should use something more definitive?
+\newcommand{\errstring}[1]{`{#1}'}
+\newcommand{\sEACCES}{\errstring{Permission denied}}
+\newcommand{\sEADDRINUSE}{\errstring{Address already in use}}
+\newcommand{\sEADDRNOTAVAIL}{\errstring{Cannot assign requested address}}
+\newcommand{\sEAGAIN}{\errstring{Try again}}
+\newcommand{\sEBADF}{\errstring{Bad file number}}
+\newcommand{\sECONNREFUSED}{\errstring{Connection refused}}
+\newcommand{\sEHOSTUNREACH}{\errstring{No route to host}}
+\newcommand{\sEINTR}{\errstring{Interrupted system call}}
+\newcommand{\sEINVAL}{\errstring{Invalid argument}}
+\newcommand{\sEMFILE}{\errstring{Too many open files}}
+\newcommand{\sEMSGSIZE}{\errstring{Message too long}}
+\newcommand{\sENFILE}{\errstring{File table overflow}}
+\newcommand{\sENOBUFS}{\errstring{No buffer space available}}
+\newcommand{\sENOMEM}{\errstring{Out of memory}}
+\newcommand{\sENOTCONN}{\errstring{Transport endpoint is not connected}}
+\newcommand{\sENOTSOCK}{\errstring{Socket operation on non-socket}}
+\newcommand{\sEPERM}{\errstring{Operation not permitted}}
+
+
+
+
+\begin{document}
+
+\section{Host transition rules}
+
+\input Net_hostLTSScript.tex
+
+\end{document}

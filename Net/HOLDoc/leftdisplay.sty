@@ -1,0 +1,21 @@
+
+\newskip\eqntopsep
+\eqntopsep 10pt plus 2\p@ minus 2\p@
+
+\newskip\mathindent
+\mathindent 1.5em plus 0em minus 1.5em
+
+\def\[{\relax\ifmmode\@badmath
+  \else%
+  \@beginparpenalty\predisplaypenalty
+  \@endparpenalty\postdisplaypenalty
+  \begin{trivlist}\@topsep \eqntopsep
+   \@topsepadd \eqntopsep
+  \item[]\leavevmode
+  \hbox to\linewidth\bgroup$ \displaystyle
+  \hskip\mathindent\bgroup\fi}
+\def\]{\relax\ifmmode \egroup $\hfil \egroup
+  \end{trivlist}%
+  \else \@badmath \fi}
+
+

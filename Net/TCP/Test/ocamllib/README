@@ -1,0 +1,20 @@
+Notes on ocaml interface to nssock:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#########
+TODO:
+- getsockerr() --> how should the errors be raised?
+
+IMPROVEMENTS:
+- how should our exception handling work?
+#########
+
+* type `ip` is currently an abstract type ==> will actually be whatever the native code defines it as, but this doesn't matter in the ocaml world.
+
+* need to be careful with option types (especially the returning of from the native code). There is a very subtle difference between the representation of a value containing something of type 'a and a value containing something of type 'a option.
+	- in theory it is possible to get the return value wrong in the native interface and for things to break in bad ways
+
+* some socket calls are actually ocaml wrappers that do some munging before a call to a private native call (i.e., private = a native call not exported in the libraries interface)
+
+- uses a copy of Xavier's unix and windows error handling code (to raise exceptions via callbacks from C to ocaml)
+

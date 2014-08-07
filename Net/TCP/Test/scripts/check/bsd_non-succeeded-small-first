@@ -1,0 +1,69 @@
+#!/bin/bash
+
+set -e
+umask 0007
+
+if [ $# -lt 2 ] ; then
+    echo "Usage: $0 trace_directory check_directory [output]"
+    echo "  trace_directory - the directory containing the trace files"
+    echo "  check_directory - directory containing the trace output"
+    echo "  output - output filename (default: runselection.conf)"
+    exit 255
+fi
+
+INDIR=$1
+CHKDIR=$2
+RUNBATCHCONF=runbatch.conf
+
+# Set output file
+if [[ $3 != "" ]]; then
+  OUTPUT=$3
+else
+  OUTPUT=runselection.conf
+fi
+
+# Tidy-up any trailing /
+INDIR=`cd $INDIR && pwd && cd -`
+CHKDIR=`cd $CHKDIR && pwd && cd -`
+
+#-=-=-=-=-=-=-=--=-=-=-=-=-=-=-
+
+# Get lists of traces for each architecture
+TRACES_BSD="`cd $INDIR && grep -H -l "Test Host: BSD" trace???? && cd -`"
+ALL_TRACES="$TRACES_BSD"
+
+#-=-=-=-=-=-=-=--=-=-=-=-=-=-=-
+
+SUCCEEDED_TRACES="`cd $CHKDIR && grep -H -l "SUCCEEDED" trace????.out.html | sed -e s/'.out.html'//g && cd -`"
+NOT_SUCCEEDED_TRACES=""
+
+for t in $ALL_TRACES; do
+  if ! echo $SUCCEEDED_TRACES | grep -s $t -- >/dev/null; then
+    NOT_SUCCEEDED_TRACES="$NOT_SUCCEEDED_TRACES $t"
+  fi
+done;
+
+#-=-=-=-=-=-=-=-
+
+TRACES_1=""
+TRACES_2=""
+TRACES_3=""
+
+for f in $NOT_SUCCEEDED_TRACES; do
+  NUM_STEPS=`grep "Merge Index:" $INDIR/$f | tail -n 1 | sed -e "s/Merge Index://" | tr "(*) " "\0"`
+
+  if (( $NUM_STEPS < 50 )); then
+    TRACES_1="$TRACES_1 $INDIR/$f"
+  elif (( $NUM_STEPS > 70 )); then
+    TRACES_3="$TRACES_3 $INDIR/$f"
+  else
+    TRACES_2="$TRACES_2 $INDIR/$f"
+  fi
+done;
+
+
+#-=-=-=-=-=-=-=-
+
+cp -f $RUNBATCHCONF $OUTPUT
+echo "" >> $OUTPUT
+echo "TRACES=\"$TRACES_1 $TRACES_2 $TRACES_3\"" >> $OUTPUT

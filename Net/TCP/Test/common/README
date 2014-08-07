@@ -1,0 +1,60 @@
+There are several datatype models in play.
+
+  HOL datatypes of the spec.
+
+  Parser datatypes.
+
+  OCaml partial representation of HOL datatypes.
+
+The OCaml code variously uses either of the last 2.
+
+
+Descriptions of files
+
+nettypes: basic types derived from C code?
+
+netconv: byte/word processing (padding, printing)
+
+net2hol: take a bytestream repn. a datagram, and convert to a nettypes
+datatype. Used by slurper only.
+
+netipreass: ip fragment reassembly. Used by the slurper only, as you'd expect.
+
+holtypes: OCaml equivalent of HOL datatypes.
+
+tcpcbtypes: OCaml equivalent of HOL datatypes.
+
+holparselib: ? some stuff to deal with partial datatype values? Used
+by lots of things because it declares the holmsg type (!).
+
+libcalls: OCaml equivalent of HOL datatypes.
+
+render: about 10 low level printing functions. (render_port_option etc.)
+
+tcpcbparserlib: more of the partial datatype value stuff, similar to
+holparselib
+
+hol2net: going from HOL/OCaml datatype back to nettypes.
+
+parserlib: top level types for returns from parser.
+
+sock: write to a socket, repeatedly on failure
+
+parser:
+
+tcpcbrender: printing OCaml tcpcb, vaguely correctly
+
+librender: print OCaml lib calls
+
+holrender: print anything else not covered by the previous, such as
+TCP segments
+
+lexer:
+
+renderlib: entry point to rendering/printing functions
+
+
+Depends
+
+holtypes -> netconv: consistency checks
+parser.mly -> libcalls: OK_UNIT

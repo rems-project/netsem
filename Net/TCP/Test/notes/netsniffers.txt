@@ -1,0 +1,42 @@
+Evaluation of network packet sniffers: pros and cons
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* Ethereal
+  - data can be captured live or from a file (produced by tcpdump and many others)
+  - supports many link layer protocols (e.g., ether, PPP, 802.11...)
+  - GUI
+  - flexibile filter options, packet colouring, different packet view modes (e.g. ascii contents of payload)
+  - all captured network traces can be saved to disk
+  - understands more protocols than you care to think about ;-)
+  - can view protocols as if you were the server or client
+  - support for *all* platforms
+  - open source
+
+* Snoop
+  - command line based
+  - msdos executable only
+  - allows filter of ethernet/IP/TCP
+  - no nice output; just raw hex with a few flags highlighted
+  - free and code available
+
+* tcpshow
+  - command line based
+  - mainly for unix/bsd but linux & win ports available
+  - very basic filtering (e.g. don't show headers)
+  - decodes header information to the extend of delimiting fields and naming flags
+  - not as good as the current tcpdump tools; this was created before tcpdump was improved
+  - support for ethernet, ARP, RARP, IP, ICMP, UDP, TCP only
+
+* tcptrace
+  - pretty useless --> statistical connection analysis + pretty graphs ;-)
+
+* Network flight recorder
+  - can't find a copy -- only references to it and www.nfr.com who now only seem to sell intrusion detection h/w
+
+* ntop
+  - another net stats tool...
+
+* sniffit
+  - equivalent to modern versions of tcpdump (understands IP, TCP, ICMP only)
+
+* sniff'em
+  - windows packet sniffer

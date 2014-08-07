@@ -1,0 +1,9 @@
+CFILES=logger.c
+
+all: logger.exe
+
+logger.exe: $(CFILES)
+	$(CC) /D "WIN32" $(CFILES) ws2_32.lib
+
+clean:
+	del /q /f *.obj logger.exe *.idb

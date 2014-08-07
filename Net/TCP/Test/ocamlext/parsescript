@@ -1,0 +1,24 @@
+#!/bin/bash
+
+PARSE=$1
+
+echo 'Parse script running:'
+
+echo '  Hacking the parser...'
+rm -f $PARSE.ml.tmp $PARSE.mli.tmp
+mv $PARSE.ml $PARSE.ml.tmp
+mv $PARSE.mli $PARSE.mli.tmp
+
+sed -e 's/Parsing/Threadparsing/g'  \
+    -e 's/let main /let main (env : Threadparsing.env) /g'  \
+    -e 's/yyparse /yyparse env /g'  \
+    $PARSE.ml.tmp >$PARSE.ml
+
+sed -e 's/Parsing/Threadparsing/g' \
+    -e 's/val main :/val main : Threadparsing.env ->/g' \
+    $PARSE.mli.tmp >$PARSE.mli
+
+echo '  Clearing up...'
+rm -f $PARSE.ml.tmp $PARSE.mli.tmp
+
+echo '  Parser hacked OK!'

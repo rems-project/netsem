@@ -1,0 +1,5 @@
+#!/bin/sh
+
+makeindex typography
+mv typography.ind typography.ind.orig
+cat typography.ind.orig | fixind | infer | rebracket | munge > typography.ind

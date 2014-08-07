@@ -1,0 +1,8 @@
+#!/bin/sh
+
+# typ: $0 trace0439.out.html
+
+while true; do
+  stat -c %s $1 >> $1.size-log
+  sleep 10
+done

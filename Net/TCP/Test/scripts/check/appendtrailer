@@ -1,0 +1,28 @@
+#!/bin/sh
+
+# append trailer to output of trace checker when checking is aborted
+
+if [ $# -ne 3 ] ; then
+    echo "$0 expects to find outdir, trace filename, and reason for abort on command line."
+    exit 255
+fi
+
+OUTDIR=$1
+TRACE="`basename $2`"
+REASON=$3
+OUTFILE="$OUTDIR/$TRACE.out.html"
+echo "" >> $OUTFILE
+echo "==Trace $TRACE $REASON" >>$OUTFILE
+cat <<'EOF' >>$OUTFILE
+
+<script type="application/x-javascript">
+<!--
+list = document.getElementById("thelist")
+init()
+//-->
+</script>
+
+</body>
+</html>
+
+EOF

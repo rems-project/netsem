@@ -1,0 +1,27 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+my $content = '';
+my $n = -1;
+
+print "# step K1 K1a K3k\n";
+
+while (<>) {
+    if (/^==Step\s+(\S+)/) {
+        my $nextn = $1;
+        my @a = ($content =~ m/K1/g); my $a = scalar(@a);
+        my @b = ($content =~ m/K1a/g); my $b = scalar(@b);
+        my @c = ($content =~ m/K3k/g); my $c = scalar(@c);
+        print "$n $a $b $c\n";
+        $content = '';
+        $n = $nextn;
+    } else {
+        $content .= $_;
+    }
+}
+
+my @a = ($content =~ m/K1/g); my $a = scalar(@a);
+my @b = ($content =~ m/K1a/g); my $b = scalar(@b);
+my @c = ($content =~ m/K3k/g); my $c = scalar(@c);
+print "$n $a $b $c\n";

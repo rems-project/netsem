@@ -1,0 +1,63 @@
+#!/bin/sh
+
+# backup all our data to the local machine; typically run on stem
+
+DESTDIR=/local/scratch/kw217/netsem-data
+
+umask 007
+
+# first the miscellanea; no need to compress
+cd /usr/groups/tthee
+echo -n "tthee top..."
+mkdir -p $DESTDIR
+for f in README conf dot.html www-internal; do
+    cp -a $f $DESTDIR/
+done
+echo "done."
+
+# next the tthee stuff
+
+cd /usr/groups/tthee
+for d in adhoc/* batch/autotest* batch/pre-udp-merge/*; do
+    if [ -d $d -a '!' -L $d ]; then
+        echo -n "$d..."
+        mkdir -p $DESTDIR/$d
+        for f in $d/*; do
+            if [ -f $f -a '!' -L $f ]; then
+                ff=$DESTDIR/$f.gz
+#                echo "$f -> $ff"
+                gzip -c $f > $ff
+                touch -r $f $ff
+#            else
+#                echo "Skipping $f"
+            fi
+        done
+        echo "done."
+    fi
+done
+cp -a batch/README $DESTDIR/batch/README
+
+# next the tthee-scratch stuff
+
+cd /usr/groups/tthee-scratch
+cp -a README $DESTDIR/README-scratch
+
+cd /usr/groups/tthee-scratch
+for d in batch/autotest-* check/check* check/old/check*; do
+    if [ -d $d -a '!' -L $d ]; then
+        echo -n "$d..."
+        mkdir -p $DESTDIR/$d
+        for f in $d/*; do
+            if [ -f $f -a '!' -L $f ]; then
+                ff=$DESTDIR/$f.gz
+                gzip -c $f > $ff
+                touch -r $f $ff
+            fi
+        done
+        echo "done."
+    fi
+done
+cp -a check/README $DESTDIR/check/README
+
+# That's it!
+

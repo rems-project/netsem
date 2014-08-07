@@ -1,0 +1,256 @@
+This file charts the progress in documenting the spec.
+
+Key:
+x - Documentation written
+l - Documentation written but needs looking at
+d - Dummy place-holder
+o - out of date
+
+PREAMBLES:
+return
+socket			x
+accept			o (ECONNABORTED stuff)
+bind			x
+close			l
+connect			x
+disconnect		l
+dup			x
+dupfd			x
+listen			l
+getfileflags		x
+setfileflags		x
+getifaddrs		x
+getsockbopt		x
+setsockbopt		x
+getsocknopt		x
+setsocknopt		x
+getsocktopt		x
+setsocktopt		x
+getsockerr		x
+getsocklistening	x
+shutdown		x
+recv (TCP)		x
+recv (UDP)		x
+send (TCP)		i
+send (UDP)		x
+sockatmark		x
+pselect			x
+getsockname		x
+getpeername		x
+Failures
+  badf_1
+  intr_1
+  nonsock_1
+  resourcefail_1
+  resoursefail_2
+deliver_in_[1-9]
+deliver_in_99
+deliver_in_udp_?
+deliver_in_icmp_?
+timer_tt_*
+deliver_out_??
+deliver_loop_
+trace
+misc
+  interface
+  epsilon
+
+
+RULES:
+
+return_1
+socket_1		x
+socket_2		x
+accept_1		o
+accept_2		o
+accept_3		o
+accept_4		o
+accept_5		x
+accept_6		x
+accept_7		x
+bind_1			x
+bind_2			x
+bind_3			x
+bind_5			x
+bind_7			x
+bind_8			x
+bind_9			x
+close_1			x
+close_2			x
+close_3			x
+close_4			x
+close_5			x
+close_6			x
+close_7			x
+close_8			o
+close_10		x
+connect_1		o
+connect_2		x
+connect_3		x
+connect_4		o
+connect_4a		o
+connect_5		o
+connect_5a		x
+connect_5b		x
+connect_5c		x
+connect_5d		x
+connect_6		x
+connect_7		x
+connect_8		x
+connect_9		x
+connect_10		x
+disconnect_1		x
+disconnect_2		x
+disconnect_3		x
+disconnect_4		x
+disconnect_5		x
+dup_1			x
+dup_2			x
+dupfd_1			o
+dupfd_3			x
+dupfd_4			x
+listen_1		o
+listen_1b		o
+listen_1c
+listen_2		x
+listen_3		x
+listen_4		x
+listen_5		o
+listen_7		x
+getfileflags_1		x
+setfileflags_1		x
+getifaddrs_1		x
+getsockbopt_1		x
+getsockbopt_2		x
+setsockbopt_1		x
+setsockbopt_2		x
+getsocknopt_1		x
+getsocknopt_4		x
+setsocknopt_1		x
+setsocknopt_2		x
+setsocknopt_4		x
+getsocktopt_1		x
+getsocktopt_4		x
+setsocktopt_1		x
+setsocktopt_4		x
+setsocktopt_5		x
+getsockerr_1		x
+getsockerr_2		x
+getsocklistening_1	x
+getsocklistening_2	x
+getsocklistening_3	x
+shutdown_1		x
+shutdown_2		x
+shutdown_3		x
+shutdown_4		x
+recv_1			x
+recv_2			x
+recv_3			x
+recv_4			x
+recv_5			x
+recv_6			x
+recv_7			x
+recv_8			x
+recv_8a			x
+recv_9			x
+recv_11			x
+recv_12			x
+recv_13			x
+recv_14			x
+recv_15			x
+recv_16			x
+recv_17			x
+recv_20			x
+recv_21			x
+recv_22			x
+recv_23			x
+recv_24
+send_1			x
+send_2			x
+send_3			x
+send_3a			x
+send_4			x
+send_5			x
+send_5a			x
+send_6			x
+send_7			x
+send_8			x
+send_9			x
+send_10			x
+send_11			x
+send_12			x
+send_13			x
+send_14			x
+send_15			x
+send_16			x
+send_17			x
+send_18			x
+send_19			x
+send_21			x
+send_22			x
+send_23			x
+sockatmark_1		x
+sockatmark_2		x
+pselect_1
+pselect_2
+pselect_3
+pselect_4		x
+pselect_5		x
+pselect_6		x
+getsockname_1		x
+getsockname_2		x
+getsockname_3		x
+getpeername_1		x
+getpeername_2		x
+badf_1			x
+notsock_1		x
+intr_1			x
+resourcefail_1		x
+resourcefail_2		x
+
+deliver_in_1		x
+deliver_in_1b
+deliver_in_2
+deliver_in_2a
+deliver_in_3		x
+deliver_in_3a
+deliver_in_3b
+deliver_in_3c
+deliver_in_4
+deliver_in_5
+deliver_in_6
+deliver_in_7
+deliver_in_7a
+deliver_in_7b
+deliver_in_7c
+deliver_in_7d
+deliver_in_8
+deliver_in_9
+deliver_in_icmp_1
+deliver_in_icmp_2
+deliver_in_icmp_3
+deliver_in_icmp_4
+deliver_in_icmp_5
+deliver_in_icmp_6
+deliver_in_icmp_7
+deliver_in_udp_1	x
+deliver_in_udp_2	x
+deliver_in_udp_3	x
+deliver_in_99
+deliver_in_99a
+timer_tt_rexmt_1
+timer_tt_rexmtsyn_1
+timer_tt_persist_1
+timer_tt_2msl_1
+timer_tt_delack_1
+timer_tt_conn_est_1
+timer_tt_keep_1
+timer_tt_fin_wait_2_1
+timer_tt_time_wait_1
+deliver_out_1
+deliver_out_99
+deliver_loop_99
+trace_1
+trace_2
+interface_1
+epsilon_1

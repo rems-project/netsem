@@ -1,0 +1,30 @@
+MAKE=$(MAKE) /F Makefile.win $(MAKEFLAGS)
+
+all::
+	cd ns_logger
+	$(MAKE) all
+	cd ..
+	cd socktools
+	$(MAKE) all
+	cd ..
+	cd custom_rsh2
+	$(MAKE) all
+	cd ..
+	cd tsccal
+	$(MAKE) all
+	cd ..
+
+clean::
+	cd ns_logger
+	$(MAKE) clean
+	cd ..
+	cd socktools
+	$(MAKE) clean
+	cd ..
+	cd custom_rsh2
+	$(MAKE) clean
+	cd ..
+	cd tsccal
+	$(MAKE) clean
+	cd ..
+

@@ -1,0 +1,116 @@
+
+/usr/groups/tthee/check/check-2004-04-03T19:35:09+0100
+
+
+P eyeballing some FAILUREs, working backwards from 1435
+
+
+trace1435.out.html
+
+- due to an TA_INPUT in SYN_RECEIVED (step 32), afaict.
+
+- although this isn't reached in the check run, the trace ends with
+  ENOPROTOOPT.  I imagine this indicates a problem in the test setup,
+  but can't see anything on a quick investigation.
+
+
+trace1312.out.html
+
+  fine up to 31, then backtracks through to 37 and back to 31 a couple
+  of times, then backtracks to the start.
+
+  32 is another  TA_INPUT in SYN_RECEIVED, so not investigating
+  further now.
+
+
+trace1303.out.html
+
+  same issue
+
+
+trace1275.out.html
+
+- goes horribly wrong (backtrack, including intr_1 matching :-) from
+  step 10,  a TA_USER in SYN_SENT
+
+  there's a perfectly good Successful transition of trace_1, but then
+  it can't prove time passage.  Don't know why not, but S was saying
+  some of our timers were set wrong.
+
+
+trace1215.out.html
+
+- goes horribly wrong from step 16, a TA_INPUT -> ESTABLISHED
+
+  looking at the zigzags, this is _before_ the SA segment arrives, so
+  no wonder it's suspicious.  Test harness timing problem?
+
+
+trace1211.out.html
+
+- couldn't prove time passage at step 37, just after a successful
+  deliver_out_99.
+
+
+trace1201.out.html
+
+- I'm pretty boggled by this trace:
+
+  --S-->
+  <--S--
+  ---A->
+  --SA->
+
+ (but S reminds me it's the sim-open bug)
+
+
+Trace trace1196 TOO_COMPLICATED:
+
+- the allegedly complicated constraint is
+
+     (if tf_doing_tstmp' then
+       (let ts_ecr' = ...a_big_thing...  in
+          SOME (ticks_of ticks',ts_ecr'))
+      else
+          NONE)
+
+     =
+
+     SOME ...
+
+   from which we'd like HOL to realise that tf_doing_tstmp' is true.
+
+   The spec is intentionally nondeterministic about whether an
+   endpoint wants to do timestamps or not, so you don't know until you
+   see a segment.  Of course, we _could_ build in an arch-specific
+   choice, but that'd be a bit yucky.
+
+   Simple rewrite to add?  One for Michael?
+
+
+trace1120  CRASHED
+
+Starts going squiffy with:
+
+  ==Step 35: attempting time passage with duration: 1197 / 200000
+
+  Couldn't prove non-urgency
+
+  Exception raised at Thm.MP:
+  antecedent of first thm not alpha-convertible to concl. of second
+
+
+  It then goes on and claims to have found a successful transition of
+  deliver_out_1.  Off the top of my head, I'm surprised both that it
+  couldn't prove non-urgency and that it can find a deliver_out_1
+  transition - it's only 0.035s since we sent an ACK.
+
+  Guessing: maybe it just can't work out that
+
+   cb'_r11 =
+    7 / 250000 * rate9 + 83 / 1000000 * rate10 + 2439 / 100000 * rate11 +
+    2521 / 1000000 * rate12 + 373 / 500000 * rate13 +
+    623 / 250000 * rate14 + 19 / 31250 * rate15 + 1863 / 500000 *
+    rate16)
+
+  is small enough?

@@ -1,0 +1,28 @@
+\section{BSD Patches}
+
+The following patches need to be applied to BSD v. 6.0
+
+\begin{verb}
+in_systm.h.patch
+ip_icmp.c.patch
+ntpd.patch
+rc.conf.patch
+routing.patch
+tcp_debug.c.patch
+tcp_debug.h.patch
+end{verb}
+
+\verb!tcp_debug.h.patch! also needs to be applied to \verb!/usr/include/netinet/tcp_debug.h!
+
+Patches were (mostly) generated with
+
+\begin{verb}
+diff -urNp /absolute/path/to/file.orig /absolute/path/to/file
+\end{verb}
+
+Patches can be applied with
+
+\begin{verb}
+patch /absolute/path/to/file file.patch
+\end{verb}
+

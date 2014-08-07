@@ -1,0 +1,79 @@
+CC=cl
+CCOPTS=/O2 /Ob1 /D "WIN32" /D "NDEBUG" /D "_MBCS" \
+	/FD /W3 /nologo /c /TC
+MKLIB=lib
+MKLIBOPTS=/NOLOGO /NODEFAULTLIB
+RM=del /Q /F
+
+OCAMLC=ocamlc
+OCAMLOPT=ocamlopt
+OCAMLMKLIB=ocamlmklib
+OCAMLDEP=ocamldep
+OCAMLYACC=ocamlyacc
+OCAMLLEX=ocamllex
+
+OCAMLOPTIONS=-c -custom
+OCAMLLIBS=-I "$(OCAMLLIB)" -I ../ocamlext/ -I ../ocamllib/
+
+TARGETS=nettypes.cmo netconv.cmo sock.cmo net2hol.cmo netipreass.cmo\
+	libcalls.cmo holtypes.cmo holparselib.cmo hol2net.cmo render.cmo\
+	holrender.cmo tcpcbtypes.cmo tcpcbparserlib.cmo parserlib.cmo\
+	librender.cmo tcpcbrender.cmo renderlib.cmo
+TARGETSC=ntpheader.obj
+INTERFS=nettypes.cmi netconv.cmi sock.cmi net2hol.cmi netipreass.cmi\
+	libcalls.cmi holtypes.cmi holparselib.cmi hol2net.cmi render.cmi\
+	holrender.cmi tcpcbtypes.cmi tcpcbparserlib.cmi parserlib.cmi\
+	librender.cmi tcpcbrender.cmi renderlib.cmi
+PARSER=parser.mly
+LEXER=lexer.mll
+CLEANFS=parser.ml parser.mli lexer.ml
+
+all: $(INTERFS) $(TARGETS) $(TARGETSC) native parser libntplib.lib
+
+libntplib.lib: $(TARGETSC)
+	$(MKLIB) $(MKLIBOPTS) /OUT:$@ ntpheader.obj /NODEFAULTLIB
+
+native: $(TARGETS:.cmo=.cmx)
+
+parser:
+	$(OCAMLYACC) $(PARSER)
+	$(OCAMLLEX) $(LEXER)
+	..\ocamlext\parser_hack_script $(PARSER:.mly=)
+	$(OCAMLC) -thread $(OCAMLOPTIONS) $(OCAMLLIBS) $(PARSER:.mly=.mli)
+	$(OCAMLC) -thread $(OCAMLOPTIONS) $(OCAMLLIBS) $(PARSER:.mly=.ml)
+	$(OCAMLC) -thread $(OCAMLOPTIONS) $(OCAMLLIBS) $(LEXER:.mll=.ml)
+	$(OCAMLOPT) -thread -c $(OCAMLLIBS) $(PARSER:.mly=.ml)
+	$(OCAMLOPT) -thread -c $(OCAMLLIBS) $(LEXER:.mll=.ml)
+
+clean:
+	$(RM) *.cmo *.cmi *.cma *.cmxa *.cmx $(TARGETS) $(INTERFS)
+	$(RM) $(CLEANFS) *.lib *.obj *.idb
+	$(RM) .depend
+
+depend:	.depend
+
+.SUFFIXES:.ml .cmo .mli .cmi .mly .mll .cmx
+.ml.cmo:
+	$(OCAMLC) -thread $(OCAMLOPTIONS) $(OCAMLLIBS) $<
+
+.ml.cmx:
+	$(OCAMLOPT) -thread -c $(OCAMLLIBS) $<
+
+.mli.cmi:
+	$(OCAMLC) -thread $(OCAMLOPTIONS) $(OCAMLLIBS) $<
+
+.mly.ml:
+	$(OCAMLYACC) $<
+
+.mll.ml:
+	$(OCAMLLEX) $<
+
+.c.obj:
+	$(CC) $(CCOPTS) -c $<
+
+.depend: *.mli *.ml
+	$(OCAMLDEP) *.mli *.ml > $@
+
+!IF EXIST(.depend)
+!INCLUDE .depend
+!ENDIF

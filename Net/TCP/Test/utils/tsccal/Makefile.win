@@ -1,0 +1,27 @@
+# Windows makefile for TSCcal
+#
+# $Id: Makefile.win,v 1.4 2003/09/25 17:08:00 kw217 Exp $
+#
+# Use nmake /f Makefile.win to build.
+
+CFLAGS=/O2 /Ob1 /Oy /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_CONSOLE" \
+       /GF /FD /EHsc /ML /GS /Gy /W4 /c /nologo /Wp64 /Zi /TP
+LINK=link.exe
+LDFLAGS=/NOLOGO /SUBSYSTEM:CONSOLE /OPT:REF /OPT:ICF /MACHINE:IX86 \
+        kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib \
+        advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib
+
+all: TSCcal.exe
+
+TSCcal.obj: TSCcal.cpp
+	$(CC) $(CFLAGS) TSCcal.cpp $(CLIBS)
+
+TSCcal.exe: TSCcal.obj
+	$(LINK) TSCcal.obj $(LDFLAGS) /OUT:TSCcal.exe
+
+clean:
+	del /q /f *.obj TSCcal.exe
+
+realclean: clean
+
+depend:

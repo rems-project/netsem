@@ -1,0 +1,5 @@
+\dumpallrules
+\let\dumpallrules\relax
+
+\part{THEORYNAME}
+\def\rulesrcsid{}

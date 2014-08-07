@@ -1,0 +1,986 @@
+% -*-LaTeX-*-
+% tcptest.tex  --  documentation for TCP specification testing code
+%
+\documentclass{article}
+
+% magic to capture RCSID:
+{\catcode`\$=9\gdef\rcsid{%
+$Id: tcptest.tex,v 1.11 2003/09/30 16:19:29 smb50 Exp $}}
+
+% decent page size:
+\usepackage{geometry}
+
+% decent fonts:
+\usepackage[latin1]{inputenc}
+\usepackage{ae}              % fake most characters of the EC Type1 fonts with CM Type1 fonts
+\usepackage{aecompl}         % fill in the rest with bitmapped fonts
+  % (note that this replacement is necessary to get good results from pdflatex)
+\usepackage{charter}
+\usepackage[T1]{fontenc}
+
+% useful packages:
+\usepackage{url}              % \url{...} gives URLs etc with ~ and breaks
+\def\UrlFont{\normalfont\tt}  % get rid of warnings about no tt/b/n
+\usepackage[dvips]{graphicx}         % graphics, PostScript scaling etc
+%\usepackage[all,dvips]{xy}
+\usepackage{alltt}
+%\usepackage{keith}
+\usepackage{multicol}
+
+% ``futures'' or ``to-do'' environment:
+\newenvironment{futures}{%
+\par\textbf{Futures:}%
+  \begin{itemize}%
+}{%
+  \end{itemize}%
+}
+
+% standard abbreviations: \cf, \qv, \ie, \eg, \vs.
+% KSW 1998-08-13..2002-04-05
+%
+\makeatletter
+\newcommand{\l@tintext}[1]{\textit{#1}}
+\newcommand{\cf}{\l@tintext{cf.\@}}
+\newcommand{\eg}{\l@tintext{e.g.\@}}
+\newcommand{\ie}{\l@tintext{i.e.\@}}
+\newcommand{\qv}{\l@tintext{q.v.\@}}
+\newcommand{\vs}{\l@tintext{vs.\@}}
+\newcommand{\etc}{\l@tintext{etc.\@}}
+\newcommand{\adhoc}{\l@tintext{ad~hoc}}
+\newcommand{\posthoc}{\l@tintext{post~hoc}}
+\newcommand{\aka}{\l@tintext{a.k.a.\@}}
+\newcommand{\ia}{\l@tintext{inter alia}}
+\newcommand{\sic}{\l@tintext{sic}}
+\newcommand{\ala}{\l@tintext{à~la}}
+\newcommand{\sci}{\l@tintext{sc.\@}}
+\newcommand{\etal}{\l@tintext{et\ al.\@}}
+\newcommand{\passim}{\l@tintext{passim}}
+\newcommand{\vv}{\l@tintext{vice versa}}
+\newcommand{\exnihilo}{\l@tintext{ex nihilo}}
+\newcommand{\pace}{\l@tintext{pace}}
+\newcommand{\mutmut}{\l@tintext{mutatis mutandis}}
+\newcommand{\perse}{\l@tintext{per se}}
+\newcommand{\viz}{\l@tintext{viz.\@}}
+\newcommand{\defacto}{\l@tintext{de facto}}
+\newcommand{\ca}{\l@tintext{ca.\@}}
+\makeatother
+
+% document:
+
+\begin{document}
+
+\title{The TCP Specification Test Suite\\
+       \footnotesize\normalfont\itshape Documentation: \$\rcsid\$}
+\author{The Netsem Project\\[1ex]
+        \normalsize Computer Laboratory\\
+        \normalsize University of Cambridge\\
+        \normalsize Cambridge CB3~0FD, U.K.}
+\date{\today}
+
+\maketitle
+
+\setlength{\columnseprule}{0.2pt}
+\raggedcolumns
+\begin{multicols}{2}
+
+In order to test our TCP specification we have built a suite of
+testing tools.  This document explains what each tool does, and how
+they fit together.
+
+All of the tools live in the \url{Net/TCP/Test/} directory tree.  We
+proceed by subdirectory.
+
+Most of the tools were written by Steve Bishop.  They compile and run
+successfully on Linux (2.4 series kernels), FreeBSD (4.6-RELEASE),
+and Windows (XP Professional 2002 Version, Service Pack 1 [standard
+Lab install CD]) except where noted.
+
+A diagram showing the relationship between the key tools described in
+this document can be found on the final page.
+
+{
+\tableofcontents
+}
+
+% ----------------------------------------------------------------------
+
+\section{Trying it out}
+
+The tools can be built by invoking \texttt{make} or for WinXP,
+\texttt{nmake /f makefile.win}, in the toplevel directory.  This
+invokes \texttt{make} recursively in all subdirectories.  Targets
+\texttt{all} and \texttt{clean} work as expected.
+
+A typical simple demonstration involves running several copies of
+\texttt{nslogger}, listening locally.  Then a \texttt{libd}, a
+\texttt{sock\_client}, and a \texttt{slurper} are arranged to connect
+to them.  Next the \texttt{sock\_client} is used to talk to the
+\url{libd} and issue socket calls---the results are observed
+by the other running tools.
+
+% ----------------------------------------------------------------------
+
+\section{Implementation notes}
+
+The testing tools are mainly implemented in the Ocaml language using C
+as and when necessary.  The tools have been extensively tested with
+Ocaml version 3.06, the current version at the time of writing, and
+rely on both the byte-code and native-code compilers.
+
+The \texttt{Makefiles} are designed to work with gnumake and are
+incompatible with the version of make shipped as standard with
+FreeBSD.  The make files, \texttt{Makefile.win} are ones specifically
+written to be compatible with \texttt{nmake}, the Microsoft
+Maintenance Utility.  These should be used to build the tools under
+Windows.
+
+
+% ----------------------------------------------------------------------
+
+\section{Instrumented sockets library \protect\url{(nssock/)}}
+
+This C library provides the system calls of the standard sockets
+interface, prefixed by \texttt{ns\_}.  The calls have the same
+behaviour as the usual ones (and indeed are implemented in terms of
+them), but in addition provide instrumentation, dumping calls and
+returns in HOL format to a listening socket.
+
+To use it, the programmer rewrites the program under test to use the
+renamed socket calls.  She includes \url{ns_sockets.h}, and links
+against \url{libnssock.a}.  Before running her program, she defines
+two environment variables, \texttt{NS\_ADDR} and \texttt{NS\_PORT}, to
+the IP address (in dotted decimal format for \texttt{inet\_addr}) and
+the port (in decimal for \texttt{atoi}) respectively.  A third
+environment variable, \texttt{NS\_DEBUG}, may also be set to enable
+TCP debugging on BSD.  The standard C programming approach is taken
+here: a non-zero value represents true and will enable
+\texttt{TCP\_DEBUG}.
+
+When the program first invokes a socket function, the internal
+function \texttt{ns\_init} is invoked, which opens a socket connection
+to the address and port specified.  All socket calls will write a
+HOL-format rendering of the call to this socket, and a HOL-format
+rendering of its return (if any).  When the program terminates, the
+socket connection is implicitly closed -- no explicit closing of the
+connection is performed.  It is worth noting here that if
+\texttt{TCP\_DEBUG} is to be enabled, it is not enabled on the logging
+socket created by \texttt{ns\_init}.  Instead it is enabled on all
+sockets created through the \texttt{ns\_socket} call.  This makes sense:
+we are instrumenting the sockets library and do not want our
+instrumentation to interfere.
+
+Timestamps are affixed to each label as a comment before it, in the
+form of a decimal number of seconds since the epoch, with six decimal
+places after the point.  No correction is applied; this is the system
+time (in UTC).  The precise time is the moment before the system call,
+and the moment after the return. Obtaining an accurate system
+timestamp on Windows XP is impossible. Keith wrote some code to work
+around this (see \url{nssock/tsctime} and
+\url{http://www.cl.cam.ac.uk/users/kw217/useful/win32time.html} for
+more information).
+
+\texttt{ns\_init} attempts to use a high-numbered file descriptor to make
+its connection, so as not to interfere with \texttt{fd} numbers used
+by the main program.  This does not make sense on Windows, so no
+attempt is made on this platform.
+
+The \texttt{ns\_*} functions invoke \texttt{prn\_call} and
+\texttt{prn\_ret} to do their dirty work; they're varargs printf-y
+functions that output a HOL-style transition label.
+
+\texttt{README} documents the differences between platforms, some
+rationale and problems, and is worth reading.
+
+\begin{futures}
+\item It should be possible to use a Unix domain socket instead of an
+Internet domain socket.
+\item There should be some attempt at an explicit close when a process
+dies.  This would be particularly easy on Windows, where the program
+probably calls \texttt{WSACleanUp()}.
+\end{futures}
+
+% ----------------------------------------------------------------------
+
+\section{Common library support \protect\url{(common/)}}
+
+Many of the testing tools rely on common components, \eg\  parsers,
+type definitions and pretty printers, which can be found here.  All
+components are built using both the byte-code and native-code Ocaml
+compilers producing \texttt{.cmo} and \texttt{.cmx} object files respectively.
+
+\begin{itemize}
+\item \texttt{nettypes} and \texttt{netconv} define our base types and
+operations upon them;
+\item \texttt{holtypes} defines datatypes synonymous to those
+representing datagrams in our HOL model and transformations upon them;
+\item \texttt{tcpcbtypes} defines datatypes synonymous to the
+representation of TCP debug messages in our model;
+\item \texttt{netipreass} performs IP reassembly over real IP packets;
+\item \texttt{net2hol} and \texttt{hol2net} convert from real packets
+and datagrams to our HOL model representations and \vv;
+\item \texttt{render} and \texttt{renderlib} provide support for
+common rendering tasks, \eg\  pretty-printing of IP addresses;
+\item \texttt{librender}, \texttt{holrender} and \texttt{tcpcbrender}
+provide rendering to HOL model transition labels for lib, datagram and
+TCP debug datatypes;
+\item \texttt{lexer}, \texttt{parser}, \texttt{parserlib},
+\texttt{holparselib} and \texttt{tcpcbparserlib} implement a parser
+for HOL model transition labels;
+\item \texttt{libcalls} defines a datatype for lib calls and their
+return values and implements functions for making such calls;
+\item \texttt{ntpheader} provides a pretty-printer to produce \texttt{ntp} timestamps;
+\item \texttt{sock} provides useful high-level wrappers for standard
+socket calls such as \texttt{send}.
+\end{itemize}
+
+% ----------------------------------------------------------------------
+
+\section{OCaml LIB binding \protect\url{(ocamllib/)}}
+
+This OCaml module is an OCaml binding for the \texttt{nssock} sockets
+library, providing the LIB interface that is defined by our TCP
+specification (see \url{Net/TCP/Spec1/TCP1_LIBinterfaceScript.sml}).
+
+To use it, make sure OCaml can see the library \url{ocamllib.cm[x]a}
+(\ie\  its path should be on the OCaml include path), and put
+\texttt{open Ocamllib} in your program.  Everything should `just
+work'.
+
+NB: since \url{ocamllib} is linked against \url{nssock}, programs
+using it must define the environment variables described there, \ie\
+\texttt{NS\_ADDR}, \texttt{NS\_PORT} and optionally,
+\texttt{NS\_DEBUG}, to describe the connection used for
+instrumentation output. The programs will also have to be linked
+against \url{libnssock.a}.
+
+Note that \url{ocamllib} itself performs no logging or other
+instrumentation.
+
+\url{ocamllib.cm[x]a} is the OCaml binding, \url{ocamllib.cmi} is its
+interface, \url{libocamllib[native].a} (from \url{ocamllibc.c}) is the glue
+code that binds the \texttt{ns\_*} calls to OCaml, and
+\url{dllocamllib[native].so} is the same but as a shared object rather than a
+static library.  See \url{../libd/Makefile} for an example of how to
+build something using \url{ocamllib}.
+
+\url{libfunmappings.txt} shows the correspondence between LIB calls
+and socket calls on Unix and Windows.  \emph{Note that there are still a few
+unresolved issues; see the \url{README}}.
+
+% ----------------------------------------------------------------------
+
+\section{LIB call dæmon \protect\url{(libd/)}}
+
+This OCaml program is a dæmon that performs LIB calls as demanded
+by remotely-provided messages.
+
+To use it, run \url{libd}.  Then (on the same or another machine)
+initiate a connection to the port on which \url{libd} is
+listening.  Give instructions in the form of HOL call labels
+(\texttt{Lh\_call} \dots), and they will be performed by \url{libd}.
+
+NB: since \url{libd} is linked against \url{ocamllib}, and
+\url{ocamllib} against \url{nssock}, the environment variables used by
+the latter, \ie\  \texttt{NS\_ADDR}, \texttt{NS\_PORT} and optionally,
+\texttt{NS\_DEBUG}, must be set.  These describe the connection to be
+used for instrumentation output.
+
+Thus when \url{libd} is run, a program should be listening on this IP
+and port also.  It will receive the HOL call labels (which should be
+the same as the messages, but with times prefixed), along with the
+HOL return labels.
+
+The IP and port, or Unix domain socket on which \url{libd} listens,
+are specified on the \url{libd} command line.
+
+The action of the program is simply to repeatedly invoke the parser.
+The parser parses each call it receives and the corresponding rule
+returns an encoding of the call that is eventually executed. Return
+values \emph{are} captured and returned on the command socket as well
+as being reported by the instrumentation in \url{nssock}.
+
+All errors generated by the program are reported to \url{stderr}
+except those raised through the calls to \url{ocamllib}, which are reported back
+to the callee via the command socket.
+
+Note that \url{libd} uses ordinary (uninstrumented) \texttt{Unix}
+socket calls to establish its communication channel, not
+(instrumented) \texttt{Ocamllib} calls. This prevents interference
+with the system we are trying to test and instrument.
+
+
+% ----------------------------------------------------------------------
+
+\section{OCaml extensions \protect\url{(ocamlext/)}}
+
+These three OCaml modules provide some extensions to OCaml:
+\url{Platform} provides functions specific to individual target
+platforms, \url{Rawsock} provides the ability to use raw sockets with
+the OCaml sockets binding, and \url{ThreadParsing} is a thread-safe
+version of the Ocaml parser.
+
+The \url{Platform} module exposes a function \texttt{check\_platform}
+which returns one of \texttt{WIN32}, \texttt{LINUX}, \texttt{BSD}, or
+\texttt{UNKNOWN} (constructors of the type \texttt{platform}).  It also
+provides Ocaml with pseudo-tty control on linux, extra process
+control functions under Win32, accurate \texttt{gettimeofday()} functions on
+Unixes and an implementation of \texttt{condition\_timedwait()}.
+
+The \url{Threadparsing} module and the accompanying script,
+\url{parser_hack_script}, are used to create a thread-safe parser.
+The standard Ocaml parser generated through Ocamlyacc is not
+re-entrant in OCaml versions 3.06 and prior.  A parser is first
+specified and created through a call to \url{ocamlyacc}.  The source
+file produced by \url{ocamlyacc} is then specified as the argument to
+\url{parser_hack_script} which replaces all parser module calls with
+the equivalent thread-safe calls in \url{Threadparsing}.  All parsers
+that are created by this script must be linked against
+\url{threadparsing.cm[x]a}.  NB: each instance of the thread-safe
+parser must be initialised through a call to
+\texttt{create\_parse\_env} in the caller's code.
+
+The \url{Rawsock} module is used in conjunction with the standard
+OCaml module \url{Unix}.  It exposes two functions.
+\texttt{raw\_socket} is like \texttt{Unix.socket}, but returns a raw
+socket rather than an ``ordinary'' socket (obviously this only works
+if the caller has appropriate permissions).
+\texttt{raw\_sockopt\_hdrincl} sets the flag on a raw socket to say
+that the user will provide their own IP header (the system should not
+itself generate one).  This corresponds to the C call \texttt{setsockopt}
+setting \texttt{SOL\_IP}'s (\aka{} \texttt{IPPROTO\_IP}'s)
+\texttt{IP\_HDRINCL} to 1.  Note that the socket generated is usable
+by all the normal socket calls in the OCaml \texttt{Unix} module.  To
+achieve this seamless interoperability some internal OCaml ``unixsupport''
+definitions and calls are used.
+
+OCaml programs using \url{Rawsock} must open \texttt{Unix} before
+\texttt{Rawsock}, and must link against OCAML's \texttt{unix.cm[x]a},
+\texttt{rawsock.cm[x]a} and \texttt{librawsock.a}.  Using
+\url{Platform} requires you to link against \texttt{platform.cm[x]a}
+and \texttt{libplatform.a} as well.
+
+A \url{README} is provided, explaining how to use the system.
+
+Originally, we tried modifying/extending the existing OCaml library.
+But in view of code ownership, future revisions of OCaml and
+maintenance effort, and so on, we felt it was better to write a
+separate module containing our enhancements.
+
+These modules are used by a number of other programs in the testing
+system.
+
+% ----------------------------------------------------------------------
+
+\section{Network sniffer \protect\url{(slurp/)}}
+
+This OCaml program makes a socket connection, and then sniffs traffic
+and outputs it in a timely manner to the connection, using the HOL
+datagram format.
+
+To use it, start up a program to listen on an appropriate address.
+Then invoke \texttt{./slurp} with at least the interface to sniff on
+and the address of the connection to make (either
+\texttt{TCP}~\mbox{\textit{ip-addr}}~\textit{port} or
+\texttt{UNIX}~\textit{socketname}).  Labels will be transmitted to the
+listening socket (nothing goes in the reverse direction).  Details of
+command-line options may be obtained by invoking \texttt{./slurp} with
+no arguments.
+
+NB: since the slurper requires promiscuous access to the network, it
+must be run as root, or with an appropriate capability
+(\texttt{CAP\_NET\_ADMIN} on Linux) granted.
+
+By default, all labels are receive labels.  If the option
+\texttt{-h}~\mbox{\textit{host-ip-addr}} is used, packets with a
+source address equal to \mbox{\textit{host-ip-addr}} will be given
+send labels instead.
+
+To restrict the captured traffic, a filter (in PCap format) may be
+appended to the command line.  This will be compiled and used by PCap
+in the normal way.  A very common command line, then, would be
+\texttt{./slurp -h~192.168.0.12 eth0 TCP 192.168.0.2 5001
+``tcp (src~192.168.0.12) or (dst~192.168.0.12)''}.
+
+Timestamps are affixed to each label as a comment before it, in the
+form of a decimal number of seconds since the epoch, with six decimal
+places after the point.  No correction is applied; this is the system
+time (in UTC).  The precise time is the moment the packet was captured
+by \texttt{libpcap} \emph{(** is this true?)}.
+
+\url{slurp} is designed to handle TCP and ICMP; it should bin other
+kinds of traffic.
+
+\url{slurp} does IP reassembly following what we hope is the ``right''
+algorithm; in this case, the time used is the time of the \emph{last}
+packet to arrive (\ie, when the last hole is filled in).
+
+Although the code is there, \url{slurp} is not currently capable of
+operating from a PCap capture file. Files:
+\begin{description}
+\item[slurp.ml] is the main code.
+
+\item[pcapinterface.c, .ml, .mli] is an OCaml binding for PCap,
+covering just what we need (it's not a complete binding, since that
+seemed pointless and time-consuming).
+
+\item[pcapfile] is old code of Keith's for parsing a PCap capture
+file; none of this is currently used but is here in case required.
+
+\item[debugrender] a trivial old renderer for the wire-format types in
+nettypes, which might be useful one day.
+\end{description}
+
+\begin{futures}
+\item Allow \url{slurp} to operate from a PCap capture file (not sure
+if this would be useful for anything, but it would be cool).
+\end{futures}
+
+% ----------------------------------------------------------------------
+
+\section{Datagram injector \protect\url{(injector/)}}
+
+This OCaml program is a dæmon that injects datagrams into the network
+as demanded by remotely-provided messages.
+
+To use it, invoke \url{./injector}, passing either
+\texttt{TCP}~\textit{ip-addr}~\textit{port} or
+\texttt{UNIX}~\textit{socketname} as argument.  Now initiate a
+connection to the specified socket, on which \url{injector} will be
+listening.  Give instructions in the form of HOL send-datagram labels
+(\texttt{Lh\_senddatagram \dots}), and the corresponding IP datagrams
+will be injected into the network.
+
+NB: since the injector requires raw-sockets access to the network, it
+must be run as root, or with an appropriate capability
+(\texttt{CAP\_NET\_ADMIN} on Linux) granted.
+
+Internally, \texttt{injector} uses the OCaml parser in \url{common/}
+to read its input.  It then translates the HOL-format datagram into an
+IP datagram, providing a number of unspecifiable data fields in the
+process.  Finally, it emits the datagram via a raw socket, using the
+OCaml extensions of \url{ocamlext/}.
+
+No response is made via the controlling socket.  In the case of a
+parse error (or other error), \texttt{injector} simply falls
+over with an uncaught exception.
+
+Fragmentation is handled by the native IP stack; the HOL label may
+describe a large datagram, and if necessary it will be fragmented
+transparently.
+
+The following fields are generated by \texttt{injector}, rather than
+being determined by the HOL label:
+\begin{description}
+\item[IPID] Initialised based upon the current time at startup, and
+incremented by 1 for each datagram sent.
+\item[TOS] Defaults to 0x00.
+\item[TTL] Defaults to 0x40.
+\item[TCP checksum] Computed correctly.
+\item[IP checksum] The IP checksum is computed by the native IP stack
+on BSD and is simply passed as zero from \texttt{injector}.  On Linux
+and Windows the IP checksum is computed by the translation code.
+\item[Fragmentation] see above -- not performed although we currently
+set the \texttt{Don't fragment} bit in the IP header.
+\item[Reserved] Set to zero.
+\item[TCP options] Content specified by HOL, but order is chosen in
+\texttt{injector}, along with padding \emph{(** investigate details!  Do we
+take care to align timestamp \ala{} TCPv1p253?)}.
+\end{description}
+
+% ----------------------------------------------------------------------
+
+\section{BSD Kernel TCP debugging \protect\url{(utils/holtcpcb-v8/)}}
+
+The BSD kernel provides debugging hooks into its TCP stack. A socket
+with the option \texttt{SO\_DEBUG} set inserts debug records
+containing IP and TCP headers, a timestamp and a copy of the current
+TCP control block into a ring buffer at certain checkpoints in the
+code. The content of this ring buffer is available to user
+applications with the correct permissions, \ie\ root.
+
+BSD provides a tool, \url{trpt}, that allows the ring buffer to be
+inspected. Our tool, \url{holtcpcb-v8}, is based heavily on \url{trpt}
+although was written almost entirely from scratch to remove
+over-complicated code, fix out-by-one errors and provide output in the
+format we require, \ie\ HOL-style trace records. The trace records
+that are output are mostly an encoding of data from the recorded
+TCP control block.
+
+Unfortunately, the standard BSD 4.6 kernel does not use high-precision
+timestamps for recording the events recorded in the TCP debug ring
+buffer. A set of patches to fix this problem are provided and described
+in \url{notes/bsd-notes/}. This tool requires a kernel that was built with
+these patches applied in order to function correctly. A more detailed discussion on the
+timestamp problem can be found in \url{notes/timestamps.txt}. \emph{NB: for
+this tool to function the BSD kernel must be built with the
+TCP\_DEBUG option set!}
+
+\texttt{holtcpcb-v8} takes several command-line arguments. An IP
+address and port can be specified for output to be sent to, otherwise
+output defaults to \texttt{stdout}. The \texttt{-z} option prevents
+the display of zeroed control blocks. These are mainly generated by
+events such as the TCP stack sending RST packets for connections to
+unbound ports, where a socket and its associated state do not and will
+not exist. The \texttt{-n} \emph{actionmask} option is followed by an
+action mask value constructed from the following flags: 0x01 input,
+0x02 output, 0x04 drop and 0x08 user. This options ensures only output
+of the requested type is produced.
+
+Unlike \texttt{trpt} which displays everything in the ring-buffer,
+\texttt{holtcpcb-v8} functions by default much like \texttt{trpt} running in
+``follow'' mode, \ie\ it waits until something new is placed in the
+buffer, outputs it then waiting until new input arrives. New input
+is only output if the event occured on the same socket.
+
+% ----------------------------------------------------------------------
+
+\section{Sniffer/injector identity testing \protect\url{(identtest/)}}
+
+The programs in this directory are intended to test \texttt{slurp} and
+\texttt{injector}, verifying that $\texttt{slurp} \circ
+\texttt{injector} = \textit{id}_{\textit{HOL}}$ and $\texttt{injector}
+\circ \texttt{slurp} = \textit{id}_{\textit{wire}}$ (where the latter
+identity is loose wrt the unspecified fields).
+
+An internal ASCII format, \emph{numpty format}, is used to store
+wire-format packets.  The format has no header, and a packet consists
+of three fields, each of the form
+\texttt{*}\textit{FieldName}\texttt{=}\textit{body} and beginning on a
+new line.  The first field is a textual comment (running to the end of
+the line) which is a human-readable description of the packet.  The
+second field is the length of the packet in bytes (in ASCII decimal).
+The third field is the packet data, stored as ASCII hexadecimal words
+in network byte order, space-separated, starting on a new line, with 8
+words (16 bytes) per line except the last, terminated by a new line
+containing \texttt{*-}.  The file terminates with EOF.  Here is a
+sample packet:
+\begin{alltt}
+*Comment=The first packet
+*Length=72
+*Data=
+ 4510 0048 1a65 4000 4006 9edc c0a8 000c
+ c0a8 0002 0016 03fc 50c1 da96 c742 831a
+ 8018 e240 8f61 0000 0101 080a 009a a14a
+ 074f 0afa 0000 000b 3798 d22e 1583 5995
+ c791 033d 7830 99c1
+*-
+\end{alltt}
+
+\texttt{pcapslurp} is a C program that uses \texttt{libpcap} to slurp
+packets from the wire and store them in {\em numpty} format.
+
+The command line options may be obtained by typing \url{./pcapslurp}.
+ The number of packets to capture must be specified, and one may
+specify the interface to capture on (defaults to whatever
+\texttt{libpcap} defaults to, probably the first non-loopback
+interface), a pcap filter to apply to restrict the capture, and a file
+to output the captures to (defaults to \texttt{stdout}).
+
+\texttt{fileinject} is a C program that inverts \texttt{pcapslurp}: it
+takes a filename, parses it by ``brute force'', and uses raw sockets
+to inject it into the network.  This program is not currently used by
+the identity checker but is kept around for historical and debugging
+purposes.
+
+\texttt{pcapslurp} and \texttt{fileinject} are written in C to make it
+clear that the minimum possible is going on between the capture and
+writing to file or between the read and the send; it obviously does
+not reuse any of the code from other parts of the system, as it is
+intended to cross-check them.
+
+\texttt{lexer.mll} and \texttt{parser.mly} are an OCaml lexer and
+parser for {\em numpty} format.  \texttt{errors.ml} defines an exception
+type used everywhere else; it belongs in the preamble of
+\texttt{parser.mly} but cannot be placed there because while
+\texttt{ocamlyacc} exposes datatypes defined in the preamble in the
+interface of the parser, it does not expose exceptions defined there.
+
+\texttt{injectslurp} is an OCaml program that performs one half of the
+identity testing.  It addresses the test of $\texttt{slurp} \circ
+\texttt{inject} = \textit{id}_{\textit{HOL}}$.  On the command line it
+accepts as arguments: the interface to sniff, the file containing the
+HOL-format packets for injection, and the file to store the
+re-slurped packets in.
+
+Firstly an \texttt{injector} process is created.  A thread which
+listens on a socket and writes the results to the output filename
+specified on the command line is also spawned.  \texttt{slurp} is
+forked and set to point at the listening socket.  The input file is
+sent to the injector which outputs (injects) each packet on a raw
+socket as it goes.  These packets will be seen by \texttt{slurp},
+slurped, and eventually written to the file.
+
+Finally the original input is diffed against the slurped output modulo
+comments and the inadvertible \texttt{Lh\_recv/Lh\_send} difference.  Any
+differences are reported to the console directly by \texttt{diff}.
+
+\texttt{slurpinject} is another Ocaml program providing identity
+testing in the other direction, \ie\  the test ($\texttt{inject} \circ
+\texttt{slurp} = \textit{id}_{\textit{wire}}$).  It accepts the
+following arguments: the interface to sniff, the {\em numpty-formatted} file
+containing the packets to inject, and the filename where the final output
+should be stored.
+
+\texttt{slurpinject} proceeds by parsing the {\em numpty-format} input file
+and injecting the packets specified there into the network.  These are
+retrieved by \texttt{slurp}.  The slurped datagrams are then re-injected
+by an \texttt{injector} instance and finally re-captured, in {\em numpty} format, by
+\texttt{pcapslurp}.  The initial and final {\em numpty} format packets
+are diffed.  Any differences are written to the output file specifed on
+the command line.
+
+In this situation, testing cannot easily be done online due to the potential
+confusion between original packets and their slurped and injected
+copies.  This is the motivation for only injecting previously captured
+packets stored in the {\em numpty} format.
+
+\url{testfile} is a {\em numpty-format} file containing some packets slurped
+from an SSH session between \texttt{kurt} and \texttt{alan}.
+
+\begin{futures}
+\item Verify that the identity holds on WinXP.
+\item Tidy up the code to use Ocaml's pattern matching library instead
+of \url{sed}.
+\end{futures}
+
+% ----------------------------------------------------------------------
+
+\section{TCP Testing Host Executive Engine \protect\url{(tthee/)}}
+
+\texttt{TThee} is God.  It commands the test suite from on high.  It
+defines an API for controlling the tools (\url{libd},
+\url{holtcpcb-v8}, \url{slurp} and \url{injector}) on local or remote
+test platforms.  It permits test descriptions to be written that rely
+upon the other testing tools.  These descriptions are still relatively
+low-level and require some effort to produce; the next chapter
+describes a higher-level test description API that builds upon
+\texttt{TThee}.  During a typical test run, several tools are invoked
+and the results produced are merged in corrected chronological order
+to produce a test-run trace.
+
+One of the inherent problems with merging in chronological order is
+that of possible time differences on test hosts.  To correct
+for this \url{ntp} is used on each host to slowly synchronise
+clocks.  Each test tool that produces instrumented output reports the
+current \url{ntp} offset at the time it was started.  These are used by
+\texttt{TThee} to correct the results from individual tools before
+merging into chronological order.
+
+\texttt{TThee} has some important features that are worth noting here:
+\begin{itemize}
+\item \texttt{Tool execution}: An interface is provided for executing
+the previously named test tools either locally or remotely. Local
+execution is achieved through Ocaml's \texttt{create\_process}
+call.  Remote executions are a little more difficult.  On Linux and BSD
+targets, remote execution is achieved through \url{ssh}'s remote
+commmand execution feature.  On Windows---for which a suitable
+opensource ssh dæmon could not be found---the same is achieved
+through the use of the \url{custom_rsh} tool.  This is discussed in the later
+chapter on the \protect\url{utils/} directory.
+
+\item \texttt{Command and Control}: A selection of the previously
+mentioned tools require command messages sent over a
+control socket, \eg\  the injector requires datagrams to inject.  In
+\texttt{Tthee} the details of this are abstracted away.  Instead there
+are suitable function calls available for requesting tools to
+perform certain operations.  These are exposed to the caller.
+
+\item \texttt{Logging and the Selector}: Some tools also require
+logging channels to which instrumented output can be written, \eg\
+\texttt{libd}.  \texttt{Tthee} allows the creation of new log channels
+to which tools being executed, either locally or remotely, can
+connnect.  Each log has associated with it a selector thread.  This is
+responsible for parsing the input, applying \url{ntp} time corrections
+and providing the final messages to any registered callbacks.  Once an
+end-of-file is read on the logging channel, its descriptor is closed,
+callbacks notified and the selector thread exits.
+
+\item \texttt{Callbacks (anybody there?)}: Callback functions can be
+registered with the selector for individual log channels.  These are
+called each time a selector thread parses and corrects a message
+received on a logging channel.  Callbacks are user registerable.  This
+facilitates an environment where a caller may wish to make future
+\texttt{Tthee} requests based upon passed observed behaviour of the
+system.
+
+\item \texttt{Merging the results}: The results received from all
+tools are mergered by the merging algorithm described in
+\protect\url{doc/merger.ps}.  The merger receives messages from each
+of the selector threads through a registered callback with each.
+These messages are already \url{ntp} offset corrected but may be
+subject to a systematic delay due to propogation delays or system
+scheduling issues.  The merger can correct for these delays through a
+caller specified correction factor.  Once messages are finally
+corrected, merging proceeds in strict chronological order.  The
+merging occurs on-line; this leads to further complications that are
+discussed in \protect\url{doc/merger.ps}.  The final mergered output
+is written to an output channel provided by the caller.
+\end{itemize}
+
+\begin{futures}
+\item DO NOT BREAK IT!
+\end{futures}
+% ----------------------------------------------------------------------
+
+\section{Test generation \protect\url{(tests/)}}
+
+This directory consists of several subdirectories each of which
+perform certain tests on our test network and log the results.  We
+proceed by subdirectory:
+
+\begin{description}
+\item[common/] contains definitions specific to our test network,
+\eg\ IP addresses for its hosts and \texttt{Tthee} execution
+parameters. Many of the other tests require the definitions found here.
+
+\item[autotest/] is a suite for automatically and exhaustively testing
+TCP implementations on our test hosts.  \emph{Note: this is currently work in
+progress}.  The core code currently contains functions to exhaustively test
+all socket calls and most of the rules covered by our TCP specification, to
+initialise and cleanup a \texttt{Tthee} testing environment and to
+force a test socket into a specified bound, connected or
+TCP-state-diagram state. One is also able to specify abstractly a simple test
+``thunk'' describing a test to be performed using \texttt{Tthee}
+primitives, along with an initial state for the socket(s).  The testing
+suite performs the test on all the test hosts in our test network.
+The script, \url{run}, calls the \url{autotest} program storing the
+test results within our test results directory heirarchy. The related
+script, \url{test}, performs the same tests leaving the result stored
+in a temporary directory within the test results directory
+heirarchy. This prevents development test runs from being confused
+with real results that are to be checked by HOL.
+
+\item[adhoc*/] directories contain short one-off tests written above the
+\texttt{Tthee} library that check or demonstrate certain properties
+that we were interested in at some previous point in time.  These often
+contain a \texttt{README} file to explain the test in more detail.
+
+\item[tthee*/] directories contain tests written above \texttt{Tthee}
+to test the implementation of \texttt{Tthee} and its interaction with
+different test host platform types.  The aim here was to ensure that
+\texttt{Tthee} was able to successfully fork, terminate and
+communicate with test tools on remote platforms.
+
+\item[parser\_test] contains a simple application that serves to test
+the parser found in \url{common/}.  It parses strings on \texttt{stdin}
+and displays information on the message parsed to
+\texttt{stdout}.  Incorrectly formatted messages raise an exception
+that is not caught, hence terminating the program.
+
+\item[ssh*/] directories contain the \emph{test results} from some very
+early tests where we used some of our test tools to interact with a
+real ssh dæmon running on one of our test network hosts.
+
+\end{description}
+
+% ----------------------------------------------------------------------
+
+\section{Useful utilities \protect\url{(utils/)}}
+
+This directory consists of useful utilities that are individually
+documented below by subdirectory.
+
+\begin{description}
+\item[ns\_logger/] is a C program that binds to an address, listens and
+accepts connections, dumping all received data to the conole.  It is essential
+for hooking up to the above tools during debugging!
+
+\item[socktools/] contains two C programs: \url{sockclient} and
+\url{sockserv}. The \url{sockserv} tool is an ``echo'' server, \ie\  it
+accepts connections and echos any received data to the console and
+to the sender.  On the otherhand, \url{sockcl
+ient} is a ``telnet
+client without telnet control codes'' (\ie\  a raw sender/receiver)
+useful for debugging purposes.  Both of these tools are written in C
+and are linked against \url{libnssock}, hence requiring a logging IP and
+port to be specifed in the environment variables \texttt{NS\_ADDR} and
+\texttt{NS\_PORT}.  A useful logger is \url{ns_logger} described above.
+
+\item[custom\_rsh/] is a DEPRECATED version of the tool that allows
+testing tools to be started on remote Windows machines from
+\texttt{Tthee}.  It is written in Ocaml and suffers from unsolved
+control-flow problems.  It should not be used!
+
+\item[custom\_rsh2/] is a working version of the previous tool written
+in C.  It can be executed as a Windows service (dæmon) without a console
+using the handy NT utility, \url{srvany.exe}, as a stub.  The tool
+requires that three environment variables are set:
+\texttt{EXEC\_LIBD}, \texttt{EXEC\_SLURP} and \texttt{EXEC\_INJECTOR}.
+These should contain the full paths to the respective programs on the
+Windows host. \url{custom_rsh2} listens on an IP and port specified on
+its command line. Accepted connects spawn a new handling thread that
+accepts and executes one command. These commands fork one of the three
+test tools mentioned previously. Remotely closing this connection
+forces the forked process to be terminated. Messages on the connected
+socket should be of the form:
+\texttt{['L'|'S'|'I'][name=string\$]*['*'string]}, \eg\
+\begin{alltt}
+SNS\_ADDR=192.168.0.2\$NS\_PORT=2000\$*\\slurp TCP 192.168.0.3 2000
+\end{alltt}
+where L, S and I specifcy \texttt{libd}, \texttt{slurper} and
+\texttt{injector} respectively and the whole command is on a single
+line. The example executes the slurper in the environment extended as
+shown.
+
+\item[holtcpcb/] is a DEPRECATED modification of the standard BSD
+\url{trpt} program that outputs \texttt{TCP\_DEBUG} information from any
+socket with \texttt{SO\_DEBUG} set.  The tool outputs HOL-style records
+representing the socket's state at each debugging checkpoint.  The tool
+was deprecated for two reasons:
+\begin{enumerate}
+\item The original \url{trpt} tool suffered from many out-by-one
+errors and was too complicated to fix properly;
+\item Standard BSD kernels did not timestamp \texttt{TCP\_DEBUG}
+messages accurately enough for our requirments.
+\end{enumerate}
+
+\item[holtcpcb-v8/] is a newer version of the previous tool and is
+described in an earlier chapter of this document.
+
+\end{description}
+
+% ----------------------------------------------------------------------
+
+\section{Code distribution \protect\url{(scripts/)}}
+
+This directory contains shell scripts that perform useful tasks.
+
+The \url{distribute} script packages the local version of the
+\url{Net/TCP/Test/} directory tree into a gzipped tarball and securely
+copies it to each non-Windows machine on our test network: \url{alan},
+\url{kurt}, \url{emil} and \url{john}.
+
+Connecting via \url{ssh} it unpackages the directory on each host into
+\url{/home/Net/TCP/Test} and proceeds to call \url{make} at the top
+level.  Finally, for tools that require extra privileges, it changes
+their ownership to  user \texttt{root} and group \texttt{wheel}, and
+sets their \texttt{setuid} bit.
+
+To make life simpler, OCaml lives in the same place on the subnet
+machines as on the lab machines: \url{/usr/groups/netsem/ocaml/}.  For
+the script to work without manual intervention, RSA key authentication
+must be setup for \url{ssh} connections to the machines on the test
+network.
+
+The \url{packagetsc} script packages Keith's accurate Windows XP
+timestamping code for independent distribution. This was written in
+order to release the timestamping code to the wider community under a
+BSD-style license.
+
+All of our test traces are eventually checked by our HOL specification
+of TCP. This is a compute-expensive operation. In search of efficiency
+we distribute this accross several machines. The scripts in
+\url{scripts/build} are used during the preparation of these
+machines. See \url{notes/newmachine.txt} and \url{TCP/Spec1} for more
+information.
+
+% -----------------------------------------------------------------------
+
+\section{BSD experimentation \protect\url{(bsd/)}}
+
+The contents of this directory are \emph{DEPRECATED}.  Do not use!
+This directory contains various proof-of-concept and experimental
+code.
+
+\begin{description}
+\item[rawtcptest] C code for the first raw sockets test on BSD we ever
+wrote.
+
+\item[rawtest1] OCaml hack for using raw sockets to emit packets.
+
+\item[simple, socktest1, socktest2] Experimentation with the OCaml
+sockets binding.
+\end{description}
+
+
+% -----------------------------------------------------------------------
+
+\section{WinXP experimentation\\ \protect\url{(winxp/)}}
+
+The contents of this directory are \emph{DEPRECATED}.  Do not use!
+This directory contains various proof-of-concept and experimental code.
+
+\begin{description}
+\item[rawtest] C code that implements raw socket sending on WinXP.
+\end{description}
+
+% -----------------------------------------------------------------------
+
+\section{OCaml experimentation\\ \protect\url{(ocamlhack/)}}
+
+The contents of this directory are \emph{DEPRECATED}.  Do not use!
+This was a proof-of-concept implementation of the raw sockets stuff,
+now superseded by \url{ocamlext/Rawsock}.
+
+
+% -----------------------------------------------------------------------
+
+\section{Merging experimentation \protect\url{(merge/)}}
+
+The contents of this directory are \emph{DEPRECATED}.  Do not use!
+This tool attempted merging before \texttt{Tthee} superceded.
+
+% -----------------------------------------------------------------------
+
+\section{Notes \protect\url{(notes/)}}
+
+This directory contains some miscellaneous notes about things that are
+of interest and turned up during development.  Also see the
+\protect\url{README} files scattered about the directories.
+
+\begin{description}
+\item[netfilter]  At one stage we considered using \texttt{netfilter}
+for packet slurping and injection; we eventually realised that
+injection was not possible in this system.  However, the results of
+our investigations are recorded here.
+
+\item[thalamus-move]  This document lists the requirements and details
+of the move of \texttt{thalamus} to FE21, and various other things to
+do with the experimental setup.
+
+\item[fds] This discusses the issues of using high-numbered file
+descriptors to avoid disturbing existing code (for \url{nssock/}).
+Note in particular that there is an issue with OCaml's bytecode
+interpreter here.
+
+\item[bsd-hosts/] Documentation on the installation and configuration
+of our BSD test hosts (including relevant kernel source patches for
+increased TCP\_DEBUG timestamp accuracy).
+
+\item[linux-hosts/] Documentation on the installation and
+configuration of our Linux test hosts.
+
+\item[timestamps] An explanation on the TCP\_DEBUG timestamp accuracy
+problem in the BSD kernel.  This is fixed by the patches available in \url{bsd-hosts/}.
+
+\item[netsniffers] Some notes on the various commercial and
+non-commercial packet sniffers available.  We thought at one time that
+a packet sniffer could be turned into the slurper.
+
+\item[auto-testing] Some comprehensive notes on what automatic test
+code we require.  This is currently being implemented in \url{tests/}.
+
+\item[spec-notes] Steve's thoughts on a version of the TCP
+specification.  (Mainly things that Steve believes are not quite right or
+are incomplete).
+
+\item[newmachine.txt] A document describing how to configure a new
+machine ready for use in our distributed checking of traces under HOL.
+
+\end{description}
+
+\section{This document \protect\url{(doc/)}}
+
+This document lives in \url{Net/TCP/Test/doc/}.  Please keep it
+up-to-date with any changes!
+
+\end{multicols}
+
+\begin{figure}
+\centering
+\includegraphics[height=15cm]{protstack.eps}
+\caption{Testing Architecture} \label{f1}
+\end{figure}
+
+\end{document}
+

@@ -1,0 +1,24 @@
+A wrapper around the nssock library (nssock/), that effectively
+renames each ns_* call to be the name of the real socket call it wraps
+around. This is used to attach an instrumented sockets implementation to
+existing applications that use the sockets library in glibc.
+
+Effectively you get:
+
+    Application (e.g. Mozilla)
+   -------------
+   socket_preload
+   -------------
+      nssock
+   -------------
+      glibc
+
+and when the application is run, you get a trace of all the socket
+calls and their returns (in HOL label format). Funky!
+
+This requires some cleverness to link as the socket functions in
+socket_preload are IDENTICALLY named to those in glibc.
+
+As all of this is a little tricky, a script in Test/utils/dlhack has
+been written that will attach all this to an application on your
+behalf. It is also a good tutorial on how to do this stuff!

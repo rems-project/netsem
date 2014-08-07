@@ -1,0 +1,87 @@
+#!/bin/sh
+
+set -e
+
+umask 002
+
+#xmas: CHECKDIR1=/usr/groups/tthee/check/check-2004-12-16T20:04:23+0000  # cl
+#xmas: CHECKDIR2=/usr/groups/tthee/check/check-2004-12-23T19:41:11+0000  # pb
+#xmas: CHECKDIR3=/usr/groups/tthee/check/check-2004-12-xmas-join
+
+# SIGCOMM TCP join:
+#CHECKDIRS=( \
+#/usr/groups/tthee/check/check-2005-02-03T17:13:56+0000  # non-mem-limited, most use old checker
+#/usr/groups/tthee/check/check-2005-02-04T12:07:26+0000  # mem-limited
+#/usr/groups/tthee/check/check-2005-02-05T21:40:53+0000  # other
+#/usr/groups/tthee/check/check-2005-02-06T15:45:33+0000  # run tail-end charlies on pb
+#)
+#CHECKDIR3=/usr/groups/tthee/check/check-2005-02-sigcomm-tcp-join
+
+# SIGCOMM UDP join:
+CHECKDIRS=( \
+/usr/groups/tthee/check/check-2005-01-18T13:36:29+0000  # almost everything attempted
+/usr/groups/tthee/check/check-2005-01-26T17:14:21+0000  # fixes to pselect() code in spec
+/usr/groups/tthee/check/check-2005-01-27T09:40:56+0000  # 6 that were omitted earlier
+/usr/groups/tthee/check/check-2005-01-27T11:43:59+0000  # try without the excessive-backtracking limit
+)
+CHECKDIR3=/usr/groups/tthee/check/check-2005-01-sigcomm-udp-join
+
+echo "Constructing the join of the following runs:"
+for DIR in "${CHECKDIRS[@]}"; do
+echo "      $DIR"
+done
+echo "  --> $CHECKDIR3"
+echo ""
+
+for DIR in "${CHECKDIRS[@]}"; do
+  echo "Computing in $DIR"
+  cd "$DIR"
+  bin/mktraceindex --simple > simple.txt
+  egrep 'INCOMPLETE|CRASHED' simple.txt | cut -d' ' -f1 > simple-bad-names.txt
+  egrep -v 'INCOMPLETE|CRASHED' simple.txt | cut -d' ' -f1 > simple-notbad-names.txt
+  egrep 'SUCCEEDED' simple.txt | cut -d' ' -f1 > simple-good-names.txt
+done
+
+echo "Creating $CHECKDIR3"
+mkdir "$CHECKDIR3"
+cd "$CHECKDIR3"
+
+echo "Linking bad runs:"
+for DIR in "${CHECKDIRS[@]}"; do
+echo "..$DIR"
+for f in `cat "$DIR"/simple-bad-names.txt`; do
+    ln -sf "$DIR"/$f.out.html  # override
+done
+done
+
+echo "Linking not-bad runs:"
+for DIR in "${CHECKDIRS[@]}"; do
+echo "..$DIR"
+for f in `cat "$DIR"/simple-notbad-names.txt`; do
+    ln -sf "$DIR"/$f.out.html  # override
+done
+done
+
+echo "Linking good runs:"
+for DIR in "${CHECKDIRS[@]}"; do
+echo "..$DIR"
+for f in `cat "$DIR"/simple-good-names.txt`; do
+    ln -sf "$DIR"/$f.out.html  # override
+done
+done
+
+echo "Concatenating log files:"
+for DIR in "${CHECKDIRS[@]}"; do
+echo "..$DIR"
+cat "$DIR"/log-run.dat >> log-run.dat
+cat "$DIR"/log.dat >> log.dat
+done
+
+
+echo "Installing other files"
+ln -s ${CHECKDIRS[0]}/{trace.{css,js},annotations.dat,bin} .
+
+echo "Running mktraceindex"
+bin/mktraceindex > index.html 2> mktraceindex.errs
+
+echo 'Done!'

@@ -1,0 +1,52 @@
+Injector:
+~~~~~~~~~
+
+Reads HOL sendmsg transition labels from a connected socket, parsing
+them to create a real packet on the network.. The generated packet is
+emitted via a RAW socket (with IPHDR_INCL IP sockopt set).
+
+Rationale:
+~~~~~~~~~~
+
+- generated IP packets need to contain an ID in the header. This is
+generated the standard way: on initialisation the ID is a
+representation of the current time of day and after each sent IP
+packet this is incremented. See TCPv1p36.
+
+- TCP checksum generation! Seem to be conflicting views on how the the
+last byte is handled in an odd lengthed packet. RFC 1071 (efficient
+checksum generation algorithms) just adds the byte in, but other
+sources (and implementations), e.g. TCPv1p145 appear to shift it left
+by 8 bytes first. The latter approach appears to work.
+  --> It would be nice to have a definitive answer/resolution.
+
+- inserting ICMP messages is interesting. An ICMP error message
+contains an IP header and the first 8 bytes of the IP payload of the
+IP packet that generated the error (this ICMP message is itself
+embedded in an IP packet). Given the lossy HOL representation for ICMP
+messages this means fabrication of fields not only in the IP header
+containing the ICMP, but also in the IP packet embedded within the
+ICMP error message. For errors such as *_UNREACHABLE then the contents
+of the embedded IP header may be important -- e.g. a host *could*
+compare ID numbers to check the ICMP message was indeed generated from
+the packet it sent out. This doesn't happen in practise on Linux
+implementations but could, in theory, on other platforms.
+  --> could also be some possibility for info hiding in unchecked
+fields in the embedded IP/datagram headers...
+
+- As an ICMP error message contains the first 8 bytes of the IP
+payload, for TCP it will contain the src/dest ports *AND* the segments
+SEQ number.
+  --> In theory, a host could use this SEQ number to determine which
+segment was undeliverable. Does this happen in practice? If so, our
+model of ICMP needs to be less lossy.
+
+- A TCP datagram may have options.  The injector has to pick an order
+  for these options, and to decide whether or not to pad.  The padding
+  and order of options has been chosen to match that used by BSD, as
+  verified by the identity tester.  It would be interesting to
+  document exactly what this is one day (we can assume however that
+  it's not too important; the BSD implementation is independent of
+  option order and so one expects are most other implementations).
+  Alternatively, a non-lossy HOL format would make this problem
+  disappear.

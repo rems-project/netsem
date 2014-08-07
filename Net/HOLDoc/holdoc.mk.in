@@ -1,0 +1,8 @@
+# DO NOT EDIT THIS MASTER FILE (holdoc.mk.in) - edit holdoc.mk instead.
+# holdoc.mk - user-specific configuration file for holdoc.
+
+#
+# Location of HOLDoc modules:
+#
+HOLDOCDIR=$(HOME)/WAP/HOLDoc
+

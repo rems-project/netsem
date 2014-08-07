@@ -1,0 +1,650 @@
+(* -------------------------------------------------------------------------- *)
+(* Netsem logging & merging tool (mlogger) - Date: Thu Mar 20 11:57:11 2003   *)
+(* -------------------------------------------------------------------------- *)
+(* Netsem Slurper - Initialised on host: john.netsem.cl.cam.ac.uk *)
+(* Date: Thu Mar 20 11:57:14 2003 Source Host Option (-h): Some 192.168.0.12 *)
+(* NTP STATUS:
+status=0674 leap_none, sync_ntp, 7 events, event_peer/strat_chg,
+offset=-0.430
+ *)
+(* -------------------------------------------------------------------------- *)
+(* Applying NTP offset: 430us *)
+(* -------------------------------------------------------------------------- *)
+
+(* Netsem holtcpcb (trpt) tool -- Host: john.netsem.cl.cam.ac.uk *)
+(* Date: Thu Mar 20 11:57:15 2003 *)
+(* NTP STATUS:
+status=0674 leap_none, sync_ntp, 7 events, event_peer/strat_chg,
+offset=-0.430
+ *)
+(* -------------------------------------------------------------------------- *)
+(* Applying NTP offset: 430us *)
+(* -------------------------------------------------------------------------- *)
+
+(* ns_socket library initialised: connected to 192.168.0.2:41825 *)
+(* Date: Thu Mar 20 11:57:15 2003 Host: john.netsem.cl.cam.ac.uk *)
+(* NTP STATUS:
+status=0674 leap_none, sync_ntp, 7 events, event_peer/strat_chg,
+offset=-0.430
+ *)
+(* -------------------------------------------------------------------------- *)
+(* Applying NTP offset: 430us *)
+(* -------------------------------------------------------------------------- *)
+
+(* -------------------------------------------------------------------------- *)
+(* (* HOST *)
+initial_host_john
+(* TSOH *)
+Injector: running on emil *)
+(* -------------------------------------------------------------------------- *)
+(* BEGIN  *)
+
+(** 1048161435.129959 ns0 **)
+(* Merge Index: 0 *)
+ Lh_call(TID 78670, socket());
+
+(* Merge Index: 1 *)
+Lh_epsilon(duration(0, 35632));
+
+(** 1048161435.165591 ns1 **)
+(* Merge Index: 2 *)
+ Lh_return(TID 78670, OK(FD 8));
+
+(* Merge Index: 3 *)
+Lh_epsilon(duration(0, 13458));
+
+(** 1048161435.179049 ns2 **)
+(* Merge Index: 4 *)
+ Lh_call(TID 78670, connect(FD 8, IP 192 168 0 13, Port 22));
+
+(* Merge Index: 5 *)
+Lh_epsilon(duration(0, 1052));
+
+(** 1048161435.180101 debug0 **)
+(* Merge Index: 6 *)
+(* SYN_SENT:output [864ed93d..864ed929)@0(win=e000)<SYN> -> SYN_SENT *)
+Lh_trace(SOME(SOME(IP 192 168 0 12), SOME(Port 1305), SOME(IP 192 168 0 13), SOME(Port 22)),
+  SYN_SENT,
+ <|
+   snd_una := tcp_seq_local(n2w 2253314365);
+   snd_max := tcp_seq_local(n2w 2253314366);
+   snd_nxt := tcp_seq_local(n2w 2253314366);
+   snd_wl1 := tcp_seq_foreign(n2w 0);
+   snd_wl2 := tcp_seq_local(n2w 0);
+   iss := tcp_seq_local(n2w 2253314365);
+   snd_wnd := 0;
+   snd_cwnd := 1073725440;
+   snd_ssthresh := 1073725440;
+   rcv_wnd := 0;
+   rcv_nxt := tcp_seq_foreign(n2w 0);
+   rcv_up := tcp_seq_foreign(n2w 0);
+   irs := tcp_seq_foreign(n2w 0);
+   rcv_adv := tcp_seq_foreign(n2w 0);
+   snd_recover := tcp_seq_local(n2w 2253314365);
+   t_maxseg := 512;
+   t_dupacks := 0;
+   t_rtseq := tcp_seq_local(n2w 2253314365);
+   snd_scale := 0;
+   rcv_scale := 0;
+   ts_recent := NONE;
+   last_ack_sent := tcp_seq_foreign(n2w 0)
+  |> );
+
+(* Merge Index: 7 *)
+Lh_epsilon(duration(0, 114));
+
+(** 1048161435.180215 slurp0 **)
+(* Merge Index: 8 *)
+Lh_senddatagram(TCP(<|
+    is1 := SOME(IP 192 168 0 12);
+    is2 := SOME(IP 192 168 0 13);
+    ps1 := SOME(Port 1305);
+    ps2 := SOME(Port 22);
+    seq := tcp_seq_local(n2w 2253314365);
+    ack := tcp_seq_foreign(n2w 0);
+    URG :=   F;
+    ACK :=   F;
+    PSH :=   F;
+    RST :=   F;
+    SYN := T  ;
+    FIN :=   F;
+    win := n2w 57344;
+    ws := SOME(CHR 0);
+    urp := n2w 0;
+    mss := SOME(n2w 1460);
+    ts := SOME(ts_seq (n2w 361882005), ts_seq (n2w 0));
+    data := []   (*""*)
+    |>) );
+
+(* Merge Index: 9 *)
+Lh_epsilon(duration(0, 17));
+
+(** 1048161435.180232 debug1 **)
+(* Merge Index: 10 *)
+(* CLOSED:user CONNECT -> SYN_SENT *)
+Lh_trace(SOME(NONE, NONE, NONE, NONE),
+  CLOSED,
+ <|
+   snd_una := tcp_seq_local(n2w 2253314365);
+   snd_max := tcp_seq_local(n2w 2253314366);
+   snd_nxt := tcp_seq_local(n2w 2253314366);
+   snd_wl1 := tcp_seq_foreign(n2w 0);
+   snd_wl2 := tcp_seq_local(n2w 0);
+   iss := tcp_seq_local(n2w 2253314365);
+   snd_wnd := 0;
+   snd_cwnd := 1073725440;
+   snd_ssthresh := 1073725440;
+   rcv_wnd := 0;
+   rcv_nxt := tcp_seq_foreign(n2w 0);
+   rcv_up := tcp_seq_foreign(n2w 0);
+   irs := tcp_seq_foreign(n2w 0);
+   rcv_adv := tcp_seq_foreign(n2w 57344);
+   snd_recover := tcp_seq_local(n2w 2253314365);
+   t_maxseg := 512;
+   t_dupacks := 0;
+   t_rtseq := tcp_seq_local(n2w 2253314365);
+   snd_scale := 0;
+   rcv_scale := 0;
+   ts_recent := NONE;
+   last_ack_sent := tcp_seq_foreign(n2w 0)
+  |> );
+
+(* Merge Index: 11 *)
+Lh_epsilon(duration(0, 430));
+
+(** 1048161435.180662 slurp1 **)
+(* Merge Index: 12 *)
+Lh_recvdatagram( TCP(<|
+    is1 := SOME(IP 192 168 0 13);
+    is2 := SOME(IP 192 168 0 12);
+    ps1 := SOME(Port 22);
+    ps2 := SOME(Port 1305);
+    seq := tcp_seq_local(n2w 4162813181);
+    ack := tcp_seq_foreign(n2w 2253314366);
+    URG :=   F;
+    ACK := T  ;
+    PSH :=   F;
+    RST :=   F;
+    SYN := T  ;
+    FIN :=   F;
+    win := n2w 57344;
+    ws := SOME(CHR 0);
+    urp := n2w 0;
+    mss := SOME(n2w 1460);
+    ts := SOME(ts_seq (n2w 189583529), ts_seq (n2w 361882005));
+    data := []   (*""*)
+    |>) );
+
+(* Merge Index: 13 *)
+Lh_epsilon(duration(0, 120));
+
+(** 1048161435.180782 debug2 **)
+(* Merge Index: 14 *)
+(* SYN_SENT:input f81f7cfd@864ed93e(win=e000)<SYN,ACK> -> ESTABLISHED *)
+Lh_trace(SOME(SOME(IP 192 168 0 13), SOME(Port 22), SOME(IP 192 168 0 12), SOME(Port 1305)),
+  SYN_SENT,
+ <|
+   snd_una := tcp_seq_local(n2w 2253314366);
+   snd_max := tcp_seq_local(n2w 2253314366);
+   snd_nxt := tcp_seq_local(n2w 2253314366);
+   snd_wl1 := tcp_seq_foreign(n2w 4162813182);
+   snd_wl2 := tcp_seq_local(n2w 2253314366);
+   iss := tcp_seq_local(n2w 2253314365);
+   snd_wnd := 57344;
+   snd_cwnd := 5792;
+   snd_ssthresh := 1073725440;
+   rcv_wnd := 57920;
+   rcv_nxt := tcp_seq_foreign(n2w 4162813182);
+   rcv_up := tcp_seq_foreign(n2w 4162813182);
+   irs := tcp_seq_foreign(n2w 4162813181);
+   rcv_adv := tcp_seq_foreign(n2w 4162871102);
+   snd_recover := tcp_seq_local(n2w 2253314365);
+   t_maxseg := 1448;
+   t_dupacks := 0;
+   t_rtseq := tcp_seq_local(n2w 2253314365);
+   snd_scale := 0;
+   rcv_scale := 0;
+   ts_recent := SOME(Timed(ts_seq(n2w 189583529), time_zero));
+   last_ack_sent := tcp_seq_foreign(n2w 0)
+  |> );
+
+(* Merge Index: 15 *)
+Lh_epsilon(duration(0, 26));
+
+(** 1048161435.180808 debug3 **)
+(* Merge Index: 16 *)
+(* ESTABLISHED:output [864ed93e..864ed92a)@f81f7cfe(win=e240)<ACK> -> ESTABLISHED *)
+Lh_trace(SOME(SOME(IP 192 168 0 12), SOME(Port 1305), SOME(IP 192 168 0 13), SOME(Port 22)),
+  ESTABLISHED,
+ <|
+   snd_una := tcp_seq_local(n2w 2253314366);
+   snd_max := tcp_seq_local(n2w 2253314366);
+   snd_nxt := tcp_seq_local(n2w 2253314366);
+   snd_wl1 := tcp_seq_foreign(n2w 4162813182);
+   snd_wl2 := tcp_seq_local(n2w 2253314366);
+   iss := tcp_seq_local(n2w 2253314365);
+   snd_wnd := 57344;
+   snd_cwnd := 5792;
+   snd_ssthresh := 1073725440;
+   rcv_wnd := 57920;
+   rcv_nxt := tcp_seq_foreign(n2w 4162813182);
+   rcv_up := tcp_seq_foreign(n2w 4162813182);
+   irs := tcp_seq_foreign(n2w 4162813181);
+   rcv_adv := tcp_seq_foreign(n2w 4162871102);
+   snd_recover := tcp_seq_local(n2w 2253314365);
+   t_maxseg := 1448;
+   t_dupacks := 0;
+   t_rtseq := tcp_seq_local(n2w 2253314365);
+   snd_scale := 0;
+   rcv_scale := 0;
+   ts_recent := SOME(Timed(ts_seq(n2w 189583529), time_zero));
+   last_ack_sent := tcp_seq_foreign(n2w 0)
+  |> );
+
+(* Merge Index: 17 *)
+Lh_epsilon(duration(0, 86));
+
+(** 1048161435.180894 slurp2 **)
+(* Merge Index: 18 *)
+Lh_senddatagram(TCP(<|
+    is1 := SOME(IP 192 168 0 12);
+    is2 := SOME(IP 192 168 0 13);
+    ps1 := SOME(Port 1305);
+    ps2 := SOME(Port 22);
+    seq := tcp_seq_local(n2w 2253314366);
+    ack := tcp_seq_foreign(n2w 4162813182);
+    URG :=   F;
+    ACK := T  ;
+    PSH :=   F;
+    RST :=   F;
+    SYN :=   F;
+    FIN :=   F;
+    win := n2w 57920;
+    ws := NONE;
+    urp := n2w 0;
+    mss := NONE;
+    ts := SOME(ts_seq (n2w 361882005), ts_seq (n2w 189583529));
+    data := []   (*""*)
+    |>) );
+
+(* Merge Index: 19 *)
+Lh_epsilon(duration(0, 12654));
+
+(** 1048161435.193548 ns3 **)
+(* Merge Index: 20 *)
+ Lh_return(TID 78670, OK());
+
+(* Merge Index: 21 *)
+Lh_epsilon(duration(0, 5382));
+
+(** 1048161435.198930 slurp3 **)
+(* Merge Index: 22 *)
+Lh_recvdatagram( TCP(<|
+    is1 := SOME(IP 192 168 0 13);
+    is2 := SOME(IP 192 168 0 12);
+    ps1 := SOME(Port 22);
+    ps2 := SOME(Port 1305);
+    seq := tcp_seq_local(n2w 4162813182);
+    ack := tcp_seq_foreign(n2w 2253314366);
+    URG :=   F;
+    ACK := T  ;
+    PSH := T  ;
+    RST :=   F;
+    SYN :=   F;
+    FIN :=   F;
+    win := n2w 57920;
+    ws := NONE;
+    urp := n2w 0;
+    mss := NONE;
+    ts := SOME(ts_seq (n2w 189583531), ts_seq (n2w 361882005));
+    data := [CHR 83; CHR 83; CHR 72; CHR 45; CHR 49; CHR 46; CHR 57; CHR 57; CHR 45; CHR 79; CHR 112; CHR 101; CHR 110; CHR 83; CHR 83; CHR 72; CHR 95; CHR 50; CHR 46; CHR 57; CHR 32; CHR 70; CHR 114; CHR 101; CHR 101; CHR 66; CHR 83; CHR 68; CHR 32; CHR 108; CHR 111; CHR 99; CHR 97; CHR 108; CHR 105; CHR 115; CHR 97; CHR 116; CHR 105; CHR 111; CHR 110; CHR 115; CHR 32; CHR 50; CHR 48; CHR 48; CHR 50; CHR 48; CHR 51; CHR 48; CHR 55; CHR 10 ]   (*"SSH-1.99-OpenSSH_2.9 FreeBSD localisations 20020307\x00a"*)
+    |>) );
+
+(* Merge Index: 23 *)
+Lh_epsilon(duration(0, 91));
+
+(** 1048161435.199021 debug4 **)
+(* Merge Index: 24 *)
+(* ESTABLISHED:input f81f7cfe@864ed93e(win=e240)<ACK,PUSH> -> ESTABLISHED *)
+Lh_trace(SOME(SOME(IP 192 168 0 13), SOME(Port 22), SOME(IP 192 168 0 12), SOME(Port 1305)),
+  ESTABLISHED,
+ <|
+   snd_una := tcp_seq_local(n2w 2253314366);
+   snd_max := tcp_seq_local(n2w 2253314366);
+   snd_nxt := tcp_seq_local(n2w 2253314366);
+   snd_wl1 := tcp_seq_foreign(n2w 4162813182);
+   snd_wl2 := tcp_seq_local(n2w 2253314366);
+   iss := tcp_seq_local(n2w 2253314365);
+   snd_wnd := 57920;
+   snd_cwnd := 5792;
+   snd_ssthresh := 1073725440;
+   rcv_wnd := 57920;
+   rcv_nxt := tcp_seq_foreign(n2w 4162813234);
+   rcv_up := tcp_seq_foreign(n2w 4162813182);
+   irs := tcp_seq_foreign(n2w 4162813181);
+   rcv_adv := tcp_seq_foreign(n2w 4162871102);
+   snd_recover := tcp_seq_local(n2w 2253314365);
+   t_maxseg := 1448;
+   t_dupacks := 0;
+   t_rtseq := tcp_seq_local(n2w 2253314365);
+   snd_scale := 0;
+   rcv_scale := 0;
+   ts_recent := SOME(Timed(ts_seq(n2w 189583531), time_zero));
+   last_ack_sent := tcp_seq_foreign(n2w 4162813182)
+  |> );
+
+(* Merge Index: 25 *)
+Lh_epsilon(duration(0, 61377));
+
+(** 1048161435.260398 ns4 **)
+(* Merge Index: 26 *)
+ Lh_call(TID 78670, close(FD 8));
+
+(* Merge Index: 27 *)
+Lh_epsilon(duration(0, 418));
+
+(** 1048161435.260816 debug5 **)
+(* Merge Index: 28 *)
+(* FIN_WAIT_1:output [864ed93e..864ed92a)@f81f7d32(win=e240)<ACK,FIN> -> FIN_WAIT_1 *)
+Lh_trace(SOME(SOME(IP 192 168 0 12), SOME(Port 1305), SOME(IP 192 168 0 13), SOME(Port 22)),
+  FIN_WAIT1,
+ <|
+   snd_una := tcp_seq_local(n2w 2253314366);
+   snd_max := tcp_seq_local(n2w 2253314367);
+   snd_nxt := tcp_seq_local(n2w 2253314367);
+   snd_wl1 := tcp_seq_foreign(n2w 4162813182);
+   snd_wl2 := tcp_seq_local(n2w 2253314366);
+   iss := tcp_seq_local(n2w 2253314365);
+   snd_wnd := 57920;
+   snd_cwnd := 5792;
+   snd_ssthresh := 1073725440;
+   rcv_wnd := 57920;
+   rcv_nxt := tcp_seq_foreign(n2w 4162813234);
+   rcv_up := tcp_seq_foreign(n2w 4162813182);
+   irs := tcp_seq_foreign(n2w 4162813181);
+   rcv_adv := tcp_seq_foreign(n2w 4162871102);
+   snd_recover := tcp_seq_local(n2w 2253314365);
+   t_maxseg := 1448;
+   t_dupacks := 0;
+   t_rtseq := tcp_seq_local(n2w 2253314366);
+   snd_scale := 0;
+   rcv_scale := 0;
+   ts_recent := SOME(Timed(ts_seq(n2w 189583531), time_zero));
+   last_ack_sent := tcp_seq_foreign(n2w 4162813182)
+  |> );
+
+(* Merge Index: 29 *)
+Lh_epsilon(duration(0, 103));
+
+(** 1048161435.260919 slurp4 **)
+(* Merge Index: 30 *)
+Lh_senddatagram(TCP(<|
+    is1 := SOME(IP 192 168 0 12);
+    is2 := SOME(IP 192 168 0 13);
+    ps1 := SOME(Port 1305);
+    ps2 := SOME(Port 22);
+    seq := tcp_seq_local(n2w 2253314366);
+    ack := tcp_seq_foreign(n2w 4162813234);
+    URG :=   F;
+    ACK := T  ;
+    PSH :=   F;
+    RST :=   F;
+    SYN :=   F;
+    FIN := T  ;
+    win := n2w 57920;
+    ws := NONE;
+    urp := n2w 0;
+    mss := NONE;
+    ts := SOME(ts_seq (n2w 361882013), ts_seq (n2w 189583531));
+    data := []   (*""*)
+    |>) );
+
+(* Merge Index: 31 *)
+Lh_epsilon(duration(0, 87));
+
+(** 1048161435.261006 debug6 **)
+(* Merge Index: 32 *)
+(* ESTABLISHED:user DISCONNECT -> FIN_WAIT_1 *)
+Lh_trace(SOME(NONE, NONE, NONE, NONE),
+  ESTABLISHED,
+ <|
+   snd_una := tcp_seq_local(n2w 2253314366);
+   snd_max := tcp_seq_local(n2w 2253314367);
+   snd_nxt := tcp_seq_local(n2w 2253314367);
+   snd_wl1 := tcp_seq_foreign(n2w 4162813182);
+   snd_wl2 := tcp_seq_local(n2w 2253314366);
+   iss := tcp_seq_local(n2w 2253314365);
+   snd_wnd := 57920;
+   snd_cwnd := 5792;
+   snd_ssthresh := 1073725440;
+   rcv_wnd := 57920;
+   rcv_nxt := tcp_seq_foreign(n2w 4162813234);
+   rcv_up := tcp_seq_foreign(n2w 4162813182);
+   irs := tcp_seq_foreign(n2w 4162813181);
+   rcv_adv := tcp_seq_foreign(n2w 4162871154);
+   snd_recover := tcp_seq_local(n2w 2253314365);
+   t_maxseg := 1448;
+   t_dupacks := 0;
+   t_rtseq := tcp_seq_local(n2w 2253314366);
+   snd_scale := 0;
+   rcv_scale := 0;
+   ts_recent := SOME(Timed(ts_seq(n2w 189583531), time_zero));
+   last_ack_sent := tcp_seq_foreign(n2w 4162813234)
+  |> );
+
+(* Merge Index: 33 *)
+Lh_epsilon(duration(0, 25));
+
+(** 1048161435.261031 debug7 **)
+(* Merge Index: 34 *)
+(* FIN_WAIT_1:user DETACH -> FIN_WAIT_1 *)
+Lh_trace(SOME(NONE, NONE, NONE, NONE),
+  FIN_WAIT1,
+ <|
+   snd_una := tcp_seq_local(n2w 2253314366);
+   snd_max := tcp_seq_local(n2w 2253314367);
+   snd_nxt := tcp_seq_local(n2w 2253314367);
+   snd_wl1 := tcp_seq_foreign(n2w 4162813182);
+   snd_wl2 := tcp_seq_local(n2w 2253314366);
+   iss := tcp_seq_local(n2w 2253314365);
+   snd_wnd := 57920;
+   snd_cwnd := 5792;
+   snd_ssthresh := 1073725440;
+   rcv_wnd := 57920;
+   rcv_nxt := tcp_seq_foreign(n2w 4162813234);
+   rcv_up := tcp_seq_foreign(n2w 4162813182);
+   irs := tcp_seq_foreign(n2w 4162813181);
+   rcv_adv := tcp_seq_foreign(n2w 4162871154);
+   snd_recover := tcp_seq_local(n2w 2253314365);
+   t_maxseg := 1448;
+   t_dupacks := 0;
+   t_rtseq := tcp_seq_local(n2w 2253314366);
+   snd_scale := 0;
+   rcv_scale := 0;
+   ts_recent := SOME(Timed(ts_seq(n2w 189583531), time_zero));
+   last_ack_sent := tcp_seq_foreign(n2w 4162813234)
+  |> );
+
+(* Merge Index: 35 *)
+Lh_epsilon(duration(0, 321));
+
+(** 1048161435.261352 slurp5 **)
+(* Merge Index: 36 *)
+Lh_recvdatagram( TCP(<|
+    is1 := SOME(IP 192 168 0 13);
+    is2 := SOME(IP 192 168 0 12);
+    ps1 := SOME(Port 22);
+    ps2 := SOME(Port 1305);
+    seq := tcp_seq_local(n2w 4162813234);
+    ack := tcp_seq_foreign(n2w 2253314367);
+    URG :=   F;
+    ACK := T  ;
+    PSH :=   F;
+    RST :=   F;
+    SYN :=   F;
+    FIN :=   F;
+    win := n2w 57920;
+    ws := NONE;
+    urp := n2w 0;
+    mss := NONE;
+    ts := SOME(ts_seq (n2w 189583538), ts_seq (n2w 361882013));
+    data := []   (*""*)
+    |>) );
+
+(* Merge Index: 37 *)
+Lh_epsilon(duration(0, 78));
+
+(** 1048161435.261430 debug8 **)
+(* Merge Index: 38 *)
+(* FIN_WAIT_1:input f81f7d32@864ed93f(win=e240)<ACK> -> FIN_WAIT_2 *)
+Lh_trace(SOME(SOME(IP 192 168 0 13), SOME(Port 22), SOME(IP 192 168 0 12), SOME(Port 1305)),
+  FIN_WAIT1,
+ <|
+   snd_una := tcp_seq_local(n2w 2253314367);
+   snd_max := tcp_seq_local(n2w 2253314367);
+   snd_nxt := tcp_seq_local(n2w 2253314367);
+   snd_wl1 := tcp_seq_foreign(n2w 4162813234);
+   snd_wl2 := tcp_seq_local(n2w 2253314367);
+   iss := tcp_seq_local(n2w 2253314365);
+   snd_wnd := 57920;
+   snd_cwnd := 7240;
+   snd_ssthresh := 1073725440;
+   rcv_wnd := 57920;
+   rcv_nxt := tcp_seq_foreign(n2w 4162813234);
+   rcv_up := tcp_seq_foreign(n2w 4162813234);
+   irs := tcp_seq_foreign(n2w 4162813181);
+   rcv_adv := tcp_seq_foreign(n2w 4162871154);
+   snd_recover := tcp_seq_local(n2w 2253314365);
+   t_maxseg := 1448;
+   t_dupacks := 0;
+   t_rtseq := tcp_seq_local(n2w 2253314366);
+   snd_scale := 0;
+   rcv_scale := 0;
+   ts_recent := SOME(Timed(ts_seq(n2w 189583538), time_zero));
+   last_ack_sent := tcp_seq_foreign(n2w 4162813234)
+  |> );
+
+(* Merge Index: 39 *)
+Lh_epsilon(duration(0, 2174));
+
+(** 1048161435.263604 slurp6 **)
+(* Merge Index: 40 *)
+Lh_recvdatagram( TCP(<|
+    is1 := SOME(IP 192 168 0 13);
+    is2 := SOME(IP 192 168 0 12);
+    ps1 := SOME(Port 22);
+    ps2 := SOME(Port 1305);
+    seq := tcp_seq_local(n2w 4162813234);
+    ack := tcp_seq_foreign(n2w 2253314367);
+    URG :=   F;
+    ACK := T  ;
+    PSH :=   F;
+    RST :=   F;
+    SYN :=   F;
+    FIN := T  ;
+    win := n2w 57920;
+    ws := NONE;
+    urp := n2w 0;
+    mss := NONE;
+    ts := SOME(ts_seq (n2w 189583538), ts_seq (n2w 361882013));
+    data := []   (*""*)
+    |>) );
+
+(* Merge Index: 41 *)
+Lh_epsilon(duration(0, 86));
+
+(** 1048161435.263690 debug9 **)
+(* Merge Index: 42 *)
+(* FIN_WAIT_2:input f81f7d32@864ed93f(win=e240)<ACK,FIN> -> TIME_WAIT *)
+Lh_trace(SOME(SOME(IP 192 168 0 13), SOME(Port 22), SOME(IP 192 168 0 12), SOME(Port 1305)),
+  FIN_WAIT_2,
+ <|
+   snd_una := tcp_seq_local(n2w 2253314367);
+   snd_max := tcp_seq_local(n2w 2253314367);
+   snd_nxt := tcp_seq_local(n2w 2253314367);
+   snd_wl1 := tcp_seq_foreign(n2w 4162813234);
+   snd_wl2 := tcp_seq_local(n2w 2253314367);
+   iss := tcp_seq_local(n2w 2253314365);
+   snd_wnd := 57920;
+   snd_cwnd := 7240;
+   snd_ssthresh := 1073725440;
+   rcv_wnd := 57920;
+   rcv_nxt := tcp_seq_foreign(n2w 4162813235);
+   rcv_up := tcp_seq_foreign(n2w 4162813234);
+   irs := tcp_seq_foreign(n2w 4162813181);
+   rcv_adv := tcp_seq_foreign(n2w 4162871154);
+   snd_recover := tcp_seq_local(n2w 2253314365);
+   t_maxseg := 1448;
+   t_dupacks := 0;
+   t_rtseq := tcp_seq_local(n2w 2253314366);
+   snd_scale := 0;
+   rcv_scale := 0;
+   ts_recent := SOME(Timed(ts_seq(n2w 189583538), time_zero));
+   last_ack_sent := tcp_seq_foreign(n2w 4162813234)
+  |> );
+
+(* Merge Index: 43 *)
+Lh_epsilon(duration(0, 27));
+
+(** 1048161435.263717 debug10 **)
+(* Merge Index: 44 *)
+(* TIME_WAIT:output [864ed93f..864ed92b)@f81f7d33(win=e240)<ACK> -> TIME_WAIT *)
+Lh_trace(SOME(SOME(IP 192 168 0 12), SOME(Port 1305), SOME(IP 192 168 0 13), SOME(Port 22)),
+  TIME_WAIT,
+ <|
+   snd_una := tcp_seq_local(n2w 2253314367);
+   snd_max := tcp_seq_local(n2w 2253314367);
+   snd_nxt := tcp_seq_local(n2w 2253314367);
+   snd_wl1 := tcp_seq_foreign(n2w 4162813234);
+   snd_wl2 := tcp_seq_local(n2w 2253314367);
+   iss := tcp_seq_local(n2w 2253314365);
+   snd_wnd := 57920;
+   snd_cwnd := 7240;
+   snd_ssthresh := 1073725440;
+   rcv_wnd := 57920;
+   rcv_nxt := tcp_seq_foreign(n2w 4162813235);
+   rcv_up := tcp_seq_foreign(n2w 4162813234);
+   irs := tcp_seq_foreign(n2w 4162813181);
+   rcv_adv := tcp_seq_foreign(n2w 4162871154);
+   snd_recover := tcp_seq_local(n2w 2253314365);
+   t_maxseg := 1448;
+   t_dupacks := 0;
+   t_rtseq := tcp_seq_local(n2w 2253314366);
+   snd_scale := 0;
+   rcv_scale := 0;
+   ts_recent := SOME(Timed(ts_seq(n2w 189583538), time_zero));
+   last_ack_sent := tcp_seq_foreign(n2w 4162813234)
+  |> );
+
+(* Merge Index: 45 *)
+Lh_epsilon(duration(0, 74));
+
+(** 1048161435.263791 slurp7 **)
+(* Merge Index: 46 *)
+Lh_senddatagram(TCP(<|
+    is1 := SOME(IP 192 168 0 12);
+    is2 := SOME(IP 192 168 0 13);
+    ps1 := SOME(Port 1305);
+    ps2 := SOME(Port 22);
+    seq := tcp_seq_local(n2w 2253314367);
+    ack := tcp_seq_foreign(n2w 4162813235);
+    URG :=   F;
+    ACK := T  ;
+    PSH :=   F;
+    RST :=   F;
+    SYN :=   F;
+    FIN :=   F;
+    win := n2w 57920;
+    ws := NONE;
+    urp := n2w 0;
+    mss := NONE;
+    ts := SOME(ts_seq (n2w 361882013), ts_seq (n2w 189583538));
+    data := []   (*""*)
+    |>) );
+
+(* Merge Index: 47 *)
+Lh_epsilon(duration(0, 8551));
+
+(** 1048161435.272342 ns5 **)
+(* Merge Index: 48 *)
+ Lh_return(TID 78670, OK());

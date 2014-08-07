@@ -1,0 +1,1316 @@
+## Progress wrt bug fixes in the check runs. Please update this file
+## whenever a bug is fixed, along with trace and brief description
+
+
+==== check-2004-08-19T10:56:30+0100 ====
+
+Bug Description                       Traces Affected      Person     Status
+----------------------------------------------------------------------------
+trace epsilon transitions should      2060                 MN         deferred
+ permit intermediate taus (eps_2)
+
+rxtcur arithmetic not being solved,
+ leading to a chain of tt_rexmt'n
+ variables all depending on the
+ previous, leading to TOO_COMPLICATED 404,424,433,434      MN         possibly fixed
+
+ACKs of FINs should be urgent         1679                 KW         believe fixed
+
+ARB appears as fn in constraint set   1963                 KW         believe fixed
+  (in di3 for TIME_WAIT or LAST_ACK)
+
+
+==== check-2004-08-23T16:52:00+0100 ====
+(repeating the unsuccessful traces above)
+
+Bug Description                       Traces Affected      Person     Status
+----------------------------------------------------------------------------
+getsockname() fail with ECONNRESET    820                  MS         FIXED
+if socket was shutdown for writing
+from CLOSED or LISTEN
+
+listen_5 wasn't matching if state     821                  MS         FIXED
+was LISTEN
+
+deliver_out_1 not emitting FIN        822,2127             MS         FIXED
+from state SYN_SENT                   KW: also 1427,1428
+or    SYN_RECEIVED                    1430,2128
+
+close_8 not matching if cantsndmore   852,853              MS         FIXED
+or cantrcvmore were set
+
+MSS set incorrectly on SYN,ACK        1668,1676,2065       MS         fixed except 2065
+retransmit
+
+Uncaught exception "Problem"          all CRASHED so far:  MN         FIXED
+
+  0239, 0290, 0291, 0293, 0294, 0295, 0297, 0298, 0299, 0300, 0301,
+  0314, 0315, 0317, 0318, 0319, 0321, 0322, 0323, 0324, 0325, 0338,
+  0339, 0341, 0342, 0343, 0344, 0345, 0346, 0347, 0349, 0362, 0363,
+  0365, 0366, 0367, 0368, 0369, 0370, 0990, 0991, 0993, 0994, 1146,
+  1149, 1677, 2147
+
+All 0's address should be treated     1662                 MS         FIXED
+as broadcast in addition to all
+1's
+
+nonblocking MSG_OOB recv() with no    1597                 KW         believe fixed
+data returns EAGAIN not EINVAL
+
+BSD MSG_WAITALL bug: recv_1/recv_8    1587                 MS         believe fixed
+were constraining is2/ps2 to NONE
+when in actuality they're still
+set. Also, recv_8 was throwing
+a wobbly, hence the TOO_COMPLICATED
+
+model and trace values for rcv_up     1588,94,97           MF         in progress
+don't match
+
+bug in the test that causes an RST    1780-1783            MS         previously fixed
+to be spoofed, looking like it                                        (test-gen bug)
+comes from the test host when it
+does't
+
+window size increased by 576 after    1429,1728            MS         believe fixed
+first segment rcvd. Initially set
+at 57344 (tcp_recvspace), then                                        [see comment in
+increases to 57920 in subsequent                                       deliver_in_2
+segments. Shouldn't be having                                          ~line 14204   ]
+rcv_wnd unconstrained other than
+initially.
+
+If using a local IP, BSD uses the     296,304,308,316,     MS         believe fixed
+interface MTU in tcp_mssopt(), i.e.   320,328,332,296,                (tests need to
+to advertise, but the cached rmx      291,293,294,295,                 be regenerated)
+MTU in tcp_mss() in calculating       297,299,300,301,
+t_maxseg. The former is that of       314,315,317,318,
+loopback (16344) and the latter       319,321,322,323,
+is that of ethernet (1460). Our       324,325,342,343,
+flushing and locking of the BSD       344,345,367
+route metric caches, doesn't affect
+the MTU entry.
+*The MTU in this specific rtentry
+is incorrect in any case.
+
+connect_3 not firing after            386,387,388,390,     MS         believe fixed
+connection establishment has fired;   392,395
+"(bsd_arch h.arch ==> ps1 = NONE)"
+Incorrect condition now modified to
+use bsd_cantconnect correctly
+
+BSD bug - in SYN_SENT state,          1728                 MS         believe fixed
+update rcv_wnd on a dodgy
+segment.
+
+~(NONE = case (if P then              2084,2085            MN         fixed (except 2085)
+   SOME xxx else NONE) of             (2093,2094,2095),
+   NONE -> NONE                       2102,2103,2104,2107,2114,2115,2116,2117,2126,
+|| SOME v -> SOME (f v))              2136,2137,2138,2139.
+not being reduced to P
+or to T or F (since P is computable
+from a timer inequality), but yielding
+TOO_COMPLICATED.
+example P: time (593419 / 200000) <= MIN time_infty (time 2678400) + 0
+
+(time ~1) appearing in timer          2093,94,95           KW         FIXED
+resulting from pselect_2
+
+unable to choose between two          340,348,364,372      MS         believe fixed
+ sockets (sid' values).
+- or between *one* socket(!):         352,360,376,384
+=> deliver_in_3 ~14711
+
+
+==== check-2004-08-26T15:06:18+0100 ====
+
+Bug Description                       Traces Affected      Person     Status
+----------------------------------------------------------------------------
+For BSD sending a FIN in state        822,1427,1428,       MS         FIXED
+SYN_SENT, datagram mismatch due       2127
+to ACK being set and ts not
+being set
+
+Sending a FIN in state SYN_SENT/      823,1429,1430,       MS         FIXED
+SYN_RCVD, need to increment           2128
+sequence number. In fact, was
+forgetting to increment snd_nxt
+after doing a SYN,ACK retransmit
+
+tcp_output_required not including     822,1427,1428,       MS         FIXED
+SYN in length of data to send         2127
+calculations. Also trying to
+update persist timer incorrectly
+in this case.
+
+Too complicated due to trying to      820                  MS         believe fixed
+pattern match against nested
+'with's
+
+better_is_broadormulticast            2093                 MN         FIXED
+omits if_any clause
+
+FST p2                                2095, 1597           ??         appears fixed
+
+pselect() rules failing due           2102,2103,2104,      MS/KW      fixed by increasing
+to being unable to prove time         2114,2115                       kern_timer fuzziness
+passage out of PSelect2() state                            MN         need epsilon_2
+                                                                      to work
+
+dupfd() failures due to trace_gen     1116,1117,1118,      ??         low priority
+using dup2(), but us modelling        1119
+fcntl(F_DUPFD). Need to model both
+at some point.
+
+
+
+==== check-2004-08-30T14:27:46+0100 ====
+
+Bug Description                       Traces Affected      Person     Status
+----------------------------------------------------------------------------
+Incorrect datapath taken by           10,11,14,16,2147,    MS         FIXED
+di3_datastuff on receipt of a         30,1054,1056,1058,
+FIN segment (wasn't including         1296,1297,1298,
+FIN in test for new data).            1300,1308,1316,
+                                      1577,1739,402,
+                                      417,425,452,455,
+                                      844,860,876,1059,
+                                      1066,1067,1068,
+                                      1074
+
+close_8 RST segment stuff too         3,1144,1145,1147,    MN         partly FIXED
+complicated.                          1148,1149,398,408,   MS         MAP2 constraint added
+                                      418,428,438,338,
+                                      458,468,488,508,
+                                      810,821,852,853,
+                                      1047,1219,1289,
+                                      1439,1448,1457,
+                                      1466,1555,1562,
+                                      1752,
+
+BSD non-blocking connecting socket    376,364,371,372      MS         FIXED
+not failing with EINPROGRESS
+when using the loopback interface
+
+when call shutdown() from LISTEN      868,824,822          MS         believe fixed
+or CLOSED state, TCP layer kills
+the socket (call tcp_close), which
+is the reason for calls such as
+getsockname failing. getsockname()
+doesn't fail if e.g. got to LISTEN
+by calling listen() in FIN_WAIT_2
+
+rcv_adv not matching after            990,993,             MS         believe fixed
+completion of passive open on BSD
+Due to BSD bug [see comment in
+deliver_in_3 ~14893]
+
+unable to prove non-urgency after     1016                 MN         FIXED
+accept_2.
+
+"simultaneous open" (not) becomes too 290,338,362          KW         not fixed
+complicated because di_1 chosen
+instead of di_2.  Suspected
+problem: bizarre binding wrt
+tcp_sock.
+
+tcp_mss() not called by BSD           1428                 MS         believe fixed
+on completion of active open
+if MSS option not specified
+by peer (i.e. defaults remain).
+
+on receipt of SYN segment with        1728                 MS         fix needed, but messy
+mss option set in any state bar                                       low priority
+CLOSED/LISTEN/SYN_RCVD, tcp_mss()
+is called to update t_maxseg etc,
+even if segment gets dropped.
+
+FIN not being set correctly by        1427                 MS         believe fixed
+deliver_in_2 when sending ACK
+to complete active open, in the
+case of bsd shutdown bug.
+
+Thread in Recv2 not returning         1580,1602            MS         believe fixed
+pending socket error when socket
+closed - should be handled by
+recv_8a.
+
+Thread in Recv2 not returning         1587,1590            MS         believe fixed
+data when socket closed under
+the bsd msgwaitall behaviour -
+should be handled by recv_3.
+(was previously constraining
+quad to SOME)
+
+header prediction!!                   1588                 MS         believe fixed
+doesn't do:
+1) pulling rcv_up along
+2) updates to snd_wnd/snd_wl1 etc.
+
+slow fail send() rule needed          N/A                  MS         new rule written:
+                                                                      send_5a
+
+Circumstances under which             1591,1597            MS         believe fixed
+recv(MSG_OOB) returns EINVAL
+or EAGAIN.
+
+recv_3 incorrectly clearing           1594                 MS         believe fixed
+rcvurp, causing sockatmark to                                         more OOB tests needed
+return incorrect value.
+
+lingering socket error of             1659                 ??         under investigation
+EINPROGRESS, so that getsockerr()
+returns EINPROGRESS... MS has
+looked at this before, and can't
+see how (from BSD source)
+EINPROGRESS can ever be returned
+by getsockerr() - but tests seem
+to say otherwise.
+
+BSD doesn't time retransmissions      2075,424,            MS         believe fixed
+(i.e. t_rttseg shouldn't be being
+set by timer_tt_rexmt{syn}_1)
+
+accept_1 too complicated - can't      991,994              MS         removed 'with' from
+choose between the two sockets                                        head of rule into
+on lis.q, despite the fact that it                                    side conditions
+should be just taking the head of
+the list. If you look at accept_1                                     FIXED
+in tr990 (only 1 sock in lis.q),
+then it still puts in the
+constraints:
+~(fid' = fid)
+~(fid' = FID 0)
+lis with q := SID 3285143712::q =
+<|q0 := []; q := [SID 3285143712]; qlimit := 3|>
+
+deliver_out_1 changes socket state    1430                 MS         FIXED
+to ARB in the case of BSD
+shutdown() bug (emitting FIN from
+SYN_{SENT;RCVD} state).
+
+deliver_out_1 incorrectly firing.     1703                 MN         partly FIXED; see also below
+there are multiple sockets in
+SYN_RECEIVED but with
+cantsndmore = F, so shouldn't
+be matching rule.
+
+
+==== check-2004-09-04T18:37:39+0100 ====
+
+Bug Description                       Traces Affected      Person     Status
+----------------------------------------------------------------------------
+Unable to prove non-urgency after     314-338              MN         will resolve with additional
+connect_1. unable to decide which     362-385                         case-splitting
+thread state to enter, due to
+loopback non-determinism - but
+won't do time passage despite
+both possibilities being nonurgent
+
+getpeername_2 not allowing BSD        811,822,854          MS         FIXED
+listening socket to fail with
+ENOTCONN.
+
+shutdown_1 incorrectly setting        852,853              MS         FIXED
+bsd_cantconnect.
+
+phantom segments ;-)                  868                  ??         low priority
+(retransmit timer continues to
+fire after FIN_WAIT_1 socket
+had listen() called, emitting
+spooky segments with no flags)
+
+delayed ack timer not firing in       1009                 MS         FIXED
+model as no fuzziness (was
+previously using kern_timer
+rather than fast_timer)
+
+accept_1 extracts from the wrong      991,994              MS         FIXED
+end of the list.
+
+close_8 failures (many of those       1145,1146,1148,      MN         thinking about it
+that failed in the previous           1149
+run are now fixed, but we still
+have some failures).
+
+BSD/Linux don't send RSTs to          1145                 MS         FIXED
+sockets on lis.q0 (only to lis.q)
+
+getifaddrs_1 too complicated          1216                 MS         believe fixed
+
+incorrect seq of FIN sent out         1427                 MS         FIXED
+by deliver_in_2 in case of BSD
+shutdown() bug.
+
+when no mss advertisement received,   1428                 MS         believe fixed
+snd_cwnd gets set to max value of
+65535 rather than remaining at
+initial value.
+Not quite right - snd_cwnd only
+gets clamped to the max window
+size by tcp_input()'s ACK processing
+if the ACK wasn't just for the SYN
+[see tcp_input.c::1791].
+
+snd_cwnd and snd_ssthresh set         1430                 MS         believe fixed
+incorrectly after di3 and transition
+into FIN_WAIT_2 - the problem here
+is that we've
+retransmitted the SYN,ACK, so the
+model states that we should be
+reverting the retransmission.
+This is fine, but the values of
+snd_cwnd_prev et al are set incorrectly
+so that on the ACK being received to
+complete the open, we don't see
+snd_cwnd being reverted to its old
+value.
+The reason for all this, is because
+the model thinks that t_badrxtwin is
+set to 1.5s, whereas in real life it
+is 0s; and the reason it is 0s is
+because t_srtt is set to 0s because
+we've got no info about the RTT yet!
+For some reason the model is setting
+the initial value of t_srtt to 3s.
+Contrast with tcp_subr.c::541
+
+confusion between multiple sockets    290,338,362          KW/MN      in progress;
+                                                                      will resolve with additional
+                                                                      case-splitting
+
+snd_cwnd strangeness nr step 64       31                   KW         in progress
+Aha: as MS suggested, the
+bad reenter-slow-start behaviour
+here stems from a case split which
+picks the wrong branch first:
+==Case splitting on 1000000 * MIN 64
+(MAX 1 (cb'_0_t_srtt1 + 4 *
+cb'_0_t_rttvar1)) <= rate30 * 29 +
+rate31 * 92
+It seems to be retrying the
+alternative, though, so maybe 31 is
+OK after all.
+
+d_o_1 too complicated - can't decide  2085                 KW/MN/SB   SB believes he has fixed this
+whether do_output or not.  Has                                        by rewriting deliver_in_7a correctly
+odd constraint FST p3; I don't know
+what the pair p3 is.
+SB noticed that deliver_in_7a doesn't deal with
+the case of simultaneous open sockets that
+don't have a listening socket. This should
+solve the problems.
+
+
+
+
+can't allow time passage in step 45   2065                 MN         known problem, not fixed
+because epsilon_2 doesn't happen.
+
+tf_shouldacknow is set in step 58     1760                 KW/MS      believe fixed
+for some reason. This is because
+pure ACKs were being caught by
+the 'completely old segment'
+clause; added a new clause
+for pure ACKs that doesn't set
+tf_shouldacknow.
+
+recv() call that is made after        1587,1590            MS         believe fixed
+socket is closed doesn't match
+any recv_ rule.
+recv_1 was constraining the quad
+when under BSD bug, it may not
+be set.
+
+timer_tt_rexmt_1 could fire for       1703                 KW/SB/MN   in progress
+any of several sockets in step 52,                                    will resolve with
+and we can't tell which until the                                     additional case-splitting
+next step (deliver_out_99).
+Instead goes TC trying to show
+this.  Think could be just that the
+TC limit is too low here.
+NB: test behaviour indicates we should
+have a new test that tests the length
+of the *completed* connections queue,
+since BSD doesn't limit the length
+of the incomplete one.
+
+deliver_in_3 leaving data on          1588                 MS         believe fixed
+the reassembly queue after it
+had been moved into rcvq for
+an inorder segment (off by
+one error in tcp_reass_prune).
+
+suspect same as 296 etc?              292                  MS         regen traces
+
+
+Looking at the INCOMPLETEs (well, at the CRASHEDs, in fact, because
+that's what they become when we kill a run - I think five of these or
+so were real crashes, but don't recall).
+
+Two INCOMPLETEs remained, but in fact these were SUCCESS that just
+hadn't registered yet:  425, 441.
+
+Many traces died as follows:
+
+==Successful transition of <RULENAME>
+[..full details here, including transition, vars, constraint..]
+==Trace <TRACE> CRASHED
+
+I call this "died after successful transition of" in the below.
+
+
+** Died after successful transition of epsilon_1 (i.e., in attempting to
+guess a rule to use, or to apply some rule):
+
+466, 871, 875 - dunno why
+1118, 1120 - a LEAST issue with dupfd, MN to fix?
+
+
+** Died after successful transition of some other rule (i.e., in
+attempting to find a tau or prove time passage):
+
+346, 347, 414, 423, 427, 433, 435, 442, 443, 444, 445, 446, 447, 457,
+459, 474, 479, 481, 482, 483, 484, 492, 493, 503, 506, 515, 516, 517,
+815, 819, 839, 840, 841, 845, 847, 848, 851, 855, 861, 864, 865, 866,
+869, 872, 873, 874.
+
+What's really annoying here is that we have no information to go on.
+I expected it to say "attempting foo" for something here, and
+hopefully more information about substeps.  Not sure if the info is
+being printed but not flushed, or not printed at all.  In either case,
+something needs to be done, and there's clearly an issue here!!
+
+** Others:
+
+297 - step 50, segement emitted in a former connect_1 is not yet
+determined, and has problems proving it
+
+405, 453, 475, 494, 513 - crashes during backtracking, could be
+anything.  Possibly related to constraints on rxtcur1 or cb0'_t_srtt?
+
+437 - step 44 - problem with delack timer being too fine, believe
+FIXED already by using fast_timer not kern_timer.
+
+465 - bizarre - died while printing a possibility for time passage!
+(between "Possibility #1" and the actual transition).
+
+497 - I can't see why segment in step 86 doesn't match.
+
+846, 849, 850, 870 - some backtracking issue not investigated.
+
+
+
+That's all the INCOMPLETEs, folks!
+
+
+==== check-2004-09-10T13:08:51+0100 ====
+
+Summary of current state, 2004-09-14 1607:
+(traces that have been dealt with have been removed from these lists)
+
+Known problems:
+~~~~~~~~~~~~~~~
+
+291,292,293,294,295,296,297,299,300,301,304,308,342,343,344,345,367,1780,1781,1782,1783
+- known problem with tests, need to regen
+
+868,1728,2065 - known problem, low priority
+
+1149 - known problem, MN "thinking about it"
+
+1659 - known problem, was "under investigation" in earlier phase
+
+290,314,315,316,317,318,319,320,321,322,323,324,325,326,327,328,329,330,331,332,333,334,335,336,337,338,342,362,363,364,365,366,367,368,369,370,371,372,373,374,375,376,377,378,379,380,381,382,383,384,385,1703
+- known problem, should be fixed with case splitting
+
+New problems:
+~~~~~~~~~~~~~
+
+881 - crashed
+
+886,887,888,1154,1158 - not tested last time
+
+454 - crashed when should have done timer_tt_rexmt_1; can't see why
+466 - crashed for no good reason at all
+
+
+Detail:
+~~~~~~~
+
+phantom segments as 868 above         824,874              KW         believe fixed
+(retransmit timer continues to        864,865,866,867,869,870,871,872,873,875
+fire after FIN_WAIT_1 socket          815,816,817
+had listen() called, emitting         826,827,828,829,830,831,832,833,834
+spooky segments with no flags)        836,837,838,839,840,841,842
+
+
+can't call listen() again because     853                  KW         believe FIXED
+pr.lis not NONE
+
+TC: multiple sockets match d_o_1.     994,1280,1281,1474   ??         ??  KW can't figure out
+Perhaps threshold set too low?  Or    1475
+maybe a real problem -
+do_output \/ FST p3 makes its
+appearance again (cf 2085?)
+
+timer_tt_rexmtsyn_1 REJECTED when     1427                 KW         problem understood; to be fixed
+it shouldn't be in step 48 (in
+FIN_WAIT_1), because that rule
+handles only SYN_SENT, and not
+any other possible states
+
+deliver_in_2 goes to FW1 not FW2      1428                 KW         believe FIXED
+when a single seg acks both SYN
+and FIN.
+
+
+MS "fixed" so that, under a condition 1588,1590            KW         believe FIXED
+effectively equivalent to "if this is
+trace 1641", a RST didn't clear the
+data on the rcvq.  In fact, this is
+true generally.  Mixed in with that
+change, though, was something saying
+that priority goes to data rather than
+pending error when both become present
+simultaneously to a blocked call.
+Appears as: unable to do
+Lh_call(recv) transition
+
+Can't output two RST segments in      1760                 KW         believe FIXED
+deliver_in_8, because
+enqueue_and_ignore_fail only handles
+at most 1 segment; should use
+enqueue_each_and_ignore_fail.
+
+Can't do deliver_in_7a for a sock     2085,1228,1317       KW         believe FIXED
+with no corresponding LISTEN socket   1446,1455,1473
+because TC.  Rule looks
+complicated: has socks FUPDATE_LIST
+foo on the LHS, where foo is
+conditionally set.  Replaced with
+something a bit more L->R.
+
+Can't match trace record on loopback  298,1265,1268        KW/SB      under investigation
+receipt of SYN,ACK, because
+calculate_buf_sizes computes          1264,1265,1266,1267,1268,1269,1270,1271,1272,1273,1274,1275
+t_maxseg=14336 for the loopback
+interface, whereas for some reason
+the trace shows a result of
+1448 (the deviation in snd_cwnd derives
+from this also).
+Where on earth does BSD get 1448 from??
+Possibly a poisoned route-metric cache?
+
+When using a TIME_WAIT socket to     407,417,427,437,457   KW         believe fixed
+connect, the timestamp echo in the
+SYN segment echoes the last timestamp
+received on the former connection in
+BSD, rather than being cleared as
+expected.
+MF reports these, KW believes
+probably identical                   0487,0497	          MF          KW believes fixed
+
+In step 82, a transition of connect_1 477                  KW         think case-split will fix;
+leads to a thread in state t', where                                  have fixed THE NONE
+t' might be a Connect2 or a Ret.
+Can't prove nonurgency, because can't
+see the timer.  Needs a case-split.
+Also has an issue here:
+`err = THE NONE \/ ...`.
+
+bandlim too complicated?              884,1959             KW/MN      under investigation
+
+In this trace, the actual close       885                  KW         under investigation
+is happening some time after the
+call to close().  I assume this
+means that Close2 should be entered,
+and it's not, because close_8
+ignores the state of SO_LINGER, and
+in any case, that's SOME(0,0),
+which normally means "abort".
+
+
+rate constraints build up             1113                KW/MN       considering
+unboundedly if no comms on wire
+
+
+surprising RST in final step, is      1167,1170           KW/MF       solved.
+a test-harness artifact.  Test
+script being fixed by MF.
+
+Internal error:                       462,859,880         MN          ??
+Exception raised at Conv.RAND_CONV:
+REWR_CONV: lhs of thm doesn't match term
+
+deliver_in_8 not matching             1761,1762,1763,1764,1765  MF    investigating
+
+bogus trace: step 0 is FIN,ACK        1813,1819           MF?         to fix trace
+or RST,ACK
+
+dunno; deliver_out_1 problem.         1812,1816,1818                KW          investigating
+if do_output and do_output \/ FST p1; 1820,1821,1822,1823,1824,1825,1826,1827
+lots of data on some of them, not all 1828,1829,1830,1831,1832,1833
+MN says look at betters               1804,1806,1808,1809,1810,1868,1870
+
+early crash; perhaps HOL parser       1805,1814,1834,1835(*),1869
+can't handle long strings in trace?   1944,1945,1946,1947,1948,1949(*),1952
+All failed with "Fatal error: out of memory." 1916,1917,1918,1919,1920,1921
+except (*) which failed with signal 11, 1930,1931,1932,1933,1934,1935
+segmentation fault (usually we assume
+this means stack overflow).
+
+crashes soon after processing a       1960,1961,1962,1963
+recv_datagram with 1000 bytes
+
+a lingering close can return from     1157	          MF         fixed
+state FIN_WAIT_2.
+
+receive a RST for a socket in	      1318		  ??	     ??
+TIME_WAIT, but deliver_in_7a matches
+which is for a socket in state SYN_RECEIVED
+but it is too complicated for the context.
+I don't understand it as one of the conditions
+should be sock=Sock(...(SYN_RECEIVED)...) and
+there are no such sockets.
+
+Other non-successes, unanalysed:
+
+467 TC
+483 CR
+505 CR
+513 CR
+517 TC
+889,890 CR
+893 CR
+1011 CR
+1120 CR
+1134 CR
+1139 CR
+1146 TC
+1164 CR
+1284 CR
+1287 CR
+1429 di3, truly huge constraint, ?? TC
+1485 CR
+1486 EB
+1560 TC
+1564 SDM
+1567 TC
+1772 EB
+1774 CR
+1775 SDM
+1791 CR
+1875 EB
+1877 CR
+1880 TC
+1882,1883 CR
+1889 EB
+1891 CR
+1899,1900,1901 TC
+1905,1906,1907 CR
+1911 EB
+1937 CR
+1939 CR
+1950,1951, CR
+1953 CR
+1954 EB
+2060 EB
+2070 SDM
+2072 CR
+2078,2079 EB
+2082 EB
+2101 TC
+2124 TC
+2146 TC
+
+
+REMEMBER TO UPDATE traces.txt as well!
+
+
+==== check-2004-10-16T10:36:21+0100 ====
+
+
+Details:
+~~~~~~~~
+
+incorrect return type     1574,1576,1577,1579,1581,   MF   Fixed
+for recv_1                1582,1583,1585,1586,1587,
+                          1589,1594,1598,1599,1600,
+			  1601,1603,1604,1424,2288
+
+
+socket in SYN_SENT        315,316,317,318,319,320,    MN fixed
+mysteriously fails to     321,322,323,324,325
+match TA_OUTPUT trace_1   326 SHORTEST
+                          327,328,329,330,331,332,
+                          333,334,335,336,337
+  - with this one, trace 326 is the shortest trace to examine, but
+    they all show the same problem.  AFAICS the trace record and the
+    state are the same, except for snd_recover, which is not examined
+    by tracecb_eq, and mention of variables in the host
+    (cb'_2_rcv_wnd, which the trace record implies is zero, and iss,
+    which the trace record gives a value to).  I can find no
+    constraints falsified by this assignment.  Mystified.
+    => was a checker bug
+
+mismatch because of d_o_1  1428                      KW believe fixed
+firing instead of rexmt rule
+
+REGRESSION: incoming FIN   0022                      KW puzzled; investigating
+segment is ignored in FW1
+(seg is a little weird in
+that it does not ACK
+sender's FIN, but that
+should be fine).
+
+
+==== check-2004-10-22T16:58:27+0100 ====
+
+
+Details:
+~~~~~~~~
+
+Connection timed out:   0407,1888,1898
+(probably not our fault?)
+
+Connection reset by peer: 0477,0483,0499,1774,1829
+(probably not our fault?)
+
+Machine rebooted:       0494,0503,1940
+(not our fault)
+
+Runaway process, killed 1120,2256,2267,2269,2272     KW thinks MN might have fixed
+by hand:
+== next run ==> 1120, 2256 EB; 2267 runaway again
+
+Out of memory(M) / SIGSEGV(S) (out of stack or heap, we think).  "*"
+means fails rapidly (less than a minute or so).  "M" means fails
+rapidly (less than a minute or so), and has been confirmed to be
+because of a failure during loading of the trace (presumably memory
+full) with heap limited to 160000K.
+
+Firstly, the following are simply too long - notice that trace1834
+needs at least 386MB to load (95MB after initialisation, 340MB or so
+after loading host and labels, and 386MB while simplifying host and
+labels); the default memory limit in our system is 160MB.
+
+M:1791M is 760 steps long
+S:1834M is 638 steps long [ needs at least 386MB ]
+M:1835* is 648 steps long
+M:1905M is 1014 steps long
+M:1906* is 1014 steps long
+M:1907* is 1014 steps long
+M:1916* is 1020 steps long
+M:1917* is 1020 steps long
+M:1918* is 1020 steps long
+M:1919* is 1020 steps long
+M:1920* is 1020 steps long
+M:1921* is 1020 steps long
+M:1930* is 1030 steps long
+S:1931* is 1030 steps long
+S:1932* is 1030 steps long
+S:1933* is 1030 steps long
+S:1934* is 1030 steps long
+S:1935* is 1030 steps long
+M:1944* is 1034 steps long
+M:1945* is 1034 steps long
+M:1946* is 1034 steps long
+M:1947* is 1034 steps long
+M:1948* is 1034 steps long
+M:1949* is 1034 steps long
+
+These ones are not so obvious, and indeed in some cases they no longer
+appear to fall over (at least, not quickly - I haven't run them to the
+end), as if something was changed in HOL in the last couple of weeks
+(very possible!).
+
+M:0887  stupidly-long iq
+M:0888  ??!
+S:0889  complicated-looking socks? (9 sockets or so)
+S:0890  complicated-looking socks? (9 sockets or so)
+S:0892  complicated-looking socks? (9 sockets or so)
+S:0893  complicated-looking socks? (9 sockets or so)
+M:1002  ??!
+M:1065  ??!
+M:1154  => case-splitting loop
+M:1158  => case-splitting loop
+M:1268  ??!
+M:1317* ??! [seems fine now, 2004-11-05/8]
+M:1474  => case-splitting loop
+S:1475  => case-splitting loop
+S:1678  ??!
+M:1703  ??!
+M:1785  ??!
+M:1804  contains long string of As
+M:1805* contains long string of As [seems fine now, 2004-11-05/8]
+M:1806  contains long string of As
+S:1807  contains long string of As [requires more than 1GB of RAM on
+striatum at step 72]
+S:1808  contains long string of As and ns
+M:1809  contains long string of As and ns
+M:1810* contains long string of As and ns [seems fine now, 2004-11-05/8]
+M:1811  contains long string of As and ns
+M:1812* contains long string of As [seems fine now, 2004-11-05/8]
+M:1813  contains long string of As
+M:1814* contains long string of As
+M:1815  contains long string of As
+M:1816* contains long string of As
+M:1817  contains long string of As
+M:1818  contains long string of #s
+M:1819  contains long string of #s
+M:1820  contains shortish string of Hs
+M:1821  contains shortish string of Hs
+M:1822  contains shortish string of Hs
+M:1823  contains shortish string of Hs
+M:1824  contains shortish string of Hs [trying now on stem with ulimit -v 1000000]
+S:1825  contains shortish string of Hs
+M:1826  contains shortish string of Hs
+M:1827  contains shortish string of Hs
+M:1828  contains shortish string of Hs
+M:1830  contains shortish string of Hs
+M:1831  contains shortish string of Hs
+S:1832  contains shortish string of Hs
+M:1833  contains shortish string of Hs
+M:1868  huge sendqueue
+M:1869* ??!  [seems fine now, 2004-11-05/8]
+M:1875  ??!
+S:1899  contains long alphabet string
+S:1950  contains long string of ns
+M:1951  contains long string of ns
+M:1955* contains long string of ns [seems fine now, 2004-11-05/8]
+S:1957  contains long string of ns
+S:1958  contains long string of ns
+
+NB: for help, I've added "lengths" in the autotest dir, with step
+counts, and "index-byclass.html" in the check dir, grouped by class.
+
+] From the above, here is a list of traces to be excluded from future runs
+] until we deal with these issues (these are the too-long traces):
+]
+] 1791 1834 1835 1905 1906 1907 1916 1917 1918 1919 1920 1921 1930 1931
+] 1932 1933 1934 1935 1944 1945 1946 1947 1948 1949
+]
+] In view of the fact that many of the others now seem to work, I think we
+] should try them again, even though many of them may well fail again.
+] But we should make sure the following ones are tested *after* the other
+] failures (these are the not-so-obvious traces):
+]
+] 0887 0888 0889 0890 0892 0893 1002 1065 1154 1158 1268 1317 1474 1475
+] 1678 1703 1785 1804 1805 1806 1807 1808 1809 1810 1811 1812 1813 1814
+] 1815 1816 1817 1818 1819 1820 1821 1822 1823 1824 1825 1826 1827 1828
+] 1830 1831 1832 1833 1868 1869 1875 1899 1950 1951 1955 1957 1958
+]
+] HTH!
+
+
+sequence number one below what it should   0005,0400,0410,0420,0430,0440,0450,0460,0470,	MF Fixed
+be for an outgoing ACK in connection       0480,0490,0500,0510,0812,0815,0816,0823,0824,
+establishment or in rexmt                  0825,0826,0827,0828,0829,0830,0831,0832,0833,
+(Problem 1)				   0834,0835,0836,0837,0838,0839,0855,0864,0865,
+        				   0866,0867,0868,0869,0870,0871,0998,1008,1049,
+					   1128,1137,1221,1291,1429,1441,1450,1459,1468,
+					   1557,1564,1711,1780,1781,1782,1783,1870,2085,
+					   2094,2106,2117,2128,2139,2292
+
+== next run ==> all failed or still in progress :-(
+
+urp value one below what it should be      1491,1492,1493                                       KW believe fixed
+KW believe fixed (forgot that we point
+one byte *past* the urgent byte)
+
+== next run ==> fixed!
+
+win size wrong: known problem,low
+priority				   1728
+
+data wrong				   2070
+
+when in TIME_WAIT and receive a SYN	   1775							MF fixed
+should sent out a RST to current
+connection and then RST to the SYN
+
+== next run ==> not checked yet
+
+
+
+The EXCESSIVE_BACKTRACKINGs:
+----------------------------
+
+trace doesn't match: state is wrong	   0022,0023,0024,0025,0405,0415,0425,0435,0445,        KW believes fixed
+and rcv_nxt is usually wrong as well	   0455,0465,0475,0485,0495,0505,0515,0817,0840,
+it is not making the FIN_WAIT_1 ->	   0841,0842,0872,0873,0874,0875,1003,1013,1066,
+CLOSING transition which is due to the	   1067,1068,1069,1132,1141,1226,1308,1309,1310,
+FIN_reass flag not being set when	   1311,1444,1453,1462,1471,1572,1573,1595,1802,
+it should be				   1889,1896,1954,1961,2090,2099,2111,2122,2133,
+					   2144
+
+== next run ==> mostly success or incomplete; but so far failed: 0817,0840,0842,0872,0874,1595.
+
+connect() on loopback returns		   0326,0327,0329,0330,0331,0333,0334,0335,0336,        KW believes fixed.
+ECONNREFUSED				   0337,0378,0379,0380,0381,0382,0383,0385,0517,
+					   1580,1590,1602
+At least in trace0326, the correct error return code is sitting in the
+"es" field (after backtracking once).  But it is not returned -
+instead, the assumption is that a nonblocking connect will always
+return EINPROGRESS.
+Hmm, this is known already - detailed comment at connect_1, end of
+rule.  So why isn't it being found?  Simple - we get killed by EB
+before we ever get down to that option (which is back in step 8, when
+we fail in step 18).  Solution: reorder clauses.
+== next run ==> all success or incomplete, except fails: 1580,1590,1602
+
+known problem with dupfd()		   2254,2255,2257
+
+send() returning EPIPE			   2266
+
+seq number off by one on a loopback	   0292,0296,0304,0308,0316,0320,0324,0328,0332,	MF	Fixed
+datagram (same as Problem 1)		   0352,0360,0364,0372,0376,0384,2216,2224
+== next run ==> all fail except 2216,2214 incomplete
+
+rcv_nxt wrong but not same as above	   0290,0314,0338,0362,1788,1909,1913,1923,1927,        KW believes fixed
+					   1937,2148,2214
+== next run ==> all fail (TC) except 1788,19xx not done yet [**]
+
+do n-b connect() then blocking recv()	   1563							MF	Fixed
+but connect times out and so recv()
+returns ETIMEDOUT.
+== next run ==> unknown as yet
+
+Traces that don't fall into the above categories and need looking at:
+0347
+0392
+0822
+1167
+1170
+1427
+1485
+1486
+1588
+1772
+1790
+1911
+1939
+2065
+2078
+2079
+2082
+
+The TOO_COMPLICATEDs:
+---------------------
+
+di3_socks_update not phased                0239,0291,0293,0294,0295,0297,0298,0299,0300,0301,0315,  KW believe fixed
+KW/MN investigating,                       0317,0318,0319,0321,0322,0323,0325,0339,0340,0341,0342,
+                                           0343,0344,0345,0346,0348,0349,0363,0365,0366,0367,0368,
+                                           0369,0370,0371,0373,0990,0991,0993,0994,1016,1146,1149,
+                                           1264,1265,1266,1267,1269,1270,1271,1272,1273,1274,1275,
+                                           1276,1277,1278,1279,1280,1281,1282,1283,1284,1285,1286,
+                                           1287,2147,2250,2251
+== next run ==> all fail (TC) except 12xx incomplete [**]
+
+stack of 21 rate bounds                    1113
+- rate bounds build up if there are
+no comms on the wire; MN considering.
+
+I'm mystified as to why these are          1873,1880
+too complicated.
+
+tcp_reass not being evaluated,             1885,1886,1890  KW believe fixed
+possibly due to bogus spliced_urp field.
+== next run ==> unknown as yet
+
+
+==== check-2004-11-12T16:30:33+0000 ====
+
+ARGH! trace_2 fix was bad; when the third  lots and lots of traces, including all marked [**] above  KW believe fixed
+datagram (ACK) of the 3WHS is completed,
+BSD reifies the socket that will become
+established, and emits a CLOSED socket
+trace record before filling in the details.
+Oops.
+
+
+... items below here not fixed before check-2004-11-15T14:31:08+0000 started: ...
+
+dupfd has wrong error returned             1120                                                     KW believe fixed
+
+dupfd fails but should succeed:            2256                                                     KW believe fixed
+OPEN_MAX had wrong value
+
+
+==== check-2004-11-15T14:31:08+0000 ====
+
+di3_socks_update: failing with TC on       0239,0990,0991,0993,0994,1016,1146,2147,...              KW investigating
+a socks that has a big 'sock_update'
+unknown variable in it.  Problem is
+presumably that HOL can't simplify
+di3_socks_update, and needs a "betters"
+for it.  Not surprising when you look at
+it.
+
+TC in trace_1 after di3 success            1429,1595,1829,2148
+Possibly also a di3_socks_update
+issue.
+
+dupfd returns the wrong FD (returns the    2254,2255                                                ??
+next-higher free one, as it says in
+the spec, rather than overwriting the
+existing one, as the trace appears to
+do).
+MF says:
+About dupfd: the known problem is that the spec says one thing whilst the
+test setup does another. One of them implements dup2() and another fcntl()
+with F_DUPFD. I can't remember which was round it is, but it is known and
+the test setup needs fixing and we need to add an call for the other to the
+spec. Obviously this is low priority so it hasn't been done yet.
+
+known problems low priority                1728,2065
+
+Send datagram mismatches:
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+seq is one below what it should be	  815,816,817,824,825,826,827,828,829,830,	MF	FIXED
+on rxmt					  831,832,833,834,835,836,837,838,839,840
+					  841,842,843,864,865,866,867,0868,869,870,871,
+					  872,873,874,875,1564
+
+no flags set for retransmitting		  822,823
+a FIN (822: timing wrong?)
+-doesn't quite fit existing
+phantom_seg function, because
+FIN is set, and snd_una is used
+as seq instead of snd_max.
+
+known problem, low priority		  1728
+
+
+Excessive Backtrackings:
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+timestamp wrong on SYN-ACK on		  324,347                      KW musing
+loopback
+Problem is that connect_1 takes
+the ts value from the host's
+ticks _at the moment of the call_.
+But in trace0324, the kernel code
+is not evaluated until more than
+a tick later than the user made
+the call.  Oops.
+
+deliver_in_9				  1775
+
+dupfd() KNOWN PROBLEM			  1120,2254,2255,2256,2257
+
+some RST problem KNOWN PROBLEM		  1170
+
+recv() returns ETIMEOUT			  1563				MF	Fixed
+
+recv() returns ECONNRESET		  1580,1590,1602		MF	Fixed
+
+rxmt timer not firing so can't prove	  0392,2060
+time passage
+
+send() returning EPIPE			  2266				MF	Fixed
+
+Known problem,low priority		  2065
+
+
+Traces not matching: (EB)
+~~~~~~~~~~~~~~~~~~~~~~~~~
+snd_wl1,snd_wnd,rcv_nxt			  1909,1911,1913,1790           KW      believe fixed
+or snd_wl1,snd_wnd,snd_cwnd
+or snd_wl1,rcv_nxt
+The ones with snd_wl1,snd_wnd wrong are
+because the bsd_fast_path stuff is wrong
+so the window isn't getting updated.
+snd_wl1,snd_wnd
+KW thought 1790 was different from
+the above, but has now changed his mind.
+
+snd_cwnd,rcv_nxt,rcv_up			  1889
+
+snd_nxt					  1427				MF/KW  believe fixed
+
+
+Failed
+~~~~~~~
+
+getsockerr(): known problem with	  1659
+test harness
+
+rcv_wnd on sending the SYN		  2226
+
+
+Too complicated: (Not including things marked by SU)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+di3 sock_update known problem:		  0290,0292,0296,0314,0316
+these are ones that had earlier problems  0320,0338,0362,0364,0372,
+fixed and have so only just arisen	  2214,2148,2215,2216,2217,2218,2219,
+					  2220,2221,2222,2223,2224,2225
+
+
+=== check-2004-11-27T10:40:55+0000 ===
+
+Failed:
+~~~~~~~
+getsockerr(): known problem with	1659
+test harness
+
+Too complicated:
+~~~~~~~~~~~~~~~~
+thought was di3_socks_update		1429,1595,2148		MF/KW  MF/KW believe fixed
+but wasn't
+
+close_8					1146,1149
+
+EB or SDM:
+~~~~~~~~~~
+
+loopback timestamp			0347
+
+rexmt timer: segment emitted by		0392
+spec that doesn't appear in trace;
+oddly the typical trace records
+that appear before and after a segment
+_do_ appear.
+
+recv() returning ECONNRESET		1580,1590,1602		MF	MF Believe Fixed
+(MF thought he'd fixed)
+
+wnd problem on senddatagram		2226
+
+problem with bsd listen rexmting	0832,0833,0834,0835,0836	MF	MF Believe Fixed
+phantom segments only once		0837,0838,0839,0840,   ,0842            KW believe further fixed
+socket in LISTEN left with rexmt        0824
+timer running (in spec), but trace      0822,0823
+doesn't emit anything.  In fact,
+it appears that the rexmt timer
+fires only once, rather than repeatedly
+as we thought earlier.
+NB: 0822,0823 have FIN set and
+are repeated.
+
+Reason: in BSD, the retransmit timer is restarted each time by
+tcp_output; it only (re)starts it if (inter alia) snd_nxt' != snd_una
+(tcp_output.c:804), where snd_nxt' is the value _after_ incrementing by
+the segment length (including any FIN).  Now tcp_timer_rexmt
+(tcp_timer.c:423) sets snd_nxt to snd_una, and the segment is empty, so
+there will be no more restarts unless FIN is set.
+
+Traces not matching:
+~~~~~~~~~~~~~~~~~~~~
+
+rcv_up					1588                            KW believe fixed
+Genuine BSD bug!!  rcv_up not
+being pulled along in fast path.
+
+snd_wl1,snd_wnd				1790                            KW believe fixed above.
+(as in previous run)
+
+
+Output queue too long:
+~~~~~~~~~~~~~~~~~~~~~~
+snd_una > snd_nxt after d_i_2 so	1427,1428                       KW believe fixed
+trace matching fails and d_o_1 keeps
+firing
+[1427: trace not matching]
+
+
+
+=== check-2004-12-06T13:01:03+0000 ===
+
+recv() can return pending error if it has been		1590		MF believe fixed
+shutdown for reading
+
+for the phantom segment problem: it was changed		823		MF believe fixed
+to continue retransmitting if the segment had a FIN
+but there was no way for the phantom segment to
+set the FIN flag
+
+snd_una and snd_nxt now correct, but last_ack_sent      1427,1428       KW investigating
+and ts_recent now wrong (model updates them, BSD
+does not).  (marked [SSF] in the check run).
+KW is _really puzzled_ by this.  I've checked and
+re-checked the BSD code, and it seems quite clear that
+any segment with SYN set _always_ updates ts_recent
+(tcp_input.c:902); and that the only way ts_recent can
+become closed is by the time expiring, which can't
+happen in this case.  Yet somehow the trace record is
+showing that ts_recent remains closed after the
+deliver_in_2 transition at step 60 in trace1427.
+_Completely_ puzzled.  It may be relevant that irs = 0
+in this trace, which is slightly unusual I think -
+wonder if an off-by-one is being tickled somewhere?
+But I can't spot it in the BSD code.
+
+*Tim KNOWN problematic timing issue - model is more atomic than it should be
+0324,0347,
+
+*XXX KNOWN Machine was rebooted during trace
+0483,0484,0467,0499,0503,1282,1287,1167,1280,1281
+
+*IE1 Internal error: Exception raised at Conv.RAND_CONV: REWR_CONV: lhs of thm doesn't match term
+0487,
+
+*IE2 Crash: Uncaught exception: Problem
+2250,2251
+
+*TC1 Too complicated due to socket fields appearing one-by-one in the constraints
+1829
+
+*Re-R Model has RST where SYN,ACK rexmt expected
+1564
+
+*TW No rule matches step 82's incoming SYN in TIME_WAIT (d_i_9 issue)
+1775
+
+*DI3-1 rcv_wnd and rcv_nxt are wrong after data delivered by d_i_3
+They're out by the length of the data, indicating that the model
+accepts the data but BSD does not.
+1788 - at step 80
+1877 - at step 92
+1896 - at step 88
+
+*Shu Shutting down and then connecting on BSD emits a zero-window SYN! (BUG!)
+This would appear to be a BSD bug or infelicity.
+2226 - was rcv_wnd on sending SYN, nothing done
+
+*Pipe Trace is expected to return EPIPE on getting a RST but instead d_i_7 has it return OK
+2267
+
+Also: 0891 is a rate bounds problem like 1113
+
+
+=== check-2004-12-13T12:29:22+0000 ===
+(demo traces)
+
+5001: last_ack_sent, ts_recent, snd_recover all differ in trace record.
+I (KW) think this is because of a bug in ts_recent updating.  Believe
+fixed.
+
+=== check-2004-12-13T15:29:34+0000 ===
+(demo traces)
+
+5001: snd_wl2, snd_cwnd updated by model but not by BSD; snd_recover is
+0 in model but set to something sensible in BSD.  It looks like BSD is
+taking the fast path, but the model is not.  I can't see why not, though
+- bsd_fast_path is true as far as I can see (and update_send_window
+would be true except that ~bsd_fast_path, hence it is false).  Grr.
+
+5000aux-inv: at step 24, tries to use deliver_in_1b, delivering the
+segment to the LISTENing socket rather than to the ESTABLISHED socket.
+This doesn't go down very well.  Reason: deliver_in_3 moved the "socks"
+field from being inline to being in a variable called "socks'".  Moving
+it back (accept_1) only brings back partial information.  _This_, in
+turn, appears to be because socks' gets a value based on whether some
+constraint on lis holds or not, but _that_ can't be determined because
+lis has got out-of-line, due to accept_2 using (lis with <| ... |>) on
+the LHS of a pattern.   I've changed the idiom (KW) so hopefully it will
+work better now.
+5001aux-inv ditto.
+
+
+
+%%% Local Variables:
+%%% fill-column: 200
+%%% End:

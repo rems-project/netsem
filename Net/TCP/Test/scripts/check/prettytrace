@@ -1,0 +1,117 @@
+#!/usr/bin/perl -w
+
+# make a trace file a bit prettier (HTMLify)
+
+use strict;
+
+umask 0002;
+
+open INDEX, ">index.html"
+    or die "Couldn't open file index.html for writing: $!\n";
+print INDEX <<EOT;
+<html>
+<head>
+<title>Raw Trace Index</title>
+</head>
+<body>
+<h1>Raw Trace Index</h1>
+
+<p><a href="log">View log</a>.
+
+<p><table border=0px cellspacing=0px cellpadding=0px>
+EOT
+
+my $srcdir = `pwd`;
+chomp $srcdir;
+# place dest files on scratch partition and link back to them
+my $dstdir = $srcdir;
+$dstdir =~ s{/tthee/}{/tthee-scratch/};
+my $dosymlink = 1;
+if ($dstdir eq $srcdir) {
+    warn "/tthee/ not found in source directory pathname: not linking.\n";
+    $dosymlink = 0;
+}
+if (! (-d $dstdir)) {
+    mkdir($dstdir)
+        or die "Couldn't make target directory $dstdir: $!\n";
+}
+foreach my $file (glob("trace????")) {
+    my $srcfile = "$srcdir/$file";
+    my $dstfile = "$dstdir/$file";
+    open IN, "<$srcfile"
+        or die "Couldn't open file $srcfile for reading: $!\n";
+    $dosymlink && symlink("$dstfile.html","$srcfile.html");  # ignore return code; link might exist already
+    open OUT, ">$dstfile.html"
+        or die "Couldn't open file $dstfile.html for writing: $!\n";
+
+    print OUT <<EOT;
+<html>
+<head>
+<title>Trace</title>
+<style type="text/css">
+DIV.header { background-color: #ffffe0; }
+DIV.call { background-color: #ffc0c0; }
+DIV.return { background-color: #c0ffc0; }
+DIV.epsilon { background-color: #ffffff; }
+DIV.send { background-color: #ffff80; }
+DIV.recv { background-color: #ffc080; }
+DIV.other { background-color: #e0e0ff; }
+</style>
+</head>
+<body bgcolor="#ffffff">
+EOT
+
+    print OUT "<pre class=\"head\">\n";
+    my $description = <IN>;
+    $description .= <IN>;
+    chomp $description;
+    print OUT "$description\n";
+    $description =~ s/\n/: /g;
+    $description =~ s/\(\* Test (?:Hosts?|Description): | \*\)//g;
+
+    print OUT "<pre>\n";
+    while (<IN>) {
+        print OUT;
+        last if /\(\* BEGIN/;
+    }
+    print OUT "</pre>\n";
+
+
+    for (;;) {
+        my $chunk = "";
+        while (<IN>) {
+            last if /^$/;
+            $chunk .= $_;
+        }
+        my $class = "other";
+        $class = "call" if $chunk =~ /Lh_call/;
+        $class = "return" if $chunk =~ /Lh_return/;
+        $class = "epsilon" if $chunk =~ /Lh_epsilon/;
+        $class = "send" if $chunk =~ /Lh_senddatagram/;
+        $class = "recv" if $chunk =~ /Lh_recvdatagram/;
+        print OUT "<div class=\"${class}\"><pre>\n${chunk}</pre></div>\n";
+        last if !defined($_);
+    }
+
+    print OUT <<EOT;
+</body>
+</html>
+EOT
+
+    close IN
+        or die "Couldn't close file $file from reading: $!\n";
+    close OUT
+        or die "Couldn't close file $file.html from writing: $!\n";
+
+    print INDEX qq{<tr><td nowrap><a href="$file.html">$file</a>/<a href="$file">plain</a>/<a href="$file.ps.gz">ps</a></td><td nowrap>&nbsp;&nbsp;&nbsp;$description</td></tr>\n};
+}
+
+print INDEX <<EOT;
+</table>
+</body>
+</html>
+EOT
+
+close INDEX
+    or die "Couldn't close file index.html from writing: $!\n";
+

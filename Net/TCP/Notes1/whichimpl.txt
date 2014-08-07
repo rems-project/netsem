@@ -1,0 +1,211 @@
+Which implementation to use?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Time-stamp: <2003-01-03 13:40:25 kw217@cl.cam.ac.uk>
+
+Contents:
+~~~~~~~~~
+
+Contents
+What versions are there?
+Discussion of what to use
+BSD version used
+
+
+What versions are there?
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Linux, BSD, Windows are the obvious ones.  Folklore has it that
+Windows is now BSD, give or take.  This should be checked.
+
+An interesting thread on c.p.tcp-ip says that there are really only
+three flavours of interest, and names one I hadn't heard of, "Mentat",
+which does high-performance stuff I think.  Links:
+
+http://www.mentat.com/tcp/tcp.html
+
+  Mentat TCPTM is a high-performance, fully compliant, STREAMS-based
+  implementation of the TCP/IP protocol suite.  On-going testing
+  demonstrates that Mentat TCP delivers performance far beyond that of
+  other implementations of TCP/IP while also providing the highest
+  levels of functionality, scalability, reliability, and
+  maintainability. The feature-rich code is 64-bit compatible and
+  includes advanced features such as IPv6, IP Security (IPsec), IP
+  multicast, and large windows.
+
+  Mentat TCP has been integrated as the native TCP/IP in many of the
+  leading operating systems including Hewlett-Packard HP-UX 11 and Apple
+  Mac OS. Originally written for Sun Microsystems, Mentat TCP forms the
+  base of the native TCP/IP stack on Solaris. In addition, Mentat TCP
+  has been ported to a wide variety of computer and real time operating
+  systems including Linux, Microsoft Windows NT, Wind River VxWorks, SCO
+  UnixWare, and other operating systems.
+
+And the thread:
+
+http://groups.google.com/groups?hl=en&lr=&ie=UTF-8&frame=right&th=76c5a87f3d324acf&seekm=atvofn%24s91%243%40web1.cup.hp.com#link5
+
+http://groups.google.com/groups?hl=en&lr=&ie=UTF-8&frame=right&th=76c5a87f3d324acf&seekm=atvofn%24s91%243%40web1.cup.hp.com#link7
+
+Interesting points:
+
+Rick Jones:
+  I suspect there are really only two or three "main branches" of TCP/IP
+  stack these days. BSDish, Linux and Mentat.
+
+Vernon Schryver:
+  Sun has been other than BSD flavored for the many years since Sun
+  bosses soiled their pants about what AT&T (or certain consultants)
+  had done to the UCB copyright messages in the BSD TCP source that had
+  somehow appeared in System V.  In their pointy haired panic at what
+  the long sleeping but finally arroused Regents could do to AT&T/System
+  V, they tossed everything related to BSD TCP...or so I've been told
+  by Sun programmers who ought to know.  They are long time network
+  kernel hacks who were there and not in sales or marketing or above
+  2nd level management.
+
+  I've also had a little, somewhat more direct contact with the Mentat
+  people.  For reasons that are variously good and bad, I trust they
+  did keep any taint of BSD out of their STREAMS modules.  I don't know
+  what might have crept back in since the early 1990's.
+
+  When I've seen performance problems between BSD TCP kernel code I was
+  responsible for and Sun's, it was with the non-BSD flavor of Sun's code.
+
+  While Rick Jones is available, I wouldn't presume to say anything
+  about the history of HP's TCP code.
+
+
+
+Discussion of what to use
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For the moment, I'm using the POSIX 1003.1-2001 API, with some
+extensions; this isn't really very specific.
+
+In terms of what operating system(s) to install and test
+(experimentally validate) our semantics against:
+
+- We want to use BSD.  Gareth (and Steve) recommend (the latest
+  stable) FreeBSD, because:
+
+  - most desktops and servers that run BSD run that flavour
+  - OpenBSD is targetted at being reliable/secure/stable; every line
+    of code is very carefully checked (i.e., special interest).
+  - NetBSD is targetted at running on as many different platforms as
+    possible (i.e., special interest).
+  - BSD/OS - don't know.
+
+Gareth says:
+
+% Subject: BSD's
+% From: Gareth Stoyle <Gareth.Stoyle@cl.cam.ac.uk>
+% Date: Wed, 17 Jul 2002 16:25:34 +0100
+% To: Keith Wansbrough <Keith.Wansbrough@cl.cam.ac.uk>,
+%  Steve Bishop <smb50@hermes.cam.ac.uk>
+%
+%
+% Can't really say much about net and open, but from what I've heard, the
+% communities are smaller than Free and tend to be rather closed (especially
+% where change is involved).  This is roughly what I said earlier:
+%
+%
+% FreeBSD:  Widely used as a desktop/server operating system -- more of a
+% rival to Linux on the server side, but has a compatible ABI (as well as the
+% native FreeBSD ABI).  Used quite a bit by internet service providers.
+% Derived from BSD4.3 (it says on your wall) but now mainly based (or soon to
+% be) on 4.4 as I believe they have released the 4.4 code (?).  I
+% specifically remember that they are ripping the thread scheduling code from
+% 4.4 (things like the granularity of the big lock for kernel access etc).
+% More feature rich than the other two (and the one that I've used).
+%
+% NetBSD:  Portable (runs on everything - including your toaster). Used by
+% NASA on some space shuttle.
+%
+% OpenBSD: Secure.
+%
+%
+% I can't remember if I was going to say anything else relevant, if I think
+% of anything, I'll send it to you.
+%
+%
+% -Gareth
+
+and he also says (in response to a question about timescales for new
+versions):
+
+% Subject: Re: BSD's
+% From: Gareth Stoyle <Gareth.Stoyle@cl.cam.ac.uk>
+% Date: Wed, 17 Jul 2002 17:22:17 +0100
+% To: Keith Wansbrough <Keith.Wansbrough@cl.cam.ac.uk>
+%
+% Well, 4.6 is released (I have a copy delivered to my parents house the
+% other day).  I'm not sure when 5.0 is due out, but I'll try to find out for
+% you (it can be  a bit tricky estimating these things, because it just tends
+% to pop up out of nowhere).  A good place to start looking for some info is
+% http://www.daemonnews.org/ and maybe to join a few mailing lists
+% (http://www.freebsd.org/support.html#mailing-list).  The mailing lists are
+% certainly the best indicator for estimating the next release dates. I
+% haven't had much time to follow development recently, so my knowledge may
+% be a little out dated, I think I may rejoin some mailing lists.  I'll let
+% you know on the time scale.
+%
+% -gareth
+
+Gareth added some more comments about BSD here:
+
+% Subject: ALTQ
+% From: Gareth Stoyle <Gareth.Stoyle@cl.cam.ac.uk>
+% Date: Thu, 25 Jul 2002 11:51:30 +0100
+% To: Keith Wansbrough <Keith.Wansbrough@cl.cam.ac.uk>
+% Cc: Steve Bishop <smb50@hermes.cam.ac.uk>
+%
+% Don't know if this effects you or not, but in FreeBSD 5.0 they are
+% integrating ALTQ (a QoS for TCP) into the TCP stack.  Net & Open already
+% have it, and it's available as a patch for 4.5 (and probably 4.6) of
+% FreeBSD. It involves some major changes (apparently might break binary
+% compatibility for net drivers) Here are some links:
+%
+% http://daily.daemonnews.org/view_story.php3?story_id=3066
+% http://www.csl.sony.co.jp/person/kjc/programs.html
+%
+%
+% -gareth
+
+
+BSD version used
+~~~~~~~~~~~~~~~~
+
+The BSD installed by Steve on john.netsem and emil.netsem is
+
+  FreeBSD 4.6, downloaded on or around 17 July 2002.
+
+This can be obtained from
+
+  http://www.freebsd.org/releases/4.6R/announce.html
+
+The exact patchlevel and date of the kernel is presently unknown
+(STEVE PLEASE FILL THIS INFO IN).  It *should* be the same on
+john.netsem and emil.netsem; this is to be checked.
+
+ALSO NEED TO CHECK VERSION of libc or whatever the native C compiler
+uses.
+
+Presuming that /usr/src/sys of a fresh install is consistent with the
+kernel installed by that install, the source code of the relevant BSD
+is to be found in /usr/groups/netsem/Src/FreeBSD-4.6/.  This has been
+MD5-checked to be the same as that on john.netsem (on 2002-08-05), and
+was extracted from the FreeBSD 4.6 disc 1 that is preserved in FE21
+for posterity.  (the actual install was performed from the net, rather
+than from the CD, hence the version uncertainty).
+
+Both john and emil report the same uname -a information (modulo
+hostname of course!):
+
+FreeBSD john 4.6-RELEASE FreeBSD 4.6-RELEASE #0: Tue Jun 11 06:14:12
+GMT 2002 murray@builder.freebsdmall.com:/usr/src/sys/compile/GENERIC
+i386
+
+(not sure why john doesn't know its domain)
+
+

@@ -1,0 +1,4 @@
+DEPRECATED.
+
+A quick test written to test dynamic linking. Now deprecated as the
+knowledge is incorporated into Test/dynamic and Test/utils/dlhack.

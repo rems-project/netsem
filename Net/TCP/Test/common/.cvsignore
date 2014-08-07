@@ -1,0 +1,11 @@
+*.cm*
+parser.ml
+parser.mli
+lexer.ml
+lexer.mli
+*.lib
+*.idb
+*.o*
+*.a
+.depend
+.dependc

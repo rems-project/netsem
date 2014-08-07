@@ -1,0 +1,66 @@
+#!/usr/bin/perl -w
+
+# Client for huge-security-hole.
+
+use strict;
+
+use Socket;
+use Carp;
+use Digest::MD5;
+use IO::Handle;
+
+my $HOST = shift || "localhost";
+my $PORT = shift || 20784;
+my $SECRETFILE = "$ENV{'HOME'}/.hshole";
+
+# --------------------------------------------------------------------
+
+die "Secret file $SECRETFILE not found!\n" unless -e $SECRETFILE;
+die "Secret file $SECRETFILE not owned by you!\n" unless -o $SECRETFILE;
+die "Secret file $SECRETFILE accessible by others!\n" if ((stat($SECRETFILE))[2] & 0077);
+my $SECRET = '';
+open my $sfh, "<$SECRETFILE" or die "Couldn't read secret file $SECRETFILE: $!\n";
+{
+    local $/;
+    $SECRET = <$sfh>;
+}
+close $sfh or die "Couldn't close secret file $SECRETFILE: $!\n";
+
+# --------------------------------------------------------------------
+
+my $proto = getprotobyname("tcp");
+socket(SOCK, PF_INET, SOCK_STREAM, $proto)
+    or die "Couldn't create socket: $!\n";
+my $iaddr = inet_aton($HOST)
+    or die "No host $HOST: $!\n";
+connect(SOCK, sockaddr_in($PORT, $iaddr))
+    or die "Couldn't connect: $!\n";
+
+SOCK->autoflush(1);
+
+my $chall = <SOCK>;
+chomp $chall;
+my $resp = Digest::MD5::md5_hex($SECRET,$chall);
+print SOCK "$resp\n";
+
+my $kidpid = fork();
+defined($kidpid) or die "Couldn't fork: $!\n";
+if ($kidpid) {
+    # parent: copy socket to stdout
+    while (<SOCK>) {
+        print;
+    }
+    kill("TERM", $kidpid);  # kill child too
+} else {
+    # child: copy stdin to socket
+    if (@ARGV) {
+        # emit command followed by "exit", if there is one
+        print SOCK (join(' ',@ARGV,';','exit') . "\n");
+    }
+    while (<STDIN>) {
+        print SOCK $_;
+    }
+}
+
+close SOCK
+    or die "Couldn't close socket: $!\n";

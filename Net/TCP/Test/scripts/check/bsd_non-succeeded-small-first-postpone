@@ -1,0 +1,120 @@
+#!/bin/bash
+
+#This script generates a config file that has the non_succeeded traces
+#from trace_directory (the first argument) first ordered by size, then
+#the traces in POSTPONE, followed by the successful traces ordered by
+#size. All traces in DONTDO are removed from the file so they are not
+#checked. So to create such a file, put the numbers of the traces you
+#don't want checked in DONTDO below, the numbers of the traces you
+#want to be postponed until after the non-successful ones in POSTPONE,
+#and then save and run the script with the correct usage as below.
+
+set -e
+umask 0007
+
+if [ $# -lt 2 ] ; then
+    echo "Usage: $0 trace_directory check_directory [output]"
+    echo "  trace_directory - the directory containing the trace files"
+    echo "  check_directory - directory containing the trace output"
+    echo "  output - output filename (default: runselection.conf)"
+    exit 255
+fi
+
+INDIR=$1
+CHKDIR=$2
+RUNBATCHCONF=/usr/groups/tthee/local/Net/TCP/Test/scripts/check/runbatch.conf
+DONTDO="1791 1834 1835 1905 1906 1907 1916 1917 1918 1919 1920 1921 1930 1931 1932 1933 1934 1935 1944 1945 1946 1947 1948 1949"
+DONTDOTRACES=""
+POSTPONE="0887 0888 0889 0890 0892 0893 1002 1065 1154 1158 1268 1317 1474 1475 1678 1703 1785 1804 1805 1806 1807 1808 1809 1810 1811 1812 1813 1814 1815 1816 1817 1818 1819 1820 1821 1822 1823 1824 1825 1826 1827 1828 1830 1831 1832 1833 1868 1869 1875 1899 1950 1951 1955 1957 1958"
+POSTPONETRACES=""
+
+for d in $DONTDO; do
+    DONTDOTRACES="$DONTDOTRACES trace$d"
+done;
+
+for p in $POSTPONE; do
+    POSTPONETRACES="$POSTPONETRACES trace$p"
+done;
+
+# Set output file
+if [[ $3 != "" ]]; then
+  OUTPUT=$3
+else
+  OUTPUT=runselection.conf
+fi
+
+# Tidy-up any trailing /
+INDIR=`cd $INDIR && pwd && cd -`
+CHKDIR=`cd $CHKDIR && pwd && cd -`
+
+#-=-=-=-=-=-=-=--=-=-=-=-=-=-=-
+
+# Get lists of traces for each architecture
+TRACES_BSD="`cd $INDIR && grep -H -l "Test Host: BSD" trace???? && cd -`"
+ALL_TRACES="$TRACES_BSD"
+
+#-=-=-=-=-=-=-=--=-=-=-=-=-=-=-
+
+SUCCEEDED_TRACES="`cd $CHKDIR && grep -H -l "SUCCEEDED" trace????.out.html | sed -e s/'.out.html'//g && cd -`"
+NOT_SUCCEEDED_TRACES0=""
+NOT_SUCCEEDED_TRACES1=""
+NOT_SUCCEEDED_TRACES=""
+
+for t in $ALL_TRACES; do
+  if ! echo $SUCCEEDED_TRACES | grep -s $t -- >/dev/null; then
+    NOT_SUCCEEDED_TRACES0="$NOT_SUCCEEDED_TRACES0 $t"
+  fi
+done;
+
+for t in $NOT_SUCCEEDED_TRACES0; do
+  if ! echo $DONTDOTRACES | grep -s $t -- >/dev/null; then
+    NOT_SUCCEEDED_TRACES1="$NOT_SUCCEEDED_TRACES1 $t"
+  fi
+done;
+
+for t in $NOT_SUCCEEDED_TRACES1; do
+  if ! echo $POSTPONETRACES | grep -s $t -- >/dev/null; then
+    NOT_SUCCEEDED_TRACES="$NOT_SUCCEEDED_TRACES $t"
+  fi
+done;
+
+#-=-=-=-=-=-=-=-
+
+TRACES_1=""
+TRACES_2=""
+TRACES_3=""
+TRACES_4=""
+TRACES_5=""
+TRACES_6=""
+
+
+for f in $NOT_SUCCEEDED_TRACES; do
+  NUM_STEPS=`grep "Merge Index:" $INDIR/$f | tail -n 1 | sed -e "s/Merge Index://" | tr "(*) " "\0"`
+
+  if (( $NUM_STEPS < 50 )); then
+    TRACES_1="$TRACES_1 $INDIR/$f"
+  elif (( $NUM_STEPS > 70 )); then
+    TRACES_3="$TRACES_3 $INDIR/$f"
+  else
+    TRACES_2="$TRACES_2 $INDIR/$f"
+  fi
+done;
+
+for f in $SUCCEEDED_TRACES; do
+  NUM_STEPS=`grep "Merge Index:" $INDIR/$f | tail -n 1 | sed -e "s/Merge Index://" | tr "(*) " "\0"`
+
+  if (( $NUM_STEPS < 50 )); then
+    TRACES_4="$TRACES_4 $INDIR/$f"
+  elif (( $NUM_STEPS > 70 )); then
+    TRACES_6="$TRACES_6 $INDIR/$f"
+  else
+    TRACES_5="$TRACES_5 $INDIR/$f"
+  fi
+done;
+
+
+#-=-=-=-=-=-=-=-
+
+cp -f $RUNBATCHCONF $OUTPUT
+echo "" >> $OUTPUT
+echo "TRACES=\"$TRACES_1 $TRACES_2 $TRACES_3 $POSTPONETRACES $TRACES_4 $TRACES_5 $TRACES_6\"" >> $OUTPUT

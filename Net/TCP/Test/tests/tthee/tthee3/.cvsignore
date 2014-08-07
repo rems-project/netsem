@@ -1,0 +1,6 @@
+*.cm*
+*.obj
+*.exe
+test
+.depend
+trace*

@@ -1,0 +1,167 @@
+exec.txt  --  Thinking about making the TCP spec executable 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+$Id: exec.txt,v 1.2 2002/05/14 13:46:46 pes20 Exp $
+
+
+First, how would we execute our existing UDP spec?
+
+It's an LTS with states of type host and labels of type
+
+      `Lhost0 = Lh_call of tid # LIB_interface
+              | Lh_return of tid # TLang
+              | Lh_sendmsg of msg
+              | Lh_recvmsg of msg
+              | Lh_console of string
+              | Lh_tau
+              | Lh_epsilon of ^duration_ty
+              | Lh_exit                     `;
+
+together with functions
+
+    `(Urgent : host -> bool) 
+    `(Time_Pass_h0 : ^duration_aty -> host -> host option)
+      
+satisfying all manner of axioms.
+
+
+
+Say we want to execute it in an OCaml thread (or several, if
+necessary) that can be called by other OCaml client threads, with the
+same interface as our Udplange2 sockets interface.
+
+There's some choice as to how much we do our own scheduling and how
+much leave it to the OS.  For maximal control:
+- Keep a mutex-protected queue Q of incoming events (Lh_call and
+  Lh_recvmsg labels).
+
+- Have stubs for all the socket calls that simply add the call to this
+  queue (in the client thread) and block on a mutex (one 
+  per thread) waiting for a return value to be produced.  The stub
+  for thread-creation may have to be special?
+
+- Have whatever network hackery is required likewise add incoming
+  messages to this queue.
+
+- Have a single thread run on a loop, keeping a host-state h.
+
+  -- for each l in Q we could take h' from {h' | h--l-->h'} (and
+     remove l from Q)
+
+  -- for each l=Lh_return(tid,v) such that {h' | h--l-->h'} =/= {}
+     we could take h' from that set, record v and unlock the thread
+     tid mutex.  To save having to calculate exists h'. h--l-->h' 
+     we could add another function   returnable : h --> tid set.
+     (maybe with the v aswell, as it's determined.  Note stability
+     properties of returnable wrt other most other transitions).
+
+     (generally, want this to run as fast as possible.  What to do
+     with dsch timers?  Can't guarantee anything wrt real time.  Just
+     ignore altogether? or maintain a fictional (slow-running) time?
+     the latter lets us keep more of our model unchanged?)
+
+  -- for each l=Lh_sendmsg m  likewise, with a function 
+     outputable : h --> msg option, and do network hackery to actually
+     push m out.
+
+  -- for each l=Lh_console s likewise, but with real console output
+
+
+  -- for Lh_tau
+
+        Some of these can be enabled by other transitions, but we haven't
+        (and don't really want) to nail down exactly which?
+      
+          sendto_8 /* slowsucceed (*: [urgent] :*) */
+          sendto_9 /* slowfail (*: [urgent] as socket has entered an error state :*) */
+          sendto_10 /* slowfail (*: [urgent] as data size too big or socket now disconnnected
+          recvfrom_6 /* slowsucceed (*: [urgent] :*) */
+          recvfrom_7 /* slowfail (*: [urgent] as socket has entered an error state :*) */
+          select_3 /* slowsucceed (*: [urgent] with at least one [[fd]] ready :*) */
+          select_4 /* slowsucceed (*: timeout reached :*) */
+          delay_3 /* slowsucceed (*: when timer reaches zero :*) */
+      
+          NB the last two aren't 'urgent' as any state with a zero timer is
+          by fiat a non-time-passing state.
+          
+      
+        Ignore all these:  (but what about intr?)
+      
+          intr_1 /* slowfail (*: as system call interrupted :*) */
+          badmem_3 /* badfail (*: [[OP2]] as no space :*) */
+          badmem_4 /* badfail (*: [[Select2]] as no space :*) */
+      
+        These are all things to do with something in [[oq]]:
+        (and there is a functional choice of which rule applies)
+      
+          delivery_out_martian /* misc (*: discard martian IP from [[oq]] :*) */
+          delivery_loopback_udp_1 /* misc (*: get loopback UDP from [[oq]] and deliver it to a matching socket :*) */
+          delivery_loopback_udp_2 /* misc (*: get a loopback UDP from [[oq]] but generate loopback ICMP, as no matching socket :*) */
+          delivery_loopback_icmp_1 /* misc (*: get a loopback ICMP from [[oq]] and deliver (by setting [[es]]) to a matching socket :*) */
+          delivery_loopback_icmp_2 /* misc (*: get a loopback ICMP from [[oq]] and drop, as no socket matches :*) */
+      
+      
+      
+            
+  -- for Lh_epsilon d
+
+  -- for Lh_exit
+
+
+
+
+
+
+Nondetermism: we have lots of kinds
+-----------------------------------
+ choice of ephemeral ports, in autobind (and a few explicit set
+ memberships) - take the first
+
+ fullness of queues in dosend - have a fixed (but configurable) size?
+
+ precedence between multiple errors.  Conflict between rules here.  
+   - specify a rule order?
+
+ [[close]] for a socket with blocked system calls - ugh?
+
+ exact timing
+
+ ICMP rate limiting - must add some history state
+
+ what other real conflict (ie not confluent) between rules do we have?
+
+
+
+
+After resolving as much nondeterminism as a normal implementation many
+things should be functional:
+
+  l=Lh_call(tid,v)      thread_run(h,tid) ==> exists! h'.  h --l--> h'
+  l=Lh_return(tid,v)    thread_ret(h,tid) ==> exists! h',v. h  --Lh_return(tid,v)--> h'
+  l=Lh_sendmsg(m)       oq_nonempty(h)  and non-loopback/martian  ==> exists! h',m. h  --Lh_sendmsg(m)--> h'
+  l=Lh_recvmsg(m)       exists! h'. h--l-->h'
+  l=Lh_console(s)       consoleoutputable(h) ==> exists! h',s. h --Lh_console(s)--> h'
+  l=Lh_tau              oq_nonempty(h) and loopback/martian ==> exists! h'.
+                              h--tau-via-one-of-the-five-loopback/martian-delivery-rules --> r'
+
+                        and for the tau-via-one-of-the-slow-rules ?
+
+  l=Lh_epsilon(t)       possible_delay(h)<=t ==> exists! h'. h--l-->h'
+  l=Lh_exit                 
+
+ (together with facts about not(thread_run(h,tid)) etc)
+
+Fairness - how much do we want?
+-------------------------------
+
+fair between:
+  activity in each thread (call and return)
+  console
+  out deliv
+  in deliv
+  oq tau steps
+
+what about all those slowsucceeds? (and other timer=0 things) 
+Do them all ASAP?
+
+

@@ -1,0 +1,187 @@
+Here's a TCP implementers list:
+
+http://tcp-impl.grc.nasa.gov/tcp-impl/list/archive/
+
+
+-------------
+
+Automated TCP test
+
+From: Péter Krémer (Peter.Kremer@eth.ericsson.se)
+Date: Wed Jul 07 1999 - 07:54:32 EDT
+
+     Next message: Vivek Kashyap: "Re: Automated TCP test"
+     Previous message: Rick Jones: "Re: Nagle -- again"
+     Next in thread: Vivek Kashyap: "Re: Automated TCP test"
+     Reply: Vivek Kashyap: "Re: Automated TCP test"
+     Messages sorted by: [ date ] [ thread ] [ subject ] [ author ]
+
+
+
+Hi!
+
+We have been working on platform independent solution for automated TCP
+tests. Although, we do not feel 100% ready, we decided to share our
+experience with this forum and also looking forward to get valuable
+feedback from you.
+
+Briefly, we test TCP features without performing any modification to
+the tested implementation (using the black-box method).
+The basic idea behind the applied methodology is to drive the TCP under
+test into a specific state then apply a stimuli and check if we got the
+right answer.
+
+We believe that this approach is advantageous to the whole community,
+since it gives a measure of correctness of implementations according to
+the RFC.
+
+We have been working parallel to the discussions in this list and
+managed to develop formal description of tests, based on previous
+versions of "Known TCP Implementation Problems (RFC 2525)". All test
+cases are written in TTCN, an abstract notation, which has common use
+in telecom protocol tests.
+
+The use of such an abstraction allows TCP testers to write test scripts
+based on this notation or use available tools for automatic compilation
+and execution. We also performed these tests on 4 different
+implementations (Linux, Solaris, FreeBSD and NT) and managed to detect
+errors, which are not addressed by the RFC mentioned before. A
+postscript version of the paper (submitted to INFOCOM2000)describing
+method and experiences can be found online on
+
+http://www.cs.columbia.edu/~hgs/papers/infocom2000/591-2818661292.ps
+
+We are awaiting your comments,
+
+Roland Gecse, Peter Kremer.
+
+
+PS: can't find this on the web :-(
+
+
+- ---
+
+
+
+Mark Allman, Aaron Falk. On the Effective Evaluation of TCP, ACM
+Computer Communication Review, 29(5), October 1999.
+
+Understanding the performance of the Internet's Transmission Control
+Protocol (TCP) is important because it is the dominant protocol used
+in the Internet today. Various testing methods exist to evaluate TCP
+performance, however all have pitfalls that need to be understood
+prior to obtaining useful results. Simulating TCP is difficult
+because of the wide range of variables, environments, and
+implementations available. Testing TCP modifications in the global
+Internet may not be the answer either: testing new protocols on real
+networks endangers other people's traffic and, if not done
+correctly, may also yield inaccurate or misleading results. In order
+for TCP research to be independently evaluated in the Internet
+research community there is a set of questions that researchers
+should try to answer. This paper attempts to list some of those
+questions and make recommendations as to how TCP testing can be
+structured to provide useful answers.
+
+http://roland.grc.nasa.gov/~mallman/papers/tcp-evaluation.ps
+http://roland.grc.nasa.gov/~mallman/papers/tcp-evaluation.pdf
+
+PS: this looks pretty good
+
+
+
+
+-----------------
+
+RFC 2398 - survey of TCP testing tools  (August 1998)
+
+PS: the most relevant looks like
+
+2.7.  Tcpanaly
+   ...
+   This is a tool for automatically analyzing a TCP implementation's
+   behavior by inspecting packet traces of the TCP's activity. It does
+   so through packet filter traces produced by tcpdump.  It has coded
+   within it knowledge of a large number of TCP implementations.  Using
+   this, it can determine whether a given trace appears consistent with
+   a given implementation, and, if so, exactly why the TCP chose to
+   transmit each packet at the time it did.
+   ...
+
+
+
+ [Pax97a]  Vern Paxson, "Automated Packet Trace Analysis of TCP
+             Implementations", ACM SIGCOMM '97, September 1997, Cannes,
+             France.
+
+------------------
+
+RFC 1025                  TCP and IP Bake Off             September 1987
+
+a bunch of informally-described tests (and point scoring system!)
+
+
+----------------
+
+TCP/IP FAQ
+
+http://www.itprc.com/tcpipfaq/faq-1.htm
+
+----------------
+
+a fancy (free) analogue of tcpdump:
+
+http://www.ethereal.com/
+
+Note that a friend of K's, Richard Black, says:
+
+  "Note that Ethereal uses a libpcap
+  implementation which is known to have a large number of concurrency bugs
+  (but which still mostly works)." (email,
+  <ADE01635080AE049B999FF87C9E2C5DF0144DBF9@red-msg-15.redmond.corp.microsoft.com>)
+
+--------------
+
+  Raw IP Networking FAQ
+
+   Version 1.3
+
+          Last Modified on: Thu Nov 11 18:18:19 PST 1999
+
+          The master copy of this FAQ is currently kept at
+
+          http://www.whitefang.com/rin/
+
+
+
+----------------
+
+comp.protocols.tcp-ip #87017                                (1)--(1)--(1)+-(1)
+From: Cameron Kerr <cameron.kerr@paradise.net.nz>                        \-[1]
+[1] Re: TCP/IP Protocol checker
+User-Agent: tin/1.5.11-20020130 ("Toxicity") (UNIX) (Linux/2.4.18 (i686))
+Lines: 26
+Date: Tue May 21 23:14:30 BST 2002
+X-Complaints-To: newsadmin@xtra.co.nz
+X-Trace: news.xtra.co.nz 1022055605 210.86.53.1 (Wed, 22 May 2002 20:20:05
++        NZST)
+NNTP-Posting-Date: Wed, 22 May 2002 20:20:05 NZST
+Organization: Xtra
+
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+Eyal Gonen <eyalg@il.ibm.com> wrote:
+
+> suppose I capture the session and it's in one of a known format.
+> I'm looking for an automatic tool which can take as an input the
+> session dump and analyse the tcp/ip protocol behaivour and it's
+> compliance to the tcp's RFC's.
+
+Hmmm, I saw a bunch of compliance testing kits on the web today (linked through
+from another post). Try http://www.ixiacom.com/products/caa/
+
+Cameron Kerr
+- --
+Email:   cameron.kerr@paradise.net.nz
+Website: http://homepages.paradise.net.nz/~cameronk/
+GPG key: http://homepages.paradise.net.nz/~cameronk/gpgkey.asc

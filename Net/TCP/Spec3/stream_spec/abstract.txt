@@ -1,0 +1,31 @@
+A rigorous approach to networking: TCP, from implementation to protocol to service
+
+
+
+\author{Tom Ridge\inst{1}, Michael Norrish\inst{2}, and Peter Sewell\inst{1}}
+
+\institute{University of Cambridge \and NICTA}
+
+Despite more then 30 years of research on protocol specification, the
+major protocols deployed in the Internet, such as TCP, are described
+only in informal prose RFCs and executable code.  In part this is
+because the scale and complexity of these protocols makes them
+challenging targets for formalization.
+
+In this paper we show how these difficulties can be addressed.  We
+develop a high-level specification for TCP and the Sockets API,
+expressed in the HOL proof assistant, describing the byte-stream
+service that TCP provides to users.  This complements our previous
+low-level specification of the protocol internals, and makes it
+possible for the first time to state what it means for TCP to be
+correct: that the protocol implements the service.  We define a
+precise abstraction function between the models and validate it by
+testing, using verified testing infrastructure within HOL.  This is a
+pragmatic alternative to full proof, providing reasonable confidence
+at a relatively low entry cost.
+
+Together with our previous validation of the low-level model, this
+shows how one can rigorously tie together concrete implementations,
+low-level protocol models, and specifications of the services they
+claim to provide, dealing with the complexity of real-world protocols
+throughout.

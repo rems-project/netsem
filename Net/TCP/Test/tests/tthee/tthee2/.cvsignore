@@ -1,0 +1,7 @@
+*.cm*
+*.o*
+*.exe
+*.lib
+test
+.depend
+trace*

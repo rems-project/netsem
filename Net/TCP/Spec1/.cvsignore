@@ -1,0 +1,26 @@
+.HOLMK
+*.ui *.uo *Theory.sig *Theory.sml
+*LTS-doc.ps *LTS-doc.tex *LTS.errs *LTS.tex
+TCP1_auto.imn TCP1_?*.imn NetEval.imn
+*.errs *.aux *.dvi *.log *.toc *.mk word16Lib.sml word32Lib.sml
+HolDoc.sml HolDoc.sig strings.sml
+glossary.ps
+*-doc.ps
+*-doc.tex
+*.tmp-tex
+*.tmp2-tex
+*.tmp3-tex
+alldoc.ps
+alldoc.pdf
+alldoc.tex
+alldoc.out
+alldoc-c.ps
+alldoc-c.pdf
+alldoc-c.tex
+alldoc-c.out
+alldoc-inc.tex
+*.idx
+*.ilg
+*.ind
+*-doc.pdf
+*.tob

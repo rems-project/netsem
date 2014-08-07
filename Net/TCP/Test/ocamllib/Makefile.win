@@ -1,0 +1,41 @@
+CINCLUDE=/I . /I "$(OCAMLLIB)" /I "$(OCAMLLIB)/caml"
+CFLAGS=/O2 /Ob1 /D "WIN32" /D "NDEBUG" /D "__STDC__" /D "_MBCS" \
+       /FD /EHsc /W3 /nologo /TC $(CINCLUDE)
+
+OCAMLC=ocamlc
+OCAMLOPT=ocamlopt
+OCAMLCOPT=-I "$(OCAMLLIB)" -I "$(OCAMLLIB)/caml" -I "$(INCLUDE)"
+
+RM=del /F /Q
+MKLIB=lib
+MKLIBOPTS=/NOLOGO /NODEFAULTLIB
+REQLIBS=../nssock/libnssock.lib
+
+CFILES=camlsupport.c cst2constr.c winsupport.c \
+	prnsupport.c ocamllibc.c winerrmsg.c
+CAMLFILES=ocamllib.ml
+CAMLIFACES=ocamllib.mli
+
+all: $(CAMLIFACES:.mli=.cmi) ocamllibc.lib ocamllib
+
+ocamllibc.lib: $(CFILES:.c=.obj)
+	$(MKLIB) $(MKLIBOPTS) /OUT:$@ $(CFILES:.c=.obj) $(REQLIBS)
+
+ocamllib: $(CAMLFILES:.ml=.cmo) $(CAMLFILES:.ml=.cmx)
+	$(OCAMLC) -a -custom -o $@.cma $(CAMLFILES:.ml=.cmo) \
+		  -ccopt ocamllibc.lib
+	$(OCAMLOPT) -a -o $@.cmxa $(CAMLFILES:.ml=.cmx) \
+		  -ccopt ocamllibc.lib
+
+clean:
+	$(RM) *.o *.cmi *.cmo *.a *.cma *.cmxa *.cmx *.so *.obj *.lib *.idb
+
+.SUFFIXES: .c .obj .ml. cmo .mli .cmi .cmx
+.ml.cmx:
+	$(OCAMLOPT) -c $<
+.mli.cmi:
+	$(OCAMLC) -c $<
+.ml.cmo:
+	$(OCAMLC) -custom -c $<
+
+

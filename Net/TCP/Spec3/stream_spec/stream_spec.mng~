@@ -1,0 +1,2783 @@
+% this is a -*- latex -*- document really
+%\documentclass[a4paper,11pt,twocolumn]{article}
+%\documentclass[nocopyrightspace,preprint]{sigplanconf} % and uncomment
+                                % amspackages
+%\documentclass[conference,letterpaper]{IEEE/IEEEtran} % and uncomment
+                                % amspackages
+\documentclass{llncs2e/llncs} % and uncomment amspackages
+
+%\usepackage{float}
+%\restylefloat{figure} \floatstyle{ruled}
+%FIXME change rule style in figures to omit bounding box
+%\floatstyle{plain}
+
+\usepackage{color}
+%\usepackage{multicol}
+\newcommand{\nnn}{30}
+
+% hack: these two seem to be required for some reason, but are not
+% defined on P's laptop latex
+%\definecolor{lightgray}{rgb}{0.5,0.5,0.5}
+%\definecolor{darkgray}{rgb}{0.2,0.2,0.2}
+
+\newif\iffinal\finaltrue
+
+\sloppy
+
+%\newif\ifdraft\drafttrue
+\newif\ifdraft\draftfalse
+
+%\newif\ifanon\anontrue
+\newif\ifanon\anonfalse
+
+%\iffinal
+%\else
+%\usepackage{geometry}
+%\fi
+
+\newcommand{\trimbox}[1]{\raisebox{0pt}[1.20ex][0.2ex]{#1}}
+\newcommand{\cg}[1]{\colorbox{lightgray}{\trimbox{$#1$}}}
+
+
+\usepackage{ltsmunge}
+%\usepackage{multicol}
+
+\renewcommand{\tsunknown}[1]{\tsvar{#1}}
+
+\usepackage{tcp}
+%\usepackage{alldoctex/tcp}
+\usepackage{url}
+\usepackage{alltt}
+
+\usepackage{epsfig}
+\usepackage{psfrag}
+% for Michael's text
+\usepackage{pstricks}
+%\usepackage{pst-node}
+ \usepackage{proof}
+% \usepackage[all]{xy}
+
+\usepackage{verbatim}
+%\usepackage{parskip}
+%\usepackage{float}
+%\floatstyle{ruled}
+%\restylefloat{table}
+\usepackage{graphics}
+
+\usepackage{array}
+
+
+% Non-enclosing figure brackets, by Keith Wansbrough
+%   (after Andy Gordon and Don Syme)
+%\newlength{\BrackWidth}\setlength{\BrackWidth}{0.7pt}
+\newlength{\varDashLength}\setlength{\varDashLength}{2pt}
+\newcommand{\varTopBracket}{%
+  \par\noindent
+  \rlap{\rule[-\varDashLength]{\BrackWidth}{\varDashLength}}%
+  \rule{\linewidth}{\BrackWidth}%
+  \llap{\rule[-\varDashLength]{\BrackWidth}{\varDashLength}}%
+  \par
+}
+\newcommand{\varBottomBracket}{%
+  \par\noindent
+  \rlap{\rule{\BrackWidth}{\varDashLength}}%
+  \rule{\linewidth}{\BrackWidth}%
+  \llap{\rule{\BrackWidth}{\varDashLength}}%
+  \par
+}
+\newcommand{\varrrenbox}[1]{%
+  \varTopBracket
+%  \rrnormalsize{}
+\vspace{-2mm}
+{\small
+  #1%
+}
+\vspace{-3mm}
+\varBottomBracket
+}
+
+\renewcommand{\ddefnn}[4]{%
+  \varrrenbox{%
+    \dodefnindex{#2}%
+    \ltslabel{#1}%
+    \rrenside{#3}%
+  }%
+}
+
+
+\iffinal
+\else
+  \geometry{
+    paperwidth=8.5in,    % US Letter
+    paperheight=11in,    %
+    dvips,
+    twoside,
+    twosideshift=0mm,
+    left=1.0in, textwidth=6.5in, %right=25.4mm,
+    top=0mm,  %bottom=30mm,
+    textheight=9.0in,
+    headheight=5mm,
+    %headsep=00mm, footskip=10mm, %should be equal
+%
+%20pc (3.33in) wide and 54pc (9in) tall with a column gutter of 2pc (0.33in)
+% so 7in wide, 9in tall.
+%    177.8mm   228.6
+% leaving from a4:  32.2mm   68.4mm
+% dividing by 2:    16.1mm    ...
+%    left=16.1mm, right=16.1mm,
+%    top=20mm,  bottom=28.4mm,
+  }
+\fi
+
+%   \geometry{
+%     paperwidth=210mm,    % US Letter /\ ISO A4
+%     paperheight=11in,    %
+%     dvips,
+%     twoside,
+%     twosideshift=0mm,
+%     left=25.4mm, right=25.4mm,
+%     top=20mm,  bottom=30mm,
+%     headheight=\baselineskip,
+%     headsep=10mm, footskip=10mm, %should be equal
+% %
+% %20pc (3.33in) wide and 54pc (9in) tall with a column gutter of 2pc (0.33in)
+% % so 7in wide, 9in tall.
+% %    177.8mm   228.6
+% % leaving from a4:  32.2mm   68.4mm
+% % dividing by 2:    16.1mm    ...
+% %    left=16.1mm, right=16.1mm,
+% %    top=20mm,  bottom=28.4mm,
+%   }
+
+
+%\usepackage{fullpage}
+
+\newenvironment{tightlist}{\begin{list}{$\bullet$}{
+  \setlength{\itemsep}{0mm}
+  \setlength{\parsep}{0mm}
+  \setlength{\itemindent}{3mm}
+  \setlength{\leftmargin}{3mm}
+%  \setlength{\labelsep}{0mm}
+%  \setlength{\labelwidth}{0mm}
+%  \setlength{\topsep}{0mm}
+}}{\end{list}}
+
+\usepackage{xspace}
+ \newcommand{\eg}{e.g.\@\xspace}
+ \newcommand{\cf}{cf.\@\xspace}
+ \newcommand{\wrt}{w.r.t.\@\xspace}
+ \newcommand{\etal}{\emph{et al.}\@\xspace}
+ \newcommand{\ia}{inter alia\xspace}
+ \newcommand{\etc}{etc.\@\xspace}
+
+
+%\newcommand{\myheading}[1]{\noindent\textbf{#1}}
+
+\newcommand{\myheading}[1]{\vspace{0.5\baselineskip}\par\noindent\textbf{#1}\quad}
+\newcommand{\myfirstheading}[1]{\par\noindent\textbf{#1}\quad}
+
+
+%\input{generated/alldoc-inc.tex}
+\input{generated/Spec3_alldoc-inc.tex}
+
+\begin{document}
+
+\title{A rigorous approach to networking: \\TCP, from implementation to protocol to service}
+
+
+\author{Tom Ridge\inst{1}, Michael Norrish\inst{2}, and Peter Sewell\inst{1}}
+
+\institute{University of Cambridge \and NICTA}
+
+%\author{
+%\IEEEauthorblockN{Michael Norrish}\IEEEauthorblockA{NICTA\\\url{michael.norrish@nicta.com.au}}
+%\and
+%\IEEEauthorblockN{Tom Ridge}\IEEEauthorblockA{University of Cambridge\\\url{Thomas.Ridge@cl.cam.ac.uk}}
+%\and
+%\IEEEauthorblockN{Peter Sewell}\IEEEauthorblockA{University of
+%  Cambridge\\\url{Peter.Sewell@cl.cam.ac.uk}}
+%}
+%\date{\today}
+%\title{Abstracting TCP: a stream-level specification}
+\maketitle
+
+\begin{abstract}
+
+Despite more then 30 years of research on protocol
+specification, the major protocols deployed in the Internet, such as TCP,
+are described only in informal prose RFCs and executable code.
+In part this is because the scale and complexity of these protocols
+makes them challenging targets for formalization.
+
+\ \ \ In this paper we show how these difficulties can be addressed.
+%show how such real-world protocols can be addressed
+%formally.
+We
+develop a high-level specification for TCP and the
+Sockets API, expressed in the HOL proof assistant, describing the byte-stream
+service that TCP provides to users.  This complements our previous
+low-level specification of the protocol internals,
+and makes it possible for the first time to state what it means for
+TCP to be correct: that the protocol implements the service.
+%
+%
+We
+define a precise abstraction function between the models and validate
+it by testing, using verified testing infrastructure within HOL.
+%
+This is a pragmatic alternative to full proof, providing reasonable
+confidence at a relatively low entry cost.
+%Proving such a result would be a very major undertaking, so instead
+%
+
+
+
+
+\ \ \ Together with our previous validation of the low-level model, this shows how one can rigorously tie together
+concrete implementations,
+low-level protocol models,
+and specifications of the services they claim to provide, dealing with the complexity of
+real-world protocols throughout.
+
+% ------------------------------
+%
+% % ?
+% % internal/external
+% % implementor's/user's
+% %
+% % don't really like "implentor's" and "users's"  words
+% %
+% FIXME doing for real hairy protocol
+%
+% Protocols and the service they provide are usually described in
+% informal prose RFCs.
+% In previous work
+% % \cite{TCP:paper,TCP:POPLpaper} %[SIGCOMM'05, POPL'06]
+% % don't write the cites like that in the actual paper, only in the
+% % web-form abstract!
+% we developed a formal low-level protocol
+% model of TCP in HOL, in terms of individual TCP segments on the wire.
+%
+% A network protocol, such as TCP, can be viewed at three levels: the
+% high-level \emph{service} that it provides to applications, the
+% low-level \emph{protocol} that implements that service, and the
+% \emph{realisation} of that protocol in endpoint implementation code.
+% %
+% In previous work
+% % \cite{TCP:paper,TCP:POPLpaper} %[SIGCOMM'05, POPL'06]
+% % don't write the cites like that in the actual paper, only in the
+% % web-form abstract!
+% we developed a low-level protocol
+% model of TCP, in terms of individual TCP segments on the wire.
+% %
+% In this paper we develop a companion high-level service specification
+% in terms of reliable byte streams.
+% %
+% Further, we define a precise abstraction function between the two specifications,
+% explaining \emph{how} the protocol implements the service.
+% %, mapping low-level states onto high-level streams.
+% %
+% We establish confidence by experimentally validating both specifications, and the abstraction
+% function, against representative traces of the
+% BSD implementation.
+%
+% Protocols and the service they provide are usually described in
+% informal prose RFCs.
+% %
+% We use higher-order logic supported by the HOL theorem prover to
+% provide a formal mechanized specification, abstraction function, and
+% validation infrastructure.
+% %
+% The service specification can be used for (informal and formal)
+% reasoning about applications above the Sockets API.
+% %
+% Moreover, for the first time it is possible to state precisely what it means for TCP to be correct: that the protocol implements the service.
+%
+% We thereby show how one can rigorously tie together
+% concrete implementations,
+% low-level protocol models,
+% and specifications of the services they claim to provide, dealing with the complexity of
+% real-world protocols throughout.
+
+\end{abstract}
+
+%\tableofcontents
+
+%FIXME correctness of TCP- be precise about what this is (not timeliness, stability of net etc.)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction}
+
+Real-world network protocols %and the services they provide
+are usually described in
+informal prose RFCs, which inevitably have unintentional ambiguities and omissions,
+and which do not support conformance testing,
+%
+verification of implementations, or verification of applications that use
+these protocols.
+%
+Moreover, there are many subtly different realisations, including
+the TCP implementations in BSD, Linux, WinXP, and so on.
+%
+The Internet protocols have been extremely successful, but the cost is high: there is considerable legacy complexity
+%embodied in the protocols (and the services they provide) that
+that
+implementors and users have to deal with, and there is no clear point
+of reference.
+%
+To address this, we have developed techniques to put practical
+protocol design on a rigorous footing, to make it possible to specify
+protocols and services with mathematical precision, and to do verified
+conformance testing directly against those specifications.
+%
+In this paper we demonstrate our approach by developing and validating
+a high-level specification of the service provided by TCP:
+the dominant data transport protocol (underlying email and the web),
+which provides reliable duplex byte streams, with congestion control, above the unreliable IP layer.
+
+
+
+Our specification deals with the full complexity of the service
+provided by TCP (except for performance properties).  It includes the
+Sockets API (\texttt{connect}, \texttt{listen}, etc.), hosts, threads, network interfaces, the
+interaction with ICMP and UDP, abandoned connections, transient and
+persistent connection problems, unexpected socket closure, socket
+self-connection and so on.
+%
+The specification comprises roughly 30\,000 lines of (commented)
+higher-order logic, and mechanized tool support has been essential for
+work on this scale. It is written using the HOL system
+\cite{hol:brief}.  The bulk of the definition is an operational
+semantics, using idioms for timed transition relations,
+record-structured state, pattern matching and so on.
+
+
+We relate this service-level specification to our previous protocol
+description by defining, again in HOL, an abstraction function
+from the (rather complex) low-level protocol states, with sets of TCP
+segments on the wire, flow and congestion control data, etc.,  to the (simpler)
+service-level states, comprising byte streams and some status  information.  This makes explicit how
+the protocol implements the service.
+
+
+
+The main novelty of the approach we take here is the \emph{validation}
+of this abstraction function.
+Ideally, one would \emph{prove} that the abstraction relationship holds in
+all reachable states.
+Given the scale and complexity of the specifications, however, it is unclear
+whether that would be pragmatically feasible, especially with the
+limited resources of an academic team.
+%
+Accordingly, we show how one can validate the relationship by verified testing.
+We take traces of the protocol-level specification (themselves
+validated against the behaviour of the BSD TCP implementation), and
+verify (automatically, and in HOL) that there are corresponding traces of the service-level
+specification, with the abstraction function holding at each point.
+%
+Our previous protocol-level validation, using a special-purpose
+symbolic evaluator, produced symbolic traces of the protocol-level
+specification.  We now \emph{ground} these traces, using a
+purpose-built constraint solver to instantiate
+variables to satisfy any outstanding constraints, and use a new
+symbolic evaluator to apply the abstraction function and check that
+the resulting trace lies in the service-level specification.
+By doing this all within HOL, we have high confidence in the
+validation process itself.
+
+Obviously, such testing cannot provide complete guarantees, but our
+experience with the kind of errors it detects suggests that it is
+still highly discriminating (partly due to the fact that it
+examines the internal states of the specifications at every step along a
+trace) and one can develop useful levels of confidence relatively
+quickly.
+
+
+
+
+
+
+%
+% --- the other inclusion
+%
+% Moreover, HOL provides powerful machinery, including proof search and
+% simplification, which we use to construct verified conformance
+% checking code in HOL, providing strong formal guarantees about the
+% results of validation. The checker uses novel symbolic evaluation
+% techniques, incorporating purpose built constraint solvers we
+% developed ourselves. The constraint solvers are also used to
+% instantiate the partial traces which result from real-world testing,
+% permitting much quicker validation of the service-level, compared to
+% our previous protocol-level work. Furthermore, the existing results of
+% protocol-level validation are lifted to the service-level via the
+% abstraction function, further reducing the effort of service-level
+% validation.
+%
+%
+%
+%
+% Moreover, it might end up as an
+% all-or-nothing endeavour:
+%
+% that would be a very major undertaking
+%
+% Whether such a proof is pragmatically feasible is an open queation
+%
+%
+%
+% contribution of this work, apart from the service-level
+% specification itself
+%
+%
+%
+%
+%
+%
+% We explain how the protocol implements the service by defining, again
+% in HOL, an abstraction function from one to the other, simultaneously
+% establishing the service specification as a statement of correctness
+% for the protocol level.
+%
+%
+% The mathematical tools used are relatively straightforward operational
+% semantics:
+%
+% Our main definition is phrased as a standard operational semantics,
+% extended to treat real-world features such as timers. It
+% %FIXME need a list of all the horrible details
+% %
+% Mechanization, using the HOL theorem prover, makes such large scale
+% formalization possible.
+% %
+%
+% Our specific contributions are:
+% \begin{itemize}
+%
+% %reasons for doing it: foundation for formal reasoning, statement of
+% %correctness, case study in rigorous methodology, tie together
+% %specifications (rather than develop a single spec), conformance
+% %testing?, abstraction explains how, application programmers have clear
+% %view of service
+%
+% \item We give a formal mechanized HOL specification of the service TCP provides, in terms of end-to-end byte stream behaviour and the Sockets API, thereby demonstrating rigorous specification of the service provided by a real-world protocol.
+%
+% \item We explain how the protocol implements the service by giving an abstraction function from one to the other, simultaneously establishing the service specification as a statement of correctness for the protocol level.
+%
+% \item We construct powerful verified testing infrastructure to validate real-world traces against both specifications and the abstraction function, and apply it to a small number of representative traces of the BSD TCP implementation, thereby giving confidence in the accuracy of our work.
+%
+% \end{itemize}
+
+In the following sections, we first recall our previous protocol
+model (Sect. \ref{sect:packet}), before describing the new service-level
+specification (Sect. \ref{sect:stream}) and abstraction function
+(Sect. \ref{sect:abstraction}), giving small excerpts from
+each. We then discuss the validation infrastructure, and the results
+of validation (Sect. \ref{sect:validation}). Finally, we discuss
+related work and conclude.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Background: our previous low-level protocol model} \label{sect:packet}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%following from ../paper.tex
+
+
+%
+Our previous low-level
+specification~\cite{TCP:paper,TCP:POPLpaper} characterises TCP, UDP
+and ICMP at the protocol level, including
+hosts, threads, the Sockets API, network interfaces and segments on
+the wire.
+%
+As well as the core functionality of segment retransmission and flow
+control, TCP
+must handle details of connection setup and tear-down, window scaling,
+congestion control, timeouts, optional TCP features negotiated at
+connection setup, interaction with ICMP messages, and so on.
+%
+The model covers all these.
+%It is mainly based on the C source code for the BSD
+%implementation, the source code for other implementations, and
+%RFCs.
+It is parameterized by the OS, allowing OS-dependent
+behaviour to be specified cleanly; it is also non-deterministic, so as
+not to constrain implementations unnecessarily.
+
+
+This level of detail results in a model of roughly
+30\,000 lines of (commented) higher-order logic (similar in size to the implementations, but structured rather differently).
+As further evidence of its accuracy and completeness, it
+has been successfully used as the basis for a Haskell
+implementation of a network stack~\cite{DBLP:conf/pldi/LiZ07}.
+%
+
+The main part of the protocol model (the pale shaded region below) is
+the \emph{host labelled transition system}, or \emph{host LTS},
+describing the possible interactions of a host OS: between program
+threads and host via calls and returns of the Sockets API, and between
+host and network via message sends and receives.
+%
+The protocol model uses the host LTS, and a model of the TCP, UDP and
+ICMP segments on the wire, to describe a network of communicating hosts.
+
+%\begin{figure*}[t]
+%\[
+\vspace{1mm}
+\hspace{7mm}
+\input{endpoint.pstex_t}
+%\]
+%\caption{Protocol endpoint model}\label{b102}%
+%\end{figure*}%
+
+
+
+
+(*[ VAR_PREFIX_LIST h tid is1 ps1 fd v lbl msg dur]*)
+(*[ TYPE_LIST string byte list ]*)
+
+\newcommand{\labelA}{[[ Lh_call (tid,bind(fd,is1,ps1)) ]]}
+\newcommand{\labelB}{[[ Lh_return (tid,v) ]]}
+\newcommand{\labelC}{[[ Lh_recvdatagram msg ]]}
+\newcommand{\labelD}{[[ Lh_senddatagram msg ]]}
+\newcommand{\labelE}{[[ Lh_tau ]]}
+\newcommand{\labelF}{[[ Lh_epsilon dur ]]}
+%
+\noindent
+%The host LTS defines a transition relation
+%$ \tsvar{h} \inp{\tsvar{lbl}} \tsvar{h}'$,
+%where [[h]] and [[h']] are host states,
+%modelling the relevant parts of the OS and network hardware of a single
+%machine, and [[lbl]] is an interaction on
+%either the Sockets API or wire interface.
+%Typical  labels for a host making a transition $ \tsvar{h} \inp{\tsvar{lbl}} \tsvar{h}'$ are:
+%\newcommand{\foohack}{\rule{0pt}{3ex}}
+%\begin{tightlist}
+%\item \labelC{}  \foohack{}for the host receiving a datagram [[msg]]
+%  from the network, and
+% \labelD{} \foohack{}for corresponding send;
+%%\item \labelD{} \foohack{}for the host sending a datagram [[msg]] to the network;
+%\item \labelA{} \foohack{}for a [[bind()]] call being made to the Sockets API by thread
+%[[tid]], with arguments [[(fd,is1,ps1)]] for the file descriptor, IP
+%address, and port;
+%\item \labelB{}  \rule{0pt}{3ex}for value [[v]] being returned to
+%thread [[tid]] by the Sockets API;
+%\item \labelE{}  \foohack{}for an internal transition by the host, \eg for a datagram
+%being taken from the host's input queue and processed, possibly
+%enqueuing other datagrams for output; and
+%\item \labelF{}  \foohack{}for time [[dur]] passing.
+%\end{tightlist}
+%%A sample trace of these labels is shown in
+%%Fig.~\ref{fig:exampleTrace}.  It corresponds roughly to the union of a
+%%packet-level trace and a system-call trace.
+
+%%\begin{figure}
+%%\input{trace0963.tex}
+%%\vspace*{-10mm}
+%%\caption{Example trace} \label{fig:exampleTrace}
+%%\end{figure}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{figure}[t]
+\input{Spec1_send3.tex}
+\scalebox{0.83}{
+\begin{minipage}{\columnwidth}
+% don't display definition description with defn
+\renewcommand{\rrulecc}[9]{%
+%  \rrenbox{%
+    \rrulefront{#1}{#2}{#3}{#4}{#5}{#6}{#7}%
+    \vspace*{1\baselineskip}%
+    \rrenside{#8}%
+%  }%
+  %\rulecomment{#9}%
+}%
+%
+\showrule{\specITsendTIII}%
+\end{minipage}
+}
+\myheading{HOL syntax} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%FIXME formatting of excerpted text in following
+%
+%
+For optional data items, [[NONE]] denotes absence (or a zero IP or
+port) and [[SOME x]] denotes presence of value [[x]].
+%
+Concrete lists are written [[ [1,2,3] ]] and appending two lists is
+written using an infix [[++]].
+%
+Records are written within angled brackets [[<|...|>]].
+%
+Record
+fields can be accessed by dot notation or by
+pattern-matching.
+%
+Record fields may be overridden: [[cb' = cb with <| irs := seq |>]]
+states that the record [[cb']] is the same as the record [[cb]],
+except that field [[cb'.irs]] has the value [[seq]].
+%
+The expression [[f |++ [(x,y)] ]] or [[FUPDATE f (x,y)]] denotes the finite map [[f]] updated
+to map [[x]] to [[y]].
+
+\caption{Protocol-level model, example rule} \label{fig:protocolRule}
+\end{figure}
+
+The host labelled transition relation, $ \tsvar{h} \inp{\tsvar{lbl}} \tsvar{h}'$, is defined by some 148 rules for the socket
+calls (5--10 for each interesting call) and some 46 rules for message
+send/receive and for internal behaviour.
+%
+%
+An example of one of the simplest rules is given in
+Fig.~\ref{fig:protocolRule}. The rule describes a host with a blocked
+thread attempting to send data to a socket. The thread becomes
+unblocked and transfers the data to the socket's send queue. The
+send call then returns to the user.
+
+
+The transition $\tsvar{h} \; \Mmagiclrec ... \Mmagicrrec
+\Mtransition{\MLhtau }{1XXXXX\Mtransitionerr{-->}} \tsvar{h} \;
+\Mmagiclrec ... \Mmagicrrec $ appears at the top, where the thread pointed
+to by [[tid]] and the socket pointed to by $\tsvar{sid}$ are unpacked
+from the original and final hosts, along with the send queue [[sndq]]
+for the socket. Host fields that are modified in the transition are
+highlighted. The initial host has thread [[tid]] in state [[Send2]],
+blocking attempting to send [[str]] to [[sndq]]. After the transition,
+[[tid]] is in state [[Ret (OK ...)]], about to return to the user with
+[[str'']], the data that has not been sent, here constrained to be the
+empty string.
+
+The bulk of the rule is the condition (a predicate)
+guarding the transition, specifying when the rule applies and what
+relationship holds between the input and output states.  The condition
+is simply a conjunction of clauses, with no temporal ordering.
+%
+The rule only applies if the state of the socket, [[st]], is either
+[[ESTABLISHED]] or [[CLOSE_WAIT]].  Then, provided
+[[send_queue_space]] is large enough, [[str]] is appended to the [[sndq]] in the final host. Lastly, the urgent pointer
+[[sndurp']] is set appropriately.
+
+%The protocol model can be combined with a model of messages on the
+%wire, to give a network model, describing many hosts interacting over
+%TCP.
+
+
+Although the bulk of the model deals with the relatively simple Sockets
+API, with many rules like that of Fig.~\ref{fig:protocolRule}, the real complexity arises from internal actions that are
+largely invisible to the Sockets user, such as retransmission and
+congestion control.  For example, the rule [[deliver_in_3]] (not shown) that handles normal
+message receipt comprises over 1\,000 lines of higher-order logic.
+
+
+
+
+
+
+
+The model has been validated against several thousand real-world
+network traces, designed to test corner cases and unexpected
+situations. Of these, 92\% are valid according to the model, and
+we believe that for many purposes the model is sufficiently accurate
+--- certainly enough to be used as a reference, in conjunction with
+the standard texts.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{The new service-level specification} \label{sect:stream}
+
+%FIXME choices of what to abstract
+
+
+The service-level specification, illustrated below, describes the behaviour of a network
+of hosts communicating over TCP, as observed at the Socket
+APIs of the connections involved.  It does not deal with TCP segments on the
+wire (though it necessarily does include ICMP and UDP messages).
+\\
+
+\hspace{1cm}\input{endtoend.pstex_t}
+
+In principle one could derive a service-level specification directly
+from the protocol model, taking the set of traces it defines and
+erasing the TCP wire segment transitions.  However, that would not
+give a \emph{usable} specification: one in which key properties of
+TCP, that users depend on, are clearly visible.
+%
+Hence, we built the service-level specification by hand, defining a
+more abstract notion of host state, an abstract notion of stream
+object, and a new network transition relation, but aiming to give the
+same Sockets-API-observable behaviour.
+
+The abstract host states are substantially simpler than those of the
+protocol-level model.
+For example, the protocol-level TCP control block contains 44 fields,
+including retransmit and keep-alive timers; window sizes, sequence
+position and scaling information; timestamping and round trip
+times. Almost none of  these are relevant to the service-level
+observable behaviour, and so are not needed in the service-level TCP control block.
+%Similarly, the data for reassembly of out-of-order TCP segments is unnecessary.
+%
+Along with this, the transition rules that define the protocol dynamics, such as
+[[deliver_in_3]], become much simpler.
+The rules that deal with the Sockets API must be adapted to the new
+host state, but they remain largely as before.  The overall
+size of the specification is therefore not much changed, at around
+30\,000 lines (including comments).
+
+
+
+A naive approach to writing the individual rules would be to
+existentially quantify those parts of the host state that are missing
+at the service level (and then to logically simplify as much as
+possible).  However, this would lead to a highly non-deterministic and
+ultimately less useful specification.  Instead, we relied on a number
+of invariants of the low-level model, arguing informally that, given
+those, the two behaviours match.  We rely on the later validation to
+detect any errors in these informal arguments.
+
+
+% To limit non-determinism we employ
+% knowledge of TCP invariants when constructing the service-level
+% transitions. Since these invariants are informal, the process of
+% writing a service-level transition involves an informal proof that,
+% given the invariants, the service-level transition matches (according
+% to the abstraction function) the behaviour of the protocol-level.
+% %FIXME other inclusion whilst simultaneously limiting non-determinism as far as possible.
+%
+% ------------------------
+%
+%
+%
+%
+%
+%
+% - dont' want trace-based spec
+% - key invariants such as quue like beh not obvious
+% - too big and complicated
+%
+%
+% existentially quantifying over the host
+% states and TCP wire segments.
+%
+%
+% At the service level, the Sockets API user is shielded from most of the complex
+% internal behaviour of TCP. To form the service-level specification, we
+% therefore abstract over non-visible internal behaviour in the protocol
+% model. This gives a conceptually simple specification, since internal
+% behaviour accounts for the majority of the complexity of TCP. However,
+% the large number of Sockets rules, which are largely shared between
+% the service level and the protocol level, mean that the specification
+% is still a large document, on roughly the same scale as our previous
+% work and as the code. It captures the behaviour of the shaded region
+% below.
+% \\
+%
+% \hspace{1cm}\input{endtoend.pstex_t}
+%
+%
+%
+% Our first task is to decide how accurately we want to preserve the
+% behaviour of the protocol level, and how much protocol-level state we
+% want to replicate at the service level to support the desired level of
+% accuracy.
+% %
+% This is far from straightforward. For example, at the protocol level
+% we model host timers precisely, and consequently internal actions
+% which affect timers, such as retransmission, may occasionally be
+% revealed at the Sockets API through timing information. Since this
+% behaviour breaks the stream abstraction, by revealing the presence or
+% absence of underlying messages, we do not attempt to model this timing
+% precisely. In the extremely unlikely event that an application relies
+% on such properties, it will not be possible to verify it using the
+% service specification, and the more complex protocol model must be
+% used instead.
+%
+% A naive approach to writing the specification would then be to take an
+% existing protocol transition and existentially quantify those parts of
+% the host state that are missing at the service level. This leads to a
+% highly non-deterministic and less useful specification. To
+% limit non-determinism we employ knowledge of TCP invariants when
+% constructing the service-level transitions. Since these invariants are
+% informal, the process of writing a service-level transition involves
+% an informal proof that, given the invariants, the service-level
+% transition matches (according to the abstraction function) the
+% behaviour of the protocol-level.
+% %FIXME other inclusion whilst simultaneously limiting non-determinism as far as possible.
+
+
+
+In the rest of this section we aim to give a flavour of the
+service-level specification,  referring the interested reader to the
+complete specification online~\cite{netsem-www}.
+
+% FIXME 44 fields v. 2 fields
+%
+% FIXME there is no explicit notion of stream at prot level
+%
+% conceptually simple from something very complicated
+
+
+The heart of the specification is a model of a bidirectional TCP
+connection as a pair of unidirectional byte streams between Sockets
+endpoints:
+%, where a unidirectional stream is represented as a HOL record:
+
+%\enlargethispage{2\baselineskip}
+
+\renewcommand{\defntcpStream}{\ddefnn{tcpStream}{\iA{tcpStream}}{\subddefnA[{ unidirectional stream }]{tcpStream}{\tstype{tcpStream} = \Mmagiclrec {}{}
+ \tsvar{i} : \tstype{ip};      \tsholcomm{ source IP }{}\\{}
+ \tsvar{p} : \tstype{port};    \tsholcomm{ source port }{}\\{}
+ \tsvar{flgs} : \tstype{streamFlags};{}\\{}
+ \tsvar{data} : \tstype{byte} \;\tstype{list};{}\\{}
+\hspace*{2.5mm}  \tsvar{destroyed} : \tstype{bool}{}  \Mmagicbolrrec
+}
+}
+{}
+}
+
+\defntcpStream
+
+The data in the stream is a byte list. Further fields record the
+source IP address and port of the stream, control information in the
+form of flags, and a boolean indicating whether the stream has been
+destroyed at the source (say, by deleting the associated socket).
+%
+Some of these fields are shared with the low-level specification, but
+others are purely abstract entities.
+Note that although a stream may be destroyed at the source, previously
+sent messages may still be on the wire, and might later be accepted
+ by the receiver, so we cannot simply remove the stream when
+it is destroyed. Similarly, if the source receives a message for a
+deleted socket, a RST will typically be generated, which must be
+recorded in the stream flags of the destroyed stream.
+%
+%Each stream has associated control information, modelling opening and
+%closing of the stream. Hosts also maintain their own control
+%information.
+%
+%
+%Control information maintained by the streams is based closely on the
+%protocol-level control information in segments in queues and on the wire.
+%Thus, w
+These flags record whether the stream is opening
+([[SYN]],[[SYNACK]]), closing normally ([[FIN]]) or abnormally ([[RST]]).
+
+\renewcommand{\defnstreamFlags}{\ddefnn{streamFlags}{\iA{streamFlags}}{\subddefnA[{ stream control information }]{streamFlags}{\tstype{streamFlags} = \Mmagiclrec {}{}
+ \tsvar{SYN} : \tstype{bool};    \tsholcomm{ $\tsvar{SYN}$, no $\tsunknown{ACK}$ }{}\\{}
+ \tsvar{SYNACK} : \tstype{bool}; \tsholcomm{ $\tsvar{SYN}$ with $\tsunknown{ACK}$ }{}\\{}
+ \tsvar{FIN} : \tstype{bool};{}\\{}
+\hspace*{2.5mm}  \tsvar{RST} : \tstype{bool}{}  \Mmagicbolrrec
+ }
+}
+{}
+}
+
+\defnstreamFlags
+
+This control information is carefully abstracted from the protocol
+level, to capture just enough structure to express the user-visible
+behaviour. Note that the [[SYN]] and [[SYNACK]] flags may be set
+simultaneously, indicating the presence of both kinds of message on
+the wire. The receiver typically lowers the stream [[SYN]] flag on
+receipt of a [[SYN]]: even though messages with a [[SYN]] may still be
+on the wire, subsequent [[SYN]]s will be detected by the
+receiver as invalid duplicates of the original.
+%
+A bidirectional stream is then just an unordered pair (represented as
+a set) of unidirectional streams.
+
+%\defntcpStreams
+
+The basic operations on a byte stream are to read and write data. The
+following defines a write from Sockets endpoint
+[[(i1,p1)]] to endpoint [[(i2,p2)]].
+
+\renewcommand{\defnwrite}{\ddefnn{write}{\iA{write}}{\subddefnA[{ write flags and data to a stream }]{write}{\tsaux{write} (\tsvar{i}_{1},\tsvar{p}_{1},\tsvar{i}_{2},\tsvar{p}_{2}) (\tsvar{flgs},\tsvar{data}) \tsunknown{s} \;\tsunknown{s'} = ({}\\{}
+\quad \exists  \tsunknown{in\_} \;\tsvar{out} \;\tsvar{in}' \;\tsvar{out}'.{}\\{}
+\quad \tsaux{sync\_streams} (\tsvar{i}_{1},\tsvar{p}_{1},\tsvar{i}_{2},\tsvar{p}_{2}) \tsunknown{s} (\tsunknown{in\_},\tsvar{out}) \Mwedge {}\\{}
+\quad \tsaux{sync\_streams} (\tsvar{i}_{1},\tsvar{p}_{1},\tsvar{i}_{2},\tsvar{p}_{2}) \tsunknown{s'} (\tsvar{in}',\tsvar{out}') \Mwedge {}\\{}
+\quad \tsvar{in}' = \tsunknown{in\_} \Mwedge {}\\{}
+\quad \tsvar{out}'.\tsvar{flgs} ={}\\{}
+\quad \Mmagiclrec   \tsvar{SYN} \Mass  (\tsvar{out}.\tsvar{flgs}.\tsvar{SYN} \Mvee  \tsvar{flgs}.\tsvar{SYN});{}\\{}
+ \tsvar{SYNACK} \Mass  (\tsvar{out}.\tsvar{flgs}.\tsvar{SYNACK} \Mvee  \tsvar{flgs}.\tsvar{SYNACK});{}\\{}
+ \tsvar{FIN} \Mass  (\tsvar{out}.\tsvar{flgs}.\tsvar{FIN} \Mvee  \tsvar{flgs}.\tsvar{FIN});{}\\{}
+\hspace*{2.5mm} \tsvar{RST} \Mass  (\tsvar{out}.\tsvar{flgs}.\tsvar{RST} \Mvee
+ \tsvar{flgs}.\tsvar{RST}){}  \Mmagicbolrrec  \Mwedge {}\\{}
+\quad \tsvar{out}'.\tsvar{data} = (\tsvar{out}.\tsvar{data} ++ \tsvar{data}))}
+}
+{}
+}
+
+\defnwrite
+
+Stream [[s']] is the result of writing [[flgs]] and [[data]] to stream [[s]].
+%
+Stream [[s]] consists of a unidirectional input stream [[in_]]
+% (\textbf{in} is a reserved word)
+and
+ output stream [[out]], extracted from the bidirectional
+stream using the auxiliary $\tsaux{sync\_streams}$ function.
+%
+Similarly [[s']], the state of the stream after the
+write, consists of [[in']] and [[out']].
+%
+Since we are writing to the output stream, the input stream
+remains unchanged, [[in' = in_]]. The flags on the output stream are
+modified to reflect [[flgs]]. For example, [[SYN]] is set in
+[[out'.flgs]] iff [[flgs]] contains a [[SYN]] or [[out.flgs]] already
+has [[SYN]] set. Finally, [[out'.data]] is updated by appending [[data]] to [[out.data]].
+%
+%The format of [[read]] is very similar to [[write]], but with the
+%addition of a [[peek]] flag for reads that do not
+%remove data from the stream.
+
+Fig. \ref{fig:serviceRule} gives the service-level analogue
+of the previous protocol-level rule.
+The transition occurs between triples $<[(h with <| ... |>, ]>S_0<[ |++ [...],M)]>$,
+each consisting of a host, a finite map from stream identifiers to streams, and a set of UDP and ICMP
+messages. The latter do not play an active part in
+this rule, and can be safely ignored.
+%
+Host state is unpacked from the host as before. Note that
+protocol-level constructs such as [[rcvurp]] and [[iobc]] are absent
+from the service-level host state. As well as the host transition,
+there is a transition of the related stream [[s]] to [[s']]. The
+stream is unpacked from the finite map via its unique identifier
+$\tsaux{streamid\_of\_quad}<[(i1,p1,i2,p2)]>$, derived from its quad.
+
+\input{Spec3_send3.tex}
+\newcommand{\hackhackhack}[1]{}  % For Tom
+\begin{figure}[t]
+% don't display definition description with defn
+\renewcommand{\rrulecc}[9]{%
+%  \rrenbox{%
+    \rrulefront{#1}{#2}{#3}{#4}{#5}{#6}{#7}%
+    \vspace*{1\baselineskip}%
+    \rrenside{#8}%
+%  }%
+  %\rulecomment{#9}%
+}%
+%
+\scalebox{0.83}{
+\begin{minipage}{\columnwidth}
+\showrule{\hackedsendTIII}%
+\end{minipage}
+}
+\caption{Service-level specification, example rule} \label{fig:serviceRule}
+\end{figure}
+
+
+As before, the conditions for this rule require that the state of the
+socket [[st]] must be [[ESTABLISHED]] or [[CLOSE_WAIT]].
+%
+Stream [[s']] is the result of writing
+string [[str']] and flags [[flgs]] to [[s]]. Since [[flgs]] are all false, the write does not cause any
+control flags to be set in [[s']], although they may already be set in
+[[s]] of course.
+
+This rule, and the preceding definitions, demonstrate the conceptual
+simplicity and stream-like nature of the service level.
+%
+Other interesting properties of TCP are clearly captured by the
+service-level specification. For example, individual writes do not
+insert record boundaries in the byte stream, and in general, a read
+returns only part of the data, uncorrelated with any particular write.
+%
+The model also makes clear that the unidirectional streams are to a
+large extent independent. For example, closing one direction does not
+automatically cause the other to close.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{The abstraction function} \label{sect:abstraction}
+
+ \begin{figure*}[t]
+ \[
+ \hspace{-.0cm}\scalebox{0.48}{\input{absFunCommute6.pstex_t}}
+ \]
+
+ \caption{Abstraction function, illustrated (data part only)}\label{fig:absFun3}%
+ \end{figure*}%
+
+%\begin{figure}
+%\begin{center}\input{absFunCommute3.pstex_t}\end{center}
+%\caption{Abstraction function} \label{fig:absFun3}
+%\end{figure}
+
+
+% \begin{figure*}[t]
+% \[
+% \scalebox{0.5}{\input{absFunCommute2.pstex_t}}
+% \]
+% This illustrates the abstraction function.  The bottom (concrete) half
+% shows a transition between two concrete network states, labelled by a
+% $\mathrm{send}(\texttt{xyz})$ on host $h_1$, with the send and receive
+% queues of each host and the TCP segments on the wire.  The top
+% (abstract) half shows the corresponding abstract network states, with
+% the logical stream objects.  Only the data part is shown; the more
+% intricate Socket states, TCBCBs, control flags, etc., are elided.
+%
+% \caption{Abstraction Function}\label{fig:absFunCommute}%
+% \end{figure*}%
+
+While the service specification details \emph{what} service an
+implementation of TCP provides to the Sockets interface, the
+abstraction function details \emph{how}.
+%
+% first appearance of the "network", hitherto it has all been hosts
+%
+The abstraction function maps protocol-level states and transitions
+to service-level states and transitions.  A
+protocol-level network consists of a set of hosts, each with their own
+TCP stacks, and segments on the wire.
+The abstraction function takes this data and calculates abstract byte
+streams between Sockets API endpoints, together with the  abstract
+connection status information.
+
+
+The latter is the more intricate part, but we can give only a simple
+example here:
+%the
+%stream [[RST]] flag is set iff a [[RST]] segment appears in the
+%messages in protocol-level host queues or on the wire;
+the
+[[destroyed]] flag is set iff either there is no socket on the
+protocol-level host matching the quad for the TCP connection or the
+state of the TCP socket is [[CLOSED]].
+
+\input{Spec3_abs_hosts_one_sided}
+\begin{figure}
+% don't display definition description with defn
+\renewcommand{\ddefnn}[4]{%
+%  \rrenbox{%
+    \dodefnindex{#2}%
+    \ltslabel{#1}%
+    \rrenside{#3}%
+%  }%
+}
+\scalebox{0.75}{
+\begin{minipage}{\columnwidth}
+%\begin{multicols}{2}
+\hackeddefnabsThostsToneTsided
+%\end{multicols}
+\end{minipage}
+}
+\caption{Abstraction function, excerpt}\label{fig:absFunHOL}%
+\end{figure}%
+
+
+The former is illustrated in Fig.~\ref{fig:absFun3}.
+%
+% At the service level, the TCP
+% stacks and the segments on the wire are replaced by byte streams
+% between Sockets endpoints.
+% %
+% The abstraction function constructs two things:
+% the abstract data streams and the
+% connection status information
+%
+% from the low-level
+% segments on the wire and queues within hosts,
+%
+% thereby explains how streams
+% arise from the data in endpoint states and segments on the wire,
+%
+% %The abstraction function is built on a unidirectional abstraction
+% %function. Given a source and destination host at the protocol level,
+% %a set of messages on the wire, and a quad for the TCP
+% %connection, the unidirectional abstraction function constructs a
+% %unidirectional stream representing the connection identified by the
+% %quad.
+%
+For example, consider the simple case where communication has already been established, and the source is sending a
+message to the destination that includes the string
+``\texttt{abc...xyz}'', of which bytes up to ``\texttt{w}'' have been
+moved to the source [[sndq]]. Moreover, the destination has
+acknowledged all bytes up to ``\texttt{f}'', so that the [[sndq]]
+contains ``\texttt{fgh...uvw}'', and [[snd_una]] points to
+``\texttt{f}''. The destination [[rcvq]] contains
+``\texttt{cde...opq}'', waiting for the user to read from the socket,
+and [[rcv_nxt]] points just after ``\texttt{q}''.
+%
+%\begin{verbatim}
+%                 |         snd_una     rcv_nxt
+%seq num ---------+---------+-----------+-----------
+%message          | ...abcdefghijklmnopqrstuvwxyz...
+%source sndq      |         fghijklmnopqrstuvw
+%destination rcvq |      cdefghijklmnopq
+%stream contents  |      cdefghijklmnopqrstuvw
+%\end{verbatim}
+%
+%
+\par\noindent{\small
+\tt\begin{center}
+\begin{tabular}{|l|c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}|}
+\hline
+                               & & & & & & & & &$\downarrow$&\multicolumn{10}{l}{\textrm{[[snd_una]]}} & &$\downarrow$&\multicolumn{10}{l}{\textrm{[[rcv_nxt]]}}  &\\ \hline
+{\textrm{message}}             &.&.&.&a&b&c&d&e&f&g&h&i&j&k&l&m&n&o&p&q&r&s&t&u&v&w&x&y&z&.&.&.\\ \hline
+{\textrm{source [[sndq]]}}     & & & & & & & & &f&g&h&i&j&k&l&m&n&o&p&q&r&s&t&u&v&w& & & & & & \\ \hline
+{\textrm{destination [[rcvq]]}}& & & & & &c&d&e&f&g&h&i&j&k&l&m&n&o&p&q& & & & & & & & & & & & \\ \hline
+{\textrm{[[DROP (rcv_nxt - snd_una) sndq]]}}   & & & & & & & & & & & & & & & & & & & & &r&s&t&u&v&w& & & & & & \\ \hline
+{\textrm{stream}}     & & & & & &c&d&e&f&g&h&i&j&k&l&m&n&o&p&q&r&s&t&u&v&w& & & & & & \\ \hline
+\end{tabular}\end{center}
+}
+%\\
+
+The data that remains in the stream waiting for the destination
+endpoint to read, is the byte stream ``\texttt{cdefghijklmnopqrstuvw}''. This is
+simply the destination [[rcvq]] with part of the source [[sndq]]
+appended: to avoid duplicating the shared part of the byte sequence,
+[[(rcv_nxt - snd_una)]] bytes are dropped from [[sndq]] before
+appending it to [[rcvq]].
+
+An excerpt from the HOL definition appears in Fig. \ref{fig:absFunHOL}.
+%
+It takes a quad
+[[(i1,p1,i2,p2)]] identifying the TCP connection, a source host [[h]],
+a set of messages [[msgs]] on the wire, and a
+destination host [[i]], and produces a unidirectional stream.
+%
+It follows exactly the previous analysis: [[(rcv_nxt - snd_una)]]
+bytes are dropped from [[sndq]] to give [[sndq']], which is then
+appended to [[rcvq]] to give the data in the stream.
+
+Note that, in keeping with the fact that TCP is designed so that hosts
+can retransmit any data that is lost on the wire, this abstraction
+does not depend on the data in transit --- at least for normal
+connections in which neither endpoint has crashed.
+
+For a given TCP connection, the full abstraction function uses the
+unidirectional function twice to form a bidirectional stream
+constituting the service-level state.
+%
+As well as mapping the states, the abstraction function maps the
+transition labels. Labels corresponding to visible actions at the
+Sockets interface, such as a \texttt{connect} call, map to
+themselves. Labels corresponding to internal protocol actions, such as
+the host network interface sending and receiving datagrams from the
+wire, are invisible at the service level, and so are mapped to $\tau$,
+indicating no observable transition.
+%
+Thus, for each protocol-level transition, the abstraction function
+gives a service-level transition with the same behaviour at the
+Sockets interface. Mapping the abstraction function over a
+protocol-level trace gives a service-level trace with identical
+Sockets behaviour. Every valid protocol-level trace should map to a
+valid service-level trace.
+
+%FIXME really need to nail down where the correctness of TCP comes into
+%the abstraction function... point is that read and write have no
+%knowledge of the TCP sequence counters, but it turns out that they
+%interact with the abstraction function in a reasonable way.
+
+%FIXME talk about the semantics of the abstraction function ``there is
+%a msg on the wire which may be received as valid by the endpoint,
+%st....'', which involves talking about the SYN errors in Spec1, and
+%why we duplicate these errors in Spec3 (to preserve admissible
+%traces). (?)
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Experimental validation} \label{sect:validation}
+
+
+How can we ensure that TCP implementations (written in C), our
+previous protocol-level model (in HOL), and our new service-level
+specification (also in HOL) are consistent?
+%
+Arguing
+that a small specification corresponds to a simple real-world system
+can already be extremely challenging. Here, we are faced with very large
+specifications and a very complex real-world system.
+%
+Ideally one would verify the relationship between the protocol and
+service specifications by proving that their behaviours correspond,
+%i.e.~that
+%every valid trace
+%at the protocol-level maps to a valid trace at the service-level. This proof would
+making use of the abstraction function.
+%
+One would also prove that the Sockets behaviour of the endpoint
+implementations (formalized using a C semantics) conformed to the
+protocol model.
+
+Proving the relationships between the levels in this way would be a
+very challenging task indeed. One of the main barriers is the scale of TCP
+implementations, including legacy behavioural intricacies of TCP and
+Sockets, which were not designed with verification in mind.
+%This is
+%reflected in the protocol model and, to a lesser extent, in the
+%service-level specification.
+
+Hence, we adopt the pragmatic  approach of
+validating the specifications to provide reasonable confidence in
+their accuracy.
+Note that for TCP the implementations are the de facto standard.  In
+producing specifications after the fact, we aim to validate the
+specifications against the implementation behaviour. Our
+techniques could equally well be used in the other direction for new protocol designs.
+Our service-level validation builds on our earlier protocol-level
+work~\cite{TCP:paper,TCP:POPLpaper}, so we begin by recalling that.
+
+\myheading{Protocol-level validation}
+We instrumented a test network and wrote tests to drive hosts on the
+network, generating real-world traces.
+%
+We then ensured that the protocol specification admitted those traces by
+running a special-purpose symbolic model checker in HOL, correcting
+the specification, and iterating, when we discovered errors.
+%
+Because it is based directly on the formal specification, and deals
+with all the internal state of hosts, the checker
+is extremely rigorous, producing a machine checked proof of
+admissibility for each successfully validated trace. Obviously
+no testing-based method can be complete, but this found many issues in
+early drafts of the specification, and also identified a number of
+anomalies in TCP implementations.
+
+
+\myheading{Service-level validation}
+For the service-level validation of this paper, we began with a similar instrumented
+test network, but collected double-ended traces, capturing
+the behaviour of two interacting hosts, rather than just one endpoint.
+%
+We then used our previous symbolic evaluation tool to discover
+symbolic traces of the protocol-level model that corresponded to the
+real-world traces.
+%
+That is a complex and computationally intensive process,
+involving backtracking depth-first search and constraint
+simplification, essentially to discover internal host state and
+internal transitions that are not explicit in the trace.
+
+We then \emph{ground} these symbolic traces, finding instantiations of
+their variables that satisfy any remaining constraints, to produce a
+ground protocol-level trace in which all information is explicit.
+%
+Given such a ground trace, we can map the abstraction function
+over it to produce a candidate ground service-level trace.
+
+It is then necessary to check validity of this trace, which is done
+with a service-level test oracle.
+% This is analogous to the
+%protocol-level symbolic evaluator, but, crucially can be much simpler.
+%It need deal only with ground transitions, and each transition can be
+%checked in isolation, so there is no need for a backtracking search.%
+%
+%---
+%
+As at the protocol level, we wrote a new special-purpose service-level
+checker in HOL which performs symbolic evaluation of the specification
+with respect to ground service-level traces. Crucially, this checking process is
+much simpler than that at the protocol level because all host values,
+and all transitions, are already known. All that remains is to check
+each ground service-level transition against the specification.
+
+% new MN stuff (following may not be appropriate for INFOCOM audience)
+The most significant difference between the old and new checkers is
+that the former had to perform a depth-first search to even determine
+which rule of the protocol model was appropriate.  Because
+that work has already been done, and because the two specifications
+have been constructed so that their individual rules correspond, the
+service-level checker does not need to do this search.  Instead, it can
+simply check the service-level version of the rule that was checked at
+the protocol level, dealing with each transition in isolation.  In particular, this means that the service-level
+checker need not attempt to infer the existence of unobservable
+$\tau$-transitions.
+
+Another significant difference between the two checkers is that the
+service-level checker can aggressively search for instantiations of
+existentially quantified variables that arise when a rule's hypothesis
+has to be discharged.  At the protocol level, such variables may appear
+quite unconstrained at first appearance, but then become progressively
+more constrained as further steps of the trace are processed.
+
+For example, a simplified rule for the \texttt{socket} call might
+appear as
+% readers haven't seen inference rule style presentation of a rule before
+\[
+\infer{<[h0 <| socks := socks |>]> \inp{<[Lh_call (tid,socket()) ]>}
+  <[h0 <| socks := socks |+ (]>\tsvar{sid}<[,fd)|>]>}{
+  <[fd]>\not\in\textsf{usedfds}(<[h0]>)}
+\]
+stating that when a \texttt{socket} call is made, the host $h_0$'s
+\texttt{socks} map is updated to associate the new socket (identified
+by $\mathit{sid}$) with file-descriptor $\mathit{fd}$, subject only
+to the constraint that the new descriptor not already be in use.
+(This under-specification is correct on Windows; on Unix, the
+file-descriptor is typically the next available natural number.)
+
+In the protocol-level checker, the [[fd]] variable must be left
+uninstantiated until its value can be deduced from subsequent steps in
+the trace.  In the service-level checker, both the initial host and the
+final host are available because they are the product of the
+abstraction function applied to the previously generated, and ground,
+protocol trace.  In a situation such as this, the variable from
+the hypothesis is present in the conclusion, and can be immediately
+instantiated.
+
+In other rules of the service-level specification, there can be a great
+many variables that occur only in the hypothesis.  These are
+existentially quantified, and the checker must determine if there is
+an instantiation for them that makes the hypothesis true.  The most
+effective way of performing this check is to simplify, apply decision
+procedures for arithmetic, and to then repeatedly case-split on
+boolean variables, and the guards of \textsf{if-then-else} expressions
+to search for possible instantiations.
+
+
+The above process is clearly somewhat involved, and itself would
+ordinarily be prone to error.   To protect against this we built all
+the checking infrastructure within HOL.  So, when checking a
+trace, we are actually building
+machine-checked proofs that its transitions are admitted by the
+inductive definition of the transition relation in the specification.
+
+
+\myheading{Results} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+Our earlier protocol-level validation involved several thousand
+traces designed to exercise the behaviour of single endpoints,
+covering both the Sockets API and the wire behaviour.   To produce a
+reasonably accurate specification, we iterated the checking and
+specification-fixing process many times.
+
+For the service-level specification, we have not attempted the same
+level of validation, simply due to resource constraints.
+Instead, we have focused on developing the method, doing enough
+validation to demonstrate its feasibility.
+%
+Producing a specification in which one should have high confidence
+might require another man-year or so of testing --- perfectly
+feasible, and a tiny amount of effort in terms of industrial protocol
+stack development, but unlikely to lead to new research insights.
+%
+That said, most of the Sockets API behaviour does not
+relate to the protocol dynamics and is common between the two
+specifications, so is already moderately well tested.
+%
+%
+%
+%
+%
+%
+%
+% validated the service-level to nearly the same degree, largely because
+% we are resource constrained. In particular, we have not attempted to
+% generate traces involving packet loss, reordering, duplication,
+% corruption and severe delay.
+%
+%
+% As we describe in Sect. \ref{FIXME}, both protocol mdoel and service
+% specification split into two parts, with the Sockets rules essentially
+% shared.
+% %
+% Since extensive validation has taken place for the protocol-level
+% Sockets rules, we chose to focus our effort on validating end-to-end
+% behaviour at the service-level.
+% %
+% However, resource constraints mean we have not attempted to generate
+% traces involving packet loss, reordering, duplication, corruption, and
+% severe delay.  We return to this in the conclusion.
+%
+In all, 30 end-to-end tests were generated,
+%
+%60 unidirectional protocol-level
+%traces, which were validated against the protocol model,
+covering a
+variety of connection setup and tear-down cases and end-to-end
+communication, but not including packet loss, reordering, duplication,
+and severe delay.
+% For each of
+% the real-world traces, the test oracle produced a corresponding ground
+% protocol-level trace, containing full information about the state of
+% the hosts and the transitions that occurred. We joined these
+% unidirectional traces to produce 30 ground protocol-level network
+% traces, which we mapped to a corresponding number of ground
+% service-level network traces. These in turn were validated against the
+% service-level specification using the service-level test oracle.
+% %
+After correcting errors, all these traces were found to validate
+successfully.
+
+To illustrate how discriminating our testing process is, we mention two errors we discovered during validation.
+%
+At the protocol-level, a TCP message moving from a host output queue
+to the wire corresponds to an unobservable $\tau$ event at the service
+level. Naively we assumed the host state would be unchanged, since the
+output queue at the service-level carries only ICMP and UDP
+messages. However, this is not correct, since the transmission of a
+TCP message alters the timer associated with the output queue,
+increasing its value. The update to the timer permits the host to
+delay sending the ICMP and UDP messages. Without this side-effect, the
+service-level specification effectively required ICMP and UDP messages
+to be sent earlier than they would otherwise have been. To correct
+this error, the service specification had to allow the timer to be
+updated if at the protocol-level there was potentially a TCP message
+on the queue that might be transferred to the wire.
+%
+Another error arose in the definition of the abstraction function. The
+analysis of the merging of the send and receive queues on source and
+destination hosts, described in Sect. \ref{sect:abstraction}, was
+initially incorrect, leading to streams with duplicated, or missing,
+runs of data. Fortunately this error was easy to detect by examining
+the ground service-level trace, where the duplicated data was immediately apparent.
+
+Our validation processes check that certain traces are included
+in the protocol-level or service-level specification. As we have seen,
+this can be a very discriminating test, but it does not  touch on the
+possibility that the specifications admit too many traces. That cannot
+be determined by reference to the de facto standard implementations, as a reasonable
+specification here must be looser than any one implementation. Instead,
+one must consider whether the specifications are strong enough to be
+useful, for proving properties of applications that use the Sockets
+API, or (as in \cite{DBLP:conf/pldi/LiZ07}) as a basis for new implementations.
+
+%For example, the data stream would suddenly
+%become doubled for no apparent reason. Such traces obviously do not
+%conform to the service-level specification.
+
+% We see no technical barrier to extending
+% validation to these areas, but
+% %
+% there is good reason to believe that doing so would reveal very few
+% errors. The end-to-end part of the specification is very abstract, and
+% clearly captures the stream aspect of TCP. We have validated this
+% under favourable network conditions. With packet loss, reordering, and
+% so on, it is a fact of experience that TCP preserves end-to-end
+% behaviour. Thus, service-level behaviour should not be affected by
+% unfavourable network conditions.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Related work}
+
+%our previous work, and optical stuff
+
+%formal aspects of testing, Andreas Bauer
+% he just moved to NICTA; web-page at
+% http://users.rsise.anu.edu.au/~baueran/publications/index.html
+% technique is run-time diagnosis - traces checked against LTL
+% specifications; contribution is to come up with alternative
+% definition of LTL so that it can give a verdict (definitely OK,
+% definitely bad, don't know) given a finite trace (seen so far).
+% (Issue is that LTL is defined wrt infinite traces, but at any given
+% point, diagnoser only has access to finite prefix.)
+%, check temporal logic props of traces- what is this reference? (can't find)
+
+This work builds on our previous TCP protocol model
+\cite{TCP:paper,TCP:POPLpaper}, and we refer the reader there for
+detailed discussion of related work.
+%
+We noted that ``to the best of our knowledge, however, no previous work approaches a
+specification dealing with the full scale and complexity of a
+real-world TCP''.
+%
+This also applies to the service-level specification.
+%
+As before,  this is unsurprising: we have
+depended on automated reasoning tools and on raw compute
+resources that were simply unavailable in the 1980s or early 1990s.
+Our goals have also been different, and in some sense more modest,
+than the correctness theorems of traditional formal verification: we have not attempted to \emph{prove}
+that an implementation of TCP satisfies the protocol model, or that
+the protocol satisfies the service-level specification.
+
+%Our \cite{BDJRS06} describes a successful application of our
+%methodology to specify an optical networking protocol at design time.
+
+There is a vast literature devoted to verification techniques for
+protocols, with both proof-based and model checking approaches,
+\eg in conferences such as CAV, CONCUR, FM, FORTE, ICNP, SPIN, and TACAS\@.
+%
+The most detailed rigorous specification of a TCP-like protocol we are aware of is that of
+Smith \cite{Smi96short}, an I/O automata specification and
+implementation, with a proof that one satisfies the
+other, used as a basis for work on T/TCP\@.
+The protocol is still substantially idealised, however.
+Later work by Smith and Ramakrishnan uses a similar model to verify properties of a model of
+SACK \cite{SR02}.
+A variety of work addresses radically idealised variants of TCP
+\cite{CHV03,FJ00,Sch96,HL00,BB03,55495,MS88}.
+% For radically idealised variants of TCP, one has for example the PVS verification of an improved Sliding Window protocol by Chkliaev \etal \cite{CHV03},
+% and
+% Fersman and Jonsson's  application of the SPIN model checker to a
+% simplified version of the TCP establishment/teardown handshakes
+% \cite{FJ00}.
+% Schieferdecker verifies a
+% property (expressed in the modal $\mu$-calculus) of a LOTOS
+% specification of TCP, showing that data is not received before it is
+% sent \cite{Sch96}. The specification is again roughly at the level of the TCP state
+% diagram.
+% Hofmann and Lemmen report on testing of a protocol stack based on an
+% SDL specification of TCP/IP \cite{HL00}.
+% %
+% Billington and Han have produced a coloured Petri net model of the
+% service provided by TCP %(in our terminology, roughly an end-to-end specification),
+% %but
+% for a highly idealised ISO-style interface
+% \cite{BB03}.
+% %, and a highly idealised
+% %model of transmission for a bounded-size medium
+% %\cite{BB03,BB04}.
+% %
+% %
+% Murphy and Shankar verify some safety properties of a 3-way handshake
+% protocol analogous to that in TCP
+% \cite{55495} and of a transport protocol based on this \cite{MS88}.
+%
+Finally, Postel's PhD thesis used early Petri net protocol models descriptively
+\cite{Postel74}. %,Postel76}.
+
+
+%Musuvathi and Engler have applied their CMC model checker to a Linux
+%TCP/IP stack \cite{ME04}.
+%%
+%%Interestingly, they began by trying to work with just the TCP-specific
+%%part of the codebase (\ie, the pure transport-protocol specification
+%%described in \S\mref{b92}), but moved to working with the entire codebase
+%%on finding the OS-internal TCP$\leftrightarrow$IP interface too complex.
+%%
+%The properties checked were of two kinds:  resource leaks and
+%invalid memory accesses, and protocol-specific properties
+%%. The latter
+%%were
+%specified by a hand translation of the RFC793 state diagram into
+%C code.  While this is a useful model of the protocol, it is an extremely
+%abstract view, omitting flow control, congestion control etc.
+
+%In a rare application of rigorous techniques to actual standards,
+%Bhargavan, Obradovic, and Gunter use a combination of the HOL proof
+%assistant and the SPIN model checker to study properties of
+%distance-vector routing protocols \cite{BOG02}, proving correctness
+%theorems. The
+%protocols are significantly simpler: their model of RIP is (by a naïve
+%line count) around 50 times smaller than the specification we present
+%here.
+
+%There are I/O automata specifications and proof-based
+%verification for aspects of the Ensemble group communication system by
+%Hickey, Lynch, and van Renesse \cite{HLR99}, and
+%NuPRL proofs of fast-path optimizations for local Ensemble code by
+%Kreitz \cite{Kre04}.
+
+
+Implementations of TCP in high-level languages have been written by
+Biagioni in Standard ML \cite{Bia94}, by Castelluccia \etal in Esterel
+\cite{CDO97}, and by Kohler \etal in Prolac \cite{prolac:sigcomm99}.
+As for any implementation, allowable non-determinism means
+they cannot be used as oracles for conformance testing.
+
+
+
+% work related to the abstraction function%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% P thinks this stuff is basically irrelevant
+%
+%Our present work includes an abstraction function from the protocol
+%model to the service-level specification. Abstraction has been applied
+%to reduce the state space in model checking
+%\cite{conf/time/Clarke03}. Refinement is widely used to derive program
+%implementations from mathematical specifications
+%\cite{W48,WooDav96,Back-vonWright98}.
+
+For concurrent and distributed systems, there are many
+abstraction-refinement techniques, such as abstraction relations
+(which include our abstraction function) and simulation relations, see
+\cite{Lynch*95:Forward} for an overview.
+%
+As an example of these techniques, Alur and Wang address the PPP and
+DHCP protocols \cite{AW01}. For each they check refinements between
+models that are manually extracted from the RFC specification and from
+an implementation.
+%
+Although these techniques are widely used in verification, to the best
+of our knowledge, they have never been applied previously to
+real-world protocols on the scale of TCP.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Conclusion}
+
+% FIXME TCP is a complex protocol, and exhaustive validation requires significant resources.
+%
+
+\vspace*{-4mm}
+
+
+\myheading{Summary} We presented a formal, mechanized, service-level
+specification of TCP, tackling the full detail of the real-world
+protocol. The specification is appropriate for formal and informal
+reasoning about applications built above the Sockets layer, and about
+the service that TCP and TCP-like protocols provide to the Sockets
+layer. The service-level specification stands as a precise statement
+of end-to-end correctness for TCP.
+%
+We also presented a formal abstraction function from our previous
+protocol-level model of TCP to the service-level specification,
+thereby explaining how stream-like behaviour arises from the protocol level.
+%
+We used novel validation tools, coupled with the results of previous
+work, to validate both the service specification and the abstraction
+function.
+%
+The specification, abstraction function, and testing infrastructure
+were developed entirely in HOL.
+
+%The abstraction function was also instrumental in validating the service-level specification.
+
+\myheading{On the practice of protocol design}
+This paper is the latest in a line of work
+developing rigorous techniques for real-world
+protocol modelling and specification \cite{SSW01a,WNSS01:brief,NSW02,TCP:paper,TCP:POPLpaper,BDJRS06}.
+In most of this work to date we have focused on post-hoc
+specification of existing infrastructure
+(TCP, UDP, ICMP, and the Sockets API) rather than new protocol design,
+though the latter is our main goal.
+%
+This is for two reasons.
+%
+Firstly,
+the existing infrastructure is ubiquitous, and likely to remain so for the foreseeable
+future: these wire protocols and the Sockets API are stable
+articulation points around which other software shifts.  It is
+therefore well worth characterising exactly what they are, for the
+benefit of both users and implementers.
+%
+Secondly, and more importantly, they are excellent test cases.  There
+has been a great deal of theoretical work on idealised protocols, but,
+to develop rigorous techniques
+that can usefully be applied, they must be tested with realistic
+protocols.   If we can deal with TCP and Sockets, with all their
+accumulated legacy of corner cases and behavioural quirks, then our
+techniques should certainly be applicable to new protocols.
+%
+We believe that that is now demonstrated, and it is confirmed by our
+experience with design-time formalisation and conformance testing for
+an experimental MAC protocol for an optically switched network
+\cite{BDJRS06}.
+
+In recent years there has been considerable interest in `clean slate'
+networking design, and in initiatives such as FIND and GENI.
+Protocols developed in such work should, we argue, be developed as
+trios of running implementation, rigorous specification, and
+verified conformance tester between the two.
+Modest attention paid to this at design time would greatly
+ease the task --- for example, specifying appropriate debug trace
+information, and carefully identifying the deterministic parts of a
+protocol specification, would remove the need for backtracking search during validation.
+%
+Declarative specification of the intended protocol behaviour,
+free from the imperative control-flow imposed by typical
+implementation languages, enables one to see unnecessary behavioural
+complexities clearly.  Verified conformance testing makes it possible
+to keep implementations and specifications in sync as they are
+developed.
+%
+Together, they should lead to cleaner, better-understood and more
+robust protocols, and hence to less costly and more robust infrastructure.
+
+
+More specifically to TCP, we see two main directions for future
+work.
+%
+One is simply to scale up our validation process, covering a wide
+variety of common protocol stacks, increasing confidence still further
+by testing against more traces, identifying and testing additional
+invariants of connection states, and so forth, and producing a
+packaged conformance tester for TCP implementations.
+This would be useful, and on an industrial scale would be a relatively
+small project (compared, perhaps, to the QA effort involved in
+developing a new protocol stack), but doing this for an existing
+protocol may be inappropriate for a small research group.
+The weight of legacy complexity here is very large, so non-trivial
+resources (perhaps several  man-years) would be needed to cope with the
+detail, but the basic scientific questions, of \emph{how} to do this,
+have now been solved.
+%
+Doing this for \emph{new} protocols, on the other hand,
+seems clearly worthwhile, even with very limited resources.
+
+The second, more research-oriented, question, is to consider not just
+validation of end-to-end functional correctness (as we have done
+here), but properties such as end-to-end performance. Ultimately one
+could envisage proving network-wide properties, such as network
+stability, thereby connecting highly
+abstract properties of these protocols to the low-level details of their
+implementations.
+
+%.  For example, for future transport protocols
+%one can envisage precisely relating a protocol-level specification
+%to network models equipped with stability theorems.
+
+
+
+
+\myheading{Acknowledgements} We gratefully acknowledge the use of the Condor facility in
+the Computer Laboratory, work of Adam Biltcliffe on testing
+infrastructure, and
+ support from
+a Royal Society University Research
+Fellowship (Sewell)
+and EPSRC grants EPC510712 and GRT11715. NICTA is funded by the Australian Government's Backing Australia's Ability initiative, in part through the Australian Research Council.
+
+
+%\bibliographystyle{alpha}
+\bibliographystyle{abbrv}
+\bibliography{tr}
+
+\end{document}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{junk}
+
+mistake not to track packet-level invariants
+
+too non-deterministic? (unlikely timeliness properties are preserved)
+
+
+%softerror is only
+%used for ICMP part of the spec, and the keepalive timer is there
+%presumably because we want to accurately model stream closure from
+%keepalive timer not being reset. Indeed, this is the only function of
+%di3\_topstuff in spec3.
+
+
+FIXME talk about relative difficult in validation, regression testing etc.
+Compared to the packet-level debugging phase, the service-level was
+very pleasant. Packet-level validation rejected traces without much
+indication of where the problem lay. However, because we were able to
+check the service-level traces without backtracking, we were always
+able to locate precisely which transition had caused the trace to fail
+to check. Moreover, the traces were fully ground, so it was easy to
+compare the transition to the rule and determine why the transition
+failed to check. Since we knew that the packet-level transition was
+valid according to the packet-level specification, the error could
+only arise from a mistake in the service-level specification, or the
+abstraction function, and it was often clear which was responsible. A
+side-effect of fully ground traces was that a single transition
+failing to check did not impact checking of later transitions, since
+the transitions were independent. Thus, correcting an error in the
+service-level specification for a particular rule only required
+rechecking those transitions for which the rule applied. Moreover the
+packet-level validation was independent of the abstraction function
+and the service-level validation, so that once a set of traces had
+validated at the packet-level, the subsequent stages did not need to
+rerun packet-level validation. FIXME awful
+%
+The process is easier because all information about host transitions
+is known. This contrasts strongly with the experience of debugging the
+packet-level specification, and reinforces the conclusion from \cite{FIXMEsigcomm} that
+complete debugging information about the state of the protocol over
+time makes validation significantly simpler.
+
+Another feature of the service-level validation is that regression
+testing can be carried out on later stages without affecting the
+results of earlier stages. We already mentioned that we were committed
+to validate the traces at the packet-level, prior to service-level
+validation. However, once these traces had been validated, we never
+had to re-run the packet-level validation. Applying the abstraction
+function to the ground packet-level traces generated service-level
+traces. This stage was only repeated when errors in the (relatively
+compact) abstraction function were discovered. At the service-level,
+invidividual trace transitions are independent of each other, and can
+be checked in parallel. service-level transitions that failed to
+validate against the specification were often caused by errors in the
+correpsonding rules. Once the rule was corrected, we only needed to
+re-validate transitions which corresponded to the corrected rule.
+%
+Although each stage is computationally expensive, the independence
+between stages proved a boon to service-level validation.
+
+FIXME say want to share as much as possible between specifications- a
+lot of work was reorg the specs; future work to abstract out the
+common Sockets part of the specifications, to give more confidence
+that the behaviour is shared and to modularise the specs.
+
+
+------------------
+
+A network protocol, such as TCP, can be viewed at two levels: the
+internal behaviour, in terms of packets on the wire, control blocks,
+congestion control, etc., and the external user's view, concerned
+with the end-to-end \emph{service} that the protocol provides to
+applications.  Both are usually described in informal prose RFCs,
+which are inevitably ambiguous.
+
+In previous work [SIGCOMM'05, POPL'06]
+% don't write the cites like that in the actual paper, only in the
+% web-form abstract!
+we developed a formal internal-view
+specification of TCP, in terms of individual TCP segments on the wire
+and Sockets API interactions. This was written in higher-order logic,
+mechanized using the HOL theorem prover, and validated against
+real-world network traces.
+
+In this paper we develop a companion external-view specification,
+essentially in terms of byte streams between socket endpoints.
+It models just the \emph{user-visible} behaviour at
+the Sockets API, abstracting from all non-observable details of the
+implementation of TCP.
+This makes it possible, for the first time, to precisely state what it
+means for TCP to be `correct'.
+%
+Further, we define a precise abstraction relation between the two models,
+and validate it (and the external-view specification itself) against
+representative real-world traces.
+%
+The external-view specification can also be used for (informal and formal)
+reasoning about applications above the Sockets API.
+
+We thereby show how
+
+
+-------------------
+
+Key properties of TCP, such as end-to-end
+correctness, are explicitly captured by the specification. The
+specification is intended as a foundation for formal and informal
+reasoning about applications written above TCP. At the same time, the
+specification is a statement of the service TCP and TCP-like protocols
+provide to the Sockets layer.
+
+
+
+------------------
+
+
+We present a formal specification of TCP in terms of reliable
+byte streams. The specification is written in higher-order logic,
+mechanized using the HOL theorem prover, and validated against
+real-world network traces.
+
+Implementors view TCP in terms of packets, control blocks, congestion
+control, retransmission and so on. In contrast, application
+programmers view TCP connections as reliable byte streams between
+Sockets endpoints. These different views of TCP are not in
+conflict. The packet-level implementation provides the service-level
+service.
+
+The packet-level is described in RFCs, and implemented in several
+networking stacks. However, RFCs are often vague and ambiguous, and
+implementations differ in substantial ways. To address these problems,
+in previous work we described a formal specification of TCP at the
+packet-level.
+
+In this work, we develop a specification of TCP in terms of reliable
+byte streams between Sockets endpoints. The specification is both
+accurate, modelling all interesting behaviour at the Sockets
+interface, and abstract, omitting all details of the packet-level
+implementation of TCP. Key properties of TCP, such as end-to-end
+correctness, are explicitly captured by the specification. The
+specification is intended as a foundation for formal and informal
+reasoning about applications written above TCP. At the same time, the
+specification is a statement of the service TCP and TCP-like protocols
+provide to the Sockets layer.
+
+
+%%
+%Both RFCs and implementations are concerned with low-level
+%implementation details, whilst high-level properties, such as
+%end-to-end correctness, are not adequately addressed.
+
+
+%Formal reasoning about distributed algorithms is hard. The algorithms
+%are usually implemented on top of a protocol stack, which is almost
+%never formally specified. Ideally each layer of the stack, upto and
+%including the algorithm, should be formally specified and
+%verified. However, even specifying these layers is a difficult
+%task. In this work, we develop a specification of TCP at the
+%service-level. The specification is both accurate, preserving all
+%interesting behaviour at the Sockets API interface, and abstract,
+%omitting all details of the packet-level implementation of TCP. Key
+%properties of TCP, such as end-to-end correctness, are explicitly
+%captured by the specification. The specification is intended as a
+%foundation for formal reasoning about algorithms written above TCP. At
+%the same time, the specification can be read as a statement of the
+%end-to-end correctness property of the packet-level implementation of TCP.
+
+
+Important Dates
+Paper Abstract/Title/Topic Registration: Jun 25, 2007,11:59PM PDT
+Full paper due Monday, July 2, 2007, 11:59PM PDT
+Notification of acceptance Monday, November 12, 2007
+Final version due Tuesday, January 15, 2008
+
+FIXME morsels for INFOCOM
+FIXME no record boundaries
+FIXME abstraction ignores messages on the wire
+
+FIXME sockets gives the language, but what is missing is the queue between, and properties
+
+
+\scalebox{0.95}{
+\begin{minipage}{\columnwidth}
+\showrule{\sendTIII}%
+\end{minipage}
+}
+
+
+\begin{scriptsize}
+\defnread
+\end{scriptsize}
+
+This time, the final output stream is unaffected, [[out' = out]].  The
+[[flgs]] processing is essentially the same as that for [[write]] and is
+elided for clarity. The data processing is complicated by
+[[peek]]. The initial [[in_.data]] is decomposed into the bytes that
+are read, [[data]], and the bytes that remain in the stream after a
+non-peeking read, [[post]]. The final [[in'.data]] is the same as
+[[in_.data]] for a peeking read, otherwise, [[data]] is removed from
+the front of the stream, leaving [[post]] remaining.
+
+
+\myheading{Benefits of our approach} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+Our approach to service-level validation is one of several
+alternatives. For example, the service-level could be validated
+directly against real-world traces, without reference to the
+protocol-level, or the abstraction function. However, our approach has
+several advantages.
+
+\begin{itemize}
+\item %
+Validation consists of determining a service-level trace, and checking
+that it is valid according to the specification. With alternative
+approaches, these two tasks are typically intertwined, as they are at
+the protocol-level. Our approach uses the abstraction function to
+provide the service-level trace ``for free''.
+
+\item %
+The ground service-level trace simplified the task of the
+checker. Unobserved values are already determined, as are unobserved
+transitions. Features of the protocol-level trace checker, such as
+backtracking and constraint solving, are not required at the
+service-level. The checker has only to validate each ground transition
+independently.
+
+\item %
+Regression testing was much faster for the service-level because the
+validation stages are independent. For example, once a valid ground
+protocol-level trace has been produced, it does not have to be
+reproduced. Similarly, mapping the abstraction function over the
+ground protocol-level trace produces a ground service-level trace, and
+provided the abstraction function does not changes, this also does not
+have to be reproduced. Finally, each service-level transition is
+independent, and once a transition has been checked, it does not have
+to be rechecked, unless the corresponding service-level rule changes.
+
+\item %
+The service-level trace checker indicates failing transitions
+precisely, because the service-level trace is already
+determined. Alternative approaches which combine trace determination
+and trace checking, as with the protocol-level, can only report that a
+trace failed to check, without indicating precisely which transitions
+are problematic.
+
+\end{itemize}
+
+
+Another measure of the complexity of the specifications is how long
+each took to produce. Of course, we had access to the protocol-level
+when writing the service-level. Nevertheless, the majority of the
+service-level was written in a four month period, by one person. The
+majority of the effort to produce the service-level specification lay
+in validation. Still, the total time required was approximately 2
+person years, which compares favourably with the 9 years devoted to
+the protocol-level specification.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Comparing protocol and service} \label{sect:comparison}
+
+%stream-spec: sockets and streams packet-level: sockets and packet
+%processing
+
+%the packet processing is the part of the spec that is very complicated. sockets are similar between specifications
+
+In this section, we compare the two specifications to assess to what
+extent the service-level abstracts from the detail of the protocol-level:
+the service-level is intended as a foundation for formal reasoning
+about algorithms written above the Sockets interface, so it is
+important that it is conceptually simple.
+
+FIXME In one respect, the service-level and protocol-level are
+incomparable, because the service-level explicitly captures the notion
+of byte stream, which is vital for reasoning about code which uses the
+Sockets interface to TCP.
+
+
+%
+However, to ensure the complex behaviour of the Sockets interface is captured
+at the service-level, the Sockets rules are essentially shared with
+the protocol-level. The abstraction and conceptual simplicity of the
+service-level is really evident in the non-Socket rules that deal
+with maintaining the end-to-end connection. These rules, which are the
+most complicated part of the protocol-level, are trivial at the
+service-level.
+
+%
+For example, a key rule is [[deliver_in_3]], which describes the
+passage of a segment from the host input queue to the relevant socket
+receive queue. Table \ref{table:diIII} shows the line counts for the
+definition of [[deliver_in_3]] and related auxiliary functions.
+
+\begin{table}[h]
+\begin{center}
+\begin{tabular}{|l|r|r|}
+\hline
+Definition		& Protocol-level	& service-level \\
+\hline
+di3\_topstuff		& 88	& 21 \\
+di3\_newackstuff	& 203	& 64 \\
+di3\_ackstuff		& 118	& 66 \\
+di3\_datastuffreally 	& 246 	& - \\
+di3\_datastuff		& 80	& 10 \\
+di3\_ststuff		& 179	& 161 \\
+di3\_socks\_update 	& 75	& 67 \\
+deliver\_in\_3		& 163	& 133 \\
+\hline
+Total 			& 1152	& 522 \\
+\hline
+\end{tabular}
+\end{center}
+\caption{deliver\_in\_3 and auxiliaries, line counts per definition} \label{table:diIII}
+\end{table}
+
+[[di3_ststuff]] deals with state transitions for the socket, and the
+code is almost identical between specifications.
+% this sentence no verb
+Similarly for [[di3_socks_update]].
+%
+Apart from these two rules, the definitions are significantly reduced,
+and the overall line count for the service-level specification is
+roughly half that of the protocol-level.
+
+
+
+\newpage
+\section{OLD CONCLUSION}
+
+
+
+
+----------------------------------------
+
+
+
+
+
+
+We emphasize that our general
+methodology is applicable to all network protocols, not just TCP, and
+at all stages of protocol development, not just post-hoc. For example,
+we successfully applied it to an optical networking protocol at design
+time \cite{BDJRS06}.
+
+\myheading{Proposals} A number of proposals issue from this work.
+
+\begin{itemize}
+\item %
+Writing specifications takes much less time than validating
+them. Research should be directed at reducing the validation effort.
+
+\item %
+Validation at the protocol-level and service-level is computationally
+expensive. On demand access to large compute resources would greatly
+reduce the time spent on validation. These resources should be made
+available to researchers.
+
+\item %
+The difficulty of validation arises from determining unobserved host
+state, and unobserved transitions. Protocol implementations should
+provide complete debugging information about protocol state and
+transitions, which would make validation significantly simpler.
+
+\item %
+A large part of the validation effort was expended setting up and
+configuring test networks, developing instrumentation, configuring
+hosts to have accurate timing information, and so on. Initial
+validation could employ virtualization for trace generation and to
+provide debugging information. This would avoid many problems which
+afflict real-world network trace capture.
+
+\item %
+Although a specification is often not executable, a specification
+where ground transitions are recursively (or better, primitive
+recursively) checkable is well suited to validation. Ideally there
+should be an easy way to derive a ground transition checker from the
+specification.
+
+\item %
+A general method to derive an implementation from a specification
+would allow rapid prototyping of protocols. Typically this would
+require constraints on the way the specification is written, without
+requiring the specification itself to be directly executable.
+
+\end{itemize}
+
+\myheading{Future work}
+%
+There are many possibilities for future work, some of which we touched
+on in the proposals.
+%
+One of the aims of the specification is to provide a foundation for
+formal reasoning about algorithms that use TCP and the Sockets API. We
+are interested in extending the work in this direction.
+%
+We also hope to apply our approach to more protocols, both at design time,
+and post-hoc. Protocols which are critical to the functioning of the
+Internet, such as DNS, are good targets.
+%
+We would like to work on reducing the validation effort in general,
+perhaps deriving a ground transition checker from a specification. We
+would also like to investigate deriving implementations from a
+specification, which would facilitate rapid prototyping.
+
+
+
+
+
+
+-------------------editing 2007-11-07
+For TCP, the protocol involves TCP segments on the wire, control blocks,
+congestion control, etc., whereas the service it provides,
+%
+via the Socket API \texttt{connect}, \texttt{listen}, etc.,
+%
+is most clearly
+expressed in terms of duplex byte streams.
+
+
+It captures just the end-to-end \emph{user-visible} behaviour at
+the Sockets API, abstracting from all non-observable details of the
+TCP protocol.
+
+
+
+Network protocols can be viewed at three levels. There is the
+high-level service they provide, the low-level protocol that
+implements the service, and the realisation of the protocol in
+endpoint implementation code. For TCP, for example, the protocol
+involves TCP segments on the wire, control blocks, congestion control,
+etc., whereas the service it provides is that of duplex byte
+streams.
+
+
+Most of our work to date has focussed on post hoc specification of
+TCP, as a ubiquitous and typical example that is worth detailed study
+for its own sake, but our main goal is to make such techniques
+available for new protocol design, to ease the task of building future
+high-quality infrastructure.
+
+
+This makes it possible, for the first time, to state precisely what
+functional properties TCP
+is supposed to achieve.
+We develop further verified testing methods,
+to relate it to both the implementation behaviour and  to the protocol
+level.
+%
+
+(and also to underspecify precisely, where that is appropriate)
+
+
+\myheading{Service-level specification} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+We give a formal specification of the service provided by TCP and the
+Sockets API.
+%
+%
+%
+It is written in higher-order logic,
+mechanized using the HOL theorem prover.
+%, and validated against
+%real-world traces.
+It is accurate, capturing all behaviour at the
+Sockets interface, and abstract, omitting protocol details that are
+unobservable at the service level, such as congestion control and
+retransmission.
+It is thus an \emph{end-to-end} specification, in a novel sense:
+it captures the intended end-to-end byte stream behaviour of a
+TCP connection
+from one endpoint Sockets API to another, including
+the details of opening and closing
+connections visible via \texttt{bind}, \texttt{listen},
+\texttt{connect}, etc.
+
+
+%
+The specification
+%can be used as a basis for formal and informal
+%reasoning about applications above the Sockets layer, and TCP and
+%TCP-like protocol implementations below the Sockets layer. It
+provides
+application programmers with a conceptually simple statement of the
+service provided by TCP and Sockets.
+It also serves a methodological role as an
+example of real-world rigorous  specification.
+%
+We say the protocol conforms to the service-level
+specification iff it has the same behaviour at the Sockets interface.
+
+
+\myheading{Relating protocol and service} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+We have formally stated the relationship, expressed as an abstraction
+function, between our previous protocol-level model of TCP and the
+service-level specification.  This abstraction function maps low-level
+host states (including TCP control blocks etc.) and a low-level
+network state (multisets of packets on the wire) to high-level host
+states and logical stream objects for each connection.  It thereby
+explains precisely how the protocol implements the service.  This in
+turn strengthens the statement of correctness for TCP, and provides
+extra assurance that the specification is accurate.
+
+
+
+%,
+%that is to say, if it delivers bytes in order. Thus, the service level
+%stands as a statement of correctness for the protocol level, and
+%% "statement of correctness" = "specification"???
+%implementations.
+
+
+\myheading{Validation} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+To ensure the service-level specification accurately captures the behaviour of implementations, we developed trace generation
+and capture infrastructure, and a purpose built symbolic model
+checker above HOL, which we used to validate real-world network traces against
+the specification.
+%
+The trace checker is extremely rigorous, automatically producing a machine checked
+proof of admissibility for each successfully validated trace.
+%
+% We first validated the traces against our previous protocol model
+% using our existing trace checker, then used the abstraction function
+% to lift the results to the service level, where we validated
+% against the service-level specification using the new trace checker.
+% %
+% Independent validation against both protocol model and service level
+% specification provides additional assurance, since the protocol model
+% has itself been extensively validated against real-world network
+% traces. In addition, the use of the abstraction function significantly strengthens
+% service-level validation.
+% %
+TCP is a complicated protocol, and exhaustive validation of the
+service level would require significant resources. We restrict
+ourselves to validating a small number (\nnn) of representative network traces, each exhibiting different
+end-to-end behaviour. All of these validate successfully, giving
+confidence that scaling
+up the process would be essentially routine.
+
+
+%Furthermore,
+%there are good reasons, quite separate from validation, to believe
+%that the specification is relatively free of errors, see
+%Sect. \ref{sect:validation}.
+
+%\end{itemize}
+
+A formal mathematical document, written using logic and mechanized in
+a theorem prover, is the most precise way to specify protocols
+currently known. The initial effort is more than would be the case with
+traditional approaches, but far from prohibitive: the specification
+and validation described here represents just over 2 person years of
+work.
+Moreover, our experience shows that doing similar work at design-time,
+rather than reverse-engineering precise specifications for existing protocols,
+requires substantially less effort \cite{BDJRS06}.
+ We believe the advantages, of increased clarity, and the possibility of deriving
+conformance checkers directly from the formal specification, far
+outweigh the extra effort involved.
+
+
+Our specification is written in higher-order logic using the HOL theorem prover \cite{Gordon93,hol}.
+%
+The main HOL syntax used is as follows.
+%
+Higher-order logic is expressive, clear, and
+completely precise.
+%
+Whilst it may be unfamiliar at first sight, our experience (both for
+TCP and optical networking~\cite{BDJRS06}) is that systems researchers
+can become fluent relatively quickly.
+
+
+%
+Each rule has a name, \eg
+       [[bind_5]], [[deliver_in_1]] \etc, and various attributes.
+       These rules form the main part of the specification.
+% in Volume 2,
+%       from \S\specSocketCalls{} onwards.
+
+
+
+For example, the service-level TCP control
+block contains 2 fields, compared to 44 for the protocol level.
+
+
+This can be seen by examining the model of the hosts in each
+specification. Hosts are represented as records, with input and output queue fields, routing tables,
+file and socket maps, and so on. The socket map maps socket ids to
+sockets, which are themselves records containing further fields. As
+the data becomes more specific to TCP, the specifications diverge.
+%
+For example, the protocol-level TCP control block contains many fields,
+including retransmit and keep alive timers; window sizes, sequence
+position and scaling information; timestamping and round trip
+times. These are not relevant to the service level, and so do not
+appear in the service-level TCP control block.
+%
+Below we show, for each specification, the
+number of fields for each record used in the model of the host. It is
+clear that the service-level model of the host state is considerably
+simpler than that at the protocol level.
+
+%\begin{table}[h]
+{\small
+\begin{center}
+\begin{tabular}{|l|r|r|}
+\hline
+%                & \multicolumn{2}{c}{fields} \\
+Host record type	&{Protocol-level}	&service-level \\
+\hline
+tcpReassSegment &4              & - \\
+rexmtmode       &3              & - \\
+rttinf          &8              & - \\
+tcpcb           &44             & 2 \\
+tcp\_socket      &8              & 3 \\
+socket          &9              & 9 \\
+host            &14             & 14 \\
+\hline
+Total		&90		& 28 \\
+\hline
+\end{tabular}
+% FIXME tcp\_socket currently 5 with sndq rcvq
+\end{center}}
+%\caption{Host record types, fields per record} \label{table:hostRecordTypes}
+%\end{table}
+
+
+%The key property of the abstraction function is that every valid trace
+%at the protocol-level maps to a valid trace at the service-level. Ideally
+%this property should be formally proved, but (we believe) this is
+%currently beyond the state of the art. An alternative is to validate
+%this property against real-world traces.
+
+
+
+For the protocol model we developed in previous work, one
+possible way to ensure that the
+
+How can we ensure that TCP implementations (written in C), our
+previous protocol-level model (in HOL), and our new service-level
+specification (also in HOL) describe the same system?
+%
+
+
+We instrumented a test network and wrote tests to drive hosts on the
+network to communicate with each other over TCP, recording the results
+as real-world traces.
+%
+We then ensured that the specification admitted those traces by
+running a special-purpose symbolic model checker in HOL, correcting
+the specification when we discovered errors.
+%
+Because it is based directly on the formal specification, the checker
+is extremely rigorous, producing a machine checked proof of
+admissibility for each successfully validated trace, though obviously
+no testing-based method can be complete.
+
+In this section we describe service-level validation, discuss its
+relation to previous protocol-level validation, and illustrate the key
+role played by the abstraction function.
+
+
+%
+\myheading{Real-world trace generation and capture} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+We wrote tests to exercise the end-to-end behaviour of TCP, generating
+real-world traces of network behaviour, generalising our previous
+single-ended test infrastructure.
+
+%. Traces consist of information
+%that is observable on our instrumented test network, typically calls
+%and returns at the Sockets interface, messages sent and received on
+%the wire, and occasionally information about internal host state that
+%is revealed by BSD kernel debug records. See Fig. \ref{fig:exampleTrace} for an excerpt.
+%
+%%\begin{figure}
+%%\input{trace0963.tex}
+%%\caption{Example trace} \label{fig:exampleTrace}
+%%\end{figure}
+%%
+%Trace generation and trace capture required significant
+%infrastructure. Previous protocol-level validation focused on
+%exhaustively exercising the Sockets interface on a \emph{single host},
+%and few of the tests explored the end-to-end behaviour of TCP. To
+%improve trace coverage, we wrote additional tests, focusing on
+%end-to-end transmission of data over a TCP connection.
+%%For example, a
+%%typical trace description reads: %
+%%% trace0963
+%%``establish a connection; send a
+%%string on the test host; receive the string on the auxiliary host;
+%%send a string on the auxiliary host; receive the string on the test
+%%host''.
+%We then enhanced the trace capture infrastructure, in order
+%to record the behaviour of the
+%\emph{network}, rather than just an individual host.
+
+%FIXME could prove that the Sockets API calls (at least) respect the abstraction
+
+
+Fully ground protocol traces include full information about what
+happened during the trace, which is extremely useful for service-level
+validation. For this reason, we rewrote our previous protocol-level
+trace checker to output a fully ground network trace on successful validation.
+
+%The checking task is extremely compute intensive, and in order to make
+%it feasible, the work was distributed across a large number of
+%machines. Still, the process of trace generation and validation takes
+%several weeks, and regression testing is a lengthy process.
+
+%The checker is itself above HOL, and so its results are guaranteed
+%correct (modulo only the possibility of errors in the small HOL
+%kernel): checking each trace essentially involves an
+%automatically-generated and machine-checked proof that the trace is
+%accepted by the specification.
+%%
+
+
+
+\myheading{Service-level validation} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+For each real-world trace, service-level validation involves finding a
+corresponding service-level trace that is admitted by the service-level
+specification. In this, it exactly mirrors protocol-level
+validation. However, the task is hugely simplified because of the
+existence of the ground protocol-level network trace.
+
+%
+%Although the protocol-level checker is used to produce ground
+%service-level traces, and these then provide information about which
+%rule to use at the service level, the service-level checker itself is
+%independent of the protocol level.
+
+%Validating a service-level trace produced by applying the abstraction
+%function to a packet-level trace gives greater assurance than
+%validating the real-world trace directly, since we restrict the number
+%of service-level traces that we consider to a single trace in the image
+%of the abstraction function.
+
+%The key property of the abstraction function is that it maps valid
+%packet-level traces to valid service-level traces. As noted previously,
+%we have not proved this property, but instead we have validated it by
+%testing. service-level validation is also validation of the abstraction
+%function: if a trace failed to validate, the error was either in the
+%service-level specification, or in the abstraction function.
+
+
+In fact, traces are first
+validated against the protocol model. This was for two reasons.
+%
+First, as we shall see, valid protocol-level traces provide important information to the
+service-level trace checker.
+%
+Second, protocol-level validation speeds debugging, by ensuring that
+failures of service-level validation are due to errors in the
+service-level specification, or in the abstraction function, and not in
+the protocol model.
+
+
+
+%
+%The service-level trace
+%has the same observable behaviour as the protocol-level trace, which in
+%turn has the same behaviour as the real-world trace. The key property
+%of the abstraction function implies that the service-level trace is
+%valid according to the specification. This property has not been
+%proved, so
+%
+
+As at the protocol level, we wrote a special-purpose service-level
+checker in HOL which performs symbolic evaluation of the specification
+with respect to ground service-level traces. The checking process is
+much simpler than that at the protocol level because all host values,
+and all transitions, are already known. All that remains is to check
+each ground service-level transition against the specification.
+
+
+% new MN stuff (following may not be appropriate for INFOCOM audience)
+The most significant difference between the old and new checkers is
+that the former had to perform a depth-first search to even determine
+which rule of the protocol model was appropriate.  Because
+that work has already been done, and because the two specifications
+have been constructed so that their individual rules correspond, the
+service-level checker does not need to do this search.  Instead, it can
+simply check the service-level version of the rule that was checked at
+the protocol level.  In particular, this means that the service-level
+checker need not attempt to infer the existence of unobservable
+$\tau$-transitions.
+
+
+If a trace has passed protocol-level validation, then a failure to
+validate at the service level can only be because of errors in the
+service-level specification, or in the abstraction function.
+
+
+In previous work \cite{TCP:paper,TCP:POPLpaper}, we described a
+low-level protocol model of TCP comprising roughly 30\,000 lines FIXME reason is complexity of
+higher-order logic (with comments). We tied the model to the
+implementations by verified testing FIXME major part of approach. In this paper, we discuss a
+companion specification of the high-level service TCP provides.
+%
+
+For example, at the protocol level, if host boolean flag
+$b_1$ is set, the model may allow one transition $t_\top$, and if
+unset, another $t_\bot$. If we omit the boolean in the service
+specification, then we have to allow both transitions to occur.
+
+
+However, we may know an
+invariant, for example, that another boolean $b_2$, present also at
+the service level, implies $b_1$. If $b_2$ is set, the service
+specification can be more precise by only allowing transition
+$t_\top$. Of course, in reality the invariants are considerably more
+complex. Moreover, they are not recorded with the protocol model (or
+the C implementation code), and must be constructed by hand. Thus, the
+process of writing the service specification is complicated, and
+involves using considerable knowledge of the protocol invariants to
+abstract and simplify the protocol transitions as accurately as
+possible, preserving behaviour at the Sockets API.
+
+In reality, TCP is much more
+complex than a simple sliding window protocol, as evidenced by the
+size of typical implementations, and our previous protocol model.
+
+Having decided on which parts of the protocol state we retain at the service level, and the general form of the specification, writing the specification
+could be done almost mechanically, by existentially quantiying the
+fields that are missing at the service level, for each service-level
+transition.
+
+
+\section{FOO}
+
+
+memo: all this in hol - symbolic eval, grounding, mapping abs fn, etc
+
+---
+
+The complexity of protocol-level validation is mainly due to the
+depth-first search and backtracking, and the constraint handling, both
+of which are necessary because real-world observed traces do not
+record complete information about the state of the hosts, or the
+transitions that occur. The purpose of the search and constraint
+handling is to determine this missing information and so determine
+which transitions occurred. In essence, the test oracle receives a
+symbolic trace, with uninstantiated variables representing the unknown
+information, and after possibly inserting some unobservable
+transitions, produces a ground trace, valid according to the protocol
+model. We rewrote our previous protocol-level oracle extensively, in
+order to produce these ground traces.
+
+For a given trace, protocol-level validation fully determines which
+transitions occurred. We map the resulting fully ground trace, using
+the abstraction function, into a fully ground service-level trace.
+%
+It is then necessary to check validity of this trace, which requires a
+service-level test oracle. Crucially the process can be a lot simpler
+because each transition can be checked in isolation, rather than
+resorting to depth-first search and backtracking.
+%
+In this way, protocol-level validation, and the abstraction function,
+are used to simplify the task of service-level validation.
+
+
+
+
+
+----------------------------
+
+FIXME Ideally one would prove formally that, given the invariants, the
+protocol-level and service-level correspond. The problem here is to
+identify the invariants themselves, and to prove that they are
+preserved by the model. Again, the problem is one of
+feasibility. However, we believe it would be feasible to prove this
+for the relatively simple Sockets rules. One advantage would be that
+validation would no longer have to check service-level Socket rule
+transitions.
+
+
+
+%FIXME MN write something here?
+%FIXME strengthened correctness statement
+
+The HOL specifications described in the previous sections are intended
+to accurately capture the behaviour of a real-world system. Arguing
+that a small specification corresponds to a simple real-world system
+can be extremely challenging. Here, we are faced with very large
+specifications and a very complex real-world system. We have developed
+rigorous techniques for validating formal specifications against
+real-world systems, and in this section we describe how we applied
+these techniques to validate the service specification, and the role
+played by the abstraction function.
+
+The correspondence between the service specification and the
+real-world implementations relies on that between the protocol model
+and the real-world implementations, which we briefly review here.
+%
+Ideally one would prove formally that the implementations and the
+protocol model corresponded, using a formal C semantics to model the
+implementation code. This would involve further demonstrating that the
+C semantics corresponds to the behaviour of the real-world C programs.
+%
+Moreover, proving the relationship between the levels in this way
+would be a very challenging task. One of the main barriers is the
+scale of TCP implementations, including legacy behavioural intricacies
+of TCP and Sockets, which were not designed with verification in mind.
+%
+An alternative, which we adopted to validate the protocol model, is to
+establish confidence by testing the model against the real-world
+system. This involves generating real-world traces of system
+behaviour, and using a test oracle to check that the traces are valid
+according to the model.
+%
+The test oracle is a special-purpose checker that performs symbolic
+evaluation of the protocol model with respect to the real-world
+traces.
+%
+This approach is pragmatic, cost-effective, and scales to large
+systems. Moreover, the formal model is directly used as the basis of
+the test oracle, which is constructed inside the HOL theorem prover
+itself. This gives formal guarantees about the results of validation,
+as we describe later. FIXME
+
+Validation is an iterative process, with failures indicating problems
+in the protocol model, which are corrected before validation is
+retried. Ideally each iteration should take a short time, to
+facilitate regression testing when changes are made to the model.
+%
+Unfortunately, validation is a computationally intensive task,
+the complexity arising from lack of information about the state of the
+real-world observed hosts, lack of information about which transitions
+occurred, and non-determinism in the specification. Not all the
+information in the hosts can be observed when generating traces, and
+not all host transitions are observable. Moreover, the specification
+is highly non-deterministic, often with many transitions potentially
+applicable to a given host.
+%
+The test oracle attempts to determine which protocol transitions
+occurred during a trace (handled by depth first search and
+backtracking), and to find values for under-constrained host fields
+(handled by maintaining a set of constraints which are progressively
+simplified), and a typical validation run can take several weeks. Even
+so, the protocol model was extensively validated, see
+Sect. \ref{sect:packet}.
+
+Service-level validation resembles protocol-level validation, in that
+real-world implementations are used to generate traces which are then
+checked against the formal specification. We do not expect traces that
+fail protocol-level validation to pass service-level validation, so
+for this reason we only consider traces which have already been
+validated at the protocol level.
+%
+If a trace successfully passes protocol-level validation, it should
+pass service-level validation. Failure to validate means that there is
+an error in the service-level specification, or in the abstraction
+function. Given that the service specification should admit all
+behaviour observed at the protocol-level, these are the only
+possibilities. In particular, we do not look to find ``errors in TCP''
+itself, which would typically show up during protocol-level validation
+(our previous work identified various anomalies that would normally be
+considered bugs).
+
+
+The service-level test oracle could be developed independently of that
+at the protocol level, and service-level validation would then be a
+computationally intensive task, similar to that at the protocol level.
+%
+The key observation is that \emph{protocol-level validation, together with
+the abstraction function, can be used to significantly simplify
+service-level validation}.
+
+The complexity of protocol-level validation is mainly due to the
+depth-first search and backtracking, and the constraint handling, both
+of which are necessary because real-world observed traces do not
+record complete information about the state of the hosts, or the
+transitions that occur. The purpose of the search and constraint
+handling is to determine this missing information and so determine
+which transitions occurred. In essence, the test oracle receives a
+symbolic trace, with uninstantiated variables representing the unknown
+information, and after possibly inserting some unobservable
+transitions, produces a ground trace, valid according to the protocol
+model. We rewrote our previous protocol-level oracle extensively, in
+order to produce these ground traces.
+
+For a given trace, protocol-level validation fully determines which
+transitions occurred. We map the resulting fully ground trace, using
+the abstraction function, into a fully ground service-level trace.
+%
+It is then necessary to check validity of this trace, which requires a
+service-level test oracle. Crucially the process can be a lot simpler
+because each transition can be checked in isolation, rather than
+resorting to depth-first search and backtracking.
+%
+In this way, protocol-level validation, and the abstraction function,
+are used to simplify the task of service-level validation.
+
+%\begin{center}
+%% define a table indexed by row-column coords, starting at 1,1 in top left
+%\begin{psmatrix}[colsep=1mm,rowsep=1cm]
+%& ground service-level trace\\
+%real-world observed trace \\
+%& valid ground protocol-level trace
+%\end{psmatrix}
+%\psset{linewidth=.1mm,nodesep=2mm}
+%   %nodesep is gap between end of line and thing being connected to
+%   %(the "node")
+%\ncline{2,1}{1,2}
+%\ncline{2,1}{3,2}
+%\ncline{->}{3,2}{1,2}
+%\nbput{\parbox{2cm}{abstraction function}}
+%\end{center}
+
+Another significant difference between the two checkers is that the
+service-level checker can aggressively search for instantiations of
+existentially quantified variables that arise when a rule's hypothesis
+has to be discharged.  At the protocol level, such variables may appear
+quite unconstrained at first appearance, but then become progressively
+more constrained as further steps of the trace are processed.
+
+For example, a simplified rule for the \texttt{socket} call might
+appear as
+% readers haven't seen inference rule style presentation of a rule before
+\[
+\infer{<[h0]> \inp{<[Lh_call (tid,socket()) ]>}
+  <[h0 <| socks := socks |+ (]>\tsvar{sid}<[,fd)|>]>}{
+  <[fd]>\not\in\textsf{usedfds}(<[h0]>)}
+\]
+stating that when a \texttt{socket} call is made, the host $h_0$'s
+\texttt{socks} map is updated to associate the new socket (identified
+by $\mathit{sid}$) with file-descriptor $\mathit{fd}$, subject only
+to the constraint that the new descriptor not already be in use.
+(This under-specification is correct on Windows; on Unices, the
+file-descriptor is typically the next available natural number.)
+
+In the protocol-level checker, the [[fd]] variable must be left
+uninstantiated until its value can be deduced from subsequent steps in
+the trace.  In the service-level checker, both the initial host and the
+final host are available because they are the product of the
+abstraction function applied to the previously generated, and ground,
+protocol trace.  In a situation such as this, the variable from
+the hypothesis is present in the conclusion, and can be immediately
+instantiated.
+
+In other rules of the service-level specification, there can be a great
+many variables that occur only in the hypothesis.  These are
+existentially quantified, and the checker must determine if there is
+an instantiation for them that makes the hypothesis true.  The most
+effective way of performing this check is to simplify, apply decision
+procedures for arithmetic, and to then repeatedly case-split on
+boolean variables, and the guards of \textsf{if-then-else} expressions
+to search for possible instantiations.

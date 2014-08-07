@@ -1,0 +1,10 @@
+.depend
+*.cm*
+*.o
+mkdiag
+*.tex
+*.ps
+*.log
+*.aux
+*.toc
+*.dvi

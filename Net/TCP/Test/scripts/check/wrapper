@@ -1,0 +1,37 @@
+#!/bin/sh
+#
+# wrapper for running HOL stuff
+#
+
+function usage () {
+    echo "Usage: $0 [-b LIBPATH] [-l MEMLIMIT_kilobytes] [-p PRIORITY] [-i INUSESCRIPT]"
+    exit 255
+}
+
+LIBPATH=''
+INUSEARGS=''
+while getopts 'b:l:p:i:' OPT; do
+    case $OPT in
+        b) LIBPATH="$OPTARG"
+           echo "Set LIBPATH=\"$LIBPATH\"."
+           ;;
+        l) ulimit -v "$OPTARG"
+           echo "Set VM limit to $OPTARG kilobytes."
+           ;;
+        p) renice "$OPTARG" -p $$
+           echo "Set nice priority to $OPTARG."
+           ;;
+        i) INUSEARGS="-i $OPTARG"
+           echo "Using inuse tester $OPTARG."
+           ;;
+        '?') usage
+           ;;
+    esac
+done
+shift `echo $OPTIND-1|bc`
+
+LD_LIBRARY_PATH="/usr/groups/netsem/mosml-2.0.0/lib:$LIBPATH"
+export LD_LIBRARY_PATH
+
+# hand over to Perl to do the clever stuff:
+exec `dirname $0`/wrapper.pl $INUSEARGS "$@"

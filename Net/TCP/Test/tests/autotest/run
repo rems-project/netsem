@@ -1,0 +1,154 @@
+#! /bin/bash
+
+# ----------------------------------------------------------------------
+# DIRPATH - directory where traces are to be deposited
+# FILENAME - name of trace directory for the test run
+# ----------------------------------------------------------------------
+DIRPATH=/usr/groups/tthee/batch
+DIAG_SCRIPT=/usr/groups/tthee/local/Net/TCP/Test/scripts/build-diags
+PRETTY_SCRIPT=/usr/groups/tthee/local/Net/TCP/Test/scripts/check/prettytrace
+NET_PRETTY_SCRIPT=/usr/groups/tthee/local/Net/TCP/Test/scripts/check/prettynet
+CONFLATE_SCRIPT=/usr/groups/tthee/local/Net/TCP/Test/scripts/conflate-dir
+
+NETPREFIX="network-"
+
+if [[ $1 = "TCP_NORMAL" || $1 = "TCP_EXHAUSTIVE" ]]; then
+  PRE="tcp-"
+elif [[ $1 = "UDP_NORMAL" || $1 = "UDP_EXHAUSTIVE" ]]; then
+  PRE="udp-"
+elif [[ $1 = "STREAM_NORMAL" || $1 = "STREAM_EXHAUSTIVE" ]]; then
+  PRE=$NETPREFIX
+else
+  PRE="both-"
+fi
+
+FILENAME="autotest-$PRE`date -Iseconds`"
+
+set -e
+
+# Define the temporary and real trace directory names
+TEMPNAME=$DIRPATH/GENERATING-$FILENAME
+REALNAME=$DIRPATH/$FILENAME
+STATUS=$DIRPATH/status
+
+# Create the temporary directory with the required permissions
+# All new traces are deposited here. If the test run is successful
+# this is renamed to $REALNAME otherwise it is left alon.
+umask 0002
+mkdir $TEMPNAME
+chgrp netsem $TEMPNAME
+chmod 2775 $TEMPNAME
+
+echo "Started new test run at `date -Iseconds`" > $STATUS
+echo "  Traces are currently being written to:" >> $STATUS
+echo "    $TEMPNAME" >> $STATUS
+echo "  A log of the testing progress can be found at: " >> $STATUS
+echo "    $TEMPNAME/log" >> $STATUS
+
+echo "Flushing and locking route metric cache entries on BSD..."
+#ssh root@john.netsem "route change -net 192.168.0 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0" >/dev/null
+#ssh root@john.netsem "route change -host 192.168.0.99 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0" >/dev/null
+#ssh root@john.netsem "if (route get 192.168.0.12 | grep CLONING) then echo no delete; else route delete -host 192.168.0.12; fi" > /dev/null
+#ssh root@john.netsem "route add -host 192.168.0.12 default -iface -llinfo -nostatic -ifp lo0 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0 -lock -mtu 16384" > /dev/null
+#ssh root@john.netsem "route change -net 192.168.1 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0" >/dev/null
+#ssh root@emil.netsem "route change -net 192.168.0 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0" >/dev/null
+#ssh root@emil.netsem "route change -host 192.168.0.99 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0" >/dev/null
+#ssh root@emil.netsem "if (route get 192.168.1.13 | grep CLONING) then echo no delete; else route delete -host 192.168.1.13; fi" > /dev/null
+#ssh root@emil.netsem "route add -host 192.168.1.13 default -iface -llinfo -nostatic -ifp lo0 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0 -lock -mtu 16384" > /dev/null
+#ssh root@emil.netsem "route change -net 192.168.1 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0" >/dev/null
+
+ssh root@dag.netsem2 "route change -net 192.168.13 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0" >/dev/null
+ssh root@dag.netsem2 "route change -host 192.168.13.199 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0" >/dev/null
+ssh root@dag.netsem2 "if (route get 192.168.13.105 | grep CLONING) then echo no delete; else route delete -host 192.168.13.105; fi" > /dev/null
+ssh root@dag.netsem2 "route add -host 192.168.13.105 default -iface -llinfo -nostatic -ifp lo0 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0 -lock -mtu 16384" > /dev/null
+ssh root@dag.netsem2 "route change -net 192.168.13 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0" >/dev/null
+
+ssh root@tom.netsem2 "route change -net 192.168.13 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0" >/dev/null
+ssh root@tom.netsem2 "route change -host 192.168.13.199 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0" >/dev/null
+ssh root@tom.netsem2 "if (route get 192.168.13.106 | grep CLONING) then echo no delete; else route delete -host 192.168.13.106; fi" > /dev/null
+ssh root@tom.netsem2 "route add -host 192.168.13.106 default -iface -llinfo -nostatic -ifp lo0 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0 -lock -mtu 16384" > /dev/null
+ssh root@tom.netsem2 "route change -net 192.168.13 -lock -rtt 0 -lock -rttvar 0 -lock -ssthresh 0" >/dev/null
+
+function ntp_update {
+    if [[ $1 = "DISABLE" ]]; then
+	echo  "Disabling ntp updates..."
+	ssh john.netsem "echo -n glia:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'unconfig astrocyte' glia"
+	ssh john.netsem "echo -n john:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'unconfig astrocyte' john"
+	ssh john.netsem "echo -n emil:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'unconfig astrocyte' emil"
+	ssh john.netsem "echo -n alan:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'unconfig astrocyte' alan"
+	ssh john.netsem "echo -n kurt:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'unconfig astrocyte' kurt"
+    else
+	echo  "Re-enabling ntp updates..."
+	ssh john.netsem "echo -n glia:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'addserver astrocyte' glia"
+	ssh john.netsem "echo -n john:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'addserver astrocyte' john"
+	ssh john.netsem "echo -n emil:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'addserver astrocyte' emil"
+	ssh john.netsem "echo -n alan:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'addserver astrocyte' alan"
+	ssh john.netsem "echo -n kurt:  && ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'addserver astrocyte' kurt"
+    fi
+}
+
+#ntp_update DISABLE
+#ntp_update ENABLE
+
+function success {
+    echo "" >> $STATUS
+    echo "Test generation was successful." >> $STATUS
+
+    mv $TEMPNAME $REALNAME
+    ln -sf $REALNAME current
+    echo "  The trace output directory has been renamed to: " >> $STATUS
+    echo "    $REALNAME" >> $STATUS
+    echo "  $DIRPATH/current links to the generated traces" >> $STATUS
+    tidy_up_1
+    tidy_up_2
+    echo "  The traces have been compressed into the archive: " >> $STATUS
+    echo "    $REALNAME.tar.bz2" >> $STATUS
+    echo "Finished!" >> $STATUS
+}
+
+function fail {
+    mv $TEMPNAME $DIRPATH/$1-$FILENAME
+    REALNAME=$DIRPATH/$1-$FILENAME
+    echo "" >> $STATUS
+    echo "Test generation $1." >> $STATUS
+    echo "The traces will remain in the directory: " >> $STATUS
+    echo "  $DIRPATH/$1-$FILENAME" >> $STATUS
+    echo "See the log file in this directory for more details" >> $STATUS
+    tidy_up_1
+}
+
+function tidy_up_1 {
+ #   ntp_update ENABLE
+ #   $DIAG_SCRIPT $REALNAME
+
+    cd $REALNAME
+    if [[ $PRE = $NETPREFIX ]]; then
+      $CONFLATE_SCRIPT
+      $NET_PRETTY_SCRIPT
+    else
+      $PRETTY_SCRIPT
+      $DIAG_SCRIPT
+    fi
+    cd -
+}
+
+function tidy_up_2 {
+    tar jc --directory $DIRPATH -f $REALNAME.tar.bz2 --force-local $FILENAME
+    chgrp netsem $REALNAME.tar.bz2
+    chmod 664 $REALNAME.tar.bz2
+}
+
+function handle_signal {
+    fail "KILLED"
+    exit 1
+}
+
+trap handle_signal SIGINT SIGTERM SIGKILL
+
+if ./autotest $1 $TEMPNAME/trace $TEMPNAME/log $2 $3 ; then
+   success
+else
+   fail "FAILED"
+fi
+
+# END OF SCRIPT

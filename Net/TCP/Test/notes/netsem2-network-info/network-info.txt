@@ -1,0 +1,53 @@
+Administrative info for the new test network, just in case I get hit by a bus:
+------------------------------------------------------------------------------
+
+The new test network has been set up by the network admins. This is a VLAN
+running on the lab's switching system; apparently the VLAN tag, whatever that
+is, is 490.
+
+We have been asked to use the 192.168.13.0/24 subnet and the physical ports
+WC1C-04-3, WC1C-04-4 (both under the far table in FE17) and WC1E-40-4 (under
+Adam's desk in FS20).
+
+Originally connected to these ports were:
+
+WC1C-04-3: a five-port switch, connected to which are:
+  alf.netsem2 (FreeBSD), 192.168.13.101
+  ken.netsem2 (FreeBSD), 192.168.13.102
+  what will become jan.netsem2 (Linux), 192.168.13.103
+  what will become ada.netsem2 (Linux), 192.168.13.104
+WC1C-04-4: nothing, but there will be another switch connecting to:
+  what will become dag.netsem2 (WinXP), 192.168.13.105
+  what will become tom.netsem2 (WinXP), 192.168.13.106
+WC1E-40-4: directly connected to:
+  fornix.netsem2 (lab machine), 192.168.13.200
+
+The topology of the network is subject to change, since we might conceivably
+want two hosts to have to communicate via a third, in order to fabricate
+artificial network loss.
+
+AS OF JUNE 2006,
+
+Nothing is connected to W1C1-04-4. W1C1-04-3 is connected to an eight-port
+non-switched hub, which is connected to:
+  alf.netsem2 (FreeBSD 5.4), 192.168.13.101
+  ken.netsem2 (FreeBSD 6.0), 192.168.13.102
+  jan.netsem2 (Debian Linux), 192.168.13.103
+  ada.netsem2 (Debian Linux), 192.168.13.104
+  dag.netsem2 (FreeBSD 4.6), 192.168.13.105
+  tom.netsem2 (FreeBSD 4.6), 192.168.13.106
+
+fornix is still connected to the network via WC1E-40-4. zonule is now also
+directly connected to the network via one of the ports under Tom's desk.
+
+The machines in FE17 are labelled with stickers, but they keep falling off in
+the heat, so for easy future physical identification of the machines, they are
+positioned thus:
+
+[ada]  [tom]
+[jan]  [dag]
+[ken]
+[alf]
+
+alf, ken, jan and ada are under the table with the printers on, and the hub
+and KVM are on top of them. The monitor is on top of dag and tom.

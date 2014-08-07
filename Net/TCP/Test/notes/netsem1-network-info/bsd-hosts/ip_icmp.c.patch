@@ -1,0 +1,20 @@
+*** ip_icmp.c	Tue Feb  4 10:56:23 2003
+--- ip_icmp.c	Tue Feb  4 12:47:24 2003
+***************
+*** 776,781 ****
+--- 776,790 ----
+  	return (htonl(t));
+  }
+
++
++ void
++ iptime_usec(atv)
++ 	struct timeval *atv;
++ {
++ 	getmicrotime(atv);
++ }
++
++
+  #if 1
+  /*
+   * Return the next larger or smaller MTU plateau (table from RFC 1191)

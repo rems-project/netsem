@@ -1,0 +1,4 @@
+tlogger
+logger
+*.o*
+*.exe

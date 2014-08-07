@@ -1,0 +1,26 @@
+Once a new machine is set up on the network with the necessary software and
+configuration, stuff that needs to be done to use it in trace generation:
+
+Run 'Net/TCP/Test/scripts/distribute -f machine-name'. Note the method by which distribute works out which build script to run: there's a hard-coded list of
+machines which use bsd-script, everything else uses linux-script. Accordingly,
+if it's a new bsd machine, you need to edit distribute before running it.
+
+If bash is not installed as /bin/bash, distribute will fail with the cryptic
+"scripts/bsd-script: Command not found". Other reasons for failure include:
+the default make is not GNU Make, makedepend is not installed, bits of OCaml
+are missing, and probably others.
+
+Now you have to endure the extremely painful and tedious process of updating
+testscommon.ml. Most of this can be done by cutting and pasting the relevant
+bits from the details already in there for other machines. If you want to be
+sure, the meanings of the contents of testscommon should be apparent from
+examining the spec itself.
+
+Remember that the Test build tree dependencies are broken (recursive make
+considered harmful, etc.) and so if you change testscommon you will need to
+force a rebuild of the whole thing, otherwise the changes will not be picked
+up when you rebuild autotest.
+
+Now you want to hack autotest, adding a new foo_host_info block and then
+probably changing all_test_hosts, all_test_platform_pairs etc. to incorporate
+the new machine(s).

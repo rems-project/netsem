@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# Usage: ./build-diags [directory-name]
+#    or: ./build-diags [file-name] ...
+# Either run build-diags in the directory of traces or specify the directory
+# on the command-line;
+# if first argument is a filename (not a directory name), then process
+# the files on the command line only.
+# Ps files are output in $REALOUTPUTDIR/... tree and linked to from real trace
+# directory
+
+MKDIAGDIR=`dirname $0`/../utils/diags
+REALOUTPUTDIR=/usr/groups/tthee-scratch/batch
+
+umask 0002
+set -e
+
+DEST=`pwd`
+
+if [[ $1 != "" ]]; then
+    if [[ -d $1 ]]; then
+        cd $1
+        TRACES="$DEST/trace????"
+    else
+        cd `dirname $1`
+        TRACES="$@"
+    fi
+else
+    TRACES="$DEST/trace????"
+fi
+
+REALOUTPUTDIR=$REALOUTPUTDIR/`basename $DEST`
+mkdir -p $REALOUTPUTDIR
+
+for f in $TRACES; do
+  if [ -e $f.aux ]; then
+      mv $f.aux $f.auxillary
+  fi
+
+  filename=`basename $f.ps.gz`
+
+  $MKDIAGDIR/mkdiag -o $f.tex -preamble $MKDIAGDIR/templates/std_preamble.tex -postamble $MKDIAGDIR/templates/std_postamble.tex -left-margin-offset 120 -right-margin-offset 400 -trace-sndseq -trace-rcvseq -trace-sndwnd -trace-rcvwnd -trace-maxseg -trace-dupacks -trace-time -trace-scaling -trace-misc -dgram-addr -dgram-win -dgram-ws -dgram-urp -dgram-mss -dgram-ts -dgram-datalen -time-offsets $f &&\
+  latex --interaction nonstopmode $f.tex &&\
+  dvips $f.dvi &&\
+  gzip -f $f.ps &&\
+  rm $f.{dvi,aux,log,tex} &&\
+  mv $f.ps.gz $REALOUTPUTDIR/$filename &&\
+  ln -sf $REALOUTPUTDIR/$filename $f.ps.gz \
+      || echo "**** WARNING: $f FAILED - continuing anyway ****"
+
+  if [ -e $f.auxillary ]; then
+      mv $f.auxillary $f.aux
+  fi
+done

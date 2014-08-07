@@ -1,0 +1,15 @@
+
+CFLAGS= /W3 /O2 /D "WIN32" /D "DEBUG"
+CLIBS= /MT ws2_32.lib
+
+all: custom_rsh.exe
+
+custom_rsh.exe:
+	$(CC) $(CFLAGS) /Fe$@ custom_rsh.c $(CLIBS)
+
+clean:
+	del /q /f *.obj custom_rsh.exe
+
+realclean: clean
+
+depend:

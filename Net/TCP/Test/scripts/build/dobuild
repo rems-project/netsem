@@ -1,0 +1,6 @@
+#!/bin/sh
+
+. `dirname $0`/waprc
+
+umask 007
+exec $HOLDIR/bin/build -symlink -expk

@@ -1,0 +1,52 @@
+#!/usr/bin/gnuplot
+
+set terminal postscript landscape monochrome
+set key below
+set title "Log runtime against maximum step reached"
+set ylabel "log(runtime)"
+set xlabel "Maximum step reached"
+set nokey
+set output "runtime1.ps"
+plot 'simple-all.dat' using 5:(log($4)>0 ? log($4) : 1/0) with points pt 7 pointsize 0.3, \
+     'simple-succ.dat' using 5:(log($4)>0 ? log($4) : 1/0) with points pt 2 pointsize 0.5
+
+set terminal postscript landscape monochrome
+set key below
+set title "Log runtime against number of transitions attempted"
+set ylabel "log(runtime)"
+set xlabel "Number of transitions attempted"
+set nokey
+set output "runtime2.ps"
+plot 'simple-all.dat' using 6:(log($4)>0 ? log($4) : 1/0) with points pt 7 pointsize 0.3, \
+     'simple-succ.dat' using 6:(log($4)>0 ? log($4) : 1/0) with points pt 2 pointsize 0.5
+
+set terminal postscript landscape monochrome
+set key below
+set title "Runtime against maximum step reached"
+set ylabel "Runtime"
+set xlabel "Maximum step reached"
+set nokey
+set output "runtime1-lin.ps"
+plot 'simple-all.dat' using 5:4 with points pt 7 pointsize 0.3, \
+     'simple-succ.dat' using 5:4 with points pt 2 pointsize 0.5
+
+set terminal postscript landscape monochrome
+set key below
+set title "Runtime against number of transitions attempted"
+set ylabel "Runtime"
+set xlabel "Number of transitions attempted"
+set nokey
+set output "runtime2-lin.ps"
+plot 'simple-all.dat' using 6:4 with points pt 7 pointsize 0.3, \
+     'simple-succ.dat' using 6:4 with points pt 2 pointsize 0.5
+
+set terminal postscript landscape monochrome
+set key below
+set title "Number of transitions attempted against maximum step reached"
+set ylabel "Number of transitions attempted"
+set xlabel "Maximum step reached"
+set nokey
+set output "runtime3.ps"
+plot 'simple-all.dat' using 5:6 with points pt 7 pointsize 0.3, \
+     'simple-succ.dat' using 5:6 with points pt 2 pointsize 0.5
+

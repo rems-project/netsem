@@ -1,0 +1,169 @@
+This directory (/usr/groups/tthee/local/) contains the binaries etc
+used for the distributed trace checking exercise.
+
+Please do not modify without checking with Keith Wansbrough, Peter
+Sewell, or Steve Bishop.
+
+
+======================================================================
+
+DIRECTORIES
+~~~~~~~~~~~
+
+hol98-src/ contains the source of the latest version of HOL98, checked
+out from SourceForge at http://hol.sourceforge.net/.
+
+hol98-local/ contains any local changes to the hol98 sources - any
+files in this tree will override any in the hol98-src tree.  At
+present, this tree is empty.
+
+hol98/ contains the build of the latest version of HOL98.  This build
+tree contains symlinks to every file in hol98-src and/or hol98-local
+(the latter overriding the former), and locally contains all object
+files, executables, and other generated files.  The idea is that you
+can blow everything away and rebuild simply by doing rm -rf hol98/ and
+then relinking it, without having to check the sources out again.  If
+desired, the build tree could also live on an unbacked-up filesystem
+(although it does not at present).  It also allows multiple build
+trees to share the same sources.
+
+
+Net-src/ contains the source of all the TCP project stuff, checked out
+from our repository at /usr/groups/netsem/cvs/.
+
+Net-local/ contains any local changes; it is empty.
+
+Net/ contains the build tree for the TCP project spec and tools.
+
+Net-alt/ contains another build tree; we sometimes alternate build
+trees so as not to disturb a check run in progress.
+
+
+
+======================================================================
+
+SCRIPTS
+~~~~~~~
+
+This directory also contains a bunch of scripts for maintaining this
+structure and (re)building HOL and the spec and tools.  These all
+actually live in Net-src/TCP/Test/scripts/build/, and are symlinked
+here.
+
+The only exception is waprc, the configuration file for all of the
+scripts.  It contains
+
+  # machine-specific configuration file for WAP building tools
+  # (generic NFS-mount version)
+
+  HOLSRC=/usr/groups/tthee/local/hol98-src
+  HOLLOC=/usr/groups/tthee/local/hol98-local
+  HOLDIR=/usr/groups/tthee/local/hol98
+
+  WAPSRC=/usr/groups/tthee/local/Net-src
+  WAPLOC=/usr/groups/tthee/local/Net-local
+  # WAPDIR=/usr/groups/tthee/local/Net
+  WAPDIR=/usr/groups/tthee/local/Net-alt
+
+This just specifies the names of each of the directories described
+above.  Note in particular that altering WAPDIR to point to Net-alt/
+rather than Net/ enables building a fresh spec without touching the
+existing one, which may be in use by a current check run.  Then
+copying CheckTraces.exe across is sufficient for use in a new run.
+
+(there's an example waprc, called waprc.tpl, in TCP/Test/scripts/build/).
+
+
+== updatewap / updatewap-noclean
+
+Checks out the latest Net-src/ stuff from the repository, relinks
+(using relinkwap), cleans and remakes in TCP/Spec1/.  This is all you
+need to upgrade to a newer version of the spec.
+
+The -noclean variant doesn't do a Holmake clean in the Spec1 dir
+first.  This is usually a bad idea, since often the build will almost
+complete and then discover some incompatibility that means you have to
+throw it all away.
+
+
+== updatehol
+
+Checks out the latest hol98-src/ stuff from the repository, relinks
+(using relinkhol98), reconfigures (using doconfig), and rebuilds
+(using dobuild).  This is all you need to upgrade to a newer version
+of HOL.
+
+
+== doconfig / dobuild
+
+Reconfigures / builds HOL.  Called by updatehol.
+
+
+== relinkhol98 / relinkwap
+
+Relinks the build directory to the source directories.
+
+
+== fixperms
+
+Sets the permissions correctly in all the directories below here.
+
+
+
+======================================================================
+
+INSTALLATION LOG
+~~~~~~~~~~~~~~~~
+
+(may be out of date!)
+
+# Note that the technique used in these notes is that of a build tree
+# / source tree separation.  The sources are not touched during
+# compilation, and at any time the build tree can be blown away with
+# rm -rf * without touching the sources.  Note that the relink command
+# must be run reasonably regularly to deal with the case where files
+# are added or removed in the source tree.
+
+ssh striatum
+umask 002
+cd /usr/groups/tthee
+mkdir local
+cd local
+cvs -d /usr/groups/netsem/cvs co -d Net-src Net
+ln -s Net-src/TCP/Test/scripts/build/{dobuild,doconfig,relinkhol98,relinkwap} .
+cp Net-src/TCP/Test/scripts/build/waprc.tpl waprc
+# change waprc to:
+  # machine-specific configuration file for WAP building tools
+  # (generic NFS-mount version)
+
+  HOLSRC=/usr/groups/tthee/local/hol98-src
+  HOLLOC=/usr/groups/tthee/local/hol98-local
+  HOLDIR=/usr/groups/tthee/local/hol98
+
+  WAPSRC=/usr/groups/tthee/local/Net-src
+  WAPLOC=/usr/groups/tthee/local/Net-local
+  WAPDIR=/usr/groups/tthee/local/Net
+mkdir Net-local
+cvs -d :pserver:anonymous@cvs.sourceforge.net:/cvsroot/hol co -d hol98-src hol98
+mkdir hol98-local
+./relinkhol98
+./doconfig
+./dobuild
+# this builds HOL
+./relinkwap
+cd Net/TCP/Spec1
+Holmake --fast
+
+# To update:
+cd hol98-src
+cvs update -Pd
+cd ..
+./relinkhol98
+cd Net-src
+cvs update -Pd
+cd ..
+./relinkwap
+
+
+======================================================================
+End of document.

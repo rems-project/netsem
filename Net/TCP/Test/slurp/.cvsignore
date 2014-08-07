@@ -1,0 +1,7 @@
+*.cm*
+*.o*
+*.a
+slurp
+*.exe
+*.idb
+.depend

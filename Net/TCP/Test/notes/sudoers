@@ -1,0 +1,28 @@
+Update written by SMB 2004-09-17 (from memory):
+
+If we ever need to run the slurper or any libpcap based application on
+a Computer Lab managed machine, then this can be achieved by having
+something similar to the following in the sudoers file: it allows
+applications to run with CAPABILITY_NET_ADMIN, a Linux network
+administration capability that includes network sniffing
+permissions. We thus don't have to have root privs!
+
+-----
+
+# sudoers file.
+#
+# This file MUST be edited with the 'visudo' command as root.
+#
+# See the man page for details on how to write a sudoers file.
+#
+
+# Host alias specification
+
+# User alias specification
+
+# Cmnd alias specification
+
+# User privilege specification
+root	ALL=(ALL) ALL
+smb50   ALL=/sbin/execcap cap_net_admin=eip [!-]*
+smb50   ALL=/sbin/execcap cap_net_admin=eip /usr/sbin/tcpdump

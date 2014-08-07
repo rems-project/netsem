@@ -1,0 +1,364 @@
+#!/usr/bin/perl -w
+
+#
+# This program generates the index.html/index-re.html files that
+# summarise the results of a check run.
+#
+# It is called by runbatch, which runs sed over its output to
+# make two versions, one which automatically reloads, and one
+# which is static.
+#
+# It takes no arguments; instead, it simply examines all the
+# *.out.html files in the current directory.
+#
+# It also looks for a file annotations.dat, and if it finds it,
+# parses it for any annotations to add to traces.
+
+
+# I have had a request for an explanation of the output, so here goes:
+#
+# TIMING INFO:
+#
+#
+# In the line "*2501s=*1.54st cortex.cl.cam.ac.uk[8] (x1)"
+#
+# "*" means incomplete, if present: i.e., the trace was still running at
+# the time this summary was generated.
+#
+# "2501s" is the wall-clock time taken (so far, if incomplete) for this
+# check of this trace.
+#
+# "=" is the equality symbol (ASCII 0x3D)
+#
+# "1.54st" is the relative time: 1.54 "starts" where a "start" is the
+# time it took that machine to initialise the evaluator (for this check
+# run; the mean, if more than one initialisation in this run due to
+# crash / kill /etc).
+#
+# "cortex.cl.cam.ac.uk" is the host doing the checking.
+#
+# "[8]" is the unique worker ID assigned by otracechecker to that worker
+# (distinguishes multiple workers on a single machine, e.g.).
+#
+# "(x1)" means this is the first attempt on this trace (by any worker -
+# we deliberately have no "worker affinity" in the scheduler!).  >1
+# happens when a trace is killed for inuse reasons (if it dies due to a
+# Heisen- or Bohr-bug, we don't restart).
+
+
+use strict;
+
+# look first for modules in the same directory as this program:
+BEGIN {
+    my $bindir = $0;
+    $bindir =~ s|/[^/]+$||;
+    unshift @INC, $bindir;
+}
+
+use Netsem::Util;
+use Netsem::LogParse;
+use Netsem::AnnotsParse;
+
+# fix this when the current run comes to an end.  Needs hacks to runbatch.
+my $FAKED_UP_DOC_LOCATION = "/usr/groups/tthee/check/IHaveNoIdeaAtAll/something.html";
+
+my $sortedoutput = 0;
+my $onlyoutput;
+my $ntraces;
+my $simpleoutput = 0;
+while (@ARGV) {
+    if ($ARGV[0] eq "--sort=class") {
+	$sortedoutput = 1;
+    } elsif ($ARGV[0] =~ /^--only=(.*)$/) {
+	$onlyoutput = $1;
+    } elsif ($ARGV[0] =~ /^--ntraces=(.*)$/) {
+        $ntraces = $1;
+    } elsif ($ARGV[0] eq "--simple") {
+        $simpleoutput = 1;
+    } else {
+        die "Unrecognised argument $ARGV[0].\n";
+    }
+    shift @ARGV;
+}
+
+my $annotations = readannots("annotations.dat");
+
+# generate table of codes
+my %codes = ();
+foreach my $k (keys(%$annotations)) {
+    $codes{$annotations->{$k}->{'code'}} = { 'desc' => $annotations->{$k}->{'desc'},
+                                             'cat' => $annotations->{$k}->{'cat'},
+                                             'success' => 0,
+                                             'failure' => 0,
+                                             'successes' => [],
+                                             'failures' => []
+                                             };
+}
+$codes{'~'} = { 'desc' => 'Uncategorised',
+                'cat' => undef,
+                'success' => 0,
+                'failure' => 0,
+                'successes' => [],
+                'failures' => []
+                };
+
+# output location is current directory;
+my $outputloc = `pwd`; chomp $outputloc;
+# input location is directory of first tracefile printed; set below.
+my $inputloc = "none";
+
+# generate body in a string, so we can put it at the end.
+
+my %counts;
+my $total = 0;
+
+my $BODYPRE = <<"EOF";
+<h2>Results:</h2>
+<p>NB: Machine speeds vary greatly; in timings, "st" is the number of startup times, which is a good normalised time for the trace.<br>The following code is <em>current&nbsp;step</em>..<em>max&nbsp;step&nbsp;reached</em>/<em>max&nbsp;step</em>(<em>total&nbsp;number&nbsp;of&nbsp;steps&nbsp;attempted</em>).
+<p><table class="main" border=0px cellspacing=0px cellpadding=0px>
+EOF
+
+my @bodylines = ();
+
+# first, parse the log file and compute start times (relative machine speeds)
+parselog("log.dat",time);  # treat "now" as the end of run
+getstarttimes();
+
+my $uglypwd = `pwd`; chomp $uglypwd;  # probably starts /auto, so not stable
+
+my $tracelengths;  # set below
+
+# next, parse the HTML files
+foreach my $file (glob("*.out.html")) {
+    my $basename = $file;
+    $basename =~ s/\.out\.html$//;
+    my ($tracefile,$description,$state) = gettraceinfo($file,$basename);
+    if (!defined($inputloc) || $inputloc eq "none") {
+        $inputloc = $tracefile;
+        $inputloc =~ s{/[^/]*$ }{}x;
+        $tracelengths = gettracelengths($inputloc);
+    }
+    my $description2 = $description;
+    $description =~ s/\n/: /g;
+    $description =~ s/\(\* Test (?:Hosts?|Description): | \*\)//g;
+    $description2 =~ s/\n/\\n/g;
+    $description2 =~ s/\"/\\\"/g;
+    $description2 =~ s/\'/\\\'/g;
+    $state =~ m/Trace [^ ]+ ([^ ]+)/;
+    my $class = defined($1) ? $1 : "other";
+    my $clickcode = qq{onclick="prompt('$basename:\\n$description2','/usr/groups/tthee/local/Net-src/TCP/Test/scripts/check/stepgraph $uglypwd/$file');"};
+    my $blobcode = qq{<span $clickcode>[D]</span>};
+    my $clickcodet = qq{onclick="prompt('$basename:\\n$description2','/usr/groups/tthee/local/Net/TCP/Test/scripts/check/stepgraphtimed -i -p $uglypwd/$file');"};
+    my $blobcodet = qq{<span $clickcodet>[T]</span>};
+    my $reltracefile = relpath($FAKED_UP_DOC_LOCATION,$tracefile);
+    my $jobent = $jobs{$tracefile};
+    my $time = "??";
+    my $nstarts = "??";
+    my $wkey = $jobent->{'worker'};
+    my $trunc = ($jobent->{'trunc'} ? "*" : "");
+    if (defined($jobent->{'start'})) {
+        $time = $jobent->{'timeawake'};
+        if (defined($time{$wkey})) {
+            $nstarts = $time / $time{$wkey};
+        }
+    }
+    my $attempts = $jobent->{'count'};
+    my $tracelength = exists($tracelengths->{$basename}) ? $tracelengths->{$basename} : "?";
+    my $stepinfo = "$jobent->{'curstep'}..$jobent->{'maxstep'}/$tracelength($jobent->{'nsteps'})";
+    my $timeline = sprintf("<td nowrap class=\"three\">%s%ds=</td><td nowrap class=\"three\">%s%.2fst</td><td nowrap class=\"three\">&nbsp;%s (x%d)</td><td nowrap class=\"three\">&nbsp;%s</td>", $trunc, $time, $trunc, $nstarts, $wkey, $attempts, $stepinfo);
+    my $annot = $annotations->{$basename}->{'code'};
+    my $annotclass = defined($annot) ? $annot : '~';
+    if ($class eq 'SUCCEEDED') {
+        $codes{$annotclass}->{'success'}++;
+        push @{$codes{$annotclass}->{'successes'}}, $basename;
+    } elsif ($class eq 'INCOMPLETE' or $class eq 'KILLED') {
+        # do nothing
+    } else {
+        $codes{$annotclass}->{'failure'}++;
+        push @{$codes{$annotclass}->{'failures'}}, $basename;
+    }
+    $annot = (defined($annot)) ? " [$annot]" : "";
+    my $bodyline = qq{<tr><td nowrap class="one"><a href="$file">$basename</a> $blobcode $blobcodet (<a href="$reltracefile.html">source</a>/<a href="$reltracefile">p</a>/<a href="$reltracefile.ps.gz">ps</a>/<a href="$basename.annotated.ps.gz">ps</a>): <span class="class"><span class="$class">$state</span></span><span class="annot">$annot</span></td>$timeline<td nowrap class="two">&nbsp;&nbsp;&nbsp;$description</td>};
+    my $simpleline = "$basename $class $time $nstarts $jobent->{'maxstep'} $jobent->{'nsteps'} $tracelength $wkey";
+    # --simple fields are single-space-delimited (so cut -d' ' works), and are as follows:
+    #
+    # 1: trace0293                trace name
+    # 2: SUCCEEDED                trace class
+    # 3: 205120                   (non-suspended) wall-clock computation time in seconds
+    # 4: 3016.47058823529         normalised version of the above
+    # 5: 78                       maximum merge index reached
+    # 6: 86                       number of transitions _attempted_ (including backtracking)
+    # 7: 78                       maximum merge index in input trace
+    # 8: zonule.cl.cam.ac.uk[41]  worker
+
+    push @bodylines, { 'tracefile' => $tracefile,
+                       'basename' => $basename,
+                       'class'    => $class,
+                       'bodyline' => $bodyline,
+                       'simpleline' => $simpleline};
+    if (!defined($counts{$class})) {
+        $counts{$class} = 1;
+    } else {
+        $counts{$class}++;
+    }
+    $total++;
+}
+
+my $BODYPOST = <<"EOF";
+</table>
+EOF
+
+# figure out the right order for the classes to appear in:
+#   first, an initial hint; then, anything not appearing in that list.
+my @order = ('SUCCEEDED','FAILED','TOO_COMPLICATED','EXCESSIVE_BACKTRACKING','OUTPUT_QUEUE_TOO_LONG','SEND_DATAGRAM_MISMATCH','INTERNAL_ERROR','CRASHED','KILLED','INCOMPLETE');
+foreach my $class (sort(keys(%counts))) {
+    push @order, $class unless (grep { $_ eq $class } @order);
+}
+# now build a class order map from this.
+my %order = ();
+my $i = 0;
+foreach my $class (@order) {
+    $order{$class} = ++$i;
+}
+
+# print header:
+
+my $stylestr = ($sortedoutput ? " (sorted)" : "")
+    . ((defined($onlyoutput)) ? " (only $onlyoutput)" : "");
+
+$simpleoutput or print <<"EOF";
+<html>
+<head>
+REFRESH-CODE-HERE
+<title>HOL Trace Index$stylestr</title>
+<style type="text/css">
+TD.three { text-align: right }
+SPAN.shvc { color: blue; text-decoration: underline }
+SPAN.class SPAN                , DIV.summary TR                { background-color: #ffc0ff }  /* not TD, else it will override TR for cells */
+SPAN.class SPAN.SUCCEEDED      , DIV.summary TR.SUCCEEDED      , DIV.summary TD.SUCCEEDED       { background-color: #00ff00 }
+SPAN.class SPAN.FAILED         , DIV.summary TR.FAILED         , DIV.summary TD.FAILED          { background-color: #ff0000 }
+SPAN.class SPAN.TOO_COMPLICATED, DIV.summary TR.TOO_COMPLICATED, DIV.summary TD.TOO_COMPLICATED { background-color: #ffff00 }
+SPAN.class SPAN.INTERRUPTED    , DIV.summary TR.INTERRUPTED    , DIV.summary TD.INTERRUPTED     { background-color: #ff8080 }
+SPAN.class SPAN.INTERNAL_ERROR , DIV.summary TR.INTERNAL_ERROR , DIV.summary TD.INTERNAL_ERROR  { background-color: #ff8000 }
+SPAN.class SPAN.INCOMPLETE     , DIV.summary TR.INCOMPLETE     , DIV.summary TD.INCOMPLETE      { background-color: #e0e0ff }
+SPAN.class SPAN.CRASHED        , DIV.summary TR.CRASHED        , DIV.summary TD.CRASHED         { background-color: #ff70d0 }
+SPAN.class SPAN.KILLED         , DIV.summary TR.KILLED         , DIV.summary TD.KILLED          { background-color: #c0c0ff }
+SPAN.class SPAN.TO_COME        , DIV.summary TR.TO_COME        , DIV.summary TD.TO_COME         { background-color: #f0f0f0 }
+SPAN.class SPAN.PROCESSED      , DIV.summary TR.PROCESSED      , DIV.summary TD.PROCESSED       { background-color: #c0ffc0 }
+SPAN.annot { font-size: 71%; font-variant: small-caps }
+SPAN.annUNSPEC SPAN.annfail { font-weight: bold; color: #c00000 }
+SPAN.annUNSPEC SPAN.annsuccess { font-weight: bold; color: #00c000 }
+SPAN.annKNOWN SPAN.annfail { font-weight: bold; color: #800000 }
+SPAN.annKNOWN SPAN.annsuccess { font-weight: bold; color: #80ff00 }
+SPAN.annKNOWN SPAN.annfail, SPAN.annKNOWN SPAN.annfailzero { text-decoration: underline }
+SPAN.annFIXED SPAN.annfail { font-weight: bold; color: #ff0000 }
+SPAN.annFIXED SPAN.annsuccess { font-weight: bold; color: #00e040 }
+SPAN.annFIXED SPAN.annsuccess, SPAN.annFIXED SPAN.annsuccesszero { text-decoration: underline }
+</style>
+<script type="application/x-javascript">
+<!--
+function togglethree () {
+  rules = document.styleSheets[0].cssRules
+  for (var i = 0; i < rules.length; i++) {
+    var rule = rules[i]
+    if (rule.type == CSSRule.STYLE_RULE
+        && rule.selectorText.match(/^TD.three\$/i)) {
+      rule.style.setProperty("display",
+        (rule.style.getPropertyValue("display") == "none") ? "" : "none","")
+    }
+  }
+}
+//-->
+</script>
+</head>
+<body>
+<h1>HOL Trace Index$stylestr</h1>
+
+<p>Traces from $inputloc
+<br>Checker output in $outputloc
+
+<p>
+<a href="log.dat">View log</a>.
+<a href="status.dat">View status</a>.
+<a href="progress.ps">View progress chart</a>.
+<span class="shvc" onclick="togglethree()">Show/hide times.</span>
+RELOAD-CODE-HERE
+<br>
+Local only:
+<a href="http://zonule:7777/cgi-bin/inprogressreport?$outputloc">View inprogress report</a>.
+<a href="http://zonule:7777/cgi-bin/analyselog?$outputloc">View analyselog report</a>.
+<p>
+<!-- }}}}}}}}}}}} for emacs perl mode, sorry -->
+EOF
+# now do summary:
+
+my @toporder = ('PROCESSED','INCOMPLETE','KILLED','TO_COME');
+my $processed = $total - (($counts{'INCOMPLETE'} || 0) + ($counts{'KILLED'} || 0));
+my %topcounts = ('PROCESSED' => $processed,
+                 'INCOMPLETE' => $counts{'INCOMPLETE'},
+                 'KILLED' => $counts{'KILLED'},
+                 'TO_COME' => defined($ntraces) ? $ntraces - $total : "??");
+my $thetable = qq{<div class="summary"><table>\n};
+my $thebar = qq{<div class="summary"><table border=1px width=50%><tr>\n};
+foreach my $class (@toporder) {
+    my $class2 = ucfirst(lc($class));
+    $class2 =~ s/_/ /g;
+    my $pc = defined($ntraces) ? (($topcounts{$class} || 0) / $ntraces) * 100 : 0;
+    my $x = defined($ntraces) ? sprintf("(%5.2f%%)",$pc) : "??%";
+    $thetable .= qq{<tr class="$class"><td align=right>} . ($topcounts{$class} || "") . qq{</td><td align=right>$x</td><td align=left>$class2</td></tr>\n};
+    $thebar .= sprintf(qq{<td width=%3.0f%% class="$class">&nbsp;</td>},$pc);
+}
+$thetable .= "</table></div>\n";
+$thebar .= "</table></div>\n";
+my $ntraces2 = defined($ntraces) ? $ntraces : "??";
+$simpleoutput or print qq{<a name="summary"><h2>Summary:</h2></a>\nOf $ntraces2 traces in total,<br>\n$thebar\n<p>$thetable};
+
+$thetable = qq{<div class="summary"><table>\n};
+$thebar = qq{<div class="summary"><table border=1px width=50%><tr>\n};
+foreach my $class (@order) {
+    next if exists($topcounts{$class});
+    my $class2 = ucfirst(lc($class));
+    $class2 =~ s/_/ /g;
+    my $pc = ($processed > 0) ? (($counts{$class} || 0) / $processed) * 100 : "0";
+    my $x = sprintf("(%5.2f%%)",$pc);
+    $thetable .= qq{<tr class="$class"><td align=right>} . ($counts{$class} || "") . qq{</td><td align=right>$x</td><td align=left>$class2</td></tr>\n};
+    $thebar .= sprintf(qq{<td width=%3.0f%% class="$class">&nbsp;</td>},$pc);
+}
+$thetable .= "</table></div>\n";
+$thebar .= "</table></div>\n";
+$simpleoutput or print qq{<p>Of $processed processed traces,<br>\n$thebar\n<p>$thetable};
+
+# generate explanatory key for annotations:
+my $ANNKEY = "<p>Annotations are as follows (expected outcome is underlined):\n<table>\n";
+foreach my $k (sort(keys(%codes))) {
+    my $annclass = "ann" . ($codes{$k}->{'cat'} || "UNSPEC");
+    my $failclass = $codes{$k}->{'failure'} ? "annfail" : "annfailzero";
+    my $successclass = $codes{$k}->{'success'} ? "annsuccess" : "annsuccesszero";
+    my $failures = join(",",map { my $x = $_; $x =~ s/^trace//; "<a href=\"trace$x.out.html\">$x</a>" } @{$codes{$k}->{'failures'}});
+    my $successes = join(",",map { my $x = $_; $x =~ s/^trace//; "<a href=\"trace$x.out.html\">$x</a>" } @{$codes{$k}->{'successes'}});
+    $ANNKEY .= "<tr><td nowrap><span class=\"annot\">[$k]</span></td><td nowrap>$codes{$k}->{'desc'}</td><td nowrap><span class=\"$annclass\">(<span class=\"$failclass\">$codes{$k}->{'failure'} failures</span>, <span class=\"$successclass\">$codes{$k}->{'success'} successes</span>)</span></td><td nowrap>$failures / $successes</td></tr>\n";
+}
+$ANNKEY .= "</table>\n";
+$ANNKEY = "" if (!(keys(%$annotations)));
+$simpleoutput or print $ANNKEY;
+
+# finally, print the body text (big table) we accumulated earlier:
+$simpleoutput or print $BODYPRE;
+if (defined($onlyoutput)) {
+    @bodylines = grep { $_->{'class'} eq $onlyoutput } @bodylines;
+}
+if ($sortedoutput) {
+    @bodylines = sort { $order{$a->{'class'}} <=> $order{$b->{'class'}} || $a->{'basename'} cmp $b->{'basename'} } @bodylines;
+}
+if ($simpleoutput) {
+    print join("\n",map { $_->{'simpleline'} } @bodylines) . "\n";
+} else {
+    print join("\n",map { $_->{'bodyline'} } @bodylines);
+}
+
+$simpleoutput or print $BODYPOST;
+$simpleoutput or print <<'EOF';
+</body>
+</html>
+EOF
+

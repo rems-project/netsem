@@ -1,0 +1,17 @@
+#!/bin/sh
+
+BINDIR=`dirname $0`
+
+$BINDIR/perstepcount "$@" > /tmp/perstepcount.$$
+gnuplot -persist <<EOF
+set title "`basename "$1"`"
+set xlabel 'Check step index'
+set ylabel 'Number of occurrences'
+set y2label 'Merge index'
+set y2tics
+set grid xtics y2tics
+set ytics nomirror
+plot '/tmp/perstepcount.$$' using 0:2 title 'K1', \
+     '/tmp/perstepcount.$$' using 0:3 title 'K1a', \
+     '/tmp/perstepcount.$$' using 0:4 title 'K3k', \
+     '/tmp/perstepcount.$$' using 0:1 axes x1y2 notitle;

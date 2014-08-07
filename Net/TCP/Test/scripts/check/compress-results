@@ -1,0 +1,12 @@
+#!/bin/bash
+
+for d in $@; do
+  cd $d
+  if ! gzip -q --best *; then
+    cd -
+    echo "FAILED in $d"
+    exit 1
+  fi
+  cd -
+done
+

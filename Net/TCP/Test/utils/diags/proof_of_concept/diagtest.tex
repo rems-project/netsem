@@ -1,0 +1,107 @@
+% -*-LaTeX-*-
+\documentclass[oneside,notitlepage]{report}
+
+% Magic to capture RCSID:
+{\catcode`\$=9\gdef\rcsid{$Id: diagtest.tex,v 1.2 2003/10/17 15:58:12 smb50 Exp $}}
+
+% Get a decent sized page and enable graphics modes
+\usepackage[a4paper,margin=15mm]{geometry}
+\usepackage{graphics}
+\usepackage{color}
+\pagestyle{empty}
+
+\definecolor{darkgray}{gray}{.5}
+\definecolor{lightgray}{gray}{.75}
+
+\newbox\tempbox
+\newcommand{\maxwidthparbox}[2]{
+  \setbox\tempbox\hbox{#2}
+  \ifdim\wd\tempbox>#1 \parbox{#1}{#2} \else \parbox{\wd\tempbox}{#2} \fi
+}
+
+% Define a command for drawing arrows
+% \arrowr{(x,y)}{length}{angle}{label}{left ratio}{right ratio}
+\newcommand\arrowr[6]{
+  \put#1{\rotatebox{#3}{%
+	 \raisebox{-\fontdimen22\textfont2}[0pt][0pt]{%
+	  \makebox[#2\unitlength][l]{%
+	  \leaders\hbox{$\!-\!$}\hskip 0pt plus #5fill%
+	      \scalebox{0.75}{%
+		\maxwidthparbox{400\unitlength}{\sloppy\raggedright\textbf{#4}}}%
+%\parbox{120\unitlength}{\raggedright\textbf{#4}}}%
+	  \leaders\hbox{$\!-\!$}\hskip 0pt plus #6fill%
+	  $\mskip-12mu\rightarrow$}}}}
+}
+
+% Define a command for drawing arrows
+% \arrowl{(x,y)}{length}{angle}{label}{left ratio}{right ratio}
+\newcommand\arrowl[6]{
+  \put#1{\rotatebox{#3}{%
+	  \raisebox{-\fontdimen22\textfont2}[0pt][0pt]{%
+	  \makebox[#2\unitlength][l]{%
+	  $\leftarrow$%
+	  $\mskip-12mu$\leaders\hbox{$\!-\!$}\hskip 0pt plus #5fill%
+	      \parbox{120\unitlength}{\raggedright\scalebox{0.75}{\textbf{#4}}}%
+	  \leaders\hbox{$\!-\!$}\hskip 0pt plus #6fill}}}}%
+}
+
+% Define a command for drawing line
+% \rline{(x,y)}{length}{angle}
+\newcommand\rline[3]{
+  \put#1{\rotatebox{#3}{%
+	  \raisebox{-\fontdimen22\textfont2}[0pt][0pt]{%
+	  \makebox[#2\unitlength][l]{\leaders\hbox{$\!-\!$}\hfill}%
+	}}}}
+
+% Define a command for placing text
+% \rtext{(x,y)}{maxwidth}{alignment}{angle}{string}
+\newcommand\rtext[5]{
+  \put#1{\rotatebox{#4}{%
+	\makebox[#2\unitlength][#3]{#5}%
+	}}}
+
+
+% Define a command for preparing new picture environment pages
+% \preppage{xpos 1st vertical line}{xpos 2nd vertical line}{page height}
+\newcommand\preppage[3]{
+   {\color{lightgray}\rline{(#1,0)}{#3}{90}\rline{(#2,0)}{#3}{90}}
+}
+
+% Start document
+\begin{document}
+
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+% Start of page 1
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+\begin{picture}(480,680)
+
+\preppage{100}{380}{680}
+
+\rtext{(0,680)}{100}{l}{90}{Hello}
+\arrowr{(100,670)}{281}{355}{1142325444 : 6478883783 S}{0.05}{0.95}
+\arrowl{(100,600)}{281}{5}{6478883783:1142325444 S ACK}{0.85}{0.15}
+\arrowr{(100,590)}{281}{355}{1142325444:6478883783 ACK}{0.05}{0.95}
+\arrowl{(100,520)}{281}{5}{6478883783:1142325444 ACK}{0.85}{0.15}
+\arrowr{(100,510)}{281}{355}{1142325444:6478883783 ACK}{0.05}{0.95}
+\arrowl{(100,440)}{281}{5}{6478883783:1142325444 ACK}{0.85}{0.15}
+\arrowr{(100,430)}{281}{355}{1142325444:6478883783 ACK}{0.05}{0.95}
+\arrowl{(100,360)}{281}{5}{6478883783:1142325444 ACK}{0.85}{0.15}
+\arrowr{(100,350)}{281}{355}{1142325444:6478883783 ACK}{0.05}{0.95}
+\arrowl{(100,280)}{281}{5}{6478883783:1142325444 ACK}{0.85}{0.15}
+\arrowr{(100,270)}{281}{355}{1142325444:6478883783 ACK}{0.05}{0.95}
+\arrowl{(100,200)}{281}{5}{6478883783:1142325444 ACK}{0.85}{0.15}
+\arrowr{(100,190)}{281}{355}{1142325444:6478883783 ACK}{0.05}{0.95}
+\arrowl{(100,120)}{281}{5}{6478883783:1142325444 ACK}{0.85}{0.15}
+\arrowr{(100,110)}{281}{355}{1142325444:6478883783 ACK}{0.05}{0.95}
+\arrowl{(100,40)}{281}{5}{6478883783:1142325444 ACK}{0.85}{0.15}
+\arrowr{(100,30)}{281}{355}{1142325444:6478883783 ACK}{0.05}{0.95}
+
+\end{picture}
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+% End of page 1
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+
+% End document
+\end{document}
+

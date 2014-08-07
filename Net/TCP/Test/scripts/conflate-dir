@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Usage: ./conflate-dir [directory-name]
+#    or: ./conflate-dir [file-name] ...
+# Either run this in the directory of traces or specify the directory
+# on the command-line;
+# if first argument is a filename (not a directory name), then process
+# the files on the command line only.
+
+CONFLATEDIR=`dirname $0`/../utils/conflate
+
+umask 0002
+set -e
+
+DEST=`pwd`
+
+if [[ $1 != "" ]]; then
+    if [[ -d $1 ]]; then
+        cd $1
+        TRACES="trace????"
+    else
+        cd `dirname $1`
+        TRACES="$@"
+    fi
+else
+    TRACES="trace????"
+fi
+
+for f in $TRACES; do
+  if [ -e $f.aux ]; then
+      $CONFLATEDIR/conflate $f $f.aux > $f.net
+  else
+      $CONFLATEDIR/conflate $f > $f.net
+  fi
+
+done

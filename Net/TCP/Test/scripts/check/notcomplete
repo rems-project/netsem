@@ -1,0 +1,91 @@
+#!/usr/bin/perl -w
+
+# output list of traces that have been attempted but are incomplete
+
+# expects two directories as argument: source directory and target directory
+
+use strict;
+
+my $GLOB = "trace????";
+my $TAIL = ".out.html";
+
+
+if (@ARGV != 2) {
+    print "Usage: $0 <tracedir> <outdir>\n";
+    exit 255;
+}
+
+my @files = glob "$ARGV[1]/$GLOB$TAIL";
+
+print STDERR "Target directory has " . scalar(@files) . " files.\n";
+
+my @incomps = ();
+$| = 1;
+my $i=0;
+print STDERR progress(50,0);
+foreach my $file (@files) {
+    my ($tracefile,$incomplete) = gettraceinfo($file);
+    if ($incomplete) {
+        push @incomps, $tracefile;
+    }
+    !(++$i%20) && print STDERR "\r" . progress(50,$i/@files);
+}
+print STDERR "\n";
+
+print STDERR "Result has " . scalar(@incomps) . " incomplete files.\n";
+
+print join("\n",sort(@incomps)) . "\n";
+
+
+sub progress {
+    my ($width,$frac) = @_;
+
+    my $w1 = int($frac * $width + 0.5);
+    if ($w1 <= 0) {
+        return ("|" . "-" x ($width-1) . "|   0%");
+    } elsif ($w1 >= $width) {
+        return ("|" . "=" x ($width-1) . "> 100%");
+    } else {
+        return ("|" . "=" x ($w1-1) . ">" . "-" x ($width-1-$w1) . "| " . sprintf("%3d",$frac*100) . "%");
+    }
+}
+
+sub gettraceinfo {
+    my ($file,$basename) = @_;
+
+    open IN, "<$file"
+        or die "Couldn't open file $file for reading: $!\n";
+
+    my $tracefile = $file;
+    $tracefile =~ s/^\Q$ARGV[1]\E/$ARGV[0]/;
+    $tracefile =~ s/\Q$TAIL\E//;
+    my $guess;
+    while (<IN>) {
+        if (/^==Working on trace file (?:<a href=[^>]*>)?([^<]*)/) {
+            $guess = $1;
+            chomp $guess;
+            last;
+        }
+    }
+    if (defined($guess)) {
+        $guess =~ s/^==Working on trace file //;
+        if ($guess ne $tracefile) {
+            print STDERR "Warning: expected $tracefile but claims $guess\n";
+        }
+        $tracefile = $guess;
+    }
+
+    seek IN,-16384,2;
+    while (<IN>) {
+        last if /^==(Trace|Complicated constraint list ends)/;
+    }
+    my $incomplete = 0;
+    if (!defined($_)) {
+        $incomplete = 1;
+    }
+
+    close IN
+        or die "Couldn't close file $file for reading: $!\n";
+
+    return ($tracefile,$incomplete);
+}

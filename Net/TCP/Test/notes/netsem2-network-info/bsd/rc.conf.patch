@@ -1,0 +1,10 @@
+--- /etc/rc.conf.orig	Thu Dec  1 12:35:22 2005
++++ /etc/rc.conf	Thu Dec  1 12:36:37 2005
+@@ -12,3 +12,7 @@ sshd_enable="YES"
+ # -- sysinstall generated deltas -- # Tue Nov  8 14:49:01 2005
+ ifconfig_xl0="inet 192.168.13.102  netmask 255.255.255.0"
+ hostname="ken.netsem2"
++
++# added by tjr22 to enable ntpd
++ntpd_enable="YES"
++

@@ -1,0 +1,55 @@
+#!/bin/bash
+
+set -e
+umask 0007
+
+if [ $# -lt 1 ] ; then
+    echo "Usage: $0 directory [output]"
+    echo "  directory - the directory containing the trace files"
+    echo "  output - output filename (default: runselection.conf)"
+    exit 255
+fi
+
+INDIR=$1
+
+# Tidy-up any trailing /
+INDIR=`cd $INDIR && pwd $$ cd-`
+
+# Get lists of traces for each architecture
+TRACES_BSD="`cd $INDIR && grep -H -l "Test Host: BSD" trace???? && cd -`"
+#TRACES_LINUX=`cd $INDIR && grep -H -l "Test Host: LINUX" trace???? && cd -`
+#TRACES_WINXP=`cd $INDIR && grep -H -l "Test Host: WINXP" trace???? && cd -`
+
+RUNBATCHCONF=runbatch.conf
+
+# Set output file
+if [[ $2 != "" ]]; then
+  OUTPUT=$2
+else
+  OUTPUT=runselection.conf
+fi
+
+#-=-=-=-=-=-=-=-
+
+TRACES_1=""
+TRACES_2=""
+TRACES_3=""
+
+for f in $TRACES_BSD; do
+  NUM_STEPS=`grep "Merge Index:" $INDIR/$f | tail -n 1 | sed -e "s/Merge Index://" | tr "(*) " "\0"`
+
+  if (( $NUM_STEPS < 50 )); then
+    TRACES_1="$TRACES_1 $INDIR/$f"
+  elif (( $NUM_STEPS > 70 )); then
+    TRACES_3="$TRACES_3 $INDIR/$f"
+  else
+    TRACES_2="$TRACES_2 $INDIR/$f"
+  fi
+done;
+
+
+#-=-=-=-=-=-=-=-
+
+cp -f $RUNBATCHCONF $OUTPUT
+echo "" >> $OUTPUT
+echo "TRACES=\"$TRACES_1 $TRACES_2 $TRACES_3\"" >> $OUTPUT

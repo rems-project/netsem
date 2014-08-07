@@ -1,0 +1,29 @@
+# Sample Windows makefile for TSCtime.
+#
+# $Id: Makefile.win,v 1.1 2003/09/25 17:07:23 kw217 Exp $
+#
+# Use nmake /f Makefile.win to build.
+
+CCOPTS=/O2 /Ob1 /Oy /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_CONSOLE" \
+       /GF /FD /EHsc /ML /GS /Gy /W4 /nologo /c /Wp64 /Zi /TC
+LINK=link.exe
+LDFLAGS=/NOLOGO /SUBSYSTEM:CONSOLE /OPT:REF /OPT:ICF /MACHINE:IX86 \
+        kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib \
+        advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib
+
+RM=del /Q /F
+
+CFILES=TSCtime_example.c TSCtime.c
+
+all: TSCtime.obj TSCtime_example.c
+
+clean:
+	$(RM) *.obj TSCtime.obj
+
+TSCtime_example.exe: TSCtime_example.obj TSCtime.obj
+	$(LINK) TSCtime_example.obj TSCtime.obj $(LDFLAGS) /OUT:TSCtime_example.exe
+
+.SUFFIXES: .c .obj
+.c.obj:
+	$(CC) $(CCOPTS) $<
+

@@ -1,0 +1,78 @@
+#!/usr/bin/perl -w
+
+#
+# This program reports on the jobs that are currently in progress.
+#
+# It takes no arguments; instead, it simply examines all the
+# *.out.html files in the current directory.
+#
+
+
+use strict;
+
+# look first for modules in the same directory as this program:
+BEGIN {
+    my $bindir = $0;
+    $bindir =~ s|/[^/]+$||;
+    unshift @INC, $bindir;
+}
+
+use Netsem::Util;
+use Netsem::LogParse;
+
+# generate body in a string, so we can put it at the end.
+
+my %counts;
+my $total = 0;
+
+my @bodylines = ();
+
+my $reftime = time;
+
+# first, parse the log file and compute start times (relative machine speeds)
+parselog("log.dat",$reftime);  # treat "now" as the end of run
+getstarttimes();
+
+my $uglypwd = `pwd`; chomp $uglypwd;  # probably starts /auto, so not stable
+
+print "In progress report: $uglypwd\n";
+
+my $tracelengths;
+
+# next, parse the HTML files
+foreach my $file (glob("*.out.html")) {
+    my $basename = $file;
+    $basename =~ s/\.out\.html$//;
+    my ($tracefile,$description,$state) = gettraceinfo($file,$basename);
+    if (!defined($tracelengths)) {
+        my $tracedir = $tracefile;
+        $tracedir =~ s{/[^/]*$ }{}x;
+        $tracelengths = gettracelengths($tracedir);
+    }
+    $state =~ m/Trace [^ ]+ ([^ ]+)/;
+    my $class = defined($1) ? $1 : "other";
+    my $jobent = $jobs{$tracefile};
+    my $time = "??";
+    my $nstarts = "??";
+    my $wkey = $jobent->{'worker'};
+    my $trunc = ($jobent->{'trunc'} ? "*" : "");
+    if (defined($jobent->{'start'})) {
+        $time = $jobent->{'timeawake'};
+        $nstarts = $time / $time{$wkey};
+    }
+    my $attempts = $jobent->{'count'};
+    my $tracelength = exists($tracelengths->{$basename}) ? $tracelengths->{$basename} : "-1";
+    next unless $jobent->{'trunc'};
+    my ($filesize,$filemtime) = (stat($file))[7,9];
+    my $timeline =
+        sprintf("%s%s %6.1fh=%6.0fst %6.1fM (idle %6.1fh) %3d..%3d/%3d(%3d) %-30s (x%d)",
+                $trunc, $basename, $time / 3600, $nstarts, $filesize / (1024*1024),
+                ($reftime - $filemtime) / 3600,
+                $jobent->{'curstep'},$jobent->{'maxstep'},$tracelength,$jobent->{'nsteps'},
+                $wkey, $attempts);
+    print "$timeline\n";
+}
+
+
+system('/bin/df','/usr/groups/tthee','/usr/groups/tthee-scratch');
+

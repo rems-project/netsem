@@ -1,0 +1,72 @@
+#!/bin/sh
+
+CHECKDIR1=/auto/groups/tthee-scratch/check/check-2004-12-23T19:41:11+0000
+CHECKDIR2=/auto/groups/tthee-scratch/check/check-2004-12-16T20:04:23+0000
+
+TRACES=/auto/groups/tthee-scratch/batch/autotest-tcp-2004-10-01T16:28:00+0100-xmas/traces-sorted
+
+
+#cd  $CHECKDIR1 ; bin/mktraceindex --simple | grep -v INCOMPLETE > simple-complete.txt
+
+#cd  $CHECKDIR2 ; bin/mktraceindex --simple | grep -v INCOMPLETE > simple-complete.txt
+
+cd  $CHECKDIR1 ; bin/mktraceindex --simple  > simple-all.txt
+
+cd  $CHECKDIR2 ; bin/mktraceindex --simple  > simple-all.txt
+
+join -a1 -a2 $TRACES $CHECKDIR1/simple-all.txt > /tmp/foo.$$
+join -a1 -a2 /tmp/foo.$$  $CHECKDIR2/simple-all.txt > /tmp/bar.$$
+
+
+cat /tmp/bar.$$ | grep INCOMPLETE | grep -v CRASHED | grep -v SUCCEEDED | grep -v EXCESSIVE_BACKTRACKING | grep -v TOO_COMPLICATED | grep -v FAILED | grep -v SEND_DATAGRAM_MISMATCH | grep -v OUTPUT_QUEUE_TOO_LONG | grep -v INTERNAL_ERROR > /tmp/baz.$$
+
+cat /tmp/bar.$$ | grep INCOMPLETE | grep  CRASHED  > /tmp/bam.$$
+
+echo "Traces that are INCOMPLETE in one run but not complete (in any form, including CRASHED) in the other"
+cat /tmp/baz.$$
+
+echo ""
+
+echo "Traces that are INCOMPLETE in one run and CRASHED in the other"
+cat /tmp/bam.$$
+
+echo ""
+
+echo "Traces that are CRASHED in one run and not INCOMPLETE in the other"
+cat /tmp/bar.$$ | grep CRASHED | grep -v INCOMPLETE
+
+echo ""
+
+
+echo "Count: Total traces"
+cat /tmp/bar.$$  | wc -l
+
+echo ""
+
+echo "Count: Traces that are not started in either run"
+cat /tmp/bar.$$ | grep -v "]" | wc -l
+
+echo ""
+
+echo "Count: Traces that are INCOMPLETE in one run but not complete (in any form, including CRASHED) in the other"
+cat /tmp/baz.$$ | wc -l
+
+echo ""
+
+echo "Count: Traces that are INCOMPLETE in one run and CRASHED in the other"
+cat /tmp/bam.$$ | wc -l
+
+echo ""
+
+
+echo "Count: Traces that are SUCCEEDED in at least one of the two runs"
+cat /tmp/bar.$$ | grep "SUCCEEDED" |wc -l
+
+echo "Warning: somthing is suspicious - these don't change as monotonically as they should..."
+
+echo "another way of calculating the SUCCEEDED in at least one - should be the same"
+
+cat $CHECKDIR1/simple-all.txt | grep SUCCEEDED | cut -d' ' -f1 > /tmp/succ1.$$
+cat $CHECKDIR2/simple-all.txt | grep SUCCEEDED | cut -d' ' -f1 > /tmp/succ2.$$
+
+cat /tmp/succ1.$$ /tmp/succ2.$$ | sort -u | wc -l

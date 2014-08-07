@@ -1,0 +1,47 @@
+#! /bin/bash
+
+set -e
+umask 0007
+
+if [ $# -lt 3 ] ; then
+    echo "Usage: $0 n directory [output]"
+    echo "  n - the interleave parameter (every nth trace first)"
+    echo "  directory - the directory containing the trace files"
+    echo "  output - output filename (default: runselection.conf)"
+    exit 255
+fi
+
+N=$1
+INDIR=$2
+TRACES="$INDIR/trace????"
+
+RUNBATCHCONF=runbatch.conf
+
+if [[ $3 != "" ]]; then
+  OUTPUT=$3
+else
+  OUTPUT=runselection.conf
+fi
+
+#-=-=-=-=-=-=-=-
+
+index=0
+declare -a names
+
+for f in $TRACES; do
+  names[$index]=$f;
+  index=$(($index + 1))
+done
+
+TRACES=""
+
+for(( i=0 ; $i<$N ; i=$i+1 )); do
+  for(( index2=0+$i ; $index2<$index; index2=$index2+$N )); do
+    TRACES="$TRACES ${names[$index2]}"
+  done
+done
+
+cp -f $RUNBATCHCONF $OUTPUT
+echo $T
+echo "" >> $OUTPUT
+echo TRACES=\"$TRACES\"  >> $OUTPUT

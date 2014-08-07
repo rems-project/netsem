@@ -1,0 +1,19 @@
+<html>
+<head>
+<title>${HEADING}</title>
+<meta http-equiv="Content-Script-Type" content="application/x-javascript">
+<link href="trace.css" rel="stylesheet" type="text/css">
+<script type="application/x-javascript" src="trace.js">
+</script>
+</head>
+
+<body>
+<h1>${HEADING}</h1>
+
+<noscript>
+Sorry, this page requires ECMAScript (or JavaScript) to be of any real
+use.
+</noscript>
+
+<p>[<span class="shvc" onclick="openclosevcs()">Show/hide variables and constraints.</span>]
+<p>

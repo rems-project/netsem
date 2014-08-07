@@ -1,0 +1,109 @@
+#!/bin/bash
+
+set -e
+umask 0007
+
+if [ $# -le 1 ] ; then
+    echo "Usage: $0 directory [n] [output]"
+    echo "  directory - the directory containing the trace files"
+    echo "  n - interleave parameter per architecture"
+    echo "  output - output filename (default: runselection.conf)"
+    exit 255
+fi
+
+INDIR=$1
+
+# Tidy-up any trailing /
+INDIR=`cd $INDIR && pwd $$ cd-`
+
+# Get lists of traces for each architecture
+TRACES_BSD="`cd $INDIR && grep -H -l "Test Host: BSD" trace???? && cd -`"
+TRACES_LINUX=`cd $INDIR && grep -H -l "Test Host: LINUX" trace???? && cd -`
+TRACES_WINXP=`cd $INDIR && grep -H -l "Test Host: WINXP" trace???? && cd -`
+
+RUNBATCHCONF=runbatch.conf
+
+if [[ $2 != "" ]]; then
+  N=$2
+else
+  N="1"
+fi
+
+# Set output file
+if [[ $3 != "" ]]; then
+  OUTPUT=$3
+else
+  OUTPUT=runselection.conf
+fi
+
+#-=-=-=-=-=-=-=-
+
+TRACES_1=""
+TRACES_2=""
+TRACES_3=""
+
+for f in $TRACES_BSD; do
+  TRACES_1="$TRACES_1 $INDIR/`basename $f`"
+done
+
+for f in $TRACES_LINUX; do
+  TRACES_2="$TRACES_2 $INDIR/`basename $f`"
+done
+
+for f in $TRACES_WINXP; do
+  TRACES_3="$TRACES_3 $INDIR/`basename $f`"
+done
+
+if [[ $N != "1" ]]; then
+  # BSD first
+  index=0
+  declare -a names
+
+  for f in $TRACES_1; do
+    names[$index]=$f;
+    index=$(($index + 1))
+  done
+
+  TRACES=""
+
+  for(( i=0 ; $i<$N ; i=$i+1 )); do
+    for(( index2=0+$i ; $index2<$index; index2=$index2+$N )); do
+      TRACES="$TRACES ${names[$index2]}"
+    done
+  done
+
+  # Linux next
+
+  index=0
+
+  for f in $TRACES_2; do
+    names[$index]=$f;
+    index=$(($index + 1))
+  done
+
+  for(( i=0 ; $i<$N ; i=$i+1 )); do
+    for(( index2=0+$i ; $index2<$index; index2=$index2+$N )); do
+      TRACES="$TRACES ${names[$index2]}"
+    done
+  done
+
+  # Finally WinXP
+
+  index=0
+
+  for f in $TRACES_3; do
+    names[$index]=$f;
+    index=$(($index + 1))
+  done
+
+  for(( i=0 ; $i<$N ; i=$i+1 )); do
+    for(( index2=0+$i ; $index2<$index; index2=$index2+$N )); do
+      TRACES="$TRACES ${names[$index2]}"
+    done
+  done
+
+fi
+
+cp -f $RUNBATCHCONF $OUTPUT
+echo "" >> $OUTPUT
+echo "TRACES=\"$TRACES\"" >> $OUTPUT

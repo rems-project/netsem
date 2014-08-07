@@ -1,0 +1,12 @@
+DIV.tracehead { font-weight: 700 }
+DIV.tracetail { font-weight: 700;
+                background-color: #ff6060 }
+DIV.tracetail PRE { font-weight: 500 }
+DIV.newvars PRE { background-color: #c0c0ff;
+                  display: none }
+DIV.newcons PRE { background-color: #e0e0ff;
+                  display: none }
+SPAN.shvc { color: blue;
+            text-decoration: underline }
+DIV.verhead { background-color: #c0ffc0 }
+/* DIV.vertab */

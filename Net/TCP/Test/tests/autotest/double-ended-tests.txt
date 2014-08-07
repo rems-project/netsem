@@ -1,0 +1,353 @@
+2006-06-19
+
+Current plan: for each of the tests in the existing single-ended,
+injector-driven test suite, either:
+
+ 1) it's all on one host, in which case just flag it to run as a network
+    trace without modification (the conflater will take care of transforming
+    it into network trace syntax)
+
+ 2) it's on two hosts but doesn't cheat (ie. use the injector), in which case
+    flag it as a network test as above
+
+ 3) it's on two hosts, does cheat but described something which could
+    plausibly happen between two well-behaved hosts using the sockets API, in
+    which case we write a new test which showcases the same behaviour without
+    cheating (here's where the actual work is)
+
+ 4) it's on two hosts and describes something which shouldn't ever occur
+    between two well-behaved hosts using the sockets API, in which case we're
+    not interested in having Spec3 model it anyway, so we ignore it (note that
+    this could include things legal according to the TCP 'specification' but
+    not achieveable by existing implementations)
+
+That should give us at least as much effective coverage as the existing test
+suite. Then add a few more custom-written tests to illustrate or explore
+specific interesting behaviours, corner cases, etc.
+
+In determining whether tests are safe to lift, the simple criterion is whether
+the injector is used (note that a call to rst_driven_socket is not
+automatically a sign of cheating; it's safe as long as the last argument is
+NO_DATAGRAMS). Normally the easiest way to check is by examining the last
+element of the tool_select tuples for the test and auxiliary hosts, which is
+set to true if the injector is to be started on that host.
+
+Note that the tests in bind.ml run an injector but don't use it for anything,
+because they use the generic "simple mode" test configuration in simple.ml.
+
+Also note that any test which interacts with the aux host by causing it to
+send or receive datagrams *MUST* run a slurper on the aux host, or we believe
+there will be problems with checking later. There are a number of existing
+tests which attempt to connect to non-listening sockets on the aux host and
+cause it to generate a RST and which do not currently run a slurper on the aux
+host; if any of these tests are to be lifted then the tool selectors must be
+changed to run the slurper on the aux host. The simple check for this is to
+see if there are any tracennnn files containing the string "recvdatagram" for
+which a corresponding tracennnn.aux does not exist and contain the string
+"senddatagram"; if there are, checking will fail because datagrams will appear
+to have entered the network from nowhere. (20060628: I believe this has been
+done in all the tests I've added to STREAM_NORMAL --amgb)
+
+We should ensure that all network-level traces which generate an auxiliary
+host trace take care to run holtcpcb on it, to ease checking. Since we're only
+generating BSD traces at the moment, just check that all generated
+trace????{.aux} files contain the string "holtcpcb".
+
+We are not currently interested in anything involving UDP or anything
+involving out-of-band data. We are also not interested in exhaustive tests
+involving consuming all available file descriptors, etc.; where these tests
+already exist in TCP_EXHAUSTIVE they have been lifted to STREAM_EXHAUSTIVE if
+appropriate, but no effort has been made to populate STREAM_EXHAUSTIVE with
+new tests.
+
+Progress on existing tests: (* means complete)
+  * socket.ml -- all case (1), all lifted
+  * drivetest.ml -- network.ml does the equivalent thing
+  * loopback.ml -- all case (1), all lifted
+  * bind.ml -- all case (1), all lifted
+  * bind_2.ml -- most case (1) and lifted, one case (3) and rewritten
+  * bind_udp.ml -- all UDP, ignored
+  * connect.ml -- some lifted, rest rewritten
+  * connect_udp.ml -- all UDP, ignored
+  * listen.ml -- several lifted, one moved to packet-interference to-do, rest
+rewritten
+  * accept.ml -- most lifted, one rewritten, one moved to packet-interference
+to-do
+  * disconnect.ml -- one rewritten, rest lifted
+  * dup.ml -- all case (1), all lifted
+  * dupfd.ml -- all lifted
+  * close.ml -- all rewritten or moved to to-do list
+  * getifaddrs.ml -- all case (1), all lifted
+  * getsocklistening.ml -- moved to list below
+  * getnames.ml -- lifted or rewritten
+  * sockatmark_udp.ml -- all UDP, ignored
+  * sockbopt.ml -- all case (1), all lifted
+  * socknopt.ml -- all case (1), all lifted
+  * socktopt.ml -- all case (1), all lifted
+  * shutdown.ml -- some case (3) and rewritten, some case (4) and ignored, some
+moved to packet-interference-dependent to-do list below
+  * send.ml -- some rewritten, some moved to to-do, some concern OOB data and so
+ignored
+  * recv.ml -- some rewritten, some concern OOB data and so ignored
+  * send_to.ml -- all UDP, ignored
+  * fileflags.ml -- all case (1), all lifted
+  * getsockerr.ml -- all case (1), all lifted
+  * recv_from.ml -- all UDP, ignored
+  * deliver_in.ml -- mostly responses to receiving unachievable packets
+(ignored), some covered already in network.ml, some rewritten, some moved to
+to-do list below
+  * deliver_in_3.ml -- some responses to receiving illegal packets (ignored),
+some moved to to-do list below, several ignored because they would have
+generated traces far too long (700-1200 steps) to be useful
+  * deliver_icmp.ml -- all UDP, ignored
+  * timers.ml -- some rewritten, some moved to packet-interference-dependent
+to-do list below
+  * pselect.ml -- one moved to list below, rest lifted or rewritten
+  * demo.ml -- all functionality covered in network.ml already
+
+The new network.ml contains some new test scenarios based mainly on the notes
+below.
+
+Some scenarios require interference with packets in transmission in order to
+achieve the correct timing. Specific instances are listed below (none of these
+are implemented yet):
+
+from shutdown.ml:
+
+- Make a nonblocking call to connect(); before the SYN,ACK is received, shut the
+  socket down for writing
+- Get halfway through a simultaneous open; before the final ACK is received,
+  shut the socket down for writing
+
+from timers.ml:
+
+- Lose packets in order to force retransmission of a SYN
+- Lose packets in order to force retransmission of data
+- Lose packets in order to force retransmission of a FIN in FIN_WAIT_1
+- Lose packets in order to force retransmission of a FIN in LAST_ACK
+- Lose packets during simultaneous open in order to force retransmission of an
+  ACK
+- Lose packets sent in response to a keepalive until connection times out
+
+from deliver_in.ml:
+
+- Complete simultaneous open
+- Duplicate packet in order to deliver sane segment to closed socket
+- Set up and tear down a connection, then send a duplicate of the original
+  SYN, with and without an appropriate listening socket, before and after
+  leaving TIME_WAIT
+- Delay RST messages from an abortive close on an open connection in order to
+  deliver them when the socket is in LAST_ACK, TIME_WAIT, etc.
+
+from deliver_in_3.ml:
+
+- Duplicate packet so that it arrives with only already-acknowledged data
+- Lose first in a sequence of packets sent by test host in order to force a
+  fast or NewReno-style retransmit (also try this while the other host is
+  sending data, cf. deliver_in_3.ml/ackstuff/test3)
+- Delay the first packet in a sequence in order to generate duplicate acks
+  followed by letting it through in time to see the dupacks counter reset
+- Other tests involving delaying particular packets from a sequence (see the
+  file for the gory details)
+- Delay several segments in order to deliver one segment (which does/does not
+  have the FIN flag set) "early", then plug the hole with the delayed segments
+
+from listen.ml:
+
+- Fill up incomplete connection queue on test host by dropping ACK packets
+  (basically, do a syn-flood DoS attack)
+
+from accept.ml:
+
+- After test host SYN,ACKs a connection attempt, drop the ACK, then find a way
+  to force the connecting socket to emit a RST instead, then have the test
+  host accept the connection
+
+from pselect.ml:
+
+- For sockets in all synchronised states, block in pselect() and then send a
+  duplicate of an old datagram to the socket
+
+from close.ml:
+
+- Call close() on an established connection and then drop all the FIN packets
+  so that the close fails
+- Close a (blocking/non-blocking) socket which is in state LISTEN with a
+  connection in its syncache (seen SYN but no ACK)
+- Close a (blocking/non-blocking) socket with a non-zero linger timeout and
+  drop all packets sent in response (so the linger timer expires)
+
+from send.ml:
+
+- When data is being sent in several packets (for example, because the send
+  buffer size has been reduced), delay the acks for both blocking and
+  non-blocking calls to send()
+- When data is being sent in several packets during a blocking call to send(),
+  perform an abortive close on the other end before it receives all the data
+- All the tests in send.ml between test12 and test16 inclusive, plus test26,
+  require a socket whose send buffer is currently full or nearly full. We can't
+  reliably produce such a thing without tampering with the network as the other
+  end will obligingly keep receiving the data!
+
+from various files:
+
+- There are many things for which we would like to test the result of
+  performing an operation in all possible states. Currently only CLOSED,
+  LISTEN, ESTABLISHED, CLOSE_WAIT, FIN_WAIT_2 and TIME_WAIT are tested as
+  these are the only ones in which we can preserve a socket for long enough to
+  run the tests. If we add the ability to tamper with packets in transmission
+  we could drive the network into the remaining states long enough to run
+  tests in them. Adding the appropriate functionality to
+  drive_connection_to_state, and the states in question to
+  all_interesting_network_states, will take care of all this automatically.
+
+One other thing which our tests should technically cover but don't is the
+behaviour of connections where a host's advertised receive window is reduced to
+0. A very large number of packets need to be sent to achieve this (tinkering
+with SO_RCVBUF doesn't seem to help) and the resulting traces are therefore
+far too long to be checkable. This means we don't cover:
+
+- Watching the persist timer expire and seeing the host send a window probe
+- Receiving and responding to a window probe when a host's own receive window
+  is zero-sized
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+2006-05-17
+
+Some scenarios to test double ended.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Import existing tests that don't use Psyche. e.g. connect to non-existent host, socket, etc.
+
+can't use psyche cos no timing info, host info, etc.
+
+plan: need to go through existing tests, marking those that are unproblematic, and lifting to the network scenario.
+
+probably specially written tests are more important
+
+socket.ml: can be lifted
+
+drivetest.ml: some single host driven socks can be lifted but some (e.g. drive to SYN_RCVD and beyond) use an injector to mimic a virtual host.
+
+loopback.ml: can be lifted
+
+bind.ml: OK
+
+bind_2.ml: OK
+
+bind_udp.ml: presume OK
+
+connect.ml: uses driven sockets mostly, some tests may be lifted
+
+connect_udp.ml: presumably OK
+
+listen.ml: some tests OK, most driven
+
+accept.ml: most driven
+
+disconnect.ml: a lot driven
+
+dup.ml: OK
+
+close.ml: all driven
+
+getifaddrs.ml: OK
+
+getsocklistening.ml: driven
+
+getnames.ml: OK
+
+sockatmark_udp.ml: OK (urgent data related)
+
+sockbopt.ml: OK
+
+socknopt.ml: OK
+
+socktopt.ml: OK
+
+shutdown.ml: mostly driven
+
+send.ml: mostly driven
+
+recv.ml: mostly driven
+
+send_to.ml: OK (UDP tests)
+
+fileflags.ml: OK
+
+getsockerr.ml: OK
+
+recv_from.ml: OK (UDP tests)
+
+deliver_in.ml: uses injector, driven
+
+deliver_in_3.ml: injector, driven
+
+deliver_icmp.ml: some OK, some use injector
+
+timers.ml: injector, driven
+
+pselect.ml: driven, injector
+
+demo.ml: OK
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+* = done
+
+
+* src connects to dst, closes
+* src connects to dst, src sends data, closes
+* src connects to dst, src sends data, dst reads all of it, closes
+* src connects to dst, src sends data, dst reads part of it, closes
+* src connects to dst, dst sends data, closes
+* src connects to dst, dst sends data, src reads all of it, closes
+* src connects to dst, dst sends data, src reads part of it, closes
+* src connects to dst, dst sends data, src reads part of it, src reads rest of it, closes
+* src connects to dst, src sends data, dst receives data, dst sends data, src receives data, closes
+* src connects to dst, dst sends data, src receives data, src sends data, dst receives data, closes
+* src connects to dst, src sends two bits of data, dst receives one or both, closes
+* src connects to dst, src sends data, dst sends data, src receives data, dst receives data, closes
+* src connects to dst, dst sends >1460b of data, src receives part of it,
+closes
+* src connects to dst, dst sends >1460b of data, src tries to receive all of
+it, closes
+* src connects to dst, src blocks trying to receive, dst sends data, closes
+* src connects to dst, dst blocks trying to receive, src sends data, closes
+
+for the above tests, probably best to write individual code, with textual duplication etc. but in one file
+
+src connects, timeout
+src connects, sends, timeout
+etc.
+
+src connects, other end goes down
+src connects, src down
+
+src connects, connects again
+src connects, connects to same socket
+
+src connects, dst connects
+src connects, dst connects back to src socket
+etc.
+
+src connects, shutdown or various other combinations of flag setting
+occurs, on src and dest, sends and recvs follow
+
+reconnect before 2MSL wait
+reconnect after 2MSL wait
+
+simultaneous open
+sim close ?
+
+
+
+look at individual rules of the net spec, exercise these (basically look at the sockets API and exercise these)
+
+look for funny interleavings or known corner cases
+
+
+
+

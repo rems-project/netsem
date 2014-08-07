@@ -1,0 +1,234 @@
+(* Netsem Slurper -- Initialised on host: john *)
+(* Date: Mon Nov 11 16:55:11 2002    Source Host Option (-h): Some 192.168.0.12 *)
+(* BEGIN *)
+(* 1037033735.405776 *)
+Lh_senddatagram( TCP(<|
+    is1 := SOME(IP 192 168 0 12);
+    is2 := SOME(IP 192 168 0 13);
+    ps1 := SOME(Port 1180);
+    ps2 := SOME(Port 22);
+    seq := tcp_seq_local(n2w 1885512662);
+    ack := tcp_seq_foreign(n2w 0);
+    URG := F;
+    ACK := F;
+    PSH := F;
+    RST := F;
+    SYN := T;
+    FIN := F;
+    win := n2w 57344;
+    ws := SOME(CHR 0);
+    urp := n2w 0;
+    mss := SOME(n2w 1460);
+    ts := SOME(ts_seq (n2w 52402161), ts_seq (n2w 0));
+    data := []   (*""*)
+    |>) );
+(* 1037033735.406209 *)
+Lh_recvdatagram( TCP(<|
+    is1 := SOME(IP 192 168 0 13);
+    is2 := SOME(IP 192 168 0 12);
+    ps1 := SOME(Port 22);
+    ps2 := SOME(Port 1180);
+    seq := tcp_seq_local(n2w 2475012084);
+    ack := tcp_seq_foreign(n2w 1885512663);
+    URG := F;
+    ACK := T;
+    PSH := F;
+    RST := F;
+    SYN := T;
+    FIN := F;
+    win := n2w 57344;
+    ws := SOME(CHR 0);
+    urp := n2w 0;
+    mss := SOME(n2w 1460);
+    ts := SOME(ts_seq (n2w 53240907), ts_seq (n2w 52402161));
+    data := []   (*""*)
+    |>) );
+(* 1037033735.406429 *)
+Lh_senddatagram( TCP(<|
+    is1 := SOME(IP 192 168 0 12);
+    is2 := SOME(IP 192 168 0 13);
+    ps1 := SOME(Port 1180);
+    ps2 := SOME(Port 22);
+    seq := tcp_seq_local(n2w 1885512663);
+    ack := tcp_seq_foreign(n2w 2475012085);
+    URG := F;
+    ACK := T;
+    PSH := F;
+    RST := F;
+    SYN := F;
+    FIN := F;
+    win := n2w 57920;
+    ws := NONE;
+    urp := n2w 0;
+    mss := NONE;
+    ts := SOME(ts_seq (n2w 52402161), ts_seq (n2w 53240907));
+    data := []   (*""*)
+    |>) );
+(* 1037033735.424421 *)
+Lh_recvdatagram( TCP(<|
+    is1 := SOME(IP 192 168 0 13);
+    is2 := SOME(IP 192 168 0 12);
+    ps1 := SOME(Port 22);
+    ps2 := SOME(Port 1180);
+    seq := tcp_seq_local(n2w 2475012085);
+    ack := tcp_seq_foreign(n2w 1885512663);
+    URG := F;
+    ACK := T;
+    PSH := T;
+    RST := F;
+    SYN := F;
+    FIN := F;
+    win := n2w 57920;
+    ws := NONE;
+    urp := n2w 0;
+    mss := NONE;
+    ts := SOME(ts_seq (n2w 53240908), ts_seq (n2w 52402161));
+    data := [CHR 83; CHR 83; CHR 72; CHR 45; CHR 49; CHR 46; CHR 57; CHR 57; CHR 45; CHR 79; CHR 112; CHR 101; CHR 110; CHR 83; CHR 83; CHR 72; CHR 95; CHR 50; CHR 46; CHR 57; CHR 32; CHR 70; CHR 114; CHR 101; CHR 101; CHR 66; CHR 83; CHR 68; CHR 32; CHR 108; CHR 111; CHR 99; CHR 97; CHR 108; CHR 105; CHR 115; CHR 97; CHR 116; CHR 105; CHR 111; CHR 110; CHR 115; CHR 32; CHR 50; CHR 48; CHR 48; CHR 50; CHR 48; CHR 51; CHR 48; CHR 55; CHR 10 ]   (*"SSH-1.99-OpenSSH_2.9 FreeBSD localisations 20020307\x00a"*)
+    |>) );
+(* 1037033735.522522 *)
+Lh_senddatagram( TCP(<|
+    is1 := SOME(IP 192 168 0 12);
+    is2 := SOME(IP 192 168 0 13);
+    ps1 := SOME(Port 1180);
+    ps2 := SOME(Port 22);
+    seq := tcp_seq_local(n2w 1885512663);
+    ack := tcp_seq_foreign(n2w 2475012137);
+    URG := F;
+    ACK := T;
+    PSH := F;
+    RST := F;
+    SYN := F;
+    FIN := F;
+    win := n2w 57868;
+    ws := NONE;
+    urp := n2w 0;
+    mss := NONE;
+    ts := SOME(ts_seq (n2w 52402173), ts_seq (n2w 53240908));
+    data := []   (*""*)
+    |>) );
+(* 1037033737.118918 *)
+Lh_senddatagram( TCP(<|
+    is1 := SOME(IP 192 168 0 12);
+    is2 := SOME(IP 192 168 0 13);
+    ps1 := SOME(Port 1180);
+    ps2 := SOME(Port 22);
+    seq := tcp_seq_local(n2w 1885512663);
+    ack := tcp_seq_foreign(n2w 2475012137);
+    URG := F;
+    ACK := T;
+    PSH := T;
+    RST := F;
+    SYN := F;
+    FIN := F;
+    win := n2w 57868;
+    ws := NONE;
+    urp := n2w 0;
+    mss := NONE;
+    ts := SOME(ts_seq (n2w 52402332), ts_seq (n2w 53240908));
+    data := [CHR 113; CHR 10 ]   (*"q\x00a"*)
+    |>) );
+(* 1037033737.119586 *)
+Lh_recvdatagram( TCP(<|
+    is1 := SOME(IP 192 168 0 13);
+    is2 := SOME(IP 192 168 0 12);
+    ps1 := SOME(Port 22);
+    ps2 := SOME(Port 1180);
+    seq := tcp_seq_local(n2w 2475012137);
+    ack := tcp_seq_foreign(n2w 1885512665);
+    URG := F;
+    ACK := T;
+    PSH := T;
+    RST := F;
+    SYN := F;
+    FIN := F;
+    win := n2w 57920;
+    ws := NONE;
+    urp := n2w 0;
+    mss := NONE;
+    ts := SOME(ts_seq (n2w 53241078), ts_seq (n2w 52402332));
+    data := [CHR 80; CHR 114; CHR 111; CHR 116; CHR 111; CHR 99; CHR 111; CHR 108; CHR 32; CHR 109; CHR 105; CHR 115; CHR 109; CHR 97; CHR 116; CHR 99; CHR 104; CHR 46; CHR 10 ]   (*"Protocol mismatch.\x00a"*)
+    |>) );
+(* 1037033737.119673 *)
+Lh_recvdatagram( TCP(<|
+    is1 := SOME(IP 192 168 0 13);
+    is2 := SOME(IP 192 168 0 12);
+    ps1 := SOME(Port 22);
+    ps2 := SOME(Port 1180);
+    seq := tcp_seq_local(n2w 2475012156);
+    ack := tcp_seq_foreign(n2w 1885512665);
+    URG := F;
+    ACK := T;
+    PSH := F;
+    RST := F;
+    SYN := F;
+    FIN := T;
+    win := n2w 57920;
+    ws := NONE;
+    urp := n2w 0;
+    mss := NONE;
+    ts := SOME(ts_seq (n2w 53241078), ts_seq (n2w 52402332));
+    data := []   (*""*)
+    |>) );
+(* 1037033737.119914 *)
+Lh_senddatagram( TCP(<|
+    is1 := SOME(IP 192 168 0 12);
+    is2 := SOME(IP 192 168 0 13);
+    ps1 := SOME(Port 1180);
+    ps2 := SOME(Port 22);
+    seq := tcp_seq_local(n2w 1885512665);
+    ack := tcp_seq_foreign(n2w 2475012157);
+    URG := F;
+    ACK := T;
+    PSH := F;
+    RST := F;
+    SYN := F;
+    FIN := F;
+    win := n2w 57849;
+    ws := NONE;
+    urp := n2w 0;
+    mss := NONE;
+    ts := SOME(ts_seq (n2w 52402332), ts_seq (n2w 53241078));
+    data := []   (*""*)
+    |>) );
+(* 1037033737.120368 *)
+Lh_senddatagram( TCP(<|
+    is1 := SOME(IP 192 168 0 12);
+    is2 := SOME(IP 192 168 0 13);
+    ps1 := SOME(Port 1180);
+    ps2 := SOME(Port 22);
+    seq := tcp_seq_local(n2w 1885512665);
+    ack := tcp_seq_foreign(n2w 2475012157);
+    URG := F;
+    ACK := T;
+    PSH := F;
+    RST := F;
+    SYN := F;
+    FIN := T;
+    win := n2w 57920;
+    ws := NONE;
+    urp := n2w 0;
+    mss := NONE;
+    ts := SOME(ts_seq (n2w 52402332), ts_seq (n2w 53241078));
+    data := []   (*""*)
+    |>) );
+(* 1037033737.120734 *)
+Lh_recvdatagram( TCP(<|
+    is1 := SOME(IP 192 168 0 13);
+    is2 := SOME(IP 192 168 0 12);
+    ps1 := SOME(Port 22);
+    ps2 := SOME(Port 1180);
+    seq := tcp_seq_local(n2w 2475012157);
+    ack := tcp_seq_foreign(n2w 1885512666);
+    URG := F;
+    ACK := T;
+    PSH := F;
+    RST := F;
+    SYN := F;
+    FIN := F;
+    win := n2w 57920;
+    ws := NONE;
+    urp := n2w 0;
+    mss := NONE;
+    ts := SOME(ts_seq (n2w 53241078), ts_seq (n2w 52402332));
+    data := []   (*""*)
+    |>) );

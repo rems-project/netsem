@@ -1,0 +1,17 @@
+\RequirePackage{ltsmunge}
+\RequirePackage{tcp}
+
+\let\mignore\relax
+\newcommand{\mignore}[1]{}
+
+\def\rulesrcsid{}
+
+% load as late as possible
+\RequirePackage[pdfpagelabels,linktocpage,colorlinks,linkcolor=blue,pagecolor=blue]{hyperref}
+% Ugh, get rid of annoying warnings.  We will hope that the substitutions
+% hyperref does to get a PDF-safe string for the various anchors are OK.
+\makeatletter
+\def\HyPsd@CatcodeWarning#1{}
+\makeatother
+
+\let\dumpallrules\relax

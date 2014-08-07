@@ -1,0 +1,18 @@
+#!/bin/bash
+
+TRACE="$1"
+BTRACE=`basename $TRACE`
+
+echo "Processing $BTRACE ($TRACE)..."
+
+# cd /usr/groups/tthee/local/Net-alt/TCP/Spec1
+
+mv $BTRACE.out.html $BTRACE.out.html-OLD-$$ 2> /dev/null
+mv $BTRACE.out.html.size-log $BTRACE.out.html.size-log-OLD-$$ 2> /dev/null
+
+./CheckTraces.exe --timing $TRACE < /dev/null >> dop-log.$$ 2>&1 &
+
+../Test/scripts/check/logpauses $BTRACE.out.html < /dev/null >> dop-log.$$ 2>&1 &
+
+ps auxwww | grep $USER
+

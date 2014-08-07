@@ -1,0 +1,127 @@
+#!/usr/bin/perl -w
+
+# make a directory of network trace files a bit prettier (HTMLify) and also
+# build an index
+
+use strict;
+
+umask 0002;
+
+open INDEX, ">index.html"
+    or die "Couldn't open file index.html for writing: $!\n";
+print INDEX <<EOT;
+<html>
+<head>
+<title>Raw Network Trace Index</title>
+</head>
+<body>
+<h1>Raw Network Trace Index</h1>
+
+<p><a href="log">View log</a>.
+
+<p><table border=0px cellspacing=0px cellpadding=0px>
+EOT
+
+my $srcdir = `pwd`;
+chomp $srcdir;
+# place dest files on scratch partition and link back to them
+my $dstdir = $srcdir;
+$dstdir =~ s{/tthee/}{/tthee-scratch/};
+my $dosymlink = 1;
+if ($dstdir eq $srcdir) {
+    warn "/tthee/ not found in source directory pathname: not linking.\n";
+    $dosymlink = 0;
+}
+if (! (-d $dstdir)) {
+    mkdir($dstdir)
+        or die "Couldn't make target directory $dstdir: $!\n";
+}
+foreach my $file (glob("trace????.net")) {
+    my $srcfile = "$srcdir/$file";
+    my $dstfile = "$dstdir/$file";
+    open IN, "<$srcfile"
+        or die "Couldn't open file $srcfile for reading: $!\n";
+    $dosymlink && symlink("$dstfile.html","$srcfile.html");  # ignore return code; link might exist already
+    open OUT, ">$dstfile.html"
+        or die "Couldn't open file $dstfile.html for writing: $!\n";
+
+    print OUT <<EOT;
+<html>
+<head>
+<title>Trace</title>
+<style type="text/css">
+DIV.header { background-color: #ffffe0; }
+DIV.someepsilon { background-color: #f0f0f0; margin: 10px; width: 50%; position: relative; left: 25%; }
+DIV.leftcall { background-color: #ffc0c0; width: 50%; }
+DIV.leftreturn { background-color: #c0ffc0; width: 50%; }
+DIV.leftsend { background-color: #ffff80; width: 50%;}
+DIV.leftrecv { background-color: #ffc080; width: 50%; }
+DIV.lefttrace { background-color: #e0e0ff; width: 50%; }
+DIV.rightcall { background-color: #ffc0c0; width: 50%; position: relative; left: 50%; }
+DIV.rightreturn { background-color: #c0ffc0; width: 50%; position: relative; left: 50%; }
+DIV.rightsend { background-color: #ffff80; width: 50%; position: relative; left: 50%; }
+DIV.rightrecv { background-color: #ffc080; width: 50%; position: relative; left: 50%; }
+DIV.righttrace { background-color: #e0e0ff; width: 50%; position: relative; left: 50%; }
+</style>
+</head>
+<body bgcolor="#ffffff">
+EOT
+
+    my $description = "";
+
+    print OUT "<pre class=\"head\">\n";
+    # skip host header comments
+    while (<IN>) {
+        print OUT;
+        if (/Test (Hosts?|Description)/) { $description .= $_; }
+        last if /.*EMITESAB.*/;
+    }
+    # skip second host header comments
+#     While (<In>) {
+#         Print Out;
+#         Last If /.*Emitesab.*/;
+#     }
+#     Print Out "</Pre>\N";
+
+    for (;;) {
+        my $chunk = "";
+        while (<IN>) {
+            last if /^$/ && $chunk =~ /./;
+            $chunk .= $_ if /./;
+        }
+        my $class = "other";
+        $class = "epsilon" if $chunk =~ /Ln1_epsilon/ || $chunk =~ /abstime/;
+        $class = "call" if $chunk =~ /Lh_call/;
+        $class = "return" if $chunk =~ /Lh_return/;
+        $class = "send" if $chunk =~ /Lh_senddatagram/;
+        $class = "recv" if $chunk =~ /Lh_recvdatagram/;
+        $class = "trace" if $chunk =~ /Lh_trace/;
+	my $pos = "left"; // if $chunk =~ /test_host/;
+        $pos = "right" if $chunk =~ /aux/;
+        $pos = "some" if $chunk =~ /Ln1_epsilon/;
+        print OUT "<div class=\"${pos}${class}\"><pre>\n${chunk}</pre></div>\n";
+        last if !defined($_);
+    }
+
+    print OUT <<EOT;
+</body>
+</html>
+EOT
+
+    close IN
+        or die "Couldn't close file $file from reading: $!\n";
+    close OUT
+        or die "Couldn't close file $file.html from writing: $!\n";
+
+  print INDEX qq{<tr><td nowrap><a href="$file.html">$file</a>/<a href="$file">plain</a>/<a href="$file.ps.gz">ps</a></td><td nowrap>&nbsp;&nbsp;&nbsp;$description</td></tr>\n};
+}
+
+print INDEX <<EOT;
+</table>
+</body>
+</html>
+EOT
+
+close INDEX
+    or die "Couldn't close file index.html from writing: $!\n";
+

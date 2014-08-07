@@ -1,0 +1,58 @@
+#!/usr/bin/perl -w
+#
+# Script to track the historic progress of the number of clauses in a
+# HOL inductive definition.
+#
+# Takes the name of a checked-out file, and outputs a report.
+
+require 5.003;
+
+use strict;
+
+my ($path) = ($0 =~ m|^(.*)/[^/]*$|);
+$path = "" if !defined($path);
+
+my $CVS = "cvs";
+my $COUNT = "$path/countClauses";
+
+die "Usage: $0 <filename>\n" unless $#ARGV == 0;
+
+my $filename = shift;
+
+my $rev;
+
+open PROG, "$CVS status $filename|"
+    or die "Couldn't open CVS pipe: $!\n";
+while (<PROG>) {
+    if (/Repository revision:\s+([0-9.]*)\s/) {
+        $rev = $1;
+    }
+}
+close PROG or die "Couldn't close CVS pipe: $!\n";
+
+die "Couldn't obtain repository revision from status info\n" if !defined($rev);
+
+my ($baserev,$toprev) = ($rev =~ /^(.*\.)([0-9]+)$/);
+
+my $r;
+for ($r = 1; $r <= $toprev; $r++) {
+    # get file and count rules:
+    open PROG, "$CVS -l -q -n update -p -r$baserev$r $filename | $COUNT -q|"
+        or die "Couldn't open CVS and count pipe: $!\n";
+    my $count = <PROG> + 0;
+    close PROG or die "Couldn't close CVS and count pipe: $!\n";
+
+    # get date of file:
+    open PROG, "$CVS log -r$baserev$r $filename|"
+        or die "Couldn't open CVS log pipe: $!\n";
+    my $date;
+    while (<PROG>) {
+        if (/^date:\s+(.*?);/) {
+            $date = $1;
+        }
+    }
+    die "Couldn't read CVS log date!\n" if !defined($date);
+
+    print "$filename $baserev $r $count $date\n";
+}
+

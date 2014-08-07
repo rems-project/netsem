@@ -1,0 +1,51 @@
+
+reachable states of a pair of sockets in two (not necessarily
+distinct?) machines that have dual quads and `synchronised' sequence
+numbers, whatever that means (inequalities about sequence numbers to
+be written down).  That means we don't have to consider pairs where
+one machine has rebooted and moved into an unrelated state. (Probabilistically...)
+
+
+
+
+              NEX  CLO  LIS  SST  SRD  EST  CLW  FW1  CLS  LAK FW2 TWT
+NONEXIST       *    *    *    *    *    *    -    *    -    -   -   *
+CLOSED              *    *    *    *    *    -    *    -    -   -   *
+LISTEN                   *    *	   *    *    -    *    -    -   -   *
+SYN_SENT                      *    *    -    -    *    -    -   -   -
+SYN_RECEIVED                       *    *    -    *    -    -   -   -
+ESTABLISHED                             *    -    *    -    -   -   -
+CLOSE_WAIT                                   -    *    -    -   *   -
+FIN_WAIT_1                                        *    *    *   -   -
+CLOSING                                                *    -   -   *
+LAST_ACK                                                    -   *   *
+FIN_WAIT_2                                                      -   -
+TIME_WAIT       	        		        	    *
+
+	       1   2
+	       2   1
+
+NEX
+CLOSED         N
+LISTEN	       N
+SYN_SENT       S
+SYN_RECEIVED   N/S
+ESTABLISHED    A
+
+non-reachable: EST,SST corresponds to A,S, i.e. impossible to receive a SYN and ACK it without sending SYN
+
+CLOSE_WAIT
+FIN_WAIT_1
+CLOSING
+LAST_ACK
+FIN_WAIT_2
+TIME_WAIT
+
+
+now need observable differences between pairs?
+
+identify FW1 and FW2?
+
+identify CLOSING TIME_WAIT and LAST_ACK?
+
+

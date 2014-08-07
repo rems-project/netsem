@@ -1,0 +1,207 @@
+% -*-SML-*-
+
+(This best in a 156-column emacs :-)
+
+
+let's look ahead a little and think about how our code structure is going to look in Level 3
+(with a view to pulling bits out, and making Level 2 so that it will smoothly extend to Level
+3).
+
+(emphasise principle: arranging to be _as_lucid_as_possible_, in contrast to BSD code goals...)
+
+question: how much interleaving can actually happen, eg between multiple segment outputs or
+between a SYN receive and a SYN,ACK send?
+
+`principle': want each of our rules to send a determined number (and type) of segments (?).
+Nope, that's no good.
+
+`principle': separate out control flow (which is baroque) from
+construction of outgoing segments (of which there are only a few
+kinds, really).  That might lead to a little duplication of control
+logic (eg to check if exists sendable data), but think it'll be
+clearer overall.
+
+
+Enumerating everything that causes a segment to be sent (many of which are when a segment is
+received), but ignoring all other side-effects.  The idea is that we should understand which of
+our rules covers each of these cases.  It may be worth doing this more rigorously later, taking
+the actual code and doing pseudo-abstract-interpretation and inlining on it by hand?
+
+
+
+
+
+tcp_output is called as follows, according to TCPv2p851:             form of our output segment:   definitely happens:                      our rule:
+(in only some circumstances does it actually do output, of course)
+
+  connect() to send SYN                                              SYN                           y                                        connect
+  shutdown() of WR? to send FIN                                      empty-FIN ?                   y                                        close/shutdown?
+  recv() to perhaps send window update                               common                        n (maybe recv window didn't open enough) recv
+  send() to send data or OOB data                                    common                        n (maybe send window is zero)            send
+
+  tt_delack expires to send delayed ACK                              common                        y                                        tt_delack
+  tt_rexmit expires to retransmit segment                            common or SYN or SYN-ACK?     y (as persist and rexmit exlcusive?)     tt_rexmit
+  tt_persist expires to send persist probe                           common?                       y?                                       tt_persist
+
+  by tcp_drop to send a RST (maybe) and move to CLOSED, variously:
+    SYN arrives on listening socket, but not enough mbufs            }                                                                      (see input)
+    RST arrives in response to SYN                                   }                                                                      (see input)
+    RST arrives on existing connection                               }                                                                      (see input)
+    tt_rexmit expires for last time                                  } RST                         if HAVERCVDSYN                           tt_rexmit
+    tt_conn_est expires                                              }                                                                      tt_conn_est
+    tt_keep expires after 9 probes                                   }                                                                      tt_keep
+    `PRU_ABORT request'                                              }                                                                      close/shutdown?
+    `socket closed and SO_LINGER set with linger time of 0'          }                                                                      close/shutdown?
+
+  by tcp_disconnect to send a FIN                                    common                        n? (maybe send window is zero?)          close/shutdown?
+
+  by tcp_input in various circumstances:
+    `output is required' (whatever that means...?)                   common                        ?  (see below for these 4?)              (see input)
+    `an immediate ACK should be sent'                                common                        ?                                        .
+    `a pure ACK arrives and there is more data to send'              common                        ?                                        .
+    `the third consecutive duplicate ACK arrives (fast rexmit)'      common                        ?                                        .
+
+  by tcp_output itself                                               common (argh)                 n (maybe don't have more to send)        transitivity...
+
+
+
+
+
+tcp_input deals with various kinds of input:                                                  form of our o/p   always?  our rule
+  (this based on TCPv2 code skimming; may not be complete)
+  (here `drop' means drop the segment, not drop the connection)
+
+  (in all the `generate ACK' cases below, would be good to check
+  that the beginning of tcp_output will definitely not decide not
+  to do any output)
+
+  seg doesn't sanity-check -> drop                                                                                      4
+  seg sanity-checks but doesn't match any cb -> drop and generate RST                              RST               y  5
+  seg sanity-checks and matches a CLOSED cb  -> drop                                                                    6
+
+  seg sanity-checks and matches a LISTEN cb  ->                                                                         1
+    if RST             -> drop                                                                                          .
+    if ACK             -> drop and generate RST                                                    RST               y  .
+    if ~SYN            -> drop                                                                                          .
+    if bcast or mcast  -> drop                                                                                          .
+    else SYN,~ACK,~RST -> initiate passive open,                                                                        .
+      ie footle with new socket and send SYN,ACK                                                   SYN-ACK           y
+
+  seg sanity-checks and matches a SYN_SENT cb ->                                                                        2
+    if ACK and bogus seq     -> drop and generate RST                                              RST               y  .
+    if ACK (acceptable),RST  -> call tcp_drop to maybe(?) send RST and be CLOSED                   RST               y  2 (not 7 (RST->close))
+    if ~ACK,RST              -> drop                                                                                    2
+    if ~SYN                  -> drop                                                                                    .
+    else                     -> completion of active open,                                                              .
+      ie footle with options and data, eventually maybe(? how controlled?) send ACK                common (for us)   y  .
+
+  seg sanity-checks and matches header prediction,
+    ie an ESTABLISHED cb, ACK,~(SYN,FIN,RST,URG), some condition on ts,seq,win,ack,nxt ->                               (don't do HP)
+    if pure ack                -> footle with send buffer; if more data then call tcp_output       common            n
+    else pure in-sequence data -> receive it; set delayed-ack flag
+
+  seg sanity-checks and matches a non-{CLOSED,LISTEN,SYN_SENT} cb and doesn't match header prediction ->
+    if fails PAWS then drop and generate ACK                                                       common            y  3 (~SYN,~RST)
+    else if roughly all-data-duplicate and not simul-connect then drop and generate ACK            common            y  .
+    else if theres-some-new-data and st IN {FIN_WAIT_1,CLOSING,LAST_ACK;FIN_WAIT_2;TIME_WAIT}
+         then drop and generate RST                                                                RST               y  .
+    else if SYN and st=TIME_WAIT and ...
+         then (argh!) drop this connection and make a new one, by going back to the beginning!     ugh                  8 (SYN)
+    else if we-just-got-a-window-probe  then set ACKNOW and continue                               ugh                  3
+    else if seg outside window but not a window-probe then drop and generate ACK                   common            y  .
+    (btw, take care of dropping PSH and FIN if we dropped some data)
+    (nb the above is the non-corrected (cf p959) code.)
+    (falling back into imperativeness around here, sorry)
+
+    now if RST ...do various closing                                                                                    7 (RST->close)
+        if SYN still here then drop and generate RST                                               RST               y  8 (SYN)
+
+    ch29:
+
+    if SYN_RECEIVED then if the ACK is not reasonable drop and generate RST                        RST               y  3
+                         else make ESTABLISHED and carry on
+    fast retransmit: variously retransmit the missing segment (+cong avoid),                       common               .
+                               do normal output (+increase cong window),                           common               .
+                               do nothing                                                                               .
+
+    if ACK really stupid then drop and send ACK                                                    common               .
+
+    if all-outstanding-data-now-acked then call tcp_output()                                       argh.                .
+
+    if ACK in TIME_WAIT then drop and generate ACK                                                 common               .
+
+    sometimes footle with wl1 etc; if snd_wnd changed set needoutput=1                             common               .
+
+    if FIN and ~HAVERCVDFIN (hmm) then set ACKNOW to generate ACK later                            common               .
+
+
+
+
+
+Here (common) is an ACK,~SYN segment, with or without FIN and URG, as currently generated by deliver_out_1.
+
+
+Can we get away with
+
+  tcp_output : sock * oq -> sock * oq
+
+(a version that will definitely send at least one segment? In Level3 it'd send >=1...) and similar gadgets for RST sending etc?
+
+
+-------------------
+
+forms of output:
+
+  (re)send SYN,~(ACK,FIN,RST)       (ignoring those annoying early-FIN cases...)
+  (re)send SYN,ACK,~(FIN,RST)
+  (re)send ~SYN,ACK, *  ,~RST
+  send     RST
+
+  make_syn_segment     : socket -> tcpSegment
+  make_syn_ack_segment : socket -> tcpSegment
+  make_ack_segment     : socket -> tcpSegment * ...   (* need to record some stuff, eg how much is sent(?), but don't want to return a whole socket as want to see there aren't many side-effects *)
+
+  (* these names aren't very good, as omitting a flag means variously
+  either it's F or it's in {F,T}... maybe adopt a convention for the
+  SYN,ACK,RST flags? *)
+
+in all the first three, arrange for the send and resend code to be the
+same (ie, first mess with cb, then do send based on what's then in
+cb).  This has the downside of making the state more visually
+prominent than the segments in the spec, but without it retransmission
+would be ghastly, no?
+
+
+
+LIB calls that can generate output:
+
+  close
+  connect
+  recv
+  send
+  shutdown
+
+timer expiry:
+
+  the ones mentioned in the output stuff above, together with
+  tt_fin_wait_2 and tt_time_wait, which I think don't generate output.
+
+
+main tcp_input cases:
+
+  there's a lot of choice as to how we cut up the error
+  cases. Aim to have conceptually-clear rules, rather than (eg)
+  one rule to cover all the send-RST cases, or (eg) one rule for
+  each tcp-state, or (eg) one rule for each kind of incoming
+  segment?  At present the numbering above is an adhoc
+  unprincipled mixture of these schemes - maybe that's forced?
+
+  abandon idea that each rule generates a determinate amount of
+  output, as most common use of spec is to say 'hmm - i'm in this
+  state and that segment came in, what happened?'.  Also, it
+  would require a lot of duplicating and negating of conditions.
+
+(* Local Variables: *)
+(* font-lock-function-name-face: white *)
+(* fill-column: 100 *)
+(* End: *)

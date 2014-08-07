@@ -1,0 +1,24 @@
+INCLUDES = ../Spec1
+
+all: check_3trace evalAbsFun.exe GroundConflate.exe
+
+# Just make the theory files, not the checker. Sufficient to build alldoc.
+just_theories: TCP3_absFunTheory.uo
+
+# FIXME TCP3_urgencyTheory added by tjr- should this be here?
+check_3trace: check-sketch.uo TCP3_urgencyTheory.uo TCP3_bettersTheory.uo fastRulesTheory.uo
+	$(HOLMOSMLC) -o $@ $<
+
+word32relnorm.uo: word32relnorm.sml word32relnorm.ui
+	$(HOLMOSMLC) -c Overlay.ui GenRelNorm.ui $<
+
+evalAbsFun.sml: evalAbsFun.ml
+	cp evalAbsFun.ml evalAbsFun.sml # horrible- but couldn't get mosml to compile .ml file
+
+evalAbsFun.exe: evalAbsFun.uo
+	$(HOLMOSMLC) -o $@ $< #evalAbsFun.uo
+#	rm evalAbsFun.sml
+
+
+GroundConflate.exe: GroundConflate.uo
+	$(HOLMOSMLC) -o $@ $<

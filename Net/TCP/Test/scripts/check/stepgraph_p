@@ -1,0 +1,13 @@
+#!/bin/bash
+
+TITLE=`basename $1`
+grep ^==Step "$@" | cut -d' ' -f2 > /tmp/stepgraph.$$
+cat <<EOF | gnuplot -persist
+set terminal postscript eps color
+set title "$TITLE"
+set ylabel 'Trace step'
+set xlabel 'Checker attempt'
+set nokey
+plot '/tmp/stepgraph.$$';
+EOF
+

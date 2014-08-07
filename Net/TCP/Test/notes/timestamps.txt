@@ -1,0 +1,46 @@
+--
+BSD tcp_debug structures are timestamped on creation by kernel
+code. The timestamp is return by a call to iptime() which in turn calls
+getmicrotime(). Unfortunately depending on the setting of the kernel
+variable (kern.timecounter.method) this has one of two
+behaviours. When this variable is zero getmicrotime works in "fast"
+mode and can return a time that is upto 1/Hz previous to the call. When
+the variable is set to one getmicrotime() returns the most accurate
+time possible.
+
+For the purposes of TCP testing and merging this kernel variable must
+be set otherwise Lh_trace messages (that are generated from tcp_debug
+structures) are consistently timestamped with a time that is too
+early.
+
+From kern_clock.c (line 504):
+/*
+ * We have eight functions for looking at the clock, four for
+ * microseconds and four for nanoseconds.  For each there is fast
+ * but less precise version "get{nano|micro}[up]time" which will
+ * return a time which is up to 1/HZ previous to the call, whereas
+ * the raw version "{nano|micro}[up]time" will return a timestamp
+ * which is as precise as possible.  The "up" variants return the
+ * time relative to system boot, these are well suited for time
+ * interval measurements.
+ */
+
+void
+getmicrotime(struct timeval *tvp)
+{
+	struct timecounter *tc;
+
+	if (!tco_method) {
+		tc = timecounter;
+		*tvp = tc->tc_microtime;
+	} else {
+		microtime(tvp);
+	}
+}
+
+--
+BSD tcp_debug structures only store timestamps accurate to the nearest
+millisecond despite actually calling a function that returns a time
+accurate to at least microseconds. This causes a few issues with
+merging as our other sources timestamp to microsecond accuracy.
+--

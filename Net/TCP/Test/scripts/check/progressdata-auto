@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# repeatedly run the progressdata script in current check directory
+
+umask 002
+cd /usr/groups/tthee/check/current
+while true; do
+#echo "regenerating"
+/usr/groups/tthee/local/Net/TCP/Test/scripts/check/progressdata > progress.ps
+chmod 664 progress.*
+sleep 600
+done

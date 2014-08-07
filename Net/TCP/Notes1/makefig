@@ -1,0 +1,119 @@
+#!/bin/bash
+#
+# Type ./makefig [udp|tcp] trace_no a b output
+#
+# to create output.ps with steps a to b inclusive from trace number trace_no
+#
+# outputs the latex command to insert into your document.
+#
+# MS 04/08/04
+#
+
+if test $1 == "udp"
+then
+    TRACEDIR="/usr/groups/tthee/batch/autotest-udp-2004-05-25T09:45:06+0100"
+elif test $1 == "tcp"
+then
+    TRACEDIR="/usr/groups/tthee/batch/autotest-tcp-2004-07-30T14:27:31+0100"
+else
+    echo "Usage: ./makefig [udp|tcp] trace_no a b output"
+    echo ""
+    echo "creates output.ps with steps a to b inclusive from trace number trace_no"
+    echo "outputs the latex command to insert into your document"
+    exit -1
+fi
+TRACEFILE="$TRACEDIR/trace$2.ps.gz"
+FILE="./trace$2.ps"
+OUTDIR="example_traces"
+OUTFILE="$OUTDIR/$5.ps"
+
+cp $TRACEFILE $FILE.gz
+gunzip $FILE.gz
+cat > $OUTFILE <<EOF
+%!PS-Adobe-2.0
+%%Creator: makefig
+%%Title: makefig ps
+%%Pages: 1
+EOF
+sed -n "/%%PageOrder/,/%%EndSetup/p" $FILE >> $OUTFILE
+sed "/%!PS-Adobe-2.0/,/%%EndSetup/d" $FILE > $FILE.2
+cat >> $OUTFILE <<EOF
+%%Page: 1 1
+1 0 bop Black Black -80 228 a
+ gsave currentpoint currentpoint translate 0 neg rotate neg exch neg
+exch translate
+ -80 228 a 3 ()25 b()3
+228 y
+ currentpoint grestore moveto
+ 3975 228 a -121 643 a
+EOF
+
+sed -n -e "/^ gsave/N" -e "/\\n gsave/!s/\\n/ /p" $FILE.2 > $FILE.test
+while test -s $FILE.test
+do
+sed -n -e "/^ gsave/N" -e "/\\n gsave/!s/\\n/ /p" $FILE.2 > $FILE.test
+sed -e "/^ gsave/N" -e "/\\n gsave/!s/\\n/\\;\\;\\;/" $FILE.2 > $FILE.bak
+mv $FILE.bak $FILE.2
+done
+rm $FILE.test
+
+
+sed -e "/^ gsave.*translate 270 neg/,/.*eop.*/d" $FILE.2 > $FILE.bak
+mv $FILE.bak $FILE.2
+sed -e "s/%%Page:.*//g" $FILE.2 > $FILE.bak
+mv $FILE.bak $FILE.2
+
+sed -n "/ gsave.*\#$3\\\/,/ gsave.*\#$4\\\/p" $FILE.2 >> $OUTFILE
+
+sed -n "/ gsave.*\#$4\\\/,/ gsave.*\#/{
+s/^.*\#.*\$//
+p}" $FILE.2 >> $OUTFILE
+
+
+sed -e "s/\\;\\;\\;/ /g" $FILE.2 > $FILE.bak
+mv $FILE.bak $FILE.2
+
+TOPCOORD=$(sed -n -e "/ gsave.*\#$3\\\/{
+s/^.*translate//
+s/^ *-*[[:digit:]]* *//
+s/ \+.*\$//
+p
+}" $FILE.2)
+
+BOTCOORD=$(sed -n -e "/ gsave.*\#$4\\\/{
+s/^.*translate//
+s/^ *-*[[:digit:]]* *//
+s/ \+.*\$//
+p
+}" $FILE.2)
+
+
+#draw the lines on either side
+cat >> $OUTFILE <<EOF
+0 TeXcolorgray
+.5 TeXcolorgray 0 TeXcolorgray .5 TeXcolorgray Black
+875 0 moveto
+875 6000 lineto
+stroke
+3198 0 moveto
+3198 6000 lineto
+stroke
+eop
+EOF
+
+sed -n "/%%Trailer/,/%%EOF/p" $FILE >> $OUTFILE
+
+sed -e "s/\\;\\;\\;/\\n/g" $OUTFILE > $FILE.bak
+mv $FILE.bak $OUTFILE
+
+# scale into latex coordinates
+let "top = ((5475 - TOPCOORD) * 656 / 5475) + 114"
+let "bot = ((5475 - BOTCOORD) * 656 / 5475) + 114"
+
+# add extra space above and below
+let "top = top + 30"
+let "bot = bot - 40"
+
+echo "\includegraphics*[viewport=50 $bot 550 $top,width=15cm,clip]{$OUTDIR/$5}%tr$2"
+
+rm $FILE $FILE.2

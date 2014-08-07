@@ -1,0 +1,228 @@
+DVD outline:
+~~~~~~~~~~~~
+
+see /usr/groups/tthee/dvd-full/ for the image and
+Net/TCP/doc/dvd-full.sh for the script.
+
+== SO FAR:
+
+sigcomm TCP and UDP trace and check data
+  - trace: trace????, trace????.html, trace????.ps.gz
+  - check: join: trace????.out.html, trace????.annotated.ps.gz
+  - check: contributing runs: trace????.out.html
+      (annotated.ps.gz would be redundant, since it's only generated
+       for successful runs)
+  - foo-regression.html for each join
+
+- the sources for FreeBSD and Linux
+
+- the CVS tree [definitely not in public version]
+  - the final tree
+  - the whole repository
+
+- HOLDoc (from s/f)
+
+
+== TO ADD:
+
+STILL HAVEN'T GENERATED successfully past trace1617 in the UDP
+annotated run of sigcomm join.
+Should make sure all the other things are really there; note the
+missing things below.
+
+batch data (some missing?)
+   tracennnn  (TCP: 0000-2294 except 1116-1119)
+   tracennnn.html (TCP: above, except trace2294.html)
+   tracennnn.ps.gz  (TCP: above, except 1791,1803,1834-5,1866-7,1905-7,1916-21,1930-5,1944-9,2070)
+
+check data (some missing?)
+   tracennnn.annotated.ps.gz (none)
+
+- the TR (ps, pdf)
+- the spec, in source and (ps,pdf) forms
+- the checker  [definitely not in public version]
+
+- any other docs?
+
+- question: is the trace data confidential or public?
+    (Note too that the trace data can be extracted from the check
+    data.)
+
+- question: a _built_ repo?  (at least with all the PS docs etc)
+
+- anything else?
+
+
+Yadda
+~~~~~
+
+Wed Mar 16 11:55:03 GMT 2005
+
+K,P muse on what should be done before K evaporates (end March).
+
+
+- polish up TR and spec in any way we want to:
+
+     - fix page numbering and frontmatter format for Markus
+       (P plans to keep roman numbering and Parts in spec, though)
+
+     - go through remaining visible TODOs -  3 left for K NOW DONE
+
+     - read and sanity-check (P has done this quickly for TR and for spec)
+
+     - fix page lengths:
+           in TR abstract - length of spec
+           in TR intro - length of spec
+           in TR S4 - length of spec broken down into 3 bits
+           in bib - length of TR and of spec
+
+
+- eyeball HOL source for any particularly embarrasing comments to make
+  it releasable (under a suitable licence, to be discussed)
+
+- pick out linux and winxip TCP trace sets and run checker on them
+  once, just to see
+
+- tidy up dataset, ensuring the BSD TCP runs, those runs, the trace
+  data, _and all the generated stuff_ (including zigzags,
+  rulename-annotated zigzags, etc) are all in completely backed-up
+  space.
+
+- tidy up directory structure for tools
+
+- burn DVDs with data and tools
+
+- braindump Keith/Peter/Matthew -> Adam
+
+
+
+Done:
+
+ - write talks for SRG and Semantics Lunch
+
+ - construct join of the 4 TCP runs
+
+    # main
+    # CHECKDIR=/auto/groups/tthee-scratch/check/check-2005-02-03T17:13:56+0000
+
+    # extra mem
+    # CHECKDIR=/auto/groups/tthee-scratch/check/check-2005-02-04T12:07:26+0000/
+
+    # crashes
+    #CHECKDIR=/auto/groups/tthee-scratch/check/check-2005-02-05T21:40:53+0000
+
+    # redo crashes
+    CHECKDIR=/auto/groups/tthee-scratch/check/check-2005-02-06T15:45:33+0000
+
+
+Decided not to do:
+
+ - expand any discussion in TR that may be good for future papers
+
+
+
+
+
+
+
+Thu Jan 20 17:43:13 GMT 2005
+
+
+P thinks we're doing things as follows:
+
+
+
+  Keith:
+
+    - Spec:         try to get TCP above 90% and better timer rule coverage
+    - Spec todos:   those typographical things, then it's done
+    - Spec todos:   non-typographical todos
+    - TR todos:     sundry labelled Keith, esp. T-T-A-G impacts
+    - state diagram timer rules
+
+  Peter:
+
+    - TR: improve text for related work  (Postel's PhD now on order :-)
+    - TR: sundry todos
+    - TR: read Matthew's blue-ink
+    - Paper: wait for Tim's comments
+    - fix up internal references between TR and Spec and State diagram
+    - put all on web
+
+  Michael:
+
+    - Checker: oq, long time passage, and TRANSITION questions
+
+  Matthew:
+
+    - do PhD.
+
+  All:
+
+    - Paper:  improve text
+    - TR:     improve text
+
+
+
+
+Tue Jan  4 11:18:49 GMT 2005
+
+performance:  look at corners in timegraph. look at pure-exponential
+  trace mentioned in email.
+
+phone sync with mn:  (K possible: wed am? fri am?)
+
+   try to fix the long-string-crash HOL problem (different representation
+   type?)
+
+   rerun UDPpayloadMax non-space-constrained
+
+   satisfiability checking for final constraints
+
+
+analysis: look at non-successes, for two reasons. 1: to have a
+sentence or two for each we can include in the doc.  2: to fix
+remaining low-hanging problems.
+
+state diagram: someone to look at timer transitions
+
+techreport: subsections for K:
+  - relationship with code structure
+  - network model
+Related work (via library...).
+Impact in t-w-a-g.
+Update current check status, with
+  statistics and graphs from xmas run, and with lists of reasons why the
+  non-succeeds didn't.
+Read through. Make better.
+
+
+paper:
+
+ Paper registration/abstract: January 30, 2005 (Required, hard deadline)
+ Paper submission: February 6, 2005 (Hard deadline)
+ Paper notification: April 30, 2005
+ Camera-ready papers: June 3, 2005
+
+spec:
+
+ lots of TODOs. Many need reclassification, simply.  Some are
+ important munger todos (and some are mere wishes).
+
+
+------------------------------------------
+
+Done:
+
+runs: stop pb run.  handcraft join, taking care of crash-in-ones.  get
+mktraceindex to run over the result. fix /tthee-scratch/ !!!
+
+wrt exponentials, run loggy thing on the two.  send to mn.
+
+tr:
+  - time,
+  - protocol rules
+
+spec:
+ make buildable again (wrt name collision problem)
+

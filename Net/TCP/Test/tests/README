@@ -1,0 +1,30 @@
+autotest - the autotest library and autotest'ing program. All of the
+TCP and UDP test scripts live here, along with the scripts to run them
+and produce the traced output.
+
+common - a collection of useful constants and functions in Ocaml that
+are shared by autotest and the other tests under Test/tests. These
+typically define things like the IP addresses of the machines on our
+test network, etc etc
+
+adhoc - a collection of small tests written over the past few years on
+an adhoc basis to test for behaviours we have been
+interested in. Mostly unimportant. These tests are pre-tthee and
+pre-autotest and rely only on ocamllib.
+
+tthee - another collection of small tests written over the past few
+years on an adhoc basis to produce traces for behaviours we have been
+interested in. Mostly unimportant. These DIFFER from adhoc because
+they rely on tthee for their operation. These were written pre-autotest.
+
+linkhack - a quick test written to test dynamic linking. Now
+deprecated as the knowledge is incorporated into Test/dynamic and
+Test/utils/dlhack.
+
+parser_test - a line-buffered console application to test our HOL
+label parser in Test/common. A HOL label is entered at the command
+line and the output of parsing it (either success or failure) is
+output to the console. If parsing is successful, a summary is given of
+the parsed label.
+
+$Id: README,v 1.1 2004/09/17 16:09:16 smb50 Exp $

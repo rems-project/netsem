@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# this counts the number of times each rule is used in a successful trace
+#
+# usage:  execute in a check directory; rule coverage data appears on stdout
+#
+#   eg    ~/Net/TCP/Test/scripts/check/coverage > coverage.dat
+
+BINDIR=`dirname $0`
+
+cat ~/Net/TCP/Spec1/TCP1_ruleids.imn |grep accept | sed -e 's/ /\n/g'  | sort > /tmp/coverage.ruleids.$$
+
+grep "TRANSITION" *.out.html | sed -e 's/ SID / /g' | cut -d' ' -f9  > /tmp/coverage.ruleusage.$$
+
+$BINDIR/coveragecount -rules /tmp/coverage.ruleids.$$ -usage /tmp/coverage.ruleusage.$$
+

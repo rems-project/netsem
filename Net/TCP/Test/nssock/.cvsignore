@@ -1,0 +1,7 @@
+*.cm*
+*.idb
+*.lib
+*.o*
+*.a*
+*.so
+.depend

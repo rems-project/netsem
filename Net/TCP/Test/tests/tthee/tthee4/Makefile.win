@@ -1,0 +1,49 @@
+OCAMLC=ocamlc
+OCAMLOPT=ocamlopt
+OCAMLMKLIB=ocamlmklib
+OCAMLDEP=ocamldep
+RM=del /Q /F
+
+OCAMLREQLIBS="$(OCAMLLIB)/unix.cmxa" "$(OCAMLLIB)/threads/threads.cmxa"\
+	../../../ocamllib/ocamllib.cmxa ../../../ocamlext/threadparsing.cmxa\
+	../../../common/nettypes.cmx ../../../common/netconv.cmx\
+	../../../common/sock.cmx ../../../common/parserlib.cmx\
+	../../../common/holparselib.cmx ../../../common/tcpcbparserlib.cmx\
+	../../../common/parser.cmx ../../../common/render.cmx \
+	../../../ocamlext/platform.cmxa ../../../common/librender.cmx \
+	../../../common/lexer.cmx ../../../common/holrender.cmx \
+	../../../common/tcpcbrender.cmx ../../../common/renderlib.cmx \
+	../../../tthee/tthee.cmxa ../../common/testscommon.cmx
+
+CLIBS=-cclib /link -cclib /LIBPATH:../../../nssock -cclib /LIBPATH:../../../ocamlext/ \
+	-cclib /LIBPATH:../../../ocamllib -cclib /NODEFAULTLIB:LIBC.lib ../../../ocamlext/platformc.lib\
+	../../../common/libntplib.lib
+
+OCAMLCFLAGS=-I "$(OCAMLLIB)" -I ../../../common -I ../../../ocamlext\
+	 -I ../../../tthee -I ../../../ocamllib -I ../../common/
+
+TARGETS=test.cmx
+
+all: test.exe
+
+test.exe: $(TARGETS)
+	$(OCAMLOPT) -thread -o $@ $(OCAMLCFLAGS) $(OCAMLREQLIBS) $(TARGETS) $(CLIBS)
+
+clean:
+	$(RM) test *.cmx *.cmo *.cma *.cmxa *.o* *.cmi .depend *.lib
+
+depend: .depend
+
+.SUFFIXES:.ml .mli .cmi .cmx
+.ml.cmx:
+	$(OCAMLOPT) -thread -c $(OCAMLCFLAGS) $<
+
+.mli.cmi:
+	$(OCAMLOPT) -thread -c $(OCAMLCFLAGS) $<
+
+.depend: *.ml
+	$(OCAMLDEP) *.mli *.ml > $@
+
+!IF EXIST(.depend)
+!INCLUDE .depend
+!ENDIF

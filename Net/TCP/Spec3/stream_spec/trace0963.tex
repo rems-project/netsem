@@ -1,0 +1,204 @@
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+% Warning: this file was automatically generated. Edit with care
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+% -*-LaTeX-*-
+%\documentclass[oneside,notitlepage]{report}
+
+% Magic to capture RCSID:
+%{\catcode`\$=9\gdef\rcsid{$Id: trace0963.tex,v 1.1 2009/02/18 14:13:48 tjr22 Exp $}}
+
+% Get a decent sized page and enable graphics modes
+%\usepackage[a4paper,margin=15mm]{geometry}
+%\usepackage{graphics}
+%\usepackage{color}
+%\pagestyle{empty}
+
+\definecolor{darkgray}{gray}{.5}
+\definecolor{lightgray}{gray}{.75}
+
+\newcommand{\maxwidthparbox}[2]{
+  \newbox\tempbox
+  \setbox\tempbox\hbox{#2}
+  \ifdim\wd\tempbox>#1 \parbox{#1}{#2} \else \parbox{\wd\tempbox}{#2} \fi
+}
+
+% Define a command for drawing labelled arrows (pointing right)
+% \arrowr{(x,y)}{arrow length}{angle}{parbox maximum length}{label}{left ratio}{right ratio}
+\newcommand\arrowr[7]{%
+  \put#1{\rotatebox{#3}{%
+	 \raisebox{-\fontdimen22\textfont2}[0pt][0pt]{%
+	  \makebox[#2\unitlength][l]{%
+	  \leaders\hbox{$\!-\!$}\hskip 0pt plus #6fill%
+	      \scalebox{0.75}{%
+		\maxwidthparbox{#4\unitlength}{\raggedright\textbf{#5}}}%
+	  \leaders\hbox{$\!-\!$}\hskip 0pt plus #7fill%
+	  $\mskip-12mu\rightarrow$}}}}}
+
+
+% Define a command for drawing labelled arrows (pointing left)
+% \arrowl{(x,y)}{arrow length}{angle}{parbox maximum length}{label}{left ratio}{right ratio}
+\newcommand\arrowl[7]{%
+  \put#1{\rotatebox{#3}{%
+	 \raisebox{-\fontdimen22\textfont2}[0pt][0pt]{%
+	  \makebox[#2\unitlength][l]{%
+	  \leaders\hbox{$\!-\!$}\hskip 0pt plus #6fill%
+	      \scalebox{0.75}{%
+		\rotatebox{180}{
+		 \raisebox{-4\unitlength}[0pt][0pt]{
+		   \maxwidthparbox{#4\unitlength}{\raggedright\textbf{#5}}}}}%
+	  \leaders\hbox{$\!-\!$}\hskip 0pt plus #7fill%
+	  $\mskip-12mu\rightarrow$}}}}}
+
+
+% Define a command for drawing unlabelled arrows
+% \arrowu{(x,y)}{length}{angle}
+\newcommand\arrowu[3]{%
+  \put#1{\rotatebox{#3}{%
+	 \raisebox{-\fontdimen22\textfont2}[0pt][0pt]{%
+	  \makebox[#2\unitlength][l]{%
+	  \leaders\hbox{$\!-\!$}\hfill%
+	  $\mskip-12mu\rightarrow$}}}}}
+
+
+% Define a command for drawing line
+% \rline{(x,y)}{length}{angle}
+\newcommand\rline[3]{%
+  \put#1{\rotatebox{#3}{%
+	  \raisebox{-\fontdimen22\textfont2}[0pt][0pt]{%
+	  \makebox[#2\unitlength][l]{\leaders\hbox{$\!-\!$}\hfill}%
+	}}}}
+
+
+% Define a command for placing text
+% \rtext{(x,y)}{maximum width}{angle}{string}
+\newcommand\rtext[4]{%
+  \put#1{\rotatebox{#3}{%
+	\maxwidthparbox{#2\unitlength}{\small\raggedright #4}%
+	}}}
+
+% Define a command for drawing filled circles
+% \disc{(x,y)}{diam}
+\newcommand\disc[2]{%
+  \put#1{\color{darkgray}\circle*{#2}}%
+  }
+
+% Define a command for preparing new picture environment pages
+% \preppage{xpos 1st vertical line}{xpos 2nd vertical line}{page height}
+\newcommand\preppage[3]{%
+   {\color{lightgray}\rline{(#1,0)}{#3}{90}\rline{(#2,0)}{#3}{90}}%
+}
+
+% Start document
+%\begin{document}
+\setlength{\unitlength}{0.9pt}
+
+
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+% Start of page 1
+% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+\vspace*{5mm}
+\scalebox{0.64}{
+\begin{picture}(480,680)
+\rtext{(5,660)}{475}{0}{\textnormal\bfseries Test Host: BSD(tom)  Aux
+  Host: BSD(dag)\newline Test Description: [STREAM normal] network:
+  establish a connection; send a string on the test\newline host;
+  receive the string on the auxiliary host; send a string on the
+  auxiliary host; receive the \newline string on the test host \newline\small ./trace0963}
+\rtext{(0,610)}{115}{0}{1151546524.660985s (\#0)\newline  \bfseries socket(SOCK\textunderscore{}STREAM)}
+\disc{(120,610)}{4}
+\rtext{(0,560)}{115}{0}{+0.009884s (\#2)\newline  \bfseries OK(FD 8)}
+\disc{(120,560)}{4}
+\rtext{(0,510)}{115}{0}{+0.029198s (\#4)\newline  \bfseries connect(FD 8, IP 192 168 13 105, SOME(Port 20086))}
+\disc{(120,510)}{4}
+\disc{(120,444)}{4}
+\rtext{(0,444)}{115}{0}{+0.029313s (\#6)}
+\rtext{(125,444)}{270}{0}{\tiny Action:TA\textunderscore{}OUTPUT $\longrightarrow$ SYN\textunderscore{}SENT \newline snd\_una=+0, snd\_max=+1, snd\_nxt=+1, iss=611771753 snd\_wl1=0, snd\_wl2=+0, snd\_wnd=0, snd\_cwnd=1073725440, snd\_thresh=1073725440, snd\_recover=+0 rcv\_nxt=+0, rcv\_adv=+0, rcv\_up=+0, irs=0 rcv\_wnd=0 t\_maxseg=512 t\_dupacks=0 t\_rttseg=72760329,611771753, ts\_recent=Closed snd\_scale=0, rcv\_scale=0 last\_ack\_sent=0}
+\disc{(120,394)}{4}
+\rtext{(0,394)}{115}{0}{+0.029333s (\#8)\newline }
+\arrowr{(120,394)}{281}{354}{240}{TCP 611771753:0 (0:0)  \color{lightgray}U\color{lightgray}A\color{lightgray}P\color{lightgray}R\color{black}S\color{lightgray}F\color{black} \newline 192.168.13.106:2302$\rightarrow$192.168.13.105:20086 win=57344 ws=0 urp=0 mss=1460 ts=72760329,0 len=0 }{0.30}{0.70}
+\disc{(120,328)}{4}
+\rtext{(0,328)}{115}{0}{+0.029339s (\#10)}
+\rtext{(125,328)}{270}{0}{\tiny Action:TA\textunderscore{}USER $\longrightarrow$ SYN\textunderscore{}SENT \newline snd\_una=+0, snd\_max=+1, snd\_nxt=+1, iss=611771753 snd\_wl1=0, snd\_wl2=+0, snd\_wnd=0, snd\_cwnd=1073725440, snd\_thresh=1073725440, snd\_recover=+0 rcv\_nxt=+0, rcv\_adv=+57344, rcv\_up=+0, irs=0 rcv\_wnd=0 t\_maxseg=512 t\_dupacks=0 t\_rttseg=72760329,611771753, ts\_recent=Closed snd\_scale=0, rcv\_scale=0 last\_ack\_sent=0}
+\disc{(400,278)}{4}
+%\rtext{(405,278)}{80}{0}{+0.029509s (\#12)\newline }
+\arrowl{(120,278)}{281}{186}{240}{TCP 385062096:611771754 (0:1)  \color{lightgray}U\color{black}A\color{lightgray}P\color{lightgray}R\color{black}S\color{lightgray}F\color{black} \newline 192.168.13.105:20086$\rightarrow$192.168.13.106:2302 win=57344 ws=0 urp=0 mss=1460 ts=72741106,72760329 len=0 }{0.10}{0.90}
+\disc{(120,212)}{4}
+\rtext{(0,212)}{115}{0}{+0.029544s (\#14)}
+\rtext{(125,212)}{270}{0}{\tiny Action:TA\textunderscore{}INPUT $\longrightarrow$ ESTABLISHED \newline snd\_una=+1, snd\_max=+1, snd\_nxt=+1, iss=611771753 snd\_wl1=385062097, snd\_wl2=+1, snd\_wnd=57344, snd\_cwnd=5792, snd\_thresh=1073725440, snd\_recover=+0 rcv\_nxt=+1, rcv\_adv=+57921, rcv\_up=+1, irs=385062096 rcv\_wnd=57920 t\_maxseg=1448 t\_dupacks=0 t\_rttseg=*, ts\_recent=72741106 snd\_scale=0, rcv\_scale=0 last\_ack\_sent=0}
+\disc{(120,146)}{4}
+\rtext{(0,146)}{115}{0}{+0.029554s (\#16)}
+\rtext{(125,146)}{270}{0}{\tiny Action:TA\textunderscore{}OUTPUT $\longrightarrow$ ESTABLISHED \newline snd\_una=+1, snd\_max=+1, snd\_nxt=+1, iss=611771753 snd\_wl1=385062097, snd\_wl2=+1, snd\_wnd=57344, snd\_cwnd=5792, snd\_thresh=1073725440, snd\_recover=+0 rcv\_nxt=+1, rcv\_adv=+57921, rcv\_up=+1, irs=385062096 rcv\_wnd=57920 t\_maxseg=1448 t\_dupacks=0 t\_rttseg=*, ts\_recent=72741106 snd\_scale=0, rcv\_scale=0 last\_ack\_sent=0}
+\disc{(120,96)}{4}
+\rtext{(0,96)}{115}{0}{+0.029568s (\#18)\newline }
+\arrowr{(120,96)}{281}{354}{240}{TCP 611771754:385062097 (1:1)  \color{lightgray}U\color{black}A\color{lightgray}P\color{lightgray}R\color{lightgray}S\color{lightgray}F\color{black} \newline 192.168.13.106:2302$\rightarrow$192.168.13.105:20086 win=57920 ws=* urp=0 mss=* ts=72760330,72741106 len=0 }{0.30}{0.70}
+\rtext{(0,46)}{115}{0}{+0.032288s (\#20)\newline  \bfseries OK()}
+\disc{(120,46)}{4}
+\color{darkgray}\rline{(120,627)}{626}{270}\color{black}
+\color{darkgray}\rline{(400,627)}{626}{270}\color{black}
+\end{picture}
+
+
+%% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+%% Start of page 2
+%% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+%\newpage
+%\begin{picture}(480,680)
+%\rtext{(0,676)}{115}{0}{+0.035809s (\#22)\newline  \bfseries send(FD 8, NONE, "cats", [])}
+%\disc{(120,676)}{4}
+%\disc{(120,610)}{4}
+%\rtext{(0,610)}{115}{0}{+0.035960s (\#24)}
+%\rtext{(125,610)}{270}{0}{\tiny Action:TA\textunderscore{}OUTPUT $\longrightarrow$ ESTABLISHED \newline snd\_una=+1, snd\_max=+5, snd\_nxt=+5, iss=611771753 snd\_wl1=385062097, snd\_wl2=+1, snd\_wnd=57344, snd\_cwnd=5792, snd\_thresh=1073725440, snd\_recover=+0 rcv\_nxt=+1, rcv\_adv=+57921, rcv\_up=+1, irs=385062096 rcv\_wnd=57920 t\_maxseg=1448 t\_dupacks=0 t\_rttseg=72760330,611771754, ts\_recent=72741106 snd\_scale=0, rcv\_scale=0 last\_ack\_sent=385062097}
+%\disc{(120,560)}{4}
+%\rtext{(0,560)}{115}{0}{+0.035975s (\#26)\newline }
+%\arrowr{(120,560)}{281}{354}{240}{TCP 611771754:385062097 (1:1)  \color{lightgray}U\color{black}A\color{black}P\color{lightgray}R\color{lightgray}S\color{lightgray}F\color{black} \newline 192.168.13.106:2302$\rightarrow$192.168.13.105:20086 win=57920 ws=* urp=0 mss=* ts=72760330,72741106 len=4 }{0.30}{0.70}
+%\disc{(120,494)}{4}
+%\rtext{(0,494)}{115}{0}{+0.035980s (\#28)}
+%\rtext{(125,494)}{270}{0}{\tiny Action:TA\textunderscore{}USER $\longrightarrow$ ESTABLISHED \newline snd\_una=+1, snd\_max=+5, snd\_nxt=+5, iss=611771753 snd\_wl1=385062097, snd\_wl2=+1, snd\_wnd=57344, snd\_cwnd=5792, snd\_thresh=1073725440, snd\_recover=+0 rcv\_nxt=+1, rcv\_adv=+57921, rcv\_up=+1, irs=385062096 rcv\_wnd=57920 t\_maxseg=1448 t\_dupacks=0 t\_rttseg=72760330,611771754, ts\_recent=72741106 snd\_scale=0, rcv\_scale=0 last\_ack\_sent=385062097}
+%\rtext{(0,444)}{115}{0}{+0.035992s (\#30)\newline  \bfseries OK("")}
+%\disc{(120,444)}{4}
+%\disc{(400,394)}{4}
+%\rtext{(405,394)}{80}{0}{+0.038681s (\#32)\newline }
+%\arrowl{(120,394)}{281}{186}{240}{TCP 385062097:611771758 (1:5)  \color{lightgray}U\color{black}A\color{black}P\color{lightgray}R\color{lightgray}S\color{lightgray}F\color{black} \newline 192.168.13.105:20086$\rightarrow$192.168.13.106:2302 win=57920 ws=* urp=0 mss=* ts=72741107,72760330 len=4 }{0.10}{0.90}
+%\disc{(120,328)}{4}
+%\rtext{(0,328)}{115}{0}{+0.038700s (\#34)}
+%\rtext{(125,328)}{270}{0}{\tiny Action:TA\textunderscore{}INPUT $\longrightarrow$ ESTABLISHED \newline snd\_una=+5, snd\_max=+5, snd\_nxt=+5, iss=611771753 snd\_wl1=385062097, snd\_wl2=+5, snd\_wnd=57920, snd\_cwnd=7240, snd\_thresh=1073725440, snd\_recover=+0 rcv\_nxt=+5, rcv\_adv=+57921, rcv\_up=+1, irs=385062096 rcv\_wnd=57920 t\_maxseg=1448 t\_dupacks=0 t\_rttseg=*, ts\_recent=72741107 snd\_scale=0, rcv\_scale=0 last\_ack\_sent=385062097}
+%\rtext{(0,278)}{115}{0}{+0.052457s (\#36)\newline  \bfseries recv(FD 8, 4, [])}
+%\disc{(120,278)}{4}
+%\disc{(120,212)}{4}
+%\rtext{(0,212)}{115}{0}{+0.052610s (\#38)}
+%\rtext{(125,212)}{270}{0}{\tiny Action:TA\textunderscore{}USER $\longrightarrow$ ESTABLISHED \newline snd\_una=+5, snd\_max=+5, snd\_nxt=+5, iss=611771753 snd\_wl1=385062097, snd\_wl2=+5, snd\_wnd=57920, snd\_cwnd=7240, snd\_thresh=1073725440, snd\_recover=+0 rcv\_nxt=+5, rcv\_adv=+57921, rcv\_up=+1, irs=385062096 rcv\_wnd=57920 t\_maxseg=1448 t\_dupacks=0 t\_rttseg=*, ts\_recent=72741107 snd\_scale=0, rcv\_scale=0 last\_ack\_sent=385062097}
+%\rtext{(0,162)}{115}{0}{+0.052622s (\#40)\newline  \bfseries OK("dogs", NONE)}
+%\disc{(120,162)}{4}
+%\rtext{(0,112)}{115}{0}{+0.054022s (\#42)\newline  \bfseries setsocktopt(FD 8, SO\textunderscore{}LINGER, SOME(0, 0))}
+%\disc{(120,112)}{4}
+%\rtext{(0,62)}{115}{0}{+0.054102s (\#44)\newline  \bfseries OK()}
+%\disc{(120,62)}{4}
+%\rtext{(0,12)}{115}{0}{+0.054972s (\#46)\newline  \bfseries close(FD 8)}
+%\disc{(120,12)}{4}
+%\color{darkgray}\rline{(120,680)}{679}{270}\color{black}
+%\color{darkgray}\rline{(400,680)}{679}{270}\color{black}
+%\end{picture}
+
+%% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+%% Start of page 3
+%% -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+%\newpage
+%\begin{picture}(480,680)
+%\disc{(120,626)}{4}
+%\rtext{(0,626)}{115}{0}{+0.055037s (\#48)}
+%\rtext{(125,626)}{270}{0}{\tiny Action:TA\textunderscore{}OUTPUT $\longrightarrow$ CLOSED \newline snd\_una=+5, snd\_max=+5, snd\_nxt=+5, iss=611771753 snd\_wl1=385062097, snd\_wl2=+5, snd\_wnd=57920, snd\_cwnd=7240, snd\_thresh=1073725440, snd\_recover=+0 rcv\_nxt=+5, rcv\_adv=+57921, rcv\_up=+1, irs=385062096 rcv\_wnd=57920 t\_maxseg=1448 t\_dupacks=0 t\_rttseg=*, ts\_recent=72741107 snd\_scale=0, rcv\_scale=0 last\_ack\_sent=385062097}
+%\disc{(120,576)}{4}
+%\rtext{(0,576)}{115}{0}{+0.055058s (\#50)\newline }
+%\arrowr{(120,576)}{281}{354}{240}{TCP 611771758:385062101 (5:5)  \color{lightgray}U\color{black}A\color{lightgray}P\color{black}R\color{lightgray}S\color{lightgray}F\color{black} \newline 192.168.13.106:2302$\rightarrow$192.168.13.105:20086 win=57920 ws=* urp=0 mss=* ts=*,* len=0 }{0.30}{0.70}
+%\rtext{(0,526)}{115}{0}{+0.057036s (\#52)\newline  \bfseries OK()}
+%\disc{(120,526)}{4}
+%\color{darkgray}\rline{(120,680)}{204}{270}\color{black}
+%\color{darkgray}\rline{(400,680)}{204}{270}\color{black}
+%\end{picture}
+
+
+%% End document
+%\end{document}
+
+}

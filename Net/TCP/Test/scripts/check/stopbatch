@@ -1,0 +1,25 @@
+#!/bin/sh
+
+FIFODIR=/usr/groups/tthee/var
+cd $FIFODIR
+if dialog --menu "Please choose a job to kill:" 20 70 10 `for f in runbatch-*@*; do echo $f xx; done` 2> /tmp/$$.dresult; then
+    JOB=`cat /tmp/$$.dresult`
+    if dialog --inputbox "Please enter a reason:" 20 70 2> /tmp/$$.dresult; then
+        REASON=`cat /tmp/$$.dresult`
+        clear
+        MACHINE=`echo $JOB | sed -e 's/^.*@//'`
+        echo "Killing job $JOB on machine $MACHINE..."
+        KILLSTRING="Killed by `whoami`@`hostname` on `date`.
+$REASON"
+        echo "$KILLSTRING" | ssh $MACHINE "cat > $FIFODIR/$JOB"
+        echo "Done.  Cleanup operations may take a minute or two to complete."
+    else
+        clear
+        echo "Cancelled.  No job killed."
+    fi
+else
+    clear
+    echo "Cancelled.  No job killed."
+fi
+rm /tmp/$$.dresult
+

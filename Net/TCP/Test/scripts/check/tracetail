@@ -1,0 +1,36 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+my $tracewanted = $ARGV[0];
+
+open LOG, "<log.dat"
+    or die "Can't open log file: $!\n";
+
+my $tag;
+my $startpos;
+my $endpos;
+while (<LOG>) {
+    next unless /^==(Crashed|Completed|Processing)\s+\S+(\[\d+\])\s+"[^\"]*\/([^\"\/]*)"/;
+    if ($3 eq $tracewanted) {
+        if ($1 eq "Processing") {
+            $startpos = tell(LOG) - length($_);
+        } else {
+            $tag = $2;
+            $endpos = tell(LOG);
+            last;
+        }
+    }
+}
+
+if (defined($tag)) {
+    seek(LOG,$startpos,0);
+    while (tell(LOG)<$endpos) {
+        $_ = <LOG>;
+        print if /\Q$tag\E/;
+    }
+}
+
+close LOG
+    or die "Can't close log file: $!\n";
+

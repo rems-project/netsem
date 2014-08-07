@@ -1,0 +1,17 @@
+*** rc.network  Tue Jun 11 05:20:09 2002
+--- rc.network  Mon Aug  4 14:01:13 2003
+***************
+*** 525,530 ****
+--- 525,536 ----
+        esac
+        echo '.'
+
++       ## Added by SMB ##
++       echo -n " Making the kernel timecounter more accurate."
++       sysctl kern.timecounter.method=1
++       echo -n " Adding some routing entries"
++       route add -net 192.168.0.0 192.168.1.14 255.255.255.0
++       route delete default
+        # Let future generations know we made it.
+        #
+        network_pass1_done=YES

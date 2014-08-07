@@ -1,0 +1,31 @@
+#!/usr/bin/perl -w
+
+# return true if the input contains a phantom segment, i.e., one with -SYN,-ACK,-RST
+# WARNING: probably fragile!
+
+use strict;
+
+my $mergeindex;
+while (<>) {
+    $mergeindex = $_ if /Merge Index/;
+    next unless /Lh_senddatagram\(TCP/;
+    my $st = 0;
+    my $fin = "";
+    while (<>) {
+        last if /^\s+\|>\)/;
+        $st++ if (/ACK\s*:=\s*F;/);
+        $st++ if (/SYN\s*:=\s*F;/);
+        $st++ if (/RST\s*:=\s*F;/);
+        $fin = $_ if (/FIN/);
+    }
+    if ($st == 3) {
+        print $mergeindex;
+        print $fin;
+        exit 0; # TRUE
+    }
+}
+exit 1; # FALSE
+
+
+
+

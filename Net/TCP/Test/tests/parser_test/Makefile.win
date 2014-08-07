@@ -1,0 +1,36 @@
+OCAMLOPT=ocamlopt
+RM=del /Q /F
+
+OCAMLCFLAGS=-I ../../common -I ../../ocamllib -I "$(OCAMLLIB)" -I ../../ocamlext
+CLIBS=-cclib /link -cclib /LIBPATH:../../ocamllib -cclib /NODEFAULTLIB:LIBC.lib ../../ocamlext/platformc.lib
+
+REQLIBS="$(OCAMLLIB)/unix.cmxa" "$(OCAMLLIB)/threads/threads.cmxa" \
+	../../ocamllib/ocamllib.cmxa ../../common/nettypes.cmx \
+	../../common/netconv.cmx ../../common/libcalls.cmx \
+	../../common/sock.cmx ../../common/librender.cmx \
+	../../common/holparselib.cmx ../../common/parserlib.cmx \
+	../../common/tcpcbparserlib.cmx ../../ocamlext/threadparsing.cmxa \
+	../../ocamlext/platform.cmx ../../common/parser.cmx \
+	../../common/lexer.cmx
+NSSOCKLIB=../../nssock/libnssock.lib
+NTPLIB=../../common/libntplib.lib
+
+FILES=parser_test.cmx
+
+all: parser_test.exe
+
+parser_test.exe: $(FILES)
+	$(OCAMLOPT) -o $@ $(OCAMLCFLAGS) $(REQLIBS) $(NSSOCKLIB) \
+		$(NTPLIB) $(FILES) $(CLIBS)
+
+clean:
+	$(RM) *.o* *.a *.cmo *.cmi *.cma *.cmxo *.cmx *.cmxa *.lib parser_test.exe
+	$(RM) parser_test
+
+
+.SUFFIXES:.ml .mli .cmx .cmi
+.mli.cmi:
+	$(OCAMLOPT) -thread -c $(OCAMLCFLAGS) $<
+.ml.cmx:
+	$(OCAMLOPT) -thread -c $(OCAMLCFLAGS) $<
+

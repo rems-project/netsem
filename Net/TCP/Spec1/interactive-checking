@@ -1,0 +1,201 @@
+(* -*- sml -*- *)
+
+quietdec := true;
+load "testEval";
+open testEval;
+quietdec := false;
+
+val hnd = stdOut;
+val _ = toStdOut := true;
+
+fun read_file() = let
+  val instr = TextIO.openIn ".itc-info"
+  val contents = TextIO.inputAll instr
+  val _ = TextIO.closeIn instr
+  val toks = String.tokens Char.isSpace contents
+in
+  (hd toks, valOf (Int.fromString (hd (tl toks))),
+   if length toks > 2 then size (hd (tl (tl toks))) else 0)
+end
+
+fun do_part () = let
+  val (trfile, nosteps, extra_taus) = read_file()
+  val (host0, labels) = simp_hostlabels_from_file stdOut trfile
+  val pfx = List.take(labels, nosteps)
+  val label = List.nth(labels, nosteps)
+  val extras = List.tabulate(extra_taus, (fn n => ``Lh_tau``))
+  val s = do_timed_trace stdOut (host0, pfx @ extras)
+  val ((_, host, ctxt), ths) = seq.hd s
+in
+  (host0, labels, host, ctxt, label, #1 (last ths), s)
+end;
+
+val (host0, labels, host, ctxt, label, th, s) = do_part ()
+
+fun eq_fails t1 t2 =
+    if type_of t1 <> type_of t2 then SOME (t1, t2)
+    else
+      case (dest_term t1, dest_term t2) of
+        (LAMB(v1, bdy1), LAMB(v2, bdy2)) => eq_fails bdy1 bdy2
+      | (COMB(f1, x1), COMB(f2, x2)) => let
+        in
+          case (eq_fails f1 f2, eq_fails x1 x2) of
+            (NONE, NONE) => NONE
+          | (NONE, SOME  x) => SOME x
+          | (SOME f, NONE) => SOME f
+          | (SOME _, SOME _) => SOME(t1, t2)
+        end
+      | (VAR sty1, VAR sty2) => if sty1 = sty2 then NONE else SOME (t1, t2)
+      | (CONST rec1, CONST rec2) => if rec1 = rec2 then NONE else SOME (t1, t2)
+      | x => SOME (t1, t2)
+;
+
+val _ = case Process.getEnv "PATH" of
+          NONE => ()
+        | SOME s => if Lib.is_substring "/usr/bin/X11" s then
+                      ignore
+                        (Process.system
+                           "xmessage -font 12x24 -center 'Interactive \
+                           \trace-checking ready!!'")
+                    else ()
+
+(* ----------------------------------------------------------------------
+
+    How to use HOL to do "interactive" trace-checking.
+
+    0.  Have all of the tcp directory fully built and compiled.
+    1.  Start (bare) HOL up within an emacs.  To do this,
+          a. load the elisp file in <holdir>/tools/hol98-mode.el
+          b. M-x set-hol-executable and enter
+                 <holdir>/bin/hol.bare.unquote
+          c. Load testEval.sml from the tcp directory into an emacs buffer
+          d. M-h h while in the testEval.sml buffer.
+          e. Arrange the windows/buffers/emacs frames to suit.  E.g.,
+             testEval.sml in one window, and *HOL* in another.
+
+    2.  Load the testEval.uo file "quietly":
+
+          C-u M-h o "testEval"
+
+        This will take a while, mainly because of the loading of the
+        srw simpset, comparable to the length of time CheckTraces
+        takes to start up.
+
+    3.  Now the *HOL* session's context is as if the testEval file had
+        been interactively typed into the session.
+
+    4.  Load the trace you're interested in:
+
+          a. Edit the file .itc-info in the current directory so that it
+             consists of two strings separated by whitespace: the
+             filename of the trace you want to check, and the number
+             of steps you want to check of it.  Because the steps are
+             numbered from 0, this number is usually the number of the
+             step where things start to go wrong.
+
+          b. In the HOL buffer, do a
+
+               use "interactive-checking";
+
+             (Incidentally, by not having a .sml suffix on the
+             file-name, we ensure that Holmake doesn't attempt to
+             compile this file.)
+
+          c. To keep this file from constantly changing, I put the
+             changing stuff into a separate file, that we won't have
+             in the CVS repository.  You could read the info from
+             stdIn, but this way is easier to set up and ignore while
+             it does its thing: do the M-h o command above (of step
+             2), and immediately follow this with the use of 4b above.
+             Then leave this window alone and do something else while
+             it does its thing.
+
+    5.  Play around with the trace
+
+          a. The bindings established by this script mean that it is
+             now easy to do some cut-and-paste reasoning with the
+             contents of testEval.  The function most likely to be
+             useful is spec_n_simp (but for Lh_epsilons you have to
+             use do_epsilon instead).
+
+          b. The "label" value is set up to have the next label in the
+             trace, but remember that the trace may actually need an
+             Lh_tau at this point, so you may need to change this
+             manually; i.e., enter
+
+                 val label = ``Lh_tau``;
+
+             into the interactive session.
+
+          c. The parameters to spec_n_simp are set by 'use
+             "interactive-checking", except for rest, which should be
+             set to contain the rest of the labels. This is
+             List.drop(labels, n+1) where n is the number given in
+             .itc-info, unless you changed the next label to an Lh_tau
+             as above, in which case rest needs to be set to
+             List.drop(labels, n).
+
+          d. Once the parameter values are set, I suggest doing a
+             cut-and-paste (in the emacs mode, use M-h M-r) of the
+             block of val declarations underneath the opening of
+             spec_n_simp all the way down to the terminating "in".
+             (You might want to bracket this cut-and-paste with the
+             M-h C-q toggle, to turn off some of the verbiage that is
+             generated.)  Almost all of the work done by this code is
+             hidden behind lazy suspensions, so doing the cut and
+             paste won't cause any real computation to happen.
+
+             After this point, my usual practice is to do
+
+               val th = seq.hd simp_once_more
+
+             possibly followed by
+
+               val th2 = simplify_base th
+
+
+             The "seq" implementation of lazy lists is available in
+             <holdir>/src/parse/.
+
+          e. When doing a do_epsilon step, things are slightly more
+             tedious because of the local-block that needs to be
+             cut-and-pasted first, and also because of the fact that
+             many declarations are bound up in the try-continue block.
+
+             The important lines here are
+
+               val nonurgent = SPEC host nonurgent_characterisation
+               val nonurgent =
+                  CONV_RULE (LAND_CONV
+                               (SIMP_CONV phase2_ss (urgent_rwts @
+                                                     map ASSUME ctxt)))
+                            nonurgent
+
+             which attempt to prove that the host is non-urgent, and then
+
+               val simp_conv  = SIMP_CONV timepass_ss
+               val conv = REPEATC (CHANGED_CONV (REWRn true (map ASSUME ctxt) 10 simp_conv))
+               val rule = CONV_RULE (LAND_CONV conv) rule
+
+             which calculates the effect of the time-passage relations
+             on the given state.
+
+    6.  Watching the simplifier
+
+          To turn simplifier tracing on, use
+
+             set_trace "simplifier" 2
+
+          To turn it off
+
+             set_trace "simplifier" 0
+
+          You can even set the trace-rating to numbers higher than 2,
+          but even level 2 is extremely verbose because the size of
+          the terms is so large.  Following the output is very
+          difficult.  Particularly confusing is the fact that records
+          have an underlying representation (involving lots of terms
+          with "brss" in their names) that is not very human-friendly.
+
+   ---------------------------------------------------------------------- *)
+

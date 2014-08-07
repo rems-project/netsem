@@ -1,0 +1,4 @@
+*.cm*
+*.o
+autotest
+.depend

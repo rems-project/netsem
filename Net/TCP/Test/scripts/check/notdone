@@ -1,0 +1,46 @@
+#!/usr/bin/perl -w
+
+# output list of traces that haven't been done
+
+# expects two directories as argument: source directory and target directory
+
+
+use strict;
+
+my $GLOB = "trace????";
+my $TAIL = ".out.html";
+
+
+if (@ARGV != 2) {
+    print "Usage: $0 <tracedir> <outdir>\n";
+    exit 255;
+}
+
+my @files = glob "$ARGV[0]/$GLOB";
+
+print STDERR "Trace directory has " . scalar(@files) . " files.\n";
+
+my @remove = glob "$ARGV[1]/$GLOB$TAIL";
+
+print STDERR "Target directory has " . scalar(@remove) . " files.\n";
+
+my %hash = ();
+foreach my $file (@files) {
+    my $base = $file;
+    $base =~ s{^.*/}{};
+    $hash{$base} = $file;
+}
+foreach my $file (@remove) {
+    my $base = $file;
+    $base =~ s{^.*/}{};
+    $base =~ s/${TAIL}$//;
+    if (!defined($hash{$base})) {
+        print STDERR "Weird, $base occurs in target but not source... continuing...\n";
+    } else {
+        delete $hash{$base};
+    }
+}
+
+print STDERR "Result has " . scalar(keys(%hash)) . " files.\n";
+
+print join("\n",sort(values(%hash))) . "\n";

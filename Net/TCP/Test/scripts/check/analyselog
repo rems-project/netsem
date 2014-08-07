@@ -1,0 +1,107 @@
+#!/usr/bin/perl -w
+
+# analyse log file output from otracechecker
+
+use strict;
+
+# look first for modules in the same directory as this program:
+BEGIN {
+    my $bindir = $0;
+    $bindir =~ s|/[^/]+$||;
+    unshift @INC, $bindir;
+}
+
+use Netsem::LogParse;
+
+my $RAW = 0;  # output in raw mode suitable for machine parsing
+
+# parse -r option
+if (@ARGV>=1 && $ARGV[0] eq "-r") {
+    shift @ARGV;
+    $RAW = 1;
+}
+
+# print header
+$_ = <>;  # read something so $ARGV is set.
+die "Hack failed, sorry!" if /^==/;
+my $s = "Otracechecker Log Analysis: " . $ARGV;
+print "$s\n" . ("~" x length $s) . "\n\n";
+
+# parse the log (with no default ending time)
+parselog(undef,undef);
+
+# print the results.
+my $maxsplen = maxkeylen($ttrans);
+my $maxwlen = maxkeylen(\%workers);
+foreach my $wkey (sort workercmp keys(%workers)) {
+    my $w = $workers{$wkey};
+    print "Worker $wkey:\n" unless $RAW;
+    my $trans = $w->{'trans'};
+    foreach my $tindex (sort spcmp keys(%$trans)) {
+        my $data = $trans->{$tindex};
+        my $count = $data->{'count'};
+        my $time = $data->{'time'};
+        my $ss = $time % 60;
+        my $mm = (($time - $ss) / 60) % 60;
+        my $hh = ($time - ($ss + 60 * $mm)) / 3600;
+#        printf("  %-23s %4d (%02d:%02d:%02d)\n","$tindex:",$count,$hh,$mm,$ss);
+        if ($RAW) {
+            printf("%-*s  %-*s %4d (%8ds, mean %8.1fs)\n",$maxwlen+1,"$wkey:",$maxsplen+1,"$tindex:",$count,$time,$time/$count);
+        } else {
+            printf("  %-*s %4d (%8ds, mean %8.1fs)\n",$maxsplen+1,"$tindex:",$count,$time,$time/$count);
+        }
+    }
+    print "\n";
+}
+
+# ----------------------------------------------------------------------
+
+# write first trailer:
+print "~~~~~\n";
+
+getstarttimes();
+
+print "Machine speeds (based on $thetrans time):\n\n";
+printf("Fastest machine is %*s at %8.1fs.\n",$maxwlen,$minwkey,$time{$minwkey});
+printf("Slowest machine is %*s at %8.1fs.\n",$maxwlen,$maxwkey,$time{$maxwkey});
+printf("Spread is %5.2fx.\n",$time{$maxwkey}/$time{$minwkey});
+print "\n";
+foreach my $wkey (sort { $time{$a} <=> $time{$b} } keys(%time)) {
+    my $slowest = sprintf("%.2f",$maxtime / $time{$wkey});
+    my $fastest = sprintf("%.2f",$time{$wkey} / $mintime);
+    printf("%*s  %5sx slowest, %7s fastest (%8.1fs)\n",
+           $maxwlen+1,"$wkey:",
+           $slowest,
+           "1/$fastest",
+           $time{$wkey});
+}
+
+# ----------------------------------------------------------------------
+
+# write second trailer:
+print "~~~~~\n";
+
+print "Job speeds:\n\n";
+
+my $maxjlen = maxkeylen(\%jobs);
+foreach my $jkey (sort(keys(%jobs))) {
+    next if $jkey eq "-";
+    my $j = $jobs{$jkey};
+    my $time = "(NOT STARTED)";
+    my $nstarts = "";
+    my $trunc = ($j->{'trunc'} ? "*" : "");
+    my $wkey = $j->{'worker'};
+    if (defined($j->{'start'})) {
+        $time = $j->{'timeawake'};
+        $nstarts = $time / $time{$wkey};
+    }
+    my $count = $j->{'count'};
+    printf("%*s %8ds%s = %6.2fst%s on %*s after %2d attempt%s\n",
+           $maxjlen+1, "$jkey:", $time, $trunc, $nstarts, $trunc, $maxwlen, $wkey, $count,
+           ($count == 1 ? "" : "s"));
+}
+
+# ----------------------------------------------------------------------
+
+print "\n~~~~~\n";
+

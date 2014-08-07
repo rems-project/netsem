@@ -1,0 +1,16 @@
+--- ip_icmp.c.orig	Wed Nov 30 17:01:25 2005
++++ ip_icmp.c	Thu Dec  1 09:47:40 2005
+@@ -782,6 +782,13 @@ iptime()
+ 	return (htonl(t));
+ }
+
++void
++iptime_usec(atv)
++      struct timeval *atv;
++{
++      microtime(atv);
++}
++
+ /*
+  * Return the next larger or smaller MTU plateau (table from RFC 1191)
+  * given current value MTU.  If DIR is less than zero, a larger plateau

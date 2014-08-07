@@ -1,0 +1,26 @@
+CCOPTS=/O2 /Ob1 /Oy /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_CONSOLE" \
+       /GF /FD /EHsc /ML /GS /Gy /W4 /nologo /c /Wp64 /Zi /TC
+
+MKLIB=lib
+MKLIBOPTS=/NOLOGO /NODEFAULTLIB
+REQLIBS=WS2_32.lib
+
+RM=del /Q /F
+
+CFILES=ns_aux.c ns_errors.c ns_sockets.c tsctime/TSCtime.c
+
+all: libnssock.lib
+
+libnssock.lib: $(CFILES:.c=.obj)
+	$(MKLIB) $(MKLIBOPTS) /OUT:$@ $(CFILES:.c=.obj) $(REQLIBS) /NODEFAULTLIB
+
+tsctime/TSCtime.obj: tsctime/TSCtime.c
+	$(CC) $(CCOPTS) /Fotsctime/TSCtime.obj $(CCINCL) tsctime/TSCtime.c
+
+clean:
+	$(RM) *.obj *.lib *.idb
+
+.SUFFIXES: .c .obj
+.c.obj:
+	$(CC) $(CCOPTS) $(CCINCL) $<
+

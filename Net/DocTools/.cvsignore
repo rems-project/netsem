@@ -1,0 +1,22 @@
+tmp-*.tex
+rebracket
+munge
+munge_ocaml
+infer
+rules_to_latex
+wc_strip
+munge_lexer.ml
+rules_lexer.ml
+rules_parser.ml
+rules_parser.mli
+rules_parser.output
+tmp-rules.tex
+*.cmi
+*.cmo
+*.aux
+*.dvi
+*.log
+*.ps
+*.pstex *.pstex_t
+*.toc
+*.ind *.idx *.ilg

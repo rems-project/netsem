@@ -1,0 +1,70 @@
+**** Old email about moving thalamus from the server room to FE17 ****
+
+X-mailer: exmh version 2.5+CL 07/13/2001 with nmh-1.0.4
+Mime-version: 1.0
+Content-type: text/plain; charset=us-ascii
+Subject: thalamus move and privileged access
+From: Keith Wansbrough <kw217@cl.cam.ac.uk>
+Date: Wed, 31 Jul 2002 10:25:08 +0100
+To: Piete.Brooks@cl.cam.ac.uk (Piete Brooks)
+Cc: pes20, smb50, mn200
+
+Hi... we're about to start working a little more seriously on our TCP
+semantics, and we need to do some machine rearrangement and software
+installation, as follows.  We also need some privileged access to the
+network card, as detailed further below.
+
+1. MACHINE MOVE: We'd like thalamus, our HOL theorem-prover machine,
+   to be moved from the machine room into FE21, to sit next to glia.
+   Steve Bishop will be the main console user, but we'll continue to
+   use it as a compute server.
+
+2. WINDOWS INSTALL: We'd like glia to be made dual-boot, running
+   Windows XP Professional as well as the existing lab-managed Linux.
+   This is because we would like to run Visual Studio (probably .NET)
+   on it.
+
+   We would prefer to install and manage this entirely ourselves, as
+   long as that is OK with the lab; we don't require access to file or
+   print servers etc. from it.
+
+
+Our goal is to implement our TCP semantics as a (Linux) program.  We
+would run this implementation on thalamus, and it would accept and
+generate IP packets as if it were a host with a TCP/IP stack.  In
+order to do this, we need to be able to intercept incoming packets and
+generate outgoing ones.  (Note that our program must be run on
+thalamus, since it will be written in HOL and be fairly
+computationally intensive.)
+
+In order to do this, we need to be able to sniff all packets on the
+wire (using tcpdump or libpcap), and insert new packets (using raw
+sockets).  Hence:
+
+3. ADDRESS ASSIGNMENT: We need an IP address and a host name ("psyche"
+   seems appropriate!) for our implementation to use (we'll use the
+   MAC address of thalamus' own card).  The program would accept
+   packets destined for this address, and spoof responses from the
+   address.
+
+   We would test it by having it communicate with other machines in
+   our office, including at least astrocyte and vesicle.
+
+Our investigations show that the Linux capability CAP_NET_ADMIN is
+sufficient for both tcpdump and raw sockets, and so we are not asking
+for root access.  We need only something like the following:
+
+4. PRIVILEGED ACCESS: Allow us to run arbitrary programs with
+   CAP_NET_ADMIN, with a sudoers line like this (I think):
+
+   kw217,pes20,smb50,mn200  thalamus=/sbin/execcap cap_net_admin=eip [!-]*
+
+   For testing purposes it would be useful to have this on astrocyte
+   as well.
+
+Phew!  I know that's quite a lot to ask, but we'd be very grateful if
+you could arrange it.
+
+Thanks,
+
+--KW 8-)

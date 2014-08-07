@@ -1,0 +1,49 @@
+// stuff cut out of main file:
+
+void foople(void) {
+	char buf[1000];
+	DWORD delay = 100000;  /* milliseconds */
+    LARGE_INTEGER ld, ld0, ld1;
+	FILETIME ft0,ft1;
+
+	printf("Gidday, planet!  Delay is %lu milliseconds\n",delay);
+
+	int r = QueryPerformanceFrequency(&ld);
+	printf("NOMINAL FREQ: %d: %I64u\n",r,ld.QuadPart);
+
+	Sleep(1000);
+	int r0 = QueryPerformanceCounter(&ld0);
+	GetSystemTimeAsFileTime(&ft0);
+	Sleep(delay);
+	int r1 = QueryPerformanceCounter(&ld1);
+	GetSystemTimeAsFileTime(&ft1);
+
+	DWORD tickdelta = (ft1.dwLowDateTime - ft0.dwLowDateTime) / 156251;  /* works most of the time */
+	LONGLONG delta = ld1.QuadPart - ld0.QuadPart;
+	printf("%d: %I64u - %d: %I64u = delta %I64u\n",r0,ld0.QuadPart,r1,ld1.QuadPart,ld1.QuadPart-ld0.QuadPart);
+	printf("CALCULATED FREQ: %I64u counts/sec\n",(delta * 1000) / delay);
+	printf("Number of ticks: %u\n",tickdelta);
+	printf("Error in time measurement: +/- 2/%u sec\n",tickdelta);
+	printf("So freq is between: %lf .. %lf\n",double(delta) / (double(delay) / 1000 + 2 / double(tickdelta)),double(delta) / (double(delay) / 1000 - 2 / double(tickdelta)));
+
+}
+
+void play(void) {
+	LARGE_INTEGER lds[100];
+	Sleep(5);
+
+	for (int i = 0; i<100; i++) {
+		lds[i].QuadPart = gettsc();
+		// Sleep(i);
+	}
+	for (int i = 0; i<100; i++) {
+		printf("RDTSC %I64u delta = %I64u\n",lds[i].QuadPart,i==0 ? 0uI64 : lds[i].QuadPart - lds[i-1].QuadPart);
+	}
+//	for (int i = 0; i<100; i++) {
+//		gettimeofday(&tv,NULL);
+//		printf("%u.%06u\n",tv.tv_sec,tv.tv_usec);
+//		GetSystemTimeAsFileTime(&ft0);
+//		printf("%u\n",ft0.dwLowDateTime);
+//	}
+
+}

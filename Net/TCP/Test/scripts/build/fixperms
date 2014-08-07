@@ -1,0 +1,9 @@
+#!/bin/sh
+
+. `dirname $0`/waprc
+
+for f in "$HOLSRC" "$HOLLOC" "$HOLDIR" "$WAPSRC" "$WAPLOC" "$WAPDIR" ; do
+        chgrp -R netsem "$f"
+        chmod -R ug=rwX,o-rwx "$f"
+        find "$f" -type d -print0 | xargs -0 chmod g+s
+done

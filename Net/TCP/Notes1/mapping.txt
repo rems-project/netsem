@@ -1,0 +1,64 @@
+Mapping from byte stream (wire format) into HOL
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(this document forms the basis of slurp.ml)
+
+* take the byte stream from pcap_dump (in the form of tcpdump -w), and
+  turn it into the HOL level 3/4 IP datagram format.
+
+  Note that pcap_dump gives us a timestamp (in sec and usec), a packet
+  length, a captured-prefix length, and some bytes.  We can set the
+  maximum captured length high enough to capture the whole packet (we
+  think).
+
+* we're going to write some OCaml (Mosml?) code to turn this byte
+  stream into a HOL-friendly format (term? ASCII representation of
+  same?)  Computation will be faster in OCaml than in HOL (!!).
+
+* appearance time: should be "when the last fragment appears". (ie,
+  when enough frags have arrived to reconstruct the entire datagram).
+
+* looking at RFC791, some IP options are copied into each fragment and
+  some are not.  We propose to ignore all IP options, since they're
+  pretty rarely used these days (we think).
+
+
+So what is the HOL type?
+
+(prefer Stevens TCPv2p802 names to TCP RFC)
+
+tcp_segment:
+
+ <| is1 : ip option ;
+    is2 : ip option ;
+    ps1 : port option;
+    ps2 : port option;
+    seq : word32;         (* sequence_number       *)
+    ack : word32;         (* acknowledgment_number *)
+    URG : bool;
+    ACK : bool;
+    PSH : bool;
+    RST : bool;
+    SYN : bool;
+    FIN : bool;
+    win : word16;        (* window size *)
+    urp : word16;
+
+    (* and TCP options, which we pull out as follows.  We need to find
+       out the correct names *)
+
+    mss : word16 option;            (* maximum segment size TCPv2p865 *)
+    scale : byte option;            (* window scaling; probably 0..14? *)
+    ts : (word32 # word32) option;  (* _val and _ecr TCPv2p867 *)
+
+    data : byte list
+ |>
+
+    (* sum : word16 (* we don't include this; perhaps we should, to
+    model possible weird behaviour of different TCPs: check it, ignore
+    it, drop on floor if bad, RST if bad, etc. *) *)
+
+This is lossy because: - we drop padding bytes (whichi might be
+nonzero); - we lose a lot of IP stuff; - we lose the TCP checksum
+status; - we lose the order of options; - we lose "reserved"; we lose
+any unrecognised or NOP or E_O_OPTS options.

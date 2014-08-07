@@ -1,0 +1,21 @@
+\begin{document}
+
+\pagenumbering{roman}
+
+\title{TCP Specification\\
+{\footnotesize\textit{\rulesrcsid}}\\
+{\large THIS DOCUMENT IS A CONFIDENTIAL DRAFT -- PLEASE DO NOT DISTRIBUTE.}}
+\author{The Netsem Team\\
+University of Cambridge Computer Laboratory}
+\date{\today}
+\maketitle
+
+
+\tableofcontents
+
+\clearpage
+\pagenumbering{arabic}
+
+\dumpallrules
+
+\end{document}

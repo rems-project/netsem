@@ -1,0 +1,130 @@
+Update 2004-09-17: this is all pre-slurper and pre-injector: we were
+thinking of ways to slurp and inject packets.
+
+
+Some notes on Netfilter
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Subject: Netfilter requirements
+From: Steven Bishop <Steven.Bishop@cl.cam.ac.uk>
+Date: Fri, 26 Jul 2002 16:54:49 +0100
+To: Keith.Wansbrough@cl.cam.ac.uk, peter.sewell@cl.cam.ac.uk
+Cc: smb50@cam.ac.uk, Steven.Bishop@cl.cam.ac.uk
+
+Below are the requirements for using Netfilter.  The Linux Kernel requires
+building with certain options enabled and some patching from the iptables
+tools library beforehand.
+
+We need to make a decision on how we give our applications that talk to the
+ip_queue the relevant capabilities. We can:
+	(a) ask for the installation of the Linux capabilities libraries and tools
+package. We would then required setuid root or sudo privileges on setcap,
+getcap, execcap and getpcap.
+	(b) write a daemon (or a kludgey middle-ware tool) which we then ask to be
+setuid root or sudo enabled.
+
+Thoughts?
+
+Steve
+
+---
+
+iptables library:
+~~~~~~~~~~~~~~~~~
+ - download iptables-1.2.6a from www.netfilter.org
+ - follow build instructions but in brief:
+ 	(a) `make pending-patches`
+	  (this patches the current kernel in /usr/src/linux or that
+           specified by KERNEL_DIR). ONLY apply the patches that are
+	   marked as non-conflicting -- don't worry about any that fail.
+	(b) make and install the new kernel (see below)
+	(c) `make`
+	(d) `make install`
+	(e) `make install-devel` (required for our ip_queue api)
+
+
+Linux Kernel:
+~~~~~~~~~~~~~
+ - 2.4.x series
+ - do a `make clean` followed by `make mrproper`. The `mrproper` is required
+because of the patching above.
+ - build with the following options enabled (Y=build in, M=module):
+	- CONFIG_NETFILTER (M)
+	- CONFIG_IP_NF_CONNTRACK (M)
+	- CONFIG_IP_NF_IPTABLES  (M)
+	- CONFIG_IP_NF_MATCH_MAC (M)
+	- CONFIG_IP_NF_MATH_MULTIPORT (M)
+	- CONFIG_IP_NF_MATCH_TCPMSS (M)
+	- CONFIG_IP_NF_MATCH_STATE (M)
+	- CONFIG_IP_NF_FILTER (M)
+	- CONFIG_IP_NF_NAT (M)
+	- CONFIG_IP_NF_MANGLE (M)
+	- CONFIG_IP_NF_TARGET_LOG (M)
+ - I assume the lab builds it's kernels with the kernel module autoloader (if
+not, a startup script needs to `insmod ip_tables` and `insmod iptable_filter`)
+
+
+Permissions:
+~~~~~~~~~~~~
+ - either need setuid root or sudo permissions for /usr/local/bin/iptables
+ - need the linux capabilities tools (and permissions to run them) or
+appropriate permissions on our own userspace tool/daemon to access the ip_queue
+
+
+
+Subject: Re: Netfilter requirements
+From: Steven Bishop <Steven.Bishop@cl.cam.ac.uk>
+Date: Mon, 29 Jul 2002 11:47:40 +0100
+To: Keith Wansbrough <Keith.Wansbrough@cl.cam.ac.uk>
+Cc: Steven Bishop <Steven.Bishop@cl.cam.ac.uk>,
+    Peter.Sewell@cl.cam.ac.uk, Steven.Bishop@cl.cam.ac.uk
+
+
+Must all build the kernel with:
+
+CONFIG_IP_NF_QUEUE
+
+
+(this *only* appears in 'menuconfig' if it is set to show
+development/experimental stuff).
+
+Steve
+
+Subject: Re: Netfilter requirements
+From: Steven Bishop <Steven.Bishop@cl.cam.ac.uk>
+Date: Mon, 29 Jul 2002 11:49:14 +0100
+To: Steven Bishop <Steven.Bishop@cl.cam.ac.uk>
+Cc: Keith Wansbrough <Keith.Wansbrough@cl.cam.ac.uk>,
+    Peter.Sewell@cl.cam.ac.uk, Steven.Bishop@cl.cam.ac.uk
+
+>
+> Must all build the kernel with:
+>
+> CONFIG_IP_NF_QUEUE
+>
+
+Should read "must also..."
+
+Oops!
+
+Subject: Sudoers file
+From: Steven Bishop <Steven.Bishop@cl.cam.ac.uk>
+Date: Mon, 29 Jul 2002 14:59:08 +0100
+To: Keith.Wansbrough@cl.cam.ac.uk
+
+# sudoers file.
+#
+# This file MUST be edited with the 'visudo' command as root.
+#
+# See the man page for details on how to write a sudoers file.
+#
+
+# Host alias specification
+
+# User alias specification
+
+# Cmnd alias specification
+
+# User privilege specification
+root    ALL=(ALL) ALL
+smb50   ALL=/sbin/execcap cap_net_admin=eip [!-]*

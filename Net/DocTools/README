@@ -1,0 +1,75 @@
+
+To use
+------
+
+make will do everything.
+
+well, not quite: you have to do
+
+  make
+  bibtex typography
+  latex typography
+  latex typography
+  ./domakeindex
+  latex typography
+
+and you'll be done.
+
+
+(OLD ADVICE:)
+
+In Net/DocTools say:
+
+cat ../Sem/rules.txt | rebracket | rules_to_latex |munge > tmp-rules.tex ; latex typography
+
+
+Here:
+
+  rebracket       converts [[ and ]] to $<[ and ]>$  
+
+  rules_to_latex  parses rule-format and spits out latex
+
+  munge           does syntax munging, which mostly is putting font-commands 
+                  around identifiers 
+
+  typography.tex  is a latex file that defines handy macros then includes
+                  tmp-rules.tex
+
+
+  infer           does inference-rule munging: see documentation below.
+
+
+INFER --- automatic inference-rule munging:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Infer is a filter.
+
+It looks for blocks bracketed by lines containing the exact text
+"<RULES" and "RULES>", with nothing else on the line (not even
+spaces).
+
+In fact, if the lines are "<RULES[" and "]RULES>" instead, the
+behaviour is the same except that it inserts the characters "<[" and
+"]>" before and after each rule-line.  This is useful for
+post-munging!
+
+Within these brackets, the contents are treated as a rectangular array
+of characters.
+
+A "rule" is a subrectangle of this array.  The filter looks for a row
+of five or more `-' characters to locate a rule, and then locates the
+rectangle spanned precisely by this row, and with the maximum number
+of non-blank rows above and below this line.
+
+Each rule is then typeset as
+
+\autoinfer{\begin{array}{l}line1\\ line2\\ line3\end{array}}{\begin{array}{l}line4\\ line5\\ line6\end{array}}
+
+in the place of the row of dashes (yes, all on one line).
+
+Anything that is not a rule is literally passed through.
+
+BEWARE!  Your row of dashes must be long enough, otherwise strange
+effects occur.
+
+

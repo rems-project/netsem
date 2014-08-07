@@ -1,0 +1,7 @@
+#!/usr/bin/perl -w
+
+while (<>) {
+	s/\[XX\[/[[/g;
+	s/\]XX\]/]]/g;
+	print;
+}

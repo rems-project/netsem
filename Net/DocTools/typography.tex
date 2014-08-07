@@ -1,0 +1,377 @@
+%\documentclass[10pt]{llncs}  % for TACS!
+\documentclass[10pt,runningheads]{llncs}  % runningheads only for TR!
+
+\usepackage{makeidx}
+\usepackage{epsfig}
+%\usepackage{times}
+%\usepackage{lucidbrb}
+\usepackage{alltt}
+\usepackage{amssymb,amsmath,array}
+%\usepackage{a4}
+%\usepackage{a4labelsdraft}
+%\usepackage{parskip}
+\usepackage{url}
+\usepackage{theorem}
+\usepackage{leftdisplay}
+\usepackage{color}
+\usepackage[all,dvips]{xy}
+\CompileMatrices
+
+\newcommand{\submitversion}[1]{}%  #1 for version with corresp author
+\newcommand{\whichversion}[2]{#2} % 1 for short, 2 for long
+\newcommand{\draftversion}[2]{#1} % 1 for final, 2 for draft
+\newif\iflongversion\whichversion{\longversionfalse}{\longversiontrue}
+
+\newcommand{\workingnotesversion}[1]{}  % insert #1 to show the
+                                         % example working notes
+
+\newcommand{\finallongpage}{\enlargethispage{\baselineskip}}
+
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{3}
+\whichversion{}{
+\makeindex
+}
+\newcommand{\xindex}[1]{\index{#1@[XX[#1]XX]}}
+
+\whichversion{
+\setlength{\textwidth}{12.2cm}
+\setlength{\textheight}{19.3cm}
+}{
+\setlength{\textwidth}{150mm}
+\setlength{\textheight}{210mm}
+\setlength\oddsidemargin{10mm}
+\setlength\evensidemargin{-1.8mm}  % 210 - 2*25.4 - textwidth - oddsidemargin
+
+%\setlength\textwidth{5.75in}
+%\setlength\oddsidemargin{.5cm}
+%\setlength\evensidemargin{.5cm}
+%\theoremstyle{plain} \newtheorem{principle}{P}
+%\newenvironment{proof}{{\bf Proof}\quad}{\;$\Box$\\}
+%\newtheorem{example}{Example}
+%\newtheorem{example*}{Example}
+%\newtheorem{definition}{Definition}
+%\newtheorem{lemma}{Lemma}
+%\newtheorem{theorem}[lemma]{Theorem}
+%\newtheorem{corollary}[lemma]{Corollary}
+%\newtheorem{conjecture}[lemma]{Conjecture}
+%\newtheorem{proposition}[lemma]{Proposition}
+%\newtheorem{lemma*}{Lemma}
+%\newtheorem{Definition}[definition]{Definition}
+%\newtheorem{property}{Property}
+}
+\iflongversion
+\makeatletter  % Hack llncs to use a new page per section:
+\renewcommand\section{\clearpage\@startsection{section}{1}{\z@}%
+                       {-18\p@ \@plus -4\p@ \@minus -4\p@}%
+                       {12\p@ \@plus 4\p@ \@minus 4\p@}%
+                       {\normalfont\large\bfseries\boldmath
+                        \rightskip=\z@ \@plus 8em\pretolerance=10000 }}
+\makeatother
+\fi
+
+
+\draftversion{
+\newcommand{\mlabel}[1]{\label{#1}\raisebox{1.85ex}[0pt][0pt]{\makebox[0pt]{}}}
+\newcommand{\mref}[1]{\ref{#1}\raisebox{1.85ex}[0pt][0pt]{\makebox[0pt]{}}}
+}{
+\newcommand{\mlabel}[1]{\label{#1}\raisebox{1.85ex}[0pt][0pt]{\makebox[0pt]{\scriptsize#1}}}
+\newcommand{\mref}[1]{\ref{#1}\raisebox{1.85ex}[0pt][0pt]{\makebox[0pt]{\fontseries{m}\selectfont\scriptsize#1}}}
+}
+\newcommand{\flagone}[1]{****{#1}****}
+
+% Width of text within boxed figures
+\newlength{\shorttextwidth}%
+\setlength{\shorttextwidth}{\textwidth}%
+\addtolength{\shorttextwidth}{-1.0em}%
+
+% Width of text below boxed figures
+\newlength{\shortertextwidth}%
+\setlength{\shortertextwidth}{\textwidth}%
+\addtolength{\shortertextwidth}{-4.0em}%
+
+\newenvironment{indentation}{\begin{list}{}{
+  \setlength{\rightmargin}{0.5\leftmargin}
+  \setlength{\itemsep}{0mm}
+%  \setlength{\labelsep}{0mm}
+  \setlength{\labelwidth}{0mm}
+  \setlength{\topsep}{0mm}
+}\item }{\end{list}}
+
+
+\makeatletter
+\newcommand{\l@tintext}[1]{\textit{#1}}
+\newcommand{\cf}{\l@tintext{cf.\@}}
+\newcommand{\eg}{\l@tintext{eg.\@}}
+\newcommand{\ie}{\l@tintext{ie.\@}}
+\newcommand{\vs}{\l@tintext{vs.\@}}
+\newcommand{\etc}{\l@tintext{etc.\@}}
+\newcommand{\adhoc}{\l@tintext{ad~hoc}}
+\newcommand{\etal}{\l@tintext{et\ al.\@}}
+\makeatother
+
+
+\newcommand{\showrule}[1]{\par\vspace{1.0ex}\noindent#1\par\vspace{1.0ex}\noindent}
+
+\newcommand{\mignore}[1]{}
+
+%\newcommand{\tsrule}[1]{\mbox{$\pmb{\texttt{#1}}$}}
+%\newcommand{\tstype}[1]{\mbox{\texttt{#1}}}
+%\newcommand{\tscon}[1]{\mbox{\texttt{#1}}}
+%\newcommand{\tsvar}[1]{\mbox{\ttfamily\slshape{#1}}}
+
+%\newcommand{\tsrule}[1]{\mbox{$\mathrm{#1}$}}
+%\newcommand{\tstype}[1]{\mbox{$\mathsf{#1}$}}
+%\newcommand{\tscon}[1]{\mbox{\sc{#1}}}
+%\newcommand{\tslib}[1]{\mbox{$\mathrm{#1}$}}
+%\newcommand{\tsaux}[1]{\mbox{$\mathrm{#1}$}}
+%\newcommand{\tsvar}[1]{\mbox{$\mathit{#1}$}}
+%\newcommand{\tsmachine}[1]{\mbox{\texttt{#1}}}
+
+
+%\newcommand{\tsrule}[1]{{\mathrm{#1}}}
+\newcommand{\tsrule}[1]{{\mathit{#1}}}
+\newcommand{\tstype}[1]{{\mathsf{#1}}}
+\newcommand{\tscon}[1]{{\textsc{#1}}}
+% \newcommand{\tslib}[1]{{\text{\usefont{OT1}{cmtt}{m}{n}#1}}}  % typewriter
+% \newcommand{\tslib}[1]{{\text{\usefont{OT1}{ccr}{m}{n}#1}}}   % Concrete roman
+\newcommand{\tslib}[1]{{\text{\usefont{T1}{bchx}{m}{n}#1}}}    % Charter shrunk (using t1bchx.fd)
+\newcommand{\tsaux}[1]{{\mathrm{#1}}}
+\newcommand{\tsvar}[1]{{\mathit{#1}}}
+\newcommand{\tsmachine}[1]{{\texttt{#1}}}
+
+\let\<\negthickspace  % negative of \; to cancel munger's extrarightspace
+
+% like phantom but centres something else in the space:
+% \inplaceof[alignment]{visible}{invisible}
+\newcommand{\inplaceof}[3][c]{\setbox255=\hbox{$#3$}\makebox[\wd255][#1]{$#2$}}
+
+
+\newcommand{\oftype}{\mathop{:}}
+\newcommand{\totype}{\mathop{\rightarrow}}
+
+
+
+
+
+
+
+\newcommand{\infer}[3]{ {\frac{\displaystyle\begin{array}{l}#1\end{array}}{\displaystyle#3}}}
+\newcommand{\autoinfer}[2]{ {\frac{\displaystyle\begin{array}{l}#1\end{array}}{\displaystyle#2}}}
+
+
+\newcommand{\blob}{\,{.}\,}
+\newcommand{\setof}[2]{\{\,#1 \;\mbox{$\mid$}\; #2\,\}}
+\newcommand{\andalso}{\mathrel{\scriptstyle\wedge}}
+\newcommand{\orelse}{\mathrel{\scriptstyle\vee}}
+\newcommand{\dom}{\textrm{dom}}
+\newcommand{\ran}{\textrm{ran}}
+\newcommand{\defeq}{\stackrel{\mbox{\it\scriptsize def}}{=}}
+\newcommand{\defiff}{\stackrel{\mbox{\it\scriptsize def}}{\mathrel{\Leftrightarrow}}}
+
+\newcommand{\gives}{\vartriangleright}
+\newcommand{\prl}{\mid}
+
+
+
+\newcommand{\bn}[1]{#1\mathord{\cdot}}
+\newcommand{\nn}{\bn{n}}
+\newcommand{\co}[1]{{\overline{#1}}}
+
+\newcommand{\tranbiglabel}[1]{\mathrel{\mbox{$\xrightarrow{\textstyle{#1}}$}}}
+\newcommand{\transmalllabel}[1]{\mathrel{\mbox{$\xrightarrow{{#1}}$}}}
+\newcommand{\tran}{\transmalllabel}
+
+\newcommand{\inp}[1]{\tran{#1}}
+\newcommand{\out}[1]{\tran{\co{#1}}}
+\newcommand{\ttau}{\tran{\tau}}
+
+\newcommand{\rsection}[2]{\subsection{#1}\
+
+{#2}}
+\newcommand{\rsubsection}[2]{\subsubsection*{#1}\
+
+{#2}}
+
+\newcommand{\typerulehead}[1]{\framebox{\mbox{${#1}$}}}
+\newcommand{\heading}[1]{\paragraph{#1}}
+
+
+\newcommand{\Mcaret}{\mathord{\uparrow}}
+\newcommand{\Marrow}{\totype}
+\newcommand{\Maarrow}{\tran{}}
+\newcommand{\MArrow}{\implies}
+\newcommand{\MDArrow}{\iff}
+\newcommand{\Msemicolon}{\mathrel{\vdash}}
+\newcommand{\Msemisemicolon}{;}
+\newcommand{\Mce}{\mathop{:=}}
+\newcommand{\Mcce}{\mathop{::=}}
+\newcommand{\Mcoloncolon}{\mathop{::}}
+\newcommand{\Mcolon}{\oftype}
+\newcommand{\Mquotedstring}[1]{\texttt{"}\tsaux{#1}\texttt{"}}
+\newcommand{\Mindent}{\ }
+\newcommand{\Mbrackets}{[\,]}
+
+\newcommand{\withcomment}[1]{#1}
+\newcommand{\withoutcomment}[1]{}
+\newcommand{\rulecomment}{\withcomment}
+
+%\newcommand{\rrulefront}[5]{\paragraph{\textsf{#1}\quad{\textsf{#2}}}
+%\[\begin{array}{l@{}l}&#3\\#4\
+%&#5\end{array}\]}
+
+% playing with the sf version - was as below
+\newcommand{\rrulefront}[5]{\paragraph{#1}{\textbf{#2}}
+\[\begin{array}{l@{}l}&#3\\#4\
+&#5\end{array}\]}
+
+\newcommand{\rrenbox}[1]{%
+  \framebox{\begin{minipage}{\shorttextwidth}\normalsize{}#1%
+            \end{minipage}}}
+\newcommand{\rrencmt}[1]{%
+  \par\vspace{0.5ex}\noindent\hfill%
+  \begin{minipage}{\shorttextwidth}\small{}#1%PS shorter to short
+  \end{minipage}}
+
+\newcommand{\rrulecc}[7]{\rrenbox{\rrulefront{#1}{#2}{#3}{#4}{#5}$#6$}\rulecomment{\rrencmt{#7}}}
+\newcommand{\rrulecn}[7]{\rrenbox{\rrulefront{#1}{#2}{#3}{#4}{#5}$#6$}}
+\newcommand{\rrulenc}[7]{\rrenbox{\rrulefront{#1}{#2}{#3}{#4}{#5}}\rulecomment{\rrencmt{#7}}}
+\newcommand{\rrulenn}[7]{\rrenbox{\rrulefront{#1}{#2}{#3}{#4}{#5}}}
+
+%\newcommand{\myparagraph}[1]{\paragraph{\rm{\bf{#1}}}} %supposed to be a
+                                             %unnumbered paragraph
+
+\makeatletter
+\newcommand\nparagraph{\@startsection{subsubsection}{3}{\z@}%  supposed to be a
+                       {-12\p@ \@plus -4\p@ \@minus -4\p@}%  numbered paragraph
+                       {-0.5em \@plus -0.22em \@minus -0.1em}%
+                       {\normalfont\normalsize\bfseries\boldmath}}
+
+\newcommand{\myparagraph}{\@startsection{subsection}{2}{\z@}%  supposed to be a
+                       {-12\p@ \@plus -4\p@ \@minus -4\p@}%  numbered paragraph
+                       {-0.5em \@plus -0.22em \@minus -0.1em}%
+                       {\normalfont\normalsize\bfseries\boldmath}}
+% make index 3-column; env def copied from llncs.cls 2000/05/16 v2.8 and edited.
+\renewenvironment{theindex}
+               {\@mkboth{\indexname}{\indexname}%
+                \thispagestyle{empty}\parindent\z@
+                \parskip\z@ \@plus .3\p@\relax
+                \let\item\par
+                \def\,{\relax\ifmmode\mskip\thinmuskip
+                             \else\hskip0.2em\ignorespaces\fi}%
+                \normalfont\small
+                \begin{multicols}{3}[\@makeschapterhead{\indexname}]%
+                }
+                {\end{multicols}}
+
+\makeatother
+
+
+
+
+% These strings are taken from the comments in errno.h.  Perhaps
+% should use something more definitive?
+\newcommand{\errstring}[1]{`{#1}'}
+\newcommand{\sEACCES}{\errstring{Permission denied}}
+\newcommand{\sEADDRINUSE}{\errstring{Address already in use}}
+\newcommand{\sEADDRNOTAVAIL}{\errstring{Cannot assign requested address}}
+\newcommand{\sEAGAIN}{\errstring{Try again}}
+\newcommand{\sEBADF}{\errstring{Bad file number}}
+\newcommand{\sECONNREFUSED}{\errstring{Connection refused}}
+\newcommand{\sEHOSTUNREACH}{\errstring{No route to host}}
+\newcommand{\sEINTR}{\errstring{Interrupted system call}}
+\newcommand{\sEINVAL}{\errstring{Invalid argument}}
+\newcommand{\sEMFILE}{\errstring{Too many open files}}
+\newcommand{\sEMSGSIZE}{\errstring{Message too long}}
+\newcommand{\sENFILE}{\errstring{File table overflow}}
+\newcommand{\sENOBUFS}{\errstring{No buffer space available}}
+\newcommand{\sENOMEM}{\errstring{Out of memory}}
+\newcommand{\sENOTCONN}{\errstring{Transport endpoint is not connected}}
+\newcommand{\sENOTSOCK}{\errstring{Socket operation on non-socket}}
+\newcommand{\sEPERM}{\errstring{Operation not permitted}}
+
+
+\input tmp-ruledefs.tex
+
+\begin{document}
+
+\whichversion{}{\pagenumbering{roman}}
+\bibliographystyle{alpha}
+
+\whichversion{
+\title{The UDP Calculus:\\ Rigorous Semantics for Real Networking}
+}{%whichversion.1
+\title{The UDP Calculus:\\ Rigorous Semantics for Real Networking}
+%\title{The UDP Calculus: rigorous semantics for real networking\\(or)
+%rigorous semantics for network programming in a failing world\\(or)
+%network programming in a failing world\\(or)
+%accurate failure semantics for datagram socket interaction\\(or)
+%}
+\toctitle{The UDP Calculus}
+\titlerunning{The UDP Calculus}
+}%whichversion.2
+\institute{\whichversion{}{Computer Laboratory\\}University of Cambridge}
+\author{Andrei Serjantov \qquad Peter Sewell \qquad Keith Wansbrough}
+\maketitle
+\begin{center}\small\texttt{\{Andrei.Serjantov,Peter.Sewell,Keith.Wansbrough\}@cl.cam.ac.uk}\\[2.0ex]
+\texttt{http://www.cl.cam.ac.uk/users/pes20/Netsem}\\[2.0ex]
+\whichversion{}{\textbf{\today}}\end{center}
+\submitversion{\begin{center}
+\textbf{Corresponding Author:}\\
+Peter Sewell
+\texttt{<Peter.Sewell@cl.cam.ac.uk>}\\
+Tel:~+44~1223~33~46~24,
+fax:~+44~1223~33~46~78.
+\end{center}}
+
+
+\input ../Sem/abstract.tex
+
+\whichversion{}{{\small
+\tableofcontents}}
+\whichversion{%\newpage
+}{\cleardoublepage}
+\whichversion{}{\pagenumbering{arabic}}
+
+
+\input tmp-body.tex
+
+
+\whichversion{
+\let\oldthebibliography\thebibliography
+\let\oldendthebibliography\endthebibliography
+\renewcommand{\thebibliography}[1]{\oldthebibliography{{CSR}83}}
+\renewcommand{\endthebibliography}{\oldendthebibliography}
+\bibliography{udpbib}
+}{
+
+\appendix
+
+\newpage
+\input tmp-ocaml.tex
+
+\newpage
+\section[MiniCaml Implementation: \texttt{udplang.mli}]
+        {MiniCaml Implementation: \texttt{udplang.mli}\mlabel{minicaml-udplang}}%
+{\small\begin{alltt}
+\input ../UDPlang/OCAML/udplange.mli
+\end{alltt}}
+
+\newpage
+\input tmp-repeated-proof.tex
+
+\newpage
+\bibliography{udpbib-long}
+
+\newpage
+\printindex
+}
+\end{document}
+
+
+
+
+%%% Local Variables:
+%%% LaTeX-label-sequence-N: 363
+%%% LaTeX-label-prefix: "a"
+%%% End:

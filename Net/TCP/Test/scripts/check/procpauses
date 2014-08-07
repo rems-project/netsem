@@ -1,0 +1,116 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+my $predelta  =  6;  # number of characters to look back for unique string
+my $postdelta =  6;  # number of characters to look forward for unique string
+
+my $typdelta = 100-($predelta+1+$postdelta);  # number of characters to show in display
+
+my $tick     = 10;   # number of seconds per sample
+
+
+if (@ARGV != 2) {
+    die "Usage: $0 <checkoutput> <offsetfile>\n";
+}
+
+my ($checkfile,$offsetfile) = @ARGV;
+
+print "\n=== Time-hogs report: $checkfile / $offsetfile\n\n";
+
+open OFFSET, "<$offsetfile" or die "Can't open $offsetfile: $!\n";
+
+# @offsets is list of (offset,duration) pairs, where offset is the
+# offset in bytes from the beginning of the file, and duration is the
+# number of samples for which the end of file was at that offset
+
+my @offsets = ();
+my $last = 0;
+my $dur = 0;
+while (<OFFSET>) {
+    my $off = $_;
+    chomp $off;
+    if ($off == $last) {
+        $dur++;
+    } else {
+        push @offsets, { 'off' => $last, 'dur' => $dur };
+        $last = $off;
+        $dur = 1;
+    }
+}
+push @offsets, { 'off' => $last, 'dur' => $dur };
+close OFFSET or die "ouch: $!\n";
+
+# NB: read checkfile *after* reading offsets, or there's a risk of having some offsets
+# off the end of the checkfile.
+my $check;
+open CHECK, "<$checkfile" or die "Can't open $checkfile: $!\n";
+{ local $/; $check = <CHECK>; }
+close CHECK or die "ouch: $!";
+my $checklen = length($check);
+
+# %cat is a hash, indexed by the last few characters before the
+# offset, and giving the number of occurrences and the total duration
+# of all occurrences.
+
+my %cat = ();
+for my $e (@offsets) {
+    if ($e->{'off'} + $postdelta > $checklen) {
+        print "Skipping offset $e->{'off'} near or past end of file $checklen\n";
+        next;
+    }
+    my $str = substr($check,$e->{'off'}-$predelta,$predelta)
+        . " * " . substr($check,$e->{'off'},$postdelta);
+    my $typ = substr($check,$e->{'off'}-$typdelta,$typdelta-$predelta);
+    if (!defined($cat{$str})) {
+        $cat{$str} = { 'count' => 0, 'dur' => 0, 'maxdur' => 0, 'typ' => $typ }
+    }
+    $cat{$str}->{'count'}++;
+    $cat{$str}->{'dur'} += $e->{'dur'};
+    $cat{$str}->{'maxdur'} >= $e->{'dur'} or $cat{$str}->{'maxdur'} = $e->{'dur'};
+    $cat{$str}->{'typ'} = longestcommonsuffix($typ,$cat{$str}->{'typ'});
+}
+
+
+foreach my $str (sort(keys(%cat))) {
+    printf("%s: %4d occs of %5.0fs total / %5.0fs average / %5.0fs max: %s%s\n",
+           printable($str),
+           $cat{$str}->{'count'},
+           $tick * $cat{$str}->{'dur'},
+           $tick * $cat{$str}->{'dur'} / $cat{$str}->{'count'},
+           $tick * $cat{$str}->{'maxdur'},
+           printable($cat{$str}->{'typ'}),
+           printable($str)
+           );
+}
+
+print <<EOT;
+
+Legend: This report shows the location reached in the output file at each sample,
+        providing an approximate time profile.  Locations are merged if the
+        $predelta characters preceding and $postdelta characters following the location
+        are identical.
+        * denotes the location in question, with its preceding and following characters.
+        After the counts and times, the location is repeated, with the longest common
+        suffix of preceding characters.
+
+EOT
+
+sub printable {
+    my ($str) = @_;
+    $str =~ s/[[:^print:]]/?/g;
+    return $str;
+}
+
+sub longestcommonsuffix {
+    my ($a,$b) = @_;
+    my $l = length($a) < length($b) ? length($a) : length($b);
+    my $aa = reverse($a);
+    my $bb = reverse($b);
+    my $i;
+    for ($i = 0; $i < $l; $i++) {
+        last if substr($aa,$i,1) ne substr($bb,$i,1);
+    }
+    return ($i == 0 ? "" : substr($a,-$i));
+}
+

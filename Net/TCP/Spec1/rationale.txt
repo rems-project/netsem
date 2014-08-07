@@ -1,0 +1,1296 @@
+
+Rationale  --  TCP/Spec1
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The specification in this directory is the highest-level TCP
+specification possible.  Most things are fully nondeterministic; we
+can't see what's happening on the wire; we *can* observe the behaviour
+of the sockets interface.
+
+The idea is that the network is represented by "stream" structures,
+which consist of a directed pair of ip,port pairs along with a queue
+of (bytes or urgent offsets).  When a TCP connection is established,
+two of these are created; when the receiving TCP forgets about the
+sequence number and so can never receive anything more on that stream,
+that stream is destroyed.
+
+In this file, we note down the rationale behind each design decision.
+
+
+Contents:
+~~~~~~~~~
+
+* Contents
+* General
+* TCP model
+* Unix model
+* Mapping from level 1 to level 2 states
+* Syntax
+* Points for debate
+* Points agreed
+* To do
+* TCP1.imn
+* TCP1_baseTypes
+* TCP1_hostTypes
+* TCP1_netTypes
+* TCP1_errors
+* TCP1_utils
+* TCP1_auxFns
+* TCP1_LIBinterface
+* TCP1_host0
+* TCP1_ruleids
+* TCP1_hostLTS
+* TCP1_net0
+* TCP1_netLTS
+
+
+General:
+~~~~~~~~
+
+HOL file structure:
+
+- I've split up the HOL files rather more than we did for UDP, simply
+  to shorten the recompilation time (less things need to be
+  recompiled).  Especially, large datatypes like TLang take a long
+  time to compile, so I've tried to keep them separate.  I've also
+  tried to prune imports as much as possible, to keep the number of
+  dependencies (and hence dependent-file recompilations) down.
+
+- theories are named TCP1_*, where TCP1 stands for "TCP specification
+  1".  Files that may be shared are given less specific names; the
+  relation stuff we developed for Net still has its Net_ prefix.
+
+Sequence of implementation:
+
+- I'm going through the POSIX 1003.1-2001 spec first, doing each of
+  its socket functions in alphabetical order, and mainly looking at
+  the man-page-ish descriptions.  This means that what I'm doing may
+  well be inaccurate regarding TCP: the POSIX stuff doesn't talk at
+  all about TCP, just about sockets in general.  I'm doing some
+  guessing (fairly educated, but still guessing).  I intend later to
+  look at the BSD and Linux implementations, and fix the deltas.
+
+
+TCP model:
+~~~~~~~~~~
+
+What is TCP/IP?
+
+- IP abstracts away from the complex topology of the internet and the
+  characteristics of links (MTUs, packet corruption), and provides a
+  flat network and an unreliable (but best-effort) datagram service.
+
+  TCP abstracts away from the unreliability and datagram-orientation
+  of IP, and provides reliable bidirectional streams.
+
+Abstracting a TCP connection:
+
+- So the highest-level abstraction of TCP should be one that provides
+  simply bidirectional streams in the most direct possible way.
+
+  The obvious way to do this is to represent a connection by a pair of
+  FIFOs / queues, with named endpoints.
+
+  TCP also has a notion of an "urgent pointer", so we must model this.
+  And it has a notion of "end of stream" (or "FIN"), so this must also
+  be modelled.
+
+  It's nicer if we have a fully symmetric representation [saves either
+  duplicating the rules, or adding structural rules], so instead of a
+  connection being a pair of addresses and a pair of queues, we make
+  it two separate objects, each with a pair of addresses and a single
+  queue.
+
+Reliability:
+
+- The real internet is unreliable, but TCP and IP work together to
+  make the streams reliable.  We intend to directly model a reliable
+  streams system; any observable second-order behaviour that can be
+  attributed to underlying failures or other network characteristics
+  (such as delays in transmission or reception, or preservation of
+  message boundaries) will *not* be modelled, but will be *allowed* by
+  the use of nondeterminism.
+
+Connection setup and teardown:
+
+- This is all very well for an established connection, but connection
+  establishment and teardown is not so easy.
+
+  One way of thinking of this reliability assumption is that "ACKs are
+  no longer necessary" because we *know* a message was received
+  correctly.  Deleting the ACKs from the TCP state transition diagram
+  (q.v. TCPv1p241) yields a simpler example of a connection
+  setup/teardown protocol for a reliable network.  But this isn't
+  necessarily the best or most perspicuous protocol to use.
+
+  One thing we want to avoid is spurious simultaneity.  If both hosts
+  directly agreed to set up a connection (by means of
+  action-at-a-distance, something we do allow in this high-level
+  model), we might be forced to observe say the return of connect()
+  and accept() simultaneously, or in a known order, something that is
+  *not* refinable into the actual observed behaviour of a real TCP
+  implementation.  There are presumably other examples.  The queue in
+  the connection object avoids this problem for established
+  connections.
+
+Teardown:
+
+- Teardown is relatively straightforward, I think: one host sends a
+  FIN to close the queue, and when the last byte has been read out of
+  the queue and it has told the receiver about the FIN, the connection
+  destroys itself.  This happens independently in each direction.
+
+  However, TCP also has a notion of an abnormal close, with a RST
+  rather than a FIN. How is this to be modelled?
+
+Setup:
+
+- Setup seems harder.
+
+  One idea: have a tcpManager, with which a listening host must
+  register, and of which a connecting host enquires.  The tcpManager
+  can spawn a new pair of connection objects if it accepts the
+  connection, and tells each party it has done so; or it can reject
+  and tell the connecting party only.
+
+  A problem with this is that information on which IPs and ports are
+  bound is duplicated between the listening host and the tcpManager.
+  Can we move it all to one or the other?
+
+  I'm going to do it in the following way, following a discussion with
+  Peter and Michael.  Note that this is only for the very high
+  abstraction, and should likely be treated simply as a stepping-stone
+  to the level-1 abstraction which includes real TCP states.
+
+  Use a "mini tcpManager" (we will call it a "tcpInitiator"), which is
+  spawned by the connection initiator and then interacts with the
+  listener, coming back and saying yea or nay to the initiator.  If it
+  says yea, it spawns/turns into a pair of tcpStreams.
+
+
+Unix model:
+~~~~~~~~~~~
+
+Processes and threads:
+
+- Do we want only processes, only threads (shared memory), or
+  processes and threads?
+
+  We want threads so we can implement distributed infrastructure
+  libraries in a sensible way, with shared memory and a spawned
+  infrastructure thread.
+
+  We probably *don't* need separate processes as well, so just threads
+  should be enough.
+
+  This means that much of the "process table entry" actually lives in
+  the host, not in the process (since there is only one).  Such as the
+  table of file descriptors.
+
+  Michael suggests we make the "upgrade path" clear by representing
+  the process-based state as a separate entity that is a singleton
+  (enforced by typing); moving to multiple processes involves turning
+  this into a finite map.
+
+- since a big motivation is to get rid of nested records (host <|
+  ... thread <| ... |> |>), Michael's suggestion is not a good one as
+  such.  I will instead mark the relevant stuff with a comment in
+  TCP1_hostTypes.
+
+
+Mapping from level 1 to level 2 states:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Some things disappeared from the socket structure between level 1 and
+level 2, moving into the TCPCB instead.  This section explains the
+mappings.
+
+- cantrcvmore: this is equivalent to ``st IN {CLOSE_WAIT, LAST_ACK,
+  CLOSING; TIME_WAIT; CLOSED}``.  And FIN_WAIT_1???
+
+
+Syntax:
+~~~~~~~
+
+Conventions:
+
+- variable names are standard: almost always they are the same as the
+  field name that holds their value or the name of their type,
+  possibly with appended primes and subscripts.  An -s is appended for
+  plurals or to indicate an optional parameter (e.g., the first
+  parameter of type "ip option" is often called "is1").
+
+- every rule has an English-language description of what it does
+  (including in what precise case it applies) as the first paragraph
+  of the comment.  This was suggested by Carl Gunther.
+
+- we always use the same fields of a host or threadent etc on LHS and
+  RHS of arrow, to avoid confusion.  References to h.* are
+  discouraged.
+
+- fields are listed in the same order as in the definition in
+  TCP1_hostTypes.
+
+- <| |> are always used, even when only one field is accessed.
+
+- connectives (/\, UNION, etc) go at the end of the first line, not
+  the beginning of the second, when spanning lines.
+
+- make equalities (etc) explicit in the source as far as possible,
+  rather than writing them as invariants.  This makes them more
+  obvious to the casual reader.  The proof will still happen: it will
+  happen when we prove non-stuckness.  E.g., in accept_1, the
+  listening and the accepted socket share source ip and port.  Another
+  example is that in accept_1, we know that is1 and ps1 will be set in
+  the connected socket.
+
+- Using FUPDATE_LIST in lhs and rhs, versus using FAPPLY in the side
+  conditions:  If we are just looking things up, rather than changing
+  them, we use FAPPLY in the side-condition to save the reader from
+  having to check that we indeed don't change anything.  OTOH, if we
+  *do* change *anything*, then we use FUPDATE_LIST on *both* lhs *and*
+  rhs, for symmetry, so the reader knows to check exactly what we
+  changed.  We *don't* use FAPPLY in side condition for lhs, and
+  FUPDATE_LIST in rhs, because then the reader would have to compare
+  something in the sidecond with something in the rhs, breaking the
+  symmetry.  Compare accept_1 with accept_2 and accept_3, for example,
+  or even the treatment of fid versus sid/sid' in accept_1 itself.
+
+- a logical extension of this is that we use "<| |>" notation if and
+  only if we *change* a field.  A field that is only inspected is
+  inspected using the dot notation.
+
+- deletion from a finite map is done by restricting the domain of the
+  lhs version of the finite map:  LHS has socks FUPDATE_LIST
+  [(sid,foo)], and RHS has just socks, with side condition sid NOTIN
+  (FDOM socks).  I'm not 100% happy with this, but it should be OK.
+
+- rules for each call are listed in order corresponding as closely as
+  possible to the order of behaviours in the POSIX 1003.1-2001 man
+  page.
+
+Options:
+
+- By convention, use sf.t(SO_LINGER), not sf.t SO_LINGER.
+
+
+Points for debate:
+~~~~~~~~~~~~~~~~~~
+
+Open file descriptions:
+
+- what POSIX calls an "open file description", i.e., the thing that a
+  file descriptor points to, we currently call a "file" (see
+  TCP1_hostTypes), and the set of all of them we call "h.files".
+  Perhaps we should change to "filedesc" / "h.filedescs"?
+
+  Contrary opinion: this would easy be confused with "fd", for "file
+  descript*or*".  OTOH, "filedescn" is very ugly!  Better suggestions?
+
+dup:
+
+- we should add dup()/dup2(), to allow duplicating a file descriptor,
+  to make sure we've modelled the close() semantics correctly.  Note
+  that this is defined by POSIX to be the same as the fcntl F_DUPFD.
+
+autobind:
+
+- It's not clear to me how to structure the clauses that say "if ps1
+  is unspecified, then autobind; if ps1 is specified, then make sure
+  it's not privileged".  bind_1 shows one possibility.  Discuss
+  different arrangments.
+
+TCP states modelled:
+
+- From the POV of the sockets API, I originally thought that all we
+  could see was CLOSED, LISTEN, ESTABLISHED.  But that's not quite
+  true.  We can also see SYN_SENT, because we get EALREADY if we try
+  to connect() while a connect()ion is in progress.  We can't see
+  SYN_RCVD, because the connection isn't complete until we see the ACK
+  anyway.
+
+  If we consider the model we're using (intelligent network, rather
+  than IP), then we see that ACKs are unnecessary.  So if we delete
+  these from the TCP state transition diagram (TCPv1p241), we see that
+  there are two more states required: CLOSE_WAIT and FIN_WAIT_1.
+  Helpfully, these model the half-close achieved by shutdown().
+  Nifty!
+
+  Hmm, but I'm not quite sure of this.  We also have to model the
+  local-effect-only socantrcvmore(), which is performed by
+  shutdown(SHUT_RD), and also by close().  This is *not* the same as
+  CLOSE_WAIT, because the TCP state does not change, and a FIN can
+  still be received (the other end is not informed that we're not
+  listening; data is simply dropped on the floor).  (Confirmed by
+  looking at 4.4BSD-Lite source, cf TCPv2p915).  And maybe the
+  difference between this and CLOSE_WAIT is unimportant at this level
+  of abstraction, so CLOSE_WAIT is unnecessary (who cares if we get a
+  FIN in this state - just do nothing).  Ditto, FIN_WAIT_1 could be
+  replaced by a flag SS_CANTSENDMORE, although this must also send a
+  FIN (i.e., request-to-close).
+
+fileflag, sockflag:
+
+- I now use sets rather than records of bools.
+
+  Tradeoff: ugly names versus helpful names, standard names versus
+  nonstandard names, give explicitly only set flags not cleared ones
+  versus explicitly set or clear each one.
+
+Parameterisation:
+
+- There are a number of parameters to the model: various maximum
+  numbers (like OPEN_MAX), scheduling times (like dsched), and
+  semantic behaviour (should new sockets be SO_BSDCOMPAT or not, how
+  should returns from interrupted send()s be treated, etc).  I really
+  don't want the proof to depend on the particular values of these
+  settings, and I'd also like to pull them out as explicit
+  parameters.  It would be nice either to have a proof which
+  explicitly doesn't depend on these values, or to have a proof that
+  "for all values of these parameters, ... holds".
+
+  An idea: pull all these parameters out into a single record.
+
+Outroute:
+
+- Currently this is defined to ignore gateways, and only send to IPs
+  on the local subnet of one of the interfaces.  This is *wrong*!  Fix
+  it.
+
+==> Peter thinks we want a little routing table.
+
+Time type:
+
+- In select(), the time is an integral number of microseconds.  In
+  SO_*TIMEO and SO_LINGER, we have an optional integral number of
+  microseconds.  Should we have a separate type for time?
+
+  Also, granularity: the *TIMEO values have some granularity (TCP fast
+  timer?); LINGER probably has a granularity of a whole second.  Is it
+  appropriate to store all of these as a number of microseconds?
+
+==> use a pair of integers: (sec,nsec).  And provide conversion
+    functions <-> float in the actual API (but without semantics).
+
+    Doesn't seem much to argue either way with LINGER, so choose
+    arbitrarily to give it a pair also (and drop latter half).
+
+dup2():
+
+- how to handle?  See notes at TCP1_hostLTS / dup2().
+
+
+  OPTIONS: 1. drop dup2() altogether (tell people to use dupfd())
+           2. copy some of close()'s behaviour into dup2() rules
+           3. recursively invoke close()  (-- close -->) in the rules
+              for dup2()
+
+  Question: how much do we want to model existing applications that
+  use dup2()?  (i.e., lots of them).  As POSIX says, the behaviour of
+  close() then dupfd() is subtly different from that of dup2(), so a
+  *precise* encoding is nontrivial; but (K:) in most cases the
+  difference is going to be irrelevant.
+
+  ==> option 1.
+
+getsockerr():
+
+- throw an exception?  I think this is logical.
+
+Xavier:
+
+- maybe we should take care to stay closer to Ocaml (he has a larger
+  installed base).  For example, SO_* socket options - our types don't
+  currently match his types.  Think about: how painful would it be if
+  we used a subset of (Ocaml's) Unix.*?
+
+Urgent data in transit:
+
+- I don't think the current model (with a tcpStream carrying a `(byte
+  + num) list`) is right.  Even when a peer isn't interested in
+  receiving data (because its receive buffer is full), it can still
+  receive an urgent pointer, which it will get (very) soon after the
+  host sends it.  So there really are two streams, or at least, two
+  queues.  (notice that the stream should not merge multiple URG
+  packets; that's done by the receiver).
+
+  We now have two queues.
+
+The huge socket_established structure:
+
+- it's getting annoying having Established(....huge tuple....);
+  perhaps life would be easier if we used a record.  But what's the
+  idiomatic syntax?  ESTABLISHED(ve with <| rcvq := rcvq |>) is not
+  exactly brief!
+
+  Would like: ESTABLISHED <| rcvq; sndq; sndrup |>
+  ...and on the RHS, ESTABLISHED <| (APPEND rcvq str); []; (SOME 42) |>
+  UGH!!!!!!!!!!!!!!!!!
+
+=== new points for level 2: ===
+
+Idiom for "unconstrained":
+
+- we have a number of values that are completely unconstrained
+  (nondeterminstic) in the level 2 model, such as the initial sequence
+  number used on a connection.  We need a good idiom for this.
+
+  What's currently used is:  `isn IN { n | T }`, which has the effect
+  of allowing any value that inhabits the type.
+
+  Simply not constraining it at all is going to be very confusing for
+  the reader, so we want to mark it somehow.
+
+
+Points agreed:
+~~~~~~~~~~~~~~
+
+Socket flexibility:
+
+- I wondered:
+
+  How much flexibility do we want to build in?  Are we covering TCP and
+  UDP sockets in one semantics, or do we want to keep them separate?  If
+  we cover both in one semantics, do we want the two kinds of sockets to
+  be completely separate (with separate transition rules for UDP sockets
+  and TCP sockets), or do we want them to share the Sock(..) data
+  structure and many of the transitions (e.g., socket_1 for the socket()
+  call could probably be the same for both)?
+
+  Concretely: should "socket" have a field "protocol=TCP|UDP", or should
+  there be two kinds of socket, "tcp_socket" and "udp_socket", with
+  different filetypes?  Should we make allowance for future extension to
+  include UDP, even if we don't do it now, or would that unnecessarily
+  clutter the semantics?
+
+  Notice that if different protocols and address families are permitted
+  for a socket, then things like "accept" have to be rather less closely
+  specified: at the moment we've given the specific contents of each
+  socket involved in accept_1, but reading the POSIX description, it's
+  clear that (i) it should just copy the socket blindly, and (ii) it's
+  possible for example that no peer address can be extracted from the
+  socket.
+
+- We decided (Keith, Peter, Michael, 2002-06-25) that for the
+  foreseeable future, we don't want to put the TCP and UDP specs
+  together into the same mathematical structure.  However, we do want
+  to have them in the same general *style*, since we would like to
+  print them back-to-back in our monograph.  We think it's unlikely
+  that many people will want to write single apps that use both UDP
+  and TCP.  (of course, though, things like RealAudio / RealVideo do
+  this all the time).
+
+  If we *did* want to merge them, though, the right thing to do is to
+  have a protocol field in the socket, rather than two separate kinds
+  of socket, because this is what "really happens" and because many
+  things can be shared (to some degree).  But we don't want this
+  complication at this stage.
+
+
+HOL "with" notation:
+
+- I don't particularly like the HOL "with" notation, because it gives
+  you no name for the resultant record.  For example, "h with <| x :=
+  x |>" means "h" has an undefined "x" field.  It would be nice if I
+  could name the whole thing, for use particularly when there is no
+  change to the host state, or only a minor change.  At the moment,
+  repeating everything means a lot of eyeball work trying to confirm
+  there are no changes.  Yuck.
+
+- But most of this is controlled by the conventions I list in
+  TCP1_hostLTS below.  So it's not really a probelm.
+
+Invariants:
+
+- in bind_8, should I say that the socket has SOME i1, SOME p1, or
+  should I say it has is1, ps1?  I know the former is true by a TCP
+  invariant, but I also know the function doesn't care (favouring the
+  latter), and makes its decision based on other info.  Chosen former
+  for now, to show maximum info in the rules themselves.  But could
+  revisit this choice.
+
+- Decision: it's good to show all the information we know in the rules
+  themselves.
+
+
+To do:
+~~~~~~
+
+Refinement relation:
+
+- define a refinement relation between the levels, in HOL, even if we
+  are unable to prove it.
+
+HOL typesetting:
+
+- get typesetting info directly from HOL; see log p2041.
+
+- typeset auxiliary definitions nicely; see log p2041.
+
+- patch HOL lexer to get location info into tokens, and to save
+  comments; clone HOL parser to do what I want.
+
+
+TCP1.imn
+~~~~~~~~
+
+- pretty much all the munger category lists are automatically
+  generated; there are only a few things that need to be specified.
+  These are the HOL builtins, and, annoyingly, certain auxiliaries
+  that are treated as other things: File() is treated as a
+  constructor, and FUPDATE_LIST is treated as a HOL_ID.
+
+
+TCP1_baseTypes:
+~~~~~~~~~~~~~~~
+
+Basic data types:
+
+- port, ip are (tagged) "num"s, rather than ints, because they're
+  always positive.  Really they should be nonzero and less than 65536,
+  but that would be too difficult / inconvenient to specify in the
+  type proper.
+
+- fd for some reason in UDP was a tagged "int", but "num" is much more
+  appropriate, since it is a nonnegative integer, bounded by some
+  implementation constant / per-process constant.  So I changed it to
+  num.  I also assume the nat theory is simpler than the int theory.
+
+- sockopt: what's written here is only temporary, and needs to be
+  extended as appropriate.
+
+- OK' overloading: we want to be able to say "OK x" where x has any
+  HOL type mappable into a TL type.  Sadly, at the moment we have to
+  enumerate.  Is there a way of getting it to automatically figure out
+  all the combinations?
+
+- netmask: is interpreted as the number of `1' bits.  e.g.,
+  255.255.255.240 is stored as ifd_.netmask = NETMASK 28.
+
+sock?flags:
+
+- To get the typing correct for the get and set calls, it's important
+  to know what the argument type is of each option.  So we divide them
+  into separate categories: sockbflags for boolean flags, socknflags
+  for integer (really natural-number) flags, and socktflags for
+  optional-time flags ("linger" and "timeval"; for the latter, we
+  treat 0 as NONE).
+
+- SO_BSDCOMPAT is a Linux option that tells the stack to emulate BSD
+  behaviour on receiving ICMPs.
+
+- SO_OOBINLINE - not sure if this is relevant to TCP.
+
+- SO_DONTROUTE - not sure whether to put this in or not; I shall for
+  now.
+
+- SO_ACCEPTCONN - is read-only, and modelled by socklistening().
+
+- SO_ERROR - is read-only, and modelled by getsockerr().
+
+- SO_TYPE - is read-only, and would always be SOCK_STREAM, so omit.
+
+- SO_DEBUG, SO_BROADCAST - irrelevant.
+
+- We have now considered all the POSIX flags listed at getsockopt()
+  and setsockopt().
+
+file?flags:
+
+- So far, there are only two that are relevant to a single-process
+  world, and they are both boolean.  But we make allowances for the
+  future.  I don't think O_RDONLY/O_RDWR/O_WRONLY are relevant for
+  sockets.
+
+- O_ASYNC is BSDish, not POSIX.  See Linux man page for fcntl().
+
+
+TCP1_hostTypes:
+~~~~~~~~~~~~~~~
+
+Basic data types:
+
+- fid and sid are made nums because that's simpler to deal with; they
+  could really be anything at all, since they're only used as keys for
+  lookups.
+
+"fileflag","sockflag":
+
+- linger: is an int option in POSIX <sys/socket.h>; who knows what
+  negative values mean?
+
+- was originally a labelled record of mainly booleans; is now a set of
+  options, some of which may have arguments (like SO_LINGER).  This
+  means they can all have the standard names.  Actually, it's now a
+  record of functions from standard names to values.
+
+"filetype":
+
+- we really only need sockets, but ultimately we'll probably want to
+  deal with other kinds of files as well, so I've put Console in here
+  as well for now.
+
+"file":
+
+- POSIX calls this an "open file description".
+
+- file and socket both don't store their own fid/sid, since this is a
+  pointer to the structure.  This is instead stored as the key of the
+  finite map in which it's looked up.
+
+"sockstate","socket":
+
+- deliberate choice *not* to have a big structure (product) with lots
+  of fields that only make sense when the state field has the right
+  value.  We try to share things that always (or almost always) are
+  relevant, but other things we make arguments of the socket state
+  (i.e., "variant records").
+
+  Peter says not to be too religious about this when considering the
+  TCP control block.  (based on his experience of looking at the RFC
+  and at Stevens).
+
+"sockstate":
+
+- we only show the states that are distinguishable *from the sockets
+  interface*; the other states are only distinguishable from the wire
+  or a deeper intrinsic knowledge of the state of the library.
+
+"socket_listen":
+
+- we maintain only a single queue, that of *completed* connections,
+  since the incompleted connections are not visible from the sockets
+  interface.  This queue is called by POSIX 1003.1-2001 sometimes
+  "connection indication queue" (XSH2.10) and sometimes "listen queue"
+  (XSH3.9.3).
+
+- we store only sids in the queue, not actual sockets; *all* sockets
+  live in h.socks, and everything else has only pointers.
+
+- qlimit is the actual maximum size of the completed connections
+  queue.  TCPv2p455 gives the BSD name of this as "qlimit";
+  TCPv1pp95-99 explains that traditionally BSD interprets this as the
+  sum of both connection queues, but since SYN flooding became
+  popular, this makes no sense, and it should just be the completed
+  connections queue.
+
+"socket_established":
+
+- i2 and p2 aren't optional, since a connected TCP socket must have a
+  remote end specified.
+
+- urg is the urgent pointer, as an offset into the mq (0 is the first
+  byte).  It may point past the end of mq, which means that the socket
+  knows there's urgent data but it hasn't arrived yet.
+
+- I originally thought only the inbound queue was necessary, to handle
+  asynchronous delivery - I thought the outbound queue was
+  indistinguishable from the wire.  But according to POSIX XSH
+  close(), if SO_LINGER is set to a non-zero time and the socket is
+  closed, close() will block until all data is transmitted or the
+  timeout expires.  So it *is* observable.  Grr.
+
+  But actually, TCP has two output queues.  There's a queue per
+  socket, size settable with a socket option, and there's the queue
+  for the output interface.  The app places stuff on the socket
+  queue, and TCP is *asynchronously* responsible for moving stuff from
+  this queue to the output interface queue.  Note that this is
+  asynchronous - it depends on various timers going off, and on window
+  sizes advertised by remote hosts, etc etc.  So order is *not*
+  preserved between send() and output-from-interface-to-wire.
+
+  It is the output interface queue that (at this level of abstraction)
+  I can merge with the wire buffer (i.e., router buffers and time
+  delay).  The socket output queue should be modelled for TCP.
+
+  Note that this is all different in UDP, because there is really no
+  socket output queue - send() puts it directly on the interface
+  output queue, and order *is* preserved between send() and the wire.
+  Not so for TCP.  Thanks Andrei for helping me bounce ideas to work
+  this out.
+
+- names "rcvq" and "sndq" are supposed to correspond to BSD's "receive
+  buffer" and "send buffer"; they were originally called "iq" and "oq"
+  respectively.
+
+- flag names "cantrcvmore" and "cantsndmore" correspond to BSD's
+  "SS_CANTRCVMORE" and "SS_CANTSENDMORE".  Notice the spelling of the
+  latter has been regularised.
+
+- "sndurp" corresponds to BSD's tp->snd_up (except that that is a
+  sequence number we think), and is the byte offset from the beginning
+  of sndq (0-based) to the byte that is urgent.  This may be offset
+  from the position of the urgent *pointer* in TCPspeak, of course.
+
+- "oobmark" corresponds to BSD's so->so_oobmark, and is the byte
+  offset from the beginning of rcvq (0-based) to the mark.  Reading of
+  ordinary data is permitted up to the byte before the mark; if
+  SO_OOBINLINE was in force then the byte at "oobmark" is the urgent
+  byte; if it was not, then the byte at "oobmark" is the first byte
+  after the urgent byte.
+
+- iobc: BSD calls the pending OOB character (if we're receiving
+  out-of-line, i.e., ~SO_OOBINLINE) tp->t_iobc (in the TCP control
+  block): "input out-of-band character".  It also has two flags,
+  TCPOOB_HAVEDATA and TCPOOB_HADDATA.  (TCPv2p805).  From UNPv1p568
+  I originally thought we could get away with just one of these, but
+  this is not the case.  We must distinguish three cases: no data,
+  data, data has gone.  We define a special type `iobc` for this.  (we
+  could have used `byte option option`, but it could be confusing).
+
+"hostThreadState":
+
+- this is taken directly from UDP and will need to be modified
+  appropriately.
+
+"host":
+
+- files doesn't need to be a list; not clear whether it should be a
+  set or a finite map or what.  To be considered.
+
+  Thinking about it, I've realised sets are no good.  I was using the
+  idiom "files := files UNION {File(fid,Socket(sid),ff)}", but this
+  doesn't guarantee that the named file is removed from "files"!!  So
+  when we union on again, we might duplicate things!  We can't avoid
+  this, because "DISJOINT_UNION" can't be defined in HOL because it's
+  not total.  Grr.
+
+  Finite maps are better, because it's guaranteed that there are never
+  duplicates for a single fid lying around.  OTOH, removing files is a
+  little tricky.  Also, it's messy to add multiple files: FUPDATE does
+  one at a time, and we often want to do better than that.
+
+- socks is just the same as files.
+
+- bound is a list of sids, giving the priority of bound sockets for
+  delivery purposes (earlier sockets have higher priority).  Sockets
+  themselves are not stored in a list, because priority is determined
+  *after* socket creation, by order of *binding* (I think).  I think
+  we get this *WRONG* in UDP!!!!
+
+- no outgoing message queue; it's indistinguishable from the sockets
+  interface whether a message is in the network or on the outgoing
+  queue.  **** Hmm, this wasn't true for UDP when we had disconnection
+  - what's the story here?
+
+- because (for the time being) we have only a single process, with
+  multiple threads, the process table entry contents live inside the
+  host rather than inside a finite map from pid to PTE.
+
+  The content at the moment of this section is simply the list of open
+  file descriptors.  This file table is stored as a list of optional
+  elements (since it may have holes).  fd 0 is the first element, 1 is
+  the second, and so on.
+
+"ifd":
+
+- the primary IP *is* contained in the set of IPs.
+
+
+TCP1_netTypes:
+~~~~~~~~~~~~~~
+
+Wire representation:
+
+- the "wire" is represented by two tcpStreams for each connection, one
+  for each direction.  It could have been represented by one structure
+  with two queues, but then we'd need either a structural rule of the
+  form
+
+    Conn(i1,p1,i2,p2,q12,q21)  <==>  Conn(i2,p2,i1,p1,q21,q12)
+
+  or twice as much work for each proof, or something like that.  This
+  way the symmetry is built in, even though it involves some address
+  duplication.
+
+- a tcpStream with a FIN at the end has fin:=T; otherwise fin:=F.
+
+- the tcpStream models the data sitting in the network and on the
+  outgoing message queue of the sending host and on the inbound queue
+  of the receiving host before IP processing.
+
+Urgent pointers:
+
+- a tcpStream has two queues, one of data and one of urgent pointers.
+  With BSD semantics for where the urgent byte is located, it is
+  important that the urgent pointer (offset) is never zero, since
+  otherwise we could be notified of an urgent byte after having
+  already received it and placed it in the wrong place.  This
+  corresponds to TCP never setting "URG, ptr=0" in a TCP header.
+  Indeed, RFC793 can be read as stating that the urgent pointer is
+  positive, and TCPv2p983 shows this is implemented by BSD.
+
+
+TCP1_errors:
+~~~~~~~~~~~~
+
+- this list is taken from POSIX 1003.1-2001 at <errno.h> (XBD13.10).
+
+- well, it's SUPPOSED to be.  I took it from interface.ml, and I
+  discovered at least one missing error, EISCONN.  TODO: fix this
+  list!
+
+- Peter decided to merge EAGAIN and EWOULDBLOCK, as allowed/assumed by
+  POSIX, and to call it only EAGAIN.
+
+TCP1_utils:
+~~~~~~~~~~~
+
+- no comments at this point.
+
+TCP1_auxFns:
+~~~~~~~~~~~~
+
+delays:
+
+- dconn: POSIX at connect() says that "connect() shall block for up to
+  an unspecified timeout interval until the connection is
+  established."  This is that interval.  I've set it to one tropical
+  year for now; I considered setting it to time_infty but then we
+  might accidentally get away with omitting the rule that handles when
+  the timeout expires, when proving the unique-rule-applies result.
+
+ephemeral_ports:
+
+- the set of ephemeral ports is that of BSD (see TCPv2p732-3).  To be
+  more nondeterministic, should be 1024 to 65535 or something.
+
+outroute:
+
+- we return only primary IPs, not all IPs in the set, because this is
+  sane behaviour.  A default binding will be always be to the same IP,
+  and it makes sense that this is the primary one.  You can always
+  bind to another one, but you have to ask.
+
+- HANG ON!  This is defined assuming there's no routing going on -
+  only sends to that subnet!!!  This isn't right.
+
+OPEN_MAX:
+
+- specified by POSIX to exist.  This is really per-process, isn't it?
+  Not sure.  This low value of 64 seems to be the BSD default, but
+  check.
+
+FD_SETSIZE:
+
+- this value of 1024 seems to be the BSD value.  This should probably
+  be at least OPEN_MAX, otherwise some fds will be un-pselect()-able.
+
+backlog_fudge:
+
+- converts arg to listen() into actual queue limit.  Called the "fudge
+  factor".  We use the Linux fudge factor here.  Should "normally"
+  (POSIX) be monotonic.
+
+SOMAXCONN:
+
+- we arbitrarily pick the Linux value here.  (sys/socket.h ->
+  bits/socket.h).
+
+ff_default:
+
+- these are pretty obvious.
+
+sf_default:
+
+- SO_BSDCOMPAT: we're not trying to be BSD here, but Linux.
+
+- SO_{SND,RCV}{BUF,LOWAT}: the default values from the Linux running
+  on astrocyte today (2.4.7-9.cl #1).
+
+sf_min_n, sf_max_n:
+
+- these are based on the default values from the Linux running on
+  astrocyte today (2.4.7-9.cl #1).  Note that LOWAT is fixed in Linux
+  (see man page for socket(7)).
+
+sndrcv_timeo_t_max:
+
+- this is the maximum value for SO_SNDTIMEO and SO_RCVTIMEO, above
+  which an EDOM error will result.  The figure here is a typical BSD
+  value, assuming a TCP timer of 100Hz.  See TCPv2p544.
+
+
+TCP1_LIBinterface:
+~~~~~~~~~~~~~~~~~~
+
+How the types are expressed:
+
+- I'm not entirely happy with the way the types are expressed:
+  arguments are in HOL, and results are in TL.  It would be nice to
+  have a better way to do this.
+
+"LIB_interface":
+
+- This is basically Peter's selection of functions, commenting out
+  ones that we don't have full types for yet.  Calls are listed in
+  alphabetical order for the POSIX socket calls, followed by the other
+  stuff we add.
+
+- shutdown() has been given two separate boolean arguments for shutting
+  down each half of the connection, thus avoiding nasty extra symbolic
+  constants for which there is no need.  shutdown(fd,F,F) is simply a
+  noop.
+
+- pselect() has been given all three of its set arguments, because
+  TCPv2p524 says that the error set is used in detection of OOB data,
+  i.e., urgent flag.
+
+- we only need pselect(), since its behaviour is (almost) a superset
+  of that of select().  pselect() measures time in nanoseconds versus
+  select() in microseconds; pselect() has an extra optional sigmask
+  argument; and select() is *permitted* to modify the time interval
+  passed it as input on successful completion.  This last is the only
+  non-subset behaviour, but although some implementations return the
+  remaining time interval, this is *not* to be depended upon.
+  [although maybe we should consider providing it optionally?]
+
+- Perhaps pselect() should also return the total number of bits set?
+  This info is already contained in the sets returned, but it is
+  harder to access and programs are likely to test this in a loop.
+
+- we're using "string" to model strings; this is intended to be
+  immutable lists of characters, not the OCaml mutable strings.
+
+- getsockopt()/setsockopt(): we need to handle the non-bool cases too,
+  and we don't as yet.  Watch this space.
+
+- connect(): the "port option" we had in UDP was to support a Linux
+  bug; we revert to sensible POSIX semantics here and insist that it's
+  a valid port.
+
+- disconnect(): doesn't apply to connection-mode sockets (see POSIX
+  spec).
+
+- fcntl(): is a real grab-bag.  Instead, we model it by get/set pairs,
+  as follows: F_?ETFD: ?etfileXfd(), F_?ETFL: ?etfileXfl(), F_?ETOWN:
+  ?etfileown(), F_?ETLK: ?etfilelock() except F_SETLKW functionality
+  provided by an extra arg to setfilelock().  (where X is b for
+  boolean).
+
+  F_DUPFD is modelled by dupfd(); notice the Linux man page warns that
+  F_DUPFD has different behaviour than dup2() and returns a different
+  error code.
+
+  Notice that we only need the ?etfileXfl() for now; the only filefd is
+  related to exec(), which (since we have only a single process) we
+  don't support.  For now, we ignore owners and locks.
+
+  O_ASYNC is a BSDism present in Linux, but not in Posix.  Reference:
+  Linux man page for fnctl().
+
+- recv():  what name and type?
+
+  We had a quick look and couldn't find any interesting control
+  messages (ancillary data, CMSGHDR options) that applied to TCP (only
+  Unix-domain and UDP).
+
+  Obviously the iovec stuff is irrelevant at our level of abstractions
+  (lists, not buffers).
+
+  We probably *do* need to pass a length, though, because this has an
+  effect on what recv() does.
+
+  So that leaves: fd, length, flags.
+
+  What flags are there?  Note that recvmsg() *returns* flags too.
+
+  recv() passed options:
+  - POSIX says: MSG_PEEK, MSG_OOB, MSG_WAITALL.
+    UNPv1p359: BSD has also MSG_DONTWAIT.
+  - we definitely want all of these.  (OOB matters for TCP receive).
+
+  recv() returned options:
+  - POSIX: MSG_EOR (end of record received; not TCP), MSG_OOB (not TCP
+    acc UNPv1p359), MSG_TRUNC (we presume irrelevant to TCP),
+    MSG_CTRUNC (we aren't doing control messages).
+  - UNPv1p359: adds: MSG_BCAST (stupid for TCP), MSG_MCAST (stupid for TCP).
+  - i.e., we care not for any of the returns.
+
+  send() passed options:
+  - POSIX: MSG_EOR (terminate record; not TCP UNPv1p359), MSG_OOB
+    (send OOB data; yes for TCP, UNPv1p567).
+  - UNPv1p359: adds: MSG_DONTROUTE (stupid for TCP), MSG_DONTWAIT
+    (yes for TCP).
+
+  send() returned options:
+  - POSIX: none returned (and can't be, 'cos of type of sendmsg()).
+  - UNPv1p359 seems to agree.
+
+  These decisions appear in the definition of TCP1_baseTypes.msgbflag.
+
+  recv : fd * int * options -> string
+
+  send : fd * string * options -> int
+
+  It's going to be really annoying having to do length() and
+  substring() all the time in client code.  Better API?  Perhaps
+
+  recv : fd * int * options -> string  (* minimal *)
+  recv : fd * int * options -> string * int (* length of string *)
+  recv : fd * int * options -> string * int (* length remaining *)
+  recv : fd * int * options -> string * int option
+                               (* nonzero length remaining or NONE for complete *)
+
+  Two scenarios are common: reading in a tight loop until we get the
+  desired number of bytes, and reading a chunk and appending it to our
+  buffer, doing another read whenever we run off the end of our
+  buffer.  The first type is OK for the latter use, and the last type
+  is good for the former use.
+
+  ==> choose the first, the last is just too "belly and whistly".
+
+  send : fd * string * options -> int  (* minimal *)
+  send : fd * string * options -> string (* remainder, and test for emptiness *)
+  send : fd * string * options -> string option (* remainder if any *)
+
+  ==> choose the second (not the third, 'cos not necessary, not the
+  first because you will always want your hands on this bit of
+  string).
+
+  It's a bit concerning that we've introduced an asymmetry here (we
+  receive random chunks that need parsing, but send *messages*, i.e.,
+  sensible blocks), but we don't care.
+
+
+socklistening():
+
+- models getsockopt SOL_SOCKET SO_ACCEPTCONN
+
+getsockerr():
+
+- models getsockopt SOL_SOCKET SO_ERROR
+
+- It seems to me that this is best modelled as throwing an exception,
+  rather than (like no other call) succeeding, returning an error.
+
+fd_op and fd_sockop:
+
+- these allow us to pick out the fd for calls that pass a single
+  (live) fd; the former is for fd operations, and the latter is for
+  calls that require the fd to refer to a socket.  We list all calls
+  here, either directly or in a comment, to make sure we have full
+  coverage.
+
+dupfd and int_of_fd:
+
+- for fork/exec and other uses, we clearly need to know the fd numbers
+for the fds we use, and be able to construct fds of particular
+numbers.  But we want to preserve the abstraction; i.e., be sure that
+all fds are valid by construction.  We can achieve this by allowing
+the construction of numbered fds by dupfd, and the inspection by
+int_of_fd, but not free construction by a putative fd_of_int.
+
+TCP1_host0:
+~~~~~~~~~~~
+
+- basic stuff to support the host transition rules.
+
+- mostly imported directly from UDP, so needs to be changed.
+
+"rule_cats":
+
+- called category "block" what was "enter2"; I think this is clearer.
+
+TCP1_ruleids:
+~~~~~~~~~~~~~
+
+
+TCP1_hostLTS:
+~~~~~~~~~~~~~
+
+Fail versus slow fail:
+
+- Sometimes there are failure and slow failure rules that exactly
+  correspond.  To avoid nasty duplication (which would force a reader
+  to verify that the two rules are indeed exactly the same, something
+  which we really want to avoid them having to do), we merge the two
+  rules into one.
+
+  To do this, we label the thread state "t" and the label "lbl", and
+  make the very first side condition a two-way disjunction introduced
+  by a *curried* OR, $\/.  Each disjunct begins with "(t = ...) /\
+  (lbl = ...)".  The $\/ is typeset in a special way to make this
+  clear.
+
+  Andrei agreed this was a good idea, as long as it was clearly
+  explained and clear visually.
+
+Error priority:
+
+- XSH2.3 says that "If more than one error occurs in processing a
+  function call, any one of the possible errors may be returned, as
+  the order of detection is undefined."  So we leave it undefined.
+
+accept():
+
+- we abstract away from the various behaviours associated with the
+  optional return of the address and possible truncation thereof; we
+  assume this is done right by the typed interface layer.  This covers
+  (from POSIX):
+
+     If address is not a null pointer, the address of the peer for the
+     accepted connection shall be stored in the sockaddr structure
+     pointed to by address, and the length of this address shall be
+     stored in the object pointed to by address_len.
+
+     If the actual length of the address is greater than the length of
+     the supplied sockaddr structure, the stored address shall be
+     truncated.
+
+  Further, we are dealing with just TCP here, so this comment is
+  irrelevant:
+
+     If the protocol permits connections by unbound clients, and the
+     peer is not bound, then the value stored in the object pointed to
+     by address is unspecified.
+
+- accept_5:
+
+  POSIX: XSH2.10 lists all the pending errors for a socket.  It says
+  that ECONNABORTED refers to a *local* connection abort.  This is
+  presumably why it is returned from an accept() whereas no other
+  pending error is.  The accept() POSIX page says which errors
+  accept() may return, and the only pending one is ECONNABORTED.  So
+  this is why we pick it out like this.
+
+  I'm *guessing* here as to the behaviour: (i) it's a pending error in
+  the accepted socket, and (ii) the accepted socket is freed.  (i)
+  could go the other way, of course: it could be the listening socket;
+  (ii) could possibly go the other way although it wouldn't make much
+  sense.
+
+- EOPNOTSUPP:
+
+  Is irrelevant if we're considering only TCP sockets.
+
+- EPROTO:
+
+  We don't support the STREAMS option, [XSR], so irrelevant.
+
+bind():
+
+- We assume all sockets and callers are unprivileged; specifically,
+  this means that ports <1024 cannot be bound.
+
+- EAFNOSUPPORT, EOPNOTSUPP, EINVAL(not valid length):
+
+  Irrelevant if we're considering only TCP sockets.
+
+close():
+
+- I haven't yet modelled the TCP-side behaviour of this function; this
+  is a problem.
+
+- EIO: I think this is irrelevant for sockets.
+
+connect():
+
+- I'm not sure what might cause EADDRNOTAVAIL or EADDRINUSE for a
+  connection request; I haven't returned them at all so far.
+
+- I'm not sure if ENETUNREACH or ENETDOWN can ever be returned fast,
+  e.g., if the outgoing interface is down.  For the moment, they
+  can't.  Ditto, should EINVAL be returned if I try to connect to a
+  martian/broadcast address, or what should happen?  For the moment,
+  nothing.
+
+- EACCES would require privileged sockets, which we don't do.
+
+- I'm not sure when the caller should receive an ECONNRESET and when
+  an ECONNREFUSED.  For the moment, it's nondet.  Maybe it's beneath
+  the level of this coarse abstraction?  I hope not, because I think
+  the application can explicitly RST.  Could be wrong, though.
+
+listen():
+
+- Obviously we EINVAL if socket is in ESTABLISHED state.  Presumably
+  (although POSIX doesn't say) we EINVAL if in SYN_SENT.  POSIX
+  doesn't say what to do if socket is in LISTEN state!  We will
+  suppose this is also EINVAL.
+
+  POSIX says that "may" give EINVAL if socket "has been shut down";
+  it's not clear what this means in terms of our implementation.  We
+  may be in a CLOSED state, which would give EDESTADDRREQ instead,
+  which is probably wrong.  Oops.
+
+getsockbopt():
+
+- POSIX "may fail"s that are not modelled here: socket has been shut
+  down, ENOBUFS, and ENOPROTOOPT.  (and maybe EINVAL?).
+
+setsocktopt():
+
+- The linger time is normally specified in just seconds; we could put
+  in a function to round to the appropriate number here.
+
+  Should also round SND/RCVTIMEO values to some granularity; we don't
+  necessarily get exactly the same value back!
+
+dup2():
+
+- It's not clear how to model dup2(); it has to do a close() and then
+  a dupfd(), and we don't really have subroutines built in!  (unless
+  we want to do a recursive invocation of -- close() -->, but that
+  would make us recursive when we weren't before.)
+
+dup()/dup2()/dupfd():
+
+- Note in the rationale to POSIX at dup()/dup2(), it notes that dup()
+  and dup2() are *redundant*.  So presumably we can omit them.  They
+  are only included for historical reasons, but are not marked
+  obsolescent because they are more obviously type-safe than the
+  fcntl() interface, as seen in the POSIX Ada binding (apparently).
+
+recv():
+
+- The IMPLODE is necessary because the TL type is a string, but the
+  protocol maintains a byte list (= char list).  Strings in HOL are
+  defined as isomorphic to char lists.  We could maintain strings
+  inside the socket instead of lists of bytes, but K prefers to do the
+  translation as an API-only thing.
+
+send():
+
+- EMSGSIZE doesn't happen for TCP (at least in BSD); it means either
+  we're doing a datagram protocol and the message is too big, or the
+  control length is greater than hiwat (which Stevens suggests is
+  something to do with records). TCPv2p495.
+
+
+TCP1_net0:
+~~~~~~~~~~
+
+[no commentary]
+
+
+TCP1_netLTS:
+~~~~~~~~~~~~
+
+- note that this contains the LTS for the network proper; the "glue"
+  that holds together the network and the hosts (etc) is contained in
+  TCP1_glue*, not here.
+
+- Discussion re the tcpInitiator idea:
+
+  The tcpInitiator is really just inserting some extra tau steps
+  between connect() and accept() (or whatever); perhaps we could just
+  insert them directly in the host LTS?  Have Connect1,2,3 meaning
+  "syn sent", "sync done", "ready to return to caller", with delays
+  dprop, dprop+dsched, dsched or something.  Don't think this is
+  neater than the current way, though...?
+
+- The initiating host may abort the connection at any time; we must be
+  able to deal with this request immediately (receptivity).  In states
+  Initial and Responded(F), this is easy.  In state Responded(T), we
+  have to tell the remote end that the connection has been aborted
+  (i.e., reset).  In state Asked, we have to wait for the response and
+  decide which of the above to do.  Cleanup of the tcpStream is done
+  by the sending end of that stream: when an abort is requested, the
+  forward stream is removed; simultaneously with an abort being
+  received by the remote end, the reverse stream is removed.  This
+  latter is neater than requiring the remote end to do its own cleanup
+  of the stream.
+
+
+[file ends]

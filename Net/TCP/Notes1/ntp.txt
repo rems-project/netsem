@@ -1,0 +1,340 @@
+#Contents:  ntp setup on john.netsem (BSD); ntp setup on kurt (Linux).
+
+
+ntp setup on john.netsem (a BSD box)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This is easy, because NTP is already installed.
+
+
+/etc/ntp.conf is as follows:
+
+  # ntp.conf - NTP configuration for near-isolated subnet; KSW 2002-08-02
+
+  # This is john.netsem, expected to run at stratum 4.
+
+  # server is astrocyte on subnet, stratum 3:
+  server astrocyte.netsem.cl.cam.ac.uk
+
+  # drift info stored on:
+  driftfile /etc/ntp.drift
+
+  # logging (space necessary before `=' !!):
+  logconfig =all
+
+Then type
+
+  # ntpd -gq
+
+to set the current date/time sensibly (otherwise the next command will
+silently fail after several minutes).
+
+Then type
+
+  # ntpd -N high
+
+to the root prompt.
+
+(this should really go in /etc/rc.d, presumably passing -g but not -q)
+i.e., /etc/rc.d should have a call to:
+
+  ntpd -g -N high
+
+I'm not sure what to put in /etc/syslog.conf to make the log info
+appear in /var/log/ntpd.log; I just got an error when I tried.  But I
+don't see any logging info on the console either.  Hmm.  Ah, they're
+appearing in /var/log/messages at the moment.
+
+
+2002-08-13:
+For reference: I did a tcpdump test, sending packets between astrocyte
+and kurt while listening on both john and emil.  Reported packet times
+had a systematic difference of 4msec, which was exactly what NTP
+reported as the difference of the offsets for those two machines.
+Correcting for this offset meant the accuracy was at least 2 orders of
+magnitude better.  Yay!
+
+I presume that emil will eventually calm down and have an offset more
+like that of john: emil's is around 4.4ms, whereas john's is around
+70us.  (factor of 60 difference).
+
+2002-12-06:
+How to get these offsets?
+
+ntpq -c rl is a good start.
+
+$ ntpq
+ntpq> rl
+
+lists all vars
+
+$ ntpq
+ntpq> readvar 0 offset
+
+gives the offset in milliseconds.
+
+or again,
+
+ntpq -c 'readvar 0 offset'
+
+
+2002-12-6 (smb50):
+Enabled ntpd at startup on john and emil. Added to /etc/rc.conf:
+  ntpd_enable="YES"
+Added this to /etc/rc after all the networking stuff and immediately before the "Starting standard daemons" section:
+  # Start NTP server
+  #
+  if [ -r /etc/rc.ntp ]; then
+          . /etc/rc.ntp
+  fi
+Created the new file /etc/rc.ntp:
+  #!/bin/sh -
+  #
+
+  echo -n 'NTP time server initialisation:'
+
+  case ${ntpd_enable} in
+  [Yy][Ee][Ss])
+          echo ' ntpd.'
+          ntpd -g -N high > /dev/null 2>&1
+          NTPD_DONE=yes
+          ;;
+  esac
+
+
+
+ntp setup on kurt.netsem (Linux 2.4.20-8, Red Hat)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Download latest production NTP from
+
+  http://www.ntp.org/downloads.html
+  http://www.eecis.udel.edu/~ntp/ntp_spool/ntp4/ntp-4.1.1.tar.gz
+
+Copy onto kurt.
+
+cd /usr/local/src
+tar zxvf ntp-4.1.1.tar.gz
+chmod -R go-w ntp-4.1.1
+chown -R root:root ntp-4.1.1
+umask 022
+cd ntp-4.1.1
+./configure
+# (is set up to go to /usr/local already; that's fine)
+make
+
+Seems that ntp will already be started, if it's in /usr/sbin... oh,
+hang on, it *is* there!  Weird!
+
+Going to use the new one, anyway.
+
+Set up a more sane ntp.conf (like the one above).  Or, at least, edit
+the existing one.
+
+Try ntpd -c /etc/ntp.conf -gqdA
+
+Took several minutes, but got there in the end.
+
+Copy astrocyte's S10ntpd into /etc/rc[35].d/, so it gets started up at
+boot.  Argh, WRONG!!!!  Do this:
+  cd /etc/rc3.d; ln -sf ../init.d/ntpd S10ntpd; cd ../rc5.d; ln -sf
+  ../init.d/ntpd S10ntpd
+
+
+Delete the /usr/local/* install; unnecessary.
+
+Reboot.
+
+Note that on alan/kurt, ntpq lives in /usr/sbin, and is not on the
+default path, so you have to give the full path:
+
+/usr/sbin/ntpq -c 'readvar 0 offset'
+
+to get the offset.
+
+Enjoy!
+
+
+ntp setup on glia (WinXP):
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Download ntp-4.1.2-nt.zip from http://norloff.org/ntp/.
+
+Unpack it somewhere (I used D:\Documents and Settings\kw217\My
+Documents\ntp-4.1.2-nt\, but that's probably not the best idea).
+
+From the command line, run
+
+  Instsrv "full-path-to\ntpd.exe"
+
+which installs the service.
+
+Go to Control Panel -> Administrative Tools -> Services.
+
+Find "Network Time Protocol", and set up to run as a particular user,
+with password.  Set to start Automatically.  Don't start it manually
+yet.
+
+Looking at ntpd.exe with "strings" suggests that it looks in
+
+  $ALT_CONFIG_FILE
+  %windir%\ntp.conf
+  $CONFIG_FILE
+  %windir%\system32\drivers\etc\ntp.conf
+
+for config file (you can specify it in "startup parameters" with "-c
+ntp.conf", but there is no way to get Windows to remember this for the
+next startup; it applies only to this press of the Start button.
+Grr.)
+
+So we'll stick it in
+
+  %windir%\system32\drivers\etc\ntp.conf
+
+Specifically, this file contains:
+
+  # ntp.conf for glia.ad.cl.cam.ac.uk on local subnet
+
+  # kw217 20030917T1416
+
+  server astrocyte.netsem.cl.cam.ac.uk
+
+  driftfile d:/WINDOWS/system32/drivers/etc/ntp.drift
+
+  logfile d:/WINDOWS/system32/drivers/etc/ntp.log
+  logconfig =all
+
+That's all.
+
+Now Start the service.  The log file should appear in the specified
+directory; if it doesn't, something's wrong.  ntpq followed by rl will
+tell you the status.
+
+Remember, you can look at the status from any other machine:
+
+  astrocyte:kw217$ ntpq
+  ntpq> host glia.ad.cl.cam.ac.uk
+  current host set to glia.ad.cl.cam.ac.uk
+  ntpq> rl
+  status=0674 leap_none, sync_ntp, 7 events, event_peer/strat_chg,
+  version="ntpd  ti   10:54:18,93  (1)", processor="unknown",
+  system="WINDOWS/NT", leap=00, stratum=4, precision=-15,
+  rootdelay=103.176, rootdispersion=12.600, peer=56668,
+  refid=astrocyte.netsem.cl.cam.ac.uk,
+  reftime=c312e14a.b9040bfe  Wed, Sep 17 2003 14:34:02.722, poll=6,
+  clock=c312e175.d3bfb58d  Wed, Sep 17 2003 14:34:45.827, state=3,
+  offset=0.000, frequency=0.000, jitter=0.321, stability=0.000
+  ntpq> quit
+  astrocyte:kw217$
+
+Done!
+
+To move the service: Instsrv.exe remove, then Instsrv again to install
+it in the new place (as above).
+
+
+Of course, to get good times out of Windows, there's still a long way
+to go.  GetSystemTimeAsFileTime() gives you the system time at the
+last tick, to 100ns precision and NTP accuracy (note that it is in
+hectonanoseconds (100ns units), and offset by 11644473600 seconds from
+the Unix epoch (epoch Jan 1, 1601)).  But ticks are only every
+15.625ms or so, i.e., not often enough.
+
+You can interpolate using QueryPerformanceCounter() and
+QueryPerformanceFrequency(), which increment at around 500MHz or so.
+The former gives you the ticks (clocks) count, and the latter gives
+you the nominal frequency.  These are basically giving you a corrected
+version of the timestamp clock accessed by IA32 instruction RDTSC.
+
+But there are two problems - (i) the true frequency isn't exactly
+the nominal frequency, and (ii) there is no connection between the two
+counters.  Thus you don't know the origin or the scale.  Ugh!
+
+You can calibrate the scale fairly easily, obviously, by waiting a
+long time and comparing.
+
+Calibrating the origin is rather harder.  If you do a Sleep(), you
+might hope that when you regain control you are probably pretty soon
+after a clock tick.  So assume that, and take the earliest of five or
+so to smooth out errors.  But this clearly isn't great, and there's
+going to be a positive offset.  Ah well.
+
+Annoyingly, WinPCap has its own technology for getting the time.  It
+uses QueryPerformanceCounter() (actually KeQueryPerformanceCounter(),
+since it's a driver), rather than RDTSC, which is fine.  But it makes
+no attempt to do (i) or (ii) properly.  For (i), it just believes the
+nominal frequency.  For (ii), it just (at some random program point
+near startup) asks for the system time, and uses that as a base.
+Ugh!!
+
+In the end, we just used the time obtained via the above method (no
+offset appeared necessary in the end); and we ran libpcap on another,
+non-Windows machine.
+
+Why oh why can't Windows do its own interpolation for
+GetSystemTimeAsFileTime()?  It would be trivially easy for the kernel
+to do.
+
+
+KEYS
+~~~~
+
+On NT, create ntp.keys containing a single line "1 M netsemkey" (key
+number 1 is an MD5 key, namely "netsemkey").  Add to ntp.conf:
+
+  keys d:/WINDOWS/system32/drivers/etc/ntp.keys
+  trustedkey 1
+  controlkey 1
+  requestkey 1
+
+This means 1 is a trusted key, and is used for ntpdc (control) and
+ntpq (request).
+
+Stop and start the service.
+
+It is now possible (from *OTHER* machines, but not from this one) to
+do
+
+  $ ntpdc glia.netsem
+  ntpdc> restrict astrocyte.netsem 255.255.255.255 noserve
+  Keyid: 1
+  MD5 Password: netsemkey
+  done!
+  ntpdc> exit
+  $
+
+(possibly "unconfig astrocyte.netsem" would be better).
+
+Not sure how to reverse a restrict, btw.
+
+DON'T add "key 1" to the end of the server line in ntp.conf, or else
+the server NTP will need to know the key too.  We just want it to
+guard ntpq / ntpdc.
+
+
+Stabilising time during a test
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+> How is the WinXP ntp problem looking?
+
+I have it nailed.  Can you arrange it so that the following is done,
+from any machine with ntp installed?
+
+- before the test run:
+
+ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'unconfig astrocyte.netsem'
+glia.netsem
+
+- after the test run:
+
+ntpdc -c 'keyid 1' -c 'passwd netsemkey' -c 'addserver
+astrocyte.netsem' glia.netsem
+
+Note that it is *critical* that the second one is done (re-enabling
+NTP), even if the test run crashes in the middle - otherwise NTP won't
+be able to stabilise before the next run begins, and its clock will
+drift away from the other clocks in the system.
+
+In fact, this must be done for *all* machines, not just for glia.  (for
+f in glia kurt john emil alan ; do foo $f.netsem; done).
+

@@ -1,0 +1,34 @@
+#!/bin/sh
+
+set -e
+
+umask 007
+
+. `dirname $0`/waprc
+
+echo ''
+echo "Updating in $WAPSRC:"
+echo ''
+
+(cd $WAPSRC
+cvs update -APd)
+
+cd `dirname $0`
+
+echo ''
+echo "Relinking in $WAPDIR:"
+echo ''
+
+./relinkwap
+
+echo ''
+echo "Rebuilding in $WAPDIR:"
+echo ''
+
+cd $WAPDIR/TCP/Spec1
+$HOLDIR/bin/Holmake --fast
+
+cd $WAPDIR/TCP/Test
+make clean depend
+make all
+

@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# this counts the number of times each rule is used in a successful trace
+#
+# usage:  execute in the scripts/check directory; rule coverage data appears on stdout
+#
+#   eg    cd ~/Net/TCP/Test/scripts/check/ ;  ./coverage-udp-and-tcp > coverage-udp-and-tcp.dat
+
+#BINDIR=`dirname $0`
+
+# pes20-specific hack:
+BINDIR=~/Net/TCP/Test/scripts/check/
+
+
+# UDP
+CHECKDIR1=/usr/groups/tthee-scratch/check/check-2005-01-18T13:36:29+0000
+
+# TCP
+#CHECKDIR2=/usr/groups/tthee-scratch/check/check-2005-01-21T15:09:41+0000
+
+CHECKDIR2a=/auto/groups/tthee-scratch/check/check-2005-02-03T17:13:56+0000
+CHECKDIR2b=/auto/groups/tthee-scratch/check/check-2005-02-04T12:07:26+0000
+CHECKDIR2c=/auto/groups/tthee-scratch/check/check-2005-02-05T21:40:53+0000
+CHECKDIR2d=/auto/groups/tthee-scratch/check/check-2005-02-06T15:45:33+0000
+
+
+# TO REGENERATE THE DATA FROM THE CHECK DIRECTORIES UNCOMMENT THESE
+
+# cd $CHECKDIR1; $BINDIR/coverage > coverage.dat
+#cd $CHECKDIR2a; $BINDIR/coverage > coverage.dat
+#cd $CHECKDIR2b; $BINDIR/coverage > coverage.dat
+#cd $CHECKDIR2c; $BINDIR/coverage > coverage.dat
+#cd $CHECKDIR2d; $BINDIR/coverage > coverage.dat
+#
+join $CHECKDIR1/coverage.dat $CHECKDIR2a/coverage.dat > /tmp/cova.$$
+join /tmp/cova.$$ $CHECKDIR2b/coverage.dat > /tmp/covb.$$
+join /tmp/covb.$$ $CHECKDIR2c/coverage.dat > /tmp/covc.$$
+join /tmp/covc.$$ $CHECKDIR2d/coverage.dat > coverage-udp-and-tcp.dat
+#
+
+join coverage-udp-and-tcp.dat coverage-rule-annot.dat > coverage-udp-and-tcp-annot.dat
+
+
+
+echo "Total rules"
+cat coverage-udp-and-tcp-annot.dat | wc -l
+
+echo ""
+
+echo "Uncovered but should not be"
+cat coverage-udp-and-tcp-annot.dat |grep  "shouldnot"
+cat coverage-udp-and-tcp-annot.dat |grep  "shouldnot" | wc -l
+
+echo ""
+
+echo "Uncovered but should be"
+cat coverage-udp-and-tcp-annot.dat |grep -v "shouldnot" | grep "should"
+cat coverage-udp-and-tcp-annot.dat |grep -v "shouldnot" | grep "should" |wc -l
+
+
+
+

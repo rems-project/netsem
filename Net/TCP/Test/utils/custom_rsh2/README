@@ -1,0 +1,11 @@
+This is a custom_rsh tool designed to run on Windows. It is run as a
+Windows service using srvany.exe (a WinXP program that will
+wrap-aroudn and run any non-interactive win32 program as a Windows
+service).
+
+It listens on a specific IP and port for instruction from tthee to
+run or kill one or more of the tools: libd, slurper, or injector with
+different command-line arguments.
+
+Sorry: this is all a bit hacked and undocumented, but it does work :-)
+

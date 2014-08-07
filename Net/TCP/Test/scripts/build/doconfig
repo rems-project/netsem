@@ -1,0 +1,7 @@
+#!/bin/sh
+
+. `dirname $0`/waprc
+
+umask 007
+cd $HOLDIR
+exec mosml < $HOLDIR/tools/smart-configure.sml

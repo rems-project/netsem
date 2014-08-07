@@ -1,0 +1,30 @@
+RFCs relevant to TCP
+~~~~~~~~~~~~~~~~~~~~
+
+RFC0792:*ICMP
+RFC0793:*the basic spec
+RFC1071: computing the internet checksum
+RFC1072: Long delay paths: WS, SACK, ECHO (obseleted by RFC1323 and RFC2018)
+RFC1122:*host requirements - clarification of (inter alia) RFC793
+RFC1323:*high performance: timestamps, window scaling, RTTM, PAWS.
+RFC1337:?Why TIME_WAIT must ignore RST (aka: TIME-WAIT Assassination Hazards in TCP)
+RFC1624: (updating an internet checksum correctly)
+RFC1644: T/TCP (CC options)
+RFC2018: Selective acknowledgement
+RFC2414:?Increasing TCP's Initial Window (experimental, but performed in Linux 2.4.21 at least)
+RFC2474: DiffServ (Obsoletes RFC1455, RFC1349)
+RFC2525: Known TCP Implementation Problems
+RFC2581:*Congestion control algorithms (obseletes RFC2001)
+RFC2582:*NewReno mods to congestion control
+RFC2883: An extension to selective acknowledgement (RFC2018)
+RFC2988:?RTT calculations (better than RFC793)
+RFC3168: ECN (Obsoletes RFC2481)
+RFC3260: DiffServ
+RFC3517: A SACK-based loss recovery algorithm (cf RFC2581/2582)
+RFC3522:?The Eifel spurious-loss-recovery detection alg
+
+We do '*'
+We might do '?', K is not sure at the minute
+We don't do ' ' (or irrelevant)
+
+(FYI: in the Lab, we can see RFCs at /anfs/uxsup/doc/rfc/rfcnnnn.txt)

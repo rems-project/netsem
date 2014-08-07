@@ -1,0 +1,8 @@
+THIS DIRECTORY IS DEPRECATED!!
+
+This is a copy of OCAML's Unix library hacked to support RAW
+sockets. It is the original proof of concept (created by SMB). Do not
+use in a live environment -- use the RAW socket extensions in
+Net/TCP/Test/ocamlext
+
+

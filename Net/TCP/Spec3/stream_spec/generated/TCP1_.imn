@@ -1,0 +1,167 @@
+(*[ NOECHO ]*)
+(*[ C TCP1.mni -*-caml-*- - munge inititialisation file for TCP1 ]*)
+
+(*[ SMART_PREFIX ]*)
+(*[ CON_LIST
+    Flags(* not a real constructor, but an xDefined one; etc *)
+    Sock
+    Timed
+    Established
+    Listen
+    File
+    EWOULDBLOCK (* really EAGAIN, but mentioned occasionally in commments *)
+]*)
+(*[ FIELD_LIST
+    (* pseudo-fields for typesetting definite IP/port values *)
+    i1 i2 i3 i4 p1 p2 p3 p4
+]*)
+(*[ VAR_PREFIX_LIST
+]*)
+(*[ HOL_OP_LIST
+    IMAGE
+    APPEND
+    FILTER
+    MEM
+    LIST_TO_SET
+    CARD
+    LENGTH
+    Num
+  (* added for timed *)
+    FDOM
+    FUPDATE
+    FUPDATE_LIST
+    FAPPLY
+    FRANGE
+    int_of_num
+    real_of_num
+    IMPLODE EXPLODE
+    FOLDL
+    HD
+    DRESTRICT
+    COMPL
+    OPTION_MAP
+    option_case
+    w2n n2w ORD IS_SOME DIV
+    BIGUNION RRESTRICT THE EVERY MAP2 MAP choose DIFF LEAST FST SND MAX MIN
+    type_abbrev
+    onlywhen
+]*)
+(*[ TYPE_LIST
+    num
+    bool
+    int
+    list
+    set
+    unit
+    string
+    byte
+]*)
+(*[ HOL_SYM_ALIST
+    /\ "\Mwedge "
+    \/ "\Mvee "
+    ! "\forall "
+    ? "\exists "
+    ?! "\Mexunq "
+    ==> "\implies "
+    <== "\impliedby "
+    <= "\leq "
+    >= "\geq "
+    <> "\neq "
+    -> "\Mtotype "
+    <=> "\iff "
+    := "\Mass "
+    :: "\Mcons "
+    [] "[\,]"
+    () "()"
+    \ "\lambda "
+    || "\Mdpipe "
+    | "\mid "
+    << "\ll "
+    >> "\gg "
+    |+ "\oplus "
+    |++ "\oplus "
+    |-> "\mapsto "
+    --> "1XXXXX\Mtransitionerr{-->}"
+    --=> "2XXXXX\Mtransitionerr{--=>}"
+]*)
+(*[ HOL_SYM_ALIST
+    <| "\Mmagiclrec "
+    |> "\Mmagicrrec "
+]*)
+(*[ HOL_SYM_BOL_ALIST
+    |> "\Mmagicbolrrec "
+]*)
+(*[ HOL_IOPEN_LIST
+    <|
+]*)
+(*[ HOL_ICLOSE_LIST
+    |>
+]*)
+(*[ HOL_ID_ALIST
+    SOME "\Msome "
+    NONE "*"
+    IN "\in "
+    IN' "\in "
+    NOTIN "\notin "
+    NOTIN' "\notin "
+    INTER "\cap "
+    UNION "\cup "
+    EMPTY "\emptyset "
+    one "()"
+    SUBSET "\subseteq "
+    T "\Mtrue "
+    F "\Mfalse "
+    if "\Mif "
+    then "\Mthen "
+    else "\Melse "
+    let "\Mlet "
+    in "\Min "
+    and "\Mand "
+    EXP "\Mexp "
+    case "\Mcase "
+    of "\Mof "
+    time_infty "\infty"
+    time_zero "0"
+    Lh_tau "\MLhtau "
+    Lh_exit "\MLhexit "
+    FEMPTY "\emptyset "
+    with ""  (* just don't show it; was an AUX *)
+    Par "\MPar "
+    Empty "\MEmpty "
+    I "\MI "
+    option "\;\tstype{option}"
+    updated_by "\Mupdby "
+]*)
+(*[ HOL_CURRIED_ALIST
+  FUPDATE "\Mfupdate" 2 true true
+  FAPPLY "\Mfapply" 2 false
+  ' "\Mfapply{}" 1 false  (* only slightly nasty hack; infix, but we know first arg
+                             is just set as normal *)
+  FDOM "\Mfdom" 1 false
+  FRANGE "\Mfrange" 1 false
+  DRESTRICT "\Mdrestrict" 2 false
+  COMPL "\Mcompl" 1 false
+  Timed "\Mtimed" 1 true
+  TimeWindow "\Mtimewindow" 1 true
+  Lh_call "\MLhcall" 1 true
+  Lh_return "\MLhreturn" 1 true
+  Lh_senddatagram "\MLhsenddatagram" 1 true
+  Lh_recvdatagram "\MLhrecvdatagram" 1 true
+  Lh_loopdatagram "\MLhloopdatagram" 1 true
+  Lh_epsilon "\Meps" 1 true
+  Lh_console "\MLhconsole" 1 true
+  FAIL "\tscon{FAIL}\;" 1 false
+  MEM "\tsholop{MEM}\Mspii" 2 false
+  APPEND "\Mappend" 2 false
+  $\/ "\Mboxedor" 2 true true
+  funupd "\Mfupdate" 3 false
+(* better linebreaks if don't curry:   MAX "\tsholop{MAX}\Mspmii" 2 false true *)
+(* better linebreaks if don't curry:   MIN "\tsholop{MIN}\Mspmii" 2 false true *)
+  OPTION_MAP "\tsholop{option\_map}\Mspii" 2 false
+  option_case "\tsholop{option\_case}\Mspiii" 3 false
+(*  OPTION_MAP "\tsholop{map}_{\Mcaret}\Mspii" 2 false *)
+(*  option_case "\tsholop{fold}_{\Mcaret}\Mspiii" 3 false *)
+  -- "\Mtransition" 2 true
+]*)
+
+(*[ ECHO nb: the rparen must be the very last char on last line ]*)

@@ -1,0 +1,95 @@
+#!/bin/bash
+
+# this is a hacked version of build-diags, used to explore how we can create a zig-zag diagram annotated with rule firings.
+
+# Usage: ./build-diags3 [trace-directory-name] [check-directory-name]
+#    or: ./build-diags3 [trace-directory-name] [trace-file-name]
+# Either run build-diags in the check output directory of traces or specify the directory
+# on the command-line; in either case first give the directory to find the trace file(s).
+# if second argument is a filename (not a directory name), then process
+# the traces on the command line only.
+
+# To do a single trace, for example, cd to the check directory and:
+#
+# ~/Net/TCP/Test/scripts/build-diags3 /usr/groups/tthee/batch/autotest-tcp-2004-10-01T16\:28\:00+0100 trace0004.out.html
+
+# To do the whole set, for example, cd someplace which is not the check directory and:
+#
+# ~/Net/TCP/Test/scripts/build-diags3 /usr/groups/tthee/batch/autotest-tcp-2004-10-01T16\:28\:00+0100 /usr/groups/tthee/check/check-2004-12-16T20:04:23+0000/
+
+
+# Ps files are output in $REALOUTPUTDIR/... tree and linked to from real check
+# directory
+
+if [[ `dirname $0` == . ]]; then
+    MKDIAGDIR=`pwd`/../utils/diags
+else
+    MKDIAGDIR=`dirname $0`/../utils/diags
+fi
+REALOUTPUTDIR=/usr/groups/tthee-scratch/check
+
+TRACEDIR="$1"
+
+
+umask 0002
+set -e
+
+DEST=`pwd`
+
+
+# TODO: have to filter out the non-SUCCEEDED traces from this somehow
+if [[ $2 != "" ]]; then
+    if [[ -d $2 ]]; then
+        cd $2
+        TRACES=trace*.out.html
+    else
+        cd `dirname $2`
+        TRACES=$2
+    fi
+else
+    TRACES="$DEST/trace*.out.html"
+fi
+
+REALOUTPUTDIR=$REALOUTPUTDIR/`basename $DEST`
+mkdir -p $REALOUTPUTDIR
+
+for fouthtml in $TRACES; do
+f=`basename $fouthtml .out.html`
+  if [ -e $f.aux ]; then
+      mv $f.aux $f.auxillary
+  fi
+
+# pull labels from check run and apply ppor-mans-munger
+#    cat $f.out.html |grep "LATEXTRANS" | sed -e 's/\[\[/$$\\mathit{/g' -e 's/\]\]/\}$$/g' -e 's/_/\\_/g' > $f.labels.tex
+# K's $$ above end up as literal $$, so tex-hacking instead:
+    if grep -q 'LATEXTRANS' $f.out.html ; then
+
+    cat $f.out.html |grep "LATEXTRANS" | sed -e 's/\[\[/\\textit{/g' -e 's/\]\]/\}/g' -e 's/_/\\_/g' > $f.labels.tex
+
+# make the traceXXXX.annotated.tex.inc, assuming that traceXXXX.labels.tex exists
+  $MKDIAGDIR/mkdiag -o $f.annotated.tex.inc -preamble $MKDIAGDIR/templates/std_preamble2.tex -postamble $MKDIAGDIR/templates/std_postamble2.tex -left-margin-offset 400 -right-margin-offset 700  -dgram-addr -dgram-win -dgram-ws -dgram-urp -dgram-mss -dgram-ts -dgram-datalen -time-offsets -height 1000 -width 730 -all-on-left -unitlength 0.9 -scale 0.67 -annotated $TRACEDIR/$f -withmergeindex &&\
+# -trace-sndseq -trace-rcvseq -trace-sndwnd -trace-rcvwnd -trace-maxseg -trace-dupacks -trace-time -trace-scaling -trace-misc
+#
+# latex a standalone version to build traceXXXX.annotated.ps.gz
+# labels template in $MKDIAGDIR/templates/traceXXXX.labels.mng now ignored
+  if [ -f $f.annotated.tex.inc ] ; then
+
+  echo "\input{" $f.labels.tex "}" > /tmp/build-diag3.input
+  cat $MKDIAGDIR/templates/std_prepreamble2.tex /tmp/build-diag3.input $f.annotated.tex.inc  $MKDIAGDIR/templates/std_postpostamble2.tex > $f.annotated.tex &&\
+  latex --interaction nonstopmode $f.annotated.tex &&\
+  dvips $f.annotated.dvi &&\
+  gzip -f $f.annotated.ps &&\
+  rm $f.annotated.{dvi,aux,log}
+
+  filename=`basename $f.annotated.ps.gz`
+  mv $f.annotated.ps.gz $REALOUTPUTDIR/$filename
+  ln -sf $REALOUTPUTDIR/$filename $f.annotated.ps.gz
+
+  fi
+
+  if [ -e $f.auxillary ]; then
+      mv $f.auxillary $f.aux
+  fi
+
+  fi # if grep -q
+done

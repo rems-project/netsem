@@ -1,0 +1,6 @@
+sockclient
+sockserv
+*.o*
+*.a
+*.lib
+*.exe

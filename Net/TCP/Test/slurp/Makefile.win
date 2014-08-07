@@ -1,0 +1,50 @@
+OCAMLC=ocamlc
+OCAMLCOPT=ocamlopt
+OCAMLDEP=ocamldep
+RM=del /Q /F
+
+PCAPPATH=D:/WPdpack
+
+CINCLUDE=/I . /I "$(OCAMLLIB)" /I "$(OCAMLLIB)/caml" /I "$(PCAPPATH)/include"
+CFLAGS=/O2 /Ob1 /D "WIN32" /D "NDEBUG" /D "__STDC__" /D "_MBCS" \
+       /FD /EHsc /W3 /nologo /TC $(CINCLUDE)
+
+OCAMLOPTS=-I "$(OCAMLLIB)" -I "$(OCAMLLIB)/caml" \
+	-I "../ocamlext" -I "../common" -I "$(PCAPPATH)/include"
+REQOCAMLLIBS=unix.cmxa threads.cmxa ../ocamlext/platform.cmxa \
+	../common/nettypes.cmx ../common/netconv.cmx \
+	../common/net2hol.cmx ../common/netipreass.cmx \
+	../common/sock.cmx ../common/render.cmx \
+	../common/holrender.cmx ../common/holtypes.cmx
+LIBPATHS=-cclib "/I $(PCAPPATH)/lib"
+
+OCAMLFILES=pcapfile.ml pcapinterface.ml debugrenderer.ml slurp.ml
+OCAMLIFILES=pcapfile.mli pcapinterface.mli debugrenderer.mli slurp.mli
+OCAMLCFILES=pcapinterfacec.c
+
+all: slurp
+
+slurp: 	$(OCAMLIFILES:.mli=.cmi) $(OCAMLFILES:.ml=.cmx) \
+		$(OCAMLCFILES:.c=.obj)
+		$(OCAMLCOPT) -thread -o $@ $(OCAMLOPTS) $(REQOCAMLLIBS) \
+		$(OCAMLCFILES:.c=.obj) $(OCAMLFILES:.ml=.cmx)\
+		-cclib "$(PCAPPATH)/lib/wpcap.lib" -cclib "../ocamlext/platformc.lib" -cclib "/link /NODEFAULTLIB:LIBC.lib"
+
+clean:
+	$(RM) *.cmi *.cmo *.cmx *.obj *.lib *.cma *.cmxa slurp.exe *.idb .depend
+
+depend: .depend
+
+.SUFFIXES:.ml .mli .cmi .cmx
+.mli.cmi:
+	$(OCAMLCOPT) -thread -c $(OCAMLOPTS) $<
+
+.ml.cmx:
+	$(OCAMLCOPT) -thread -c $(OCAMLOPTS) $<
+
+.depend: *.mli *.ml
+	$(OCAMLDEP) *.mli *.ml > $@
+
+!IF EXIST(.depend)
+!INCLUDE .depend
+!ENDIF

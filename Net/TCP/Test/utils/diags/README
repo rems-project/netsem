@@ -1,0 +1,49 @@
+Steve's famous tool to build ziggy-zaggy diagrams from HOL traces.
+
+It takes a raw ASCII trace, renders it using the our HOL label parser
+(in Test/common/) and outputs a .tex file with the ziggy-zaggy diagram
+rendered using the latex picture environment. (Note: every arrow is
+drawn horizontally and is then rotated).
+
+latexdiag is the drawing library that contains lots of maths.
+
+mkdiag is the main program that renders the trace and decides how best
+to lay it out on the page, using latexdiag for the actual drawing.
+
+The whole thing depends upon the templates in ./templates/ that
+contain the header and footer for the output latex file.
+
+You can use mkdiag directly (which takes a long time because of the
+sheer number of options), or you can use the easier wrapper script
+Test/scripts/build-diags:
+
+Usage
+ mkdiag -o output_file -width w -height h [options] input_file
+  -o Filename for latex output
+  -preamble Filename of latex preamble template
+  -postamble Filename of latex postamble template
+  -width Width of page (in \unitlengths)
+  -height Height of page (in \unitlengths)
+  -left-margin-offset Distance of left margin from left edge (in unitlengths)
+  -right-margin-offset Distance of right margin from left edge (in unitlengths)
+  -no-socket Do not show socket calls
+  -dgram-addr Show datagram address quad
+  -dgram-win Show datagram window size
+  -dgram-ws Show datagram window scaling
+  -dgram-urp Show datagram urgent pointer
+  -dgram-mss Show datagram maximum segment size
+  -dgram-ts Show datagram timestamp
+  -dgram-datalen Show length of datagram data
+  -trace-sndseq Show TCP trace sender sequencing values
+  -trace-rcvseq Show TCP trace receiver sequencing value
+  -trace-sndwnd Show TCP trace sender window values
+  -trace-rcvwnd Show TCP trace receiver window value
+  -trace-maxseg Show TCP trace maximum segment size value
+  -trace-dupacks Show TCP trace duplicate acknowledgements value
+  -trace-time Show TCP trace time-related values
+  -trace-scaling Show TCP trace scaling values
+  -trace-misc Show TCP trace misc values
+  -time-offsets Display times as an offset from the initial time
+  -no-seq-offsets Displays sequence numbers as an offset from the initial sequence numbers
+  -help   Display this list of options
+  --help  Display this list of options

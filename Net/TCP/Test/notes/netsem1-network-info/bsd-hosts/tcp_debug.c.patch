@@ -1,0 +1,20 @@
+*** tcp_debug.c	Tue Feb  4 11:05:30 2003
+--- tcp_debug.c	Tue Feb  4 11:19:28 2003
+***************
+*** 104,110 ****
+  		AF_INET;
+  	if (tcp_debx == TCP_NDEBUG)
+  		tcp_debx = 0;
+! 	td->td_time = iptime();
+  	td->td_act = act;
+  	td->td_ostate = ostate;
+  	td->td_tcb = (caddr_t)tp;
+--- 104,111 ----
+  		AF_INET;
+  	if (tcp_debx == TCP_NDEBUG)
+  		tcp_debx = 0;
+! 	/*td->td_time = iptime(); */
+! 	iptime_usec(&(td->td_time));
+  	td->td_act = act;
+  	td->td_ostate = ostate;
+  	td->td_tcb = (caddr_t)tp;

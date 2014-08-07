@@ -1,0 +1,68 @@
+The following two paragraphs are from the documentation for the original test
+network:
+
+ By default, BSD 4.6 only supports user-level threading. Applications
+ link against libc_r instread of libc to use multiple threads. Using
+ user-level threads has some issues as all blocking system calls are
+ made non-blocking and faked up as blocking by libc_r. In some cases
+ this faking up isn't possible/perfect and the application can from
+ time to time see a call that it thought was blocking behave in a
+ non-blocking manner.
+
+ This has a knock-on effect for modelling TCP/UDP as our multi-threaded
+ test harness witnesses some blocking calls returning immediately when
+ they really should not, or vice versa (see
+ TCP1_hostLTSScript.sml,1.672,1.673). The solution is to install the
+ linuxthreads port.
+
+I've no first-hand experience of this, but it sounds like the sort of thing
+one wants to avoid. Fortunately it turns out to be pretty easy (assuming the
+test network machines have CDROM drives).
+
+Note that apparently (unconfirmed by me) this will fail if you're using GNU
+Make rather than the default make that comes with FreeBSD, so revert to that
+one if you've already installed GNU Make and made it the default.
+
+*** Installing libgcc ***
+
+As root, run /stand/sysinstall. Go to 'configure', then 'distributions', and
+install the 'gnu' package from the 'src' distribution. Also, you may as well
+install the 'ports' package at this point as well, since you'll need it to
+install linuxthreads in a moment. You'll probably be asked to choose an
+installation source, so choose to install from the CD which you hopefully still
+have. Exit and see everything install itself.
+
+Still as root, cd to /usr/src/gnu/lib/libgcc. make, make install, and you're
+done. Note that apparently (unconfirmed by me) this will fail if you're using
+GNU Make rather than the default make that comes with FreeBSD, so revert to
+that one if you've already installed GNU Make and made it the default.
+
+*** Installing linuxthreads ***
+
+The file glibc-linuxthreads-2.2.3.tar.gz, available from
+http://ftp.scarlet.be/pub/gnu/glibc/glibc-linuxthreads-2.2.3.tar.gz, needs to
+be downloaded and placed in /usr/ports/distfiles (download it on zonule or a
+similar machine with access to both networks and then scp it into place). Once
+this is done, as root, go to /usr/ports/devel/linuxthreads and do 'make
+install'.
+
+*** Emulating pthreads ***
+
+I'm not sure what 'emulating pthreads' is supposed to mean (see netsem1 BSD
+installation docs), but it looks like what needs doing is sneaking the
+linuxthreads library in so that applications looking for pthreads find that
+instead. Do this with the following commands:
+
+  ln -s /usr/local/lib/liblthread.a /usr/lib/libpthread.a
+  ln -s /usr/local/lib/liblthread_p.a /usr/lib/libpthread_p.a
+  ln -s /usr/local/lib/liblthread.so.2 /usr/lib/libpthread.so.2
+  ln -s /usr/local/lib/liblthread.so.2 /usr/lib/libpthread.so
+  /sbin/ldconfig -m /usr/lib
+
+Apparently the objective of this is that applications built with:
+
+  -D_THREAD_SAFE -I/usr/local/include/pthread/linuxthreads -lpthread
+  -llgcc_r
+
+will use pthreads. I haven't actually checked, but I assume that's that's what
+is desired.

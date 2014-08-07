@@ -1,0 +1,256 @@
+% -*-LaTeX-*-
+\documentclass[10pt,oneside]{book}
+
+\newif\ifdraft\drafttrue
+
+
+
+\usepackage{alltt}
+\usepackage{ifpdf}
+\usepackage{ltsmunge}
+%\usepackage{udpstuff}
+
+\usepackage{tcp}
+
+% override definition of \tsunknown, making it black not red.
+\renewcommand{\tsunknown}[1]{\tsvar{#1}}
+
+\usepackage[dvips,a4paper]{geometry}  % US Letter /\ ISO A4
+
+\makeatletter
+\newcommand{\ps@idstyle}{%
+  \def\@evenhead{\thepage\hfil\slshape\rightmark}%
+  \def\@oddhead{{\slshape\leftmark}\hfil\thepage}%
+  \def\@evenfoot{\hfil\slshape\footnotesize Rule version: \rulesrcsid\hfil}%
+  \let\@oddfoot\@evenfoot
+}
+\makeatother
+
+\pagestyle{idstyle}
+
+\newcommand{\mignore}[1]{}
+\ifdraft
+  \newcommand{\TODO}[1]{{}[TODO: #1]{}}
+\else
+  \newcommand{\TODO}[1]{[TODO]}
+
+\fi
+
+\def\rulesrcsid{}
+
+% use the right flavour of specials for pdflatex vs dvips->ps2pdf
+\ifpdf
+\def\myoutputdriver{}
+\else
+\def\myoutputdriver{dvips,}
+\fi
+
+% load as late as possible
+\usepackage[\myoutputdriver pdfpagelabels,linktocpage,colorlinks,linkcolor=blue,pagecolor=blue]{hyperref}
+
+
+% Ugh, get rid of annoying warnings.  We will hope that the substitutions
+% hyperref does to get a PDF-safe string for the various anchors are OK.
+\makeatletter
+\def\HyPsd@CatcodeWarning#1{}
+
+\RequirePackage{float}
+% \namedcontents{title}{extension} generates a table of contents from
+%    a specified auxiliary file (requires float.sty).
+%
+\newcommand{\namedcontents}[2]{%
+  \@namedef{ext@namedcontents}{#2}
+  \listof{namedcontents}{#1}}
+\makeatother
+
+\makeatletter
+% enlarge number space to make room for large numbers nn.nn(.nn):
+%\newcommand*\l@section{\@dottedtocline{1}{1.5em}{2.3em}}
+%\newcommand*\l@subsection{\@dottedtocline{2}{3.8em}{3.2em}}
+\renewcommand\l@section{\@dottedtocline{1}{1.5em}{2.7em}}
+\renewcommand\l@subsection{\@dottedtocline{2}{4.2em}{3.8em}}
+\makeatother
+
+\sloppy
+\begin{document}
+
+\frontmatter
+
+% two dummy pages for Markus to remove; this is necessary when using
+% PDF /PageLabels to get sensible page numbers, because that command
+% maps physical page numbers to page labels, and Markus's workflow
+% (not unreasonably) doesn't know to add 2 to all the physical page
+% numbers when inserting those two new pages.
+%~
+%\clearpage
+%~
+%\clearpage
+
+%\setcounter{page}{3}
+
+\newif\ifpeter\petertrue
+
+\ifpeter
+\title{TCP, UDP, and Sockets:\\ rigorous and experimentally-validated behavioural
+    specification\\ \ \\Volume 2: The Specification \ \\ \ \\
+%{\huge\bf --- DRAFT --- \\ --- PLEASE DO NOT CIRCULATE ---}%
+}
+\author{%
+    Steve Bishop$^*$\\
+    Matthew Fairbairn$^*$\\
+    Michael Norrish$^\dagger$\\
+    Peter Sewell$^*$\\
+    Michael Smith$^*$\\
+    Keith Wansbrough$^*$\\[1ex]
+    ${}^*$University of Cambridge Computer Laboratory\\
+    ${}^\dagger$NICTA, Canberra}
+\date{\today}
+\else
+\title{TCP, UDP, and Sockets:\\ a post-hoc validated behavioural
+    specification\\ \ \\
+{\large THIS DOCUMENT IS A CONFIDENTIAL DRAFT -- PLEASE DO NOT DISTRIBUTE.}}
+\author{The Netsem Team\\
+University of Cambridge Computer Laboratory}
+\date{\today}
+\fi
+\maketitle
+
+%% \TODO{
+%% \chapter*{TODO}
+%% TODO: do the body TODOs.  P has partitioned them into
+%% \begin{itemize}
+%% \item TODO1 doc issue
+%% \item TODO2 spec semantic issue
+%% \end{itemize}
+%% (both of which someone
+%% must address one way or another before we release)  and
+%% \begin{itemize}
+%% \item TODO: (which either don't appear or which we
+%% might leave in the published document, depending)
+%% \end{itemize}
+%% He's endeavouring to ensure
+%% that all the things that need doing before we release \emph{are}
+%% flagged TODO1/2.
+%% (this done through the early files and as much of hostLTSScript as
+%% I've been through)
+%%
+%% TODO: possibly make this and the overview document use the same print
+%% area (but maybe not, as this would be uncomfortably big for that)
+%%
+%%
+%% MUNGER TODOS:
+%%
+%% - respect source line breaks in applications of multi-arg functions,
+%%   eg [[MIN]] (2 kinds of MIN?)
+%%
+%% - (perhaps) fix typesetting of summaries so that the rule category hardly ever wraps
+%%
+%% - (perhaps) Confused - \texttt{connect\_1} already has such a thing: allow rule header
+%%   one-line-ers to be more than one line long
+%%
+%% - (perhaps) DONEish - already did this in general, but in deliver-loop-99 and
+%%   friends with records in the LHS and RHS, for TeXnical reasons this
+%%   will be harder and I'm not doing it:
+%%   more uniform indenting of multiple host record fields?
+%%
+%% - (perhaps) do something better (if we can) about the fonts of things like
+%%   [[fd]] used both as type and variable identifiers.  Likewise for the
+%%   font of [[listen]] qua host record field
+%%
+%% - (perhaps) we get a few mystery page breaks, eg just after a Variations header
+%%
+%% - (perhaps, if easy) make the index contain pointers to the usages of
+%%   everything (up to some bounded number)
+%%
+%% - (perhaps) include verbatim protocol headers in nettypes
+%%
+%% - (perhaps) teach munger about let-bound identifiers
+%%
+%% - (perhaps) allow there to be ``summary''s at the starts of
+%%   \emph{chapters}, to avoid the dummy sections in the host LTS bits
+%%   (or we could merge all those into one chapter, but P guesses that
+%%   would be harder to navigate)
+%%
+%% - (perhaps) add rule page numbers to summaries?
+%%
+%% DONES:
+%%
+%% ALREADY DONE: make the brief contents include the non-socket-call LTS rules
+%% (but none of their aux functions, I think)
+%%
+%%
+%% CHECK: make sure the page size is ok for usletter, for this and for the
+%% overview document (think DONE, but must verify)
+%%
+%% - DONE: fix typesetting of missing definitions (flagged FIXME, or TODO, or something)
+%%
+%% - DONE: sloppy spacing for text?  turned on now.
+%%
+%% - DONE: fix typesetting of embedded transitions, eg in epsilon1
+%%
+%% - DONE: make \texttt{cb\_foo} and friends not typeset \texttt{foo} as a subscript
+%%
+%% - DONE, assuming this means at the end of all those sections (i.e.,
+%%   description/model details/variations/internal), not right after the
+%%   description block: bit more space after a description block
+%%
+%% - DONE: fix the layout of transitions in rules like deliver-in-99 where the
+%%   source $h$ is on a line below the arrow and target $h'$
+%%
+%% - DONE: fix typesetting of big disjunctions, eg in accept1 where almost
+%%   all of it runs of the end of a single line
+%%
+%% - DONE: fix typesetting of [[unit]] and [[string]] and [[msgflag]]
+%%   (KW: that was just a typo, should be msgbflag), eg in the bind preamble
+%%
+%% - DONE: fix typesetting of option\_case, eg as in bind2.
+%%   \textbf{fold}$_\uparrow$ doesn't mean much.
+%%
+%% - DONE: typeset \texttt{rptcp} etc without the \texttt{rp}
+%%
+%% - DONE: (perhaps) reinstate subscripts for [[is1]], [[p1]] etc.  Why did
+%% they go away?
+%%
+%% - DONE: fix contentsline macros to have space between the number and the
+%%   header
+%%
+%% }
+%% \newpage
+
+{\small
+\addcontentsline{toc}{chapter}{Brief Contents}
+\namedcontents{Brief Contents}{tob}
+}
+\cleardoublepage
+
+\addcontentsline{toc}{chapter}{How to read this document}
+\section*{How to read this document}
+
+
+This document is a rigorous specification of the behaviour of TCP, UDP, and the
+Sockets interface, experimentally validated against the behaviour of
+several implementations.  It is written in the higher order logic of
+the HOL system.
+
+For a full discussion of the specification we refer the reader to the
+companion \emph{Volume 1: Overview} and especially to the section there
+titled ``The Specification --- Introduction'', which gives a brief
+introduction to the HOL language and to the structure of the model.
+
+The specification is organised as a reference (in approximately the logical order in
+which it is presented to the HOL system), not as a tutorial.  To read
+it one should first look at the key types used (base types, network
+datagram types, and host types) and then browse the Host LTS Socket
+Call rules and TCP and UDP input and output processing rules.
+
+
+\newpage
+
+\addcontentsline{toc}{chapter}{Full Contents}
+\namedcontents{Full Contents}{toc}
+%\tableofcontents
+
+\clearpage
+\mainmatter
+
+

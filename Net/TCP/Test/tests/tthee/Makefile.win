@@ -1,0 +1,17 @@
+MAKE=$(MAKE) /F Makefile.win $(MAKEFLAGS)
+
+all::
+	cd tthee1
+	$(MAKE) all
+	cd ..
+	cd tthee2
+	$(MAKE) all
+	cd ..
+
+clean::
+	cd tthee1
+	$(MAKE) clean
+	cd ..
+	cd tthee2
+	$(MAKE) clean
+	cd ..

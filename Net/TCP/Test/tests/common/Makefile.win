@@ -1,0 +1,47 @@
+OCAMLC=ocamlc
+OCAMLOPT=ocamlopt
+OCAMLMKLIB=ocamlmklib
+OCAMLDEP=ocamldep
+RM=del /Q /F
+
+OCAMLREQLIBS="$(OCAMLLIB)/unix.cmxa" "$(OCAMLLIB)/threads/threads.cmxa"\
+	../../ocamllib/ocamllibnative.cmxa ../../ocamlext/threadparsing.cmxa\
+	../../common/nettypes.cmx ../../common/netconv.cmx\
+	../../common/sock.cmx ../../common/parserlib.cmx\
+	../../common/holparselib.cmx ../../common/tcpcbparserlib.cmx\
+	../../common/parser.cmx ../../common/render.cmx \
+	../../common/librender.cmx ../../common/lexer.cmx\
+	../../common/holrender.cmx ../../common/tcpcbrender.cmx\
+	../../common/renderlib.cmx ../../ocamlext/platform.cmxa \
+	../../tthee/tthee.cmxa
+
+LIBPATHS=-cclib -L../../nssock -cclib -L../../ocamlext/
+OCAMLCOPT=-I "$(OCAMLLIB)" -I ../../common -I ../../ocamlext\
+	 -I ../../tthee -I ../../ocamllib
+
+TARGETS=testscommon.cmx
+INTERFS=testscommon.cmi
+
+all: test
+
+test: $(INTERFS) $(TARGETS)
+
+clean:
+	$(RM) test *.cmx *.cmo *.cma *.cmxa *.o *.cmi .depend
+
+depend: .depend
+
+.SUFFIXES:.ml .mli .cmi .cmx
+
+.ml.cmx:
+	$(OCAMLOPT) -thread -c $(OCAMLCOPT) $<
+
+.mli.cmi:
+	$(OCAMLOPT) -thread -c $(OCAMLCOPT) $<
+
+.depend: *.mli *.ml
+	$(OCAMLDEP) *.mli *.ml > $@
+
+!IF EXIST(.depend)
+!INCLUDE .depend
+!ENDIF

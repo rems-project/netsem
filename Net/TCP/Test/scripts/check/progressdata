@@ -1,0 +1,149 @@
+#!/usr/bin/perl -w
+
+# obtain data on check run progress against time
+
+use strict;
+
+# look first for modules in the same directory as this program:
+BEGIN {
+    my $bindir = $0;
+    $bindir =~ s|/[^/]+$||;
+    unshift @INC, $bindir;
+}
+
+use Netsem::LogParse;
+
+
+my %processing = ();
+my %class = ('INCOMPLETE' => 0);
+my $time0;
+
+# first, set up the hash of classes
+
+genericparselog("log.dat",
+                sub ($$$$$$ ) {
+                    my ($state,$asleep,$worker,$job,$htime,$time) = @_;
+                    defined($time0) or $time0 = $time;
+                    $job =~ s/^.*\///;
+                    if ($state eq 'Processing') {
+                        # ignore repeated 'Processing' lines, eg from sleep
+                        if (!($processing{$job})) {
+                            $processing{$job} = 1;
+                        }
+                    } elsif (defined($job) && $processing{$job}) {
+                        $processing{$job} = 0;
+                        my $class = gettraceinfo("$job.out.html",$job);
+                        $class =~ s/^..Trace \S+ //;
+                        $class{$class} = 0;
+                    }
+                });
+
+
+# then, dump the data
+
+# P says: to get gnuplot colour defaults to be our friend, these
+# should be in a better order, and one which is stable as the run
+# executes and more labels occur for the first time...
+# NB: for colours, do "set term postscript color; set output 'foo.ps'; test; quit"
+my %linetype = ( 'FAILED'          => 1, # red
+                 'INCOMPLETE'      => 5, # cyan
+                 'SUCCEEDED'       => 2, # green
+                 'TOO_COMPLICATED' => 0, # was 6, yellow
+                 'CRASHED'         => 8, # orangey-red
+                 'KILLED'          => 0, # dotted black
+                 );
+foreach my $c (sort(keys(%class))) {
+    next if defined($linetype{$c});
+    my $lt;
+    for ($lt = 0;; $lt++) {
+        my $ok = 1;
+        foreach my $cc (keys(%linetype)) {
+            if ($linetype{$cc} == $lt) {
+                $ok = 0;
+                last;
+            }
+        }
+        last if $ok;
+    }
+    $linetype{$c} = $lt;
+}
+
+%processing = ();
+
+my $s = "TIME";
+foreach my $c (sort(keys(%class))) {
+    $s .= " $c";
+}
+$s .= " PROCESSED";
+# print "$s\n";
+
+open OUT1, ">progress.gnuplot"
+    or die "oops: $!";
+print OUT1 <<EOT;
+set terminal postscript landscape color
+set key below
+set title "Check run progress: `pwd`   `date`"
+set ylabel "Number of traces"
+set xlabel "Hours"
+set grid
+#set y2label "Total number of traces processed"
+#set ytics nomirror
+#set y2tics
+EOT
+my $i = 1;
+print OUT1 "plot ";
+foreach my $c (sort(keys(%class))) {
+    $i++;
+    if ($i != 2) {
+        print OUT1 ",\\\n  ";
+    }
+    print OUT1 "'progress.dat' using 1:$i title \"$c\" with steps lt $linetype{$c}";
+}
+$i++;
+#print OUT1 ",\\\n  'progress.dat' using 1:$i axes x1y2 title \"Total processed\" with lines";
+print OUT1 ",\\\n  'progress.dat' using 1:$i title \"Total processed\" with steps lt -1";
+print OUT1 "\n\n";
+close OUT1 or die "oops: $!";
+
+open OUT2, ">progress.dat"
+    or die "oops: $!";
+genericparselog("log.dat",
+                sub ($$$$$$ ) {
+                    my ($state,$asleep,$worker,$job,$htime,$time) = @_;
+                    $job =~ s/^.*\///g;
+                    if ($state eq 'Processing') {
+                        # ignore repeated 'Processing' lines, eg from sleep
+                        if (!($processing{$job})) {
+                            $processing{$job} = 1;
+                            $class{'INCOMPLETE'}++;
+                            showit($time - $time0,\%class);
+                        }
+                    } elsif (defined($job) && $processing{$job}) {
+                        $processing{$job} = 0;
+                        my $class = gettraceinfo("$job.out.html",$job);
+                        $class =~ s/^..Trace \S+ //;
+                        $class{'INCOMPLETE'}--;
+                        die "oops" unless defined($class{$class});
+                        $class{$class}++;
+                        showit($time - $time0,\%class);
+                    }
+                });
+close OUT2 or die "oops: $!";
+
+system("gnuplot progress.gnuplot");
+
+
+
+sub showit ($\%) {
+    my ($time,$class) = @_;
+
+    $time /= 3600;
+    my $s = sprintf("%0.3f",$time);
+    my $total = 0;
+    foreach my $c (sort(keys(%$class))) {
+        $s .= " $$class{$c}";
+        $total += $$class{$c} unless ($c eq 'INCOMPLETE' || $c eq 'KILLED');
+    }
+    $s .= " $total";
+    print OUT2 "$s\n";
+}

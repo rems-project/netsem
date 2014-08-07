@@ -1,0 +1,3 @@
+For extracting lists of constraints from a directory of processed traces the following command may be useful:
+
+grep '^[[:digit:]]\+\.' *.out.html | sed -e 's/[^ ]\+//'

@@ -1,0 +1,61 @@
+#!/bin/sh
+
+set -e
+
+umask 007
+
+. `dirname $0`/waprc
+
+echo ''
+echo "Updating in $WAPSRC:"
+echo ''
+
+(cd $WAPSRC
+cvs update -APd)
+
+cd `dirname $0`
+
+echo ''
+echo "About to blow away build tree $WAPDIR/, Ctrl-C to cancel (5 seconds):"
+echo ''
+sleep 5
+
+echo ''
+echo "Blowing away build tree $WAPDIR:"
+echo ''
+sleep 2
+
+rm -rf $WAPDIR
+
+echo ''
+echo "Relinking in $WAPDIR:"
+echo ''
+
+./relinkwap
+
+echo ''
+echo "About to Holmake clean in $WAPDIR/TCP/Spec1, Ctrl-C to cancel (5 seconds):"
+echo ''
+sleep 5
+
+cd $WAPDIR/TCP/Spec1
+
+echo ''
+echo "Making clean in $WAPDIR/TCP/Spec1:"
+echo ''
+sleep 2
+
+rm -rf .HOLMK
+$HOLDIR/bin/Holmake clean
+
+echo ''
+echo "Cleaned."
+echo "Rebuilding in $WAPDIR/TCP/Spec1:"
+echo ''
+
+$HOLDIR/bin/Holmake --fast
+
+cd $WAPDIR/TCP/Test
+make clean depend
+make all
+

@@ -1,0 +1,8 @@
+#!/bin/sh
+
+echo $0 $@
+echo -n "Enter return code and press ENTER (0 for in use, 1 for not in use)..."
+read EXIT
+echo "OK, exiting."
+exit $EXIT
+

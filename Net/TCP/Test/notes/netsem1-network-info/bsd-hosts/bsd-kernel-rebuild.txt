@@ -1,0 +1,81 @@
+Notes on how the BSD kernel was rebuilt on emil/john:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Kernel was rebuilt in order to enable the TCPDEBUG option and later to
+alter the tcp_debug code to store microsecond accurate timestamps.
+
+
+Structure of this document
+--------------------------
+
+(a) How to rebuild the kernel
+(b) Some notes on the BSD kernel building process
+(c) BSD kernel troubleshooting how-to!
+
+
+(a) How to rebuild the kernel
+-----------------------------
+
+i) Take a copy of the existing good kernel in case of problems later
+   cp /kernel /kernel.good
+
+ii) Create a new kernel configuration file
+   cd /sys/i386/conf
+   cp GENERIC NEWKERNEL
+
+iii) Tweak the kernel configuration
+   Remove all of the lines "cpu Ix86_CPU" except for "cpu I586_CPU"
+   Add the line (at the end of the existing options block), "options
+   TCPDEBUG"
+
+iv) Build the new kernel configuration and fixup any errors that occur
+   config NEWKERNEL
+
+v) Patch the following files:
+   /sys/netinet/tcp_debug.c with bsd-hosts/tcp_debug.c.patch
+   /sys/netinet/tcp_debug.h with bsd-hosts/tcp-debug.h.patch
+   /usr/include/netinet/tcp_debug.h with bsd-hosts/tcp-debug.h.patch
+   /sys/netinet/in_systm.h with bsd-hosts/in_systm.h.patch
+   /sys/netient/ip_icmp.h with bsd-hosts/ip_icmp.h.patch
+
+v) Change to the kernel build directory
+   cd /sys/compile/NEWKERNEL
+
+vi) Build and install the kernel
+   make depend all install
+
+
+(b) Some notes on the kernel building process
+---------------------------------------------
+
+- All BSD devices are named by the name of the module that manages them followed by a number, e.g. 3COM etherlink network cards are managed by the module "ep" hence all 3COM network devices are named ep0, ep1, ....
+
+- BSD supports psuedo-devices for device renaming, e.g., a pseudo-device called eth0 could point to the first real network device say ep0.
+
+- All kernel build options are stored in configuration files in /sys/[platform]/conf. All versions come with a GENERIC configuration script and a file called LINT. LINT lists all of the possible options along with a brief explanation.
+
+- To work out which modules you need to specify in the options file you can do "cat /var/run/dmesg.log" and look at which devices were initialised during the last system boot -- given BSDs sane device naming scheme it is trivial to detemine what your option file should look like!
+
+- it is always a good idea to take a backup of your current kernel (/kernel) and store it somewhere else, e.g. /kernel.good. The bsd install script (make install) always backs up the current kernel to /kernel.old, but if you have more that two builds fail consecutively then you're a little stuck ;-)
+
+
+(c) BSD kernel troubleshooting HOWTO
+------------------------------------
+
+- if the newly built kernel fails to load then:
+  - reboot the machine;
+  - during the pause before the boot loader boots the default kernel hit space;
+  - at the prompt type "unload" followed by "load [kernel name]", e.g.,
+      unload
+      load kernel.good
+    to boot an old functioning kernel.
+
+- if the newly build kernel has incorrectly configured modules then:
+  - reboot the machine;
+  - during the pause that occurs before the boot loader boots the default kernel hit space;
+  - press enter at the load prompt;
+  - the boot loader begins to boot the kernel. After the kernel header line has been displayed, booting pauses for a few seconds (and displays a message say so). Hit the space bar. You are dropped to a prompt;
+
+  - type "help" to see the commands that are available;
+  - running "boot -c" will allow the kernel's configuration options to be changed.
+

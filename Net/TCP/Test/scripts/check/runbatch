@@ -1,0 +1,185 @@
+#!/bin/sh
+
+# to use:  runbatch configfile > /dev/null 2> /dev/null < /dev/null &
+
+# make sure everyone can see the result.
+umask 002
+
+if [ $# -ne 2 ] ; then
+    echo "Usage: $0 configfile reason"
+    echo "(this program is for internal use only)"
+    exit 255
+fi
+
+CONFFILE="$1"
+REASON="$2"
+
+# catch errors here until we have read the conffile and created the target directory
+exec > /tmp/runbatch-INITIAL-ERRORS
+exec 2>&1
+
+# source configfile (should set TEST BINDIR INDIR TRACES OUTDIR PTCARGS)
+. $CONFFILE
+
+chgrp $FIFOGROUP /tmp/runbatch-INITIAL-ERRORS
+
+# generate the two index pages, one which refreshes and one which doesn't.
+function mkindex () {
+    TRACEARR=($TRACES)
+    NTRACES=${#TRACEARR[*]}
+    $BINDIR/mktraceindex --ntraces=$NTRACES > index.html.$$ 2> /dev/null
+    sed -e 's/REFRESH-CODE-HERE/<meta http-equiv="Refresh" content="20">/' \
+        -e 's/RELOAD-CODE-HERE/<a href="index.html">Stop reloading<\/a>./' \
+        < index.html.$$ > index-re.html 2> /dev/null
+    sed -e 's/REFRESH-CODE-HERE//' \
+        -e 's/RELOAD-CODE-HERE/<a href="index-re.html">Reload automatically<\/a>./' \
+        < index.html.$$ > index.html 2> /dev/null
+    rm -f index.html.$$ > /dev/null 2>&1
+}
+
+# this function is called if the main process is killed; since
+# stopbatch doesn't do this any more, this should not happen
+# except in exceptional circumstances.
+function handle_signal {
+    kill -TERM $INDEXPID $TRACEPID $FIFOPID
+    echo "$0: Cleaned up processes on signal.  Exiting now."
+    exit 3
+    mail -s "Test run killed" $MAILTO <<EOF
+Test run killed directly (this shouldn't happen). Output is in
+
+  $OUTDIR
+
+Full log information is in
+
+  $OUTDIR/log.dat
+
+Enjoy!
+
+EOF
+}
+
+
+# MAIN THREAD:
+
+
+# create target directory
+mkdir -p $OUTDIR
+
+# all errors (and other output) are written here
+exec >> $OUTDIR/log-run.dat
+exec 2>&1
+
+# other setup
+ln -fns $OUTDIR $OUTDIR/../current
+ln -s $BINDIR $OUTDIR/bin
+
+cp $BINDIR/trace.{css,js} $CONFFILE $OUTDIR
+
+if $TEST; then
+    # testing means just running mkindex
+    mkindex
+    exit 0
+fi
+
+cat <<EOF
+Starting:
+$REASON
+EOF
+
+mail -s "Test run starting" $MAILTO <<EOF
+Test run commencing:
+$REASON
+
+Output is in
+
+  $OUTDIR
+
+Full log information is in
+
+  $OUTDIR/log.dat
+
+Job is running with pid $$ on on `hostname`.
+
+EOF
+
+# fork off process to repeatedly redo the HTML index
+( cd $OUTDIR
+while true; do
+    mkindex
+    sleep 60
+done ) &
+INDEXPID=$!
+
+# fork off process to repeatedly redo the progress chart
+( cd $OUTDIR
+while true; do
+    $BINDIR/progressdata > progress.ps
+    sleep 300
+done ) &
+PROGRESSPID=$!
+
+# fork off main trace checker
+if $GZIPLOG; then
+    echo $TRACES | $BINDIR/otracechecker $PTCARGS -f- 2>&1 | $BINDIR/hotgzip >> $OUTDIR/log.dat.gz &
+else
+    echo $TRACES | $BINDIR/otracechecker $PTCARGS -f- > $OUTDIR/log.dat 2>&1 &
+fi
+TRACEPID=$!
+
+
+trap handle_signal SIGINT SIGTERM
+
+# create killing fifo and fork off manager process
+FIFO=/usr/groups/tthee/var/runbatch-`date -Isec`@`hostname`
+MAINPID=$$
+mkfifo $FIFO
+chgrp $FIFOGROUP $FIFO
+chmod $FIFOPERM $FIFO
+REASONFILE=/tmp/runbatch-killreason
+(   REASON=`cat $FIFO`
+    echo "$0: Stopping on request: $REASON"
+    echo "$REASON" > $REASONFILE.$MAINPID
+    chgrp $FIFOGROUP $REASONFILE.$MAINPID
+    kill -TERM $TRACEPID
+) &
+FIFOPID=$!
+
+# wait for trace check to complete
+wait $TRACEPID
+
+# was there a reason?
+if [ -e $REASONFILE.$MAINPID ] ; then
+    REASON=`cat $REASONFILE.$MAINPID`
+    rm $REASONFILE.$FIFOPID
+else
+    REASON="Completed normally."
+fi
+
+# clean up
+kill $INDEXPID $PROGRESSPID $FIFOPID
+rm $FIFO
+cd $OUTDIR
+mkindex
+
+cat <<EOF
+Completed (or stopped on request):
+$REASON
+EOF
+
+mail -s "Test run completed" $MAILTO <<EOF
+Test run completed (or stopped on request):
+$REASON
+
+Output is in
+
+  $OUTDIR
+
+Full log information is in
+
+  $OUTDIR/log.dat
+
+Enjoy!
+
+EOF
+
+

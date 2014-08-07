@@ -1,0 +1,24 @@
+#!/usr/bin/perl -w
+
+# starts up the hsholed daemon, along with an ssh tunnel to the right place
+# to be run on a CL PWF machine only!
+
+use strict;
+
+my $sourcehost = `hostname -f`;
+my $sourceport = 20784;
+
+my $targethost = 'thalamus.cl.cam.ac.uk';
+my $targetbaseport = 22700;
+
+die "unrecognised host name format" unless ($sourcehost =~ /^pccl([0-9]{3})\./);
+my $targetport = $1 + $targetbaseport;
+
+print "Establishing tunnel from $targethost:$targetport to $sourcehost:$sourceport.\n";
+
+system("/usr/bin/ssh -Nf -R $targetport:127.0.0.1:$sourceport $targethost &") != -1
+    or die "Couldn't start ssh tunnel: $!\n";
+
+exec("./hsholed");
+die "Couldn't start hsholed: $!\n";
+

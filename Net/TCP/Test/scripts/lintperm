@@ -1,0 +1,72 @@
+#!/bin/sh
+
+# Check permissions are correct in /usr/groups/tthee and /usr/groups/tthee-scratch
+
+PATHSPEC="/usr/groups/tthee /usr/groups/tthee-scratch"
+FIND=/usr/bin/find
+LS=/bin/ls
+SORT=sort
+XARGS=xargs
+TMPFILE=/tmp/filelist.$$
+
+echo "Scanning $PATHSPEC, please wait..."
+
+$FIND $PATHSPEC '(' '!' -type l ')' \
+  -print0 | $SORT -z | $XARGS -0 $LS -ld > $TMPFILE
+
+echo ''
+echo '>>Files not group netsem'
+echo '~~~~~~~~~~~~~~~~~~~~~~~~'
+echo ''
+
+perl -ne 'split(/\s+/); print if $_[3] ne "netsem"' $TMPFILE
+
+echo ''
+echo '>>Files writable by world'
+echo '~~~~~~~~~~~~~~~~~~~~~~~~~'
+echo ''
+
+grep '^........w.' $TMPFILE
+
+echo ''
+echo '>>Files readable or executable by world (and not www etc or already mentioned)'
+echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+echo ''
+
+grep -v ' /usr/groups/tthee\(-scratch\)\?/\(check\|batch\)' $TMPFILE | \
+  grep -v ' /usr/groups/tthee/\(conf\|local/hol98\|www-internal\)' | \
+  grep -v '^........w.' | \
+  grep '^.......\(r..\|..x\)'
+
+echo ''
+echo '>>Files not readable by group'
+echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+echo ''
+
+grep '^....[^r].....' $TMPFILE
+
+echo ''
+echo '>>Files executable by user but not group (and not mentioned above)'
+echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+echo ''
+
+grep -v '^....[^r].....' $TMPFILE | grep '^...[^-]..-...'
+
+echo ''
+echo '>>Files not writable by group (and not mentioned above)'
+echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+echo ''
+
+grep -v '^....[^r].....' $TMPFILE | grep -v '^...[^-]..-...' | grep '^.....-....'
+
+echo ''
+echo '>>Files not readable and writable by user'
+echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+echo ''
+
+grep '^.\(-..\|.-.\)' $TMPFILE
+
+
+
+
+

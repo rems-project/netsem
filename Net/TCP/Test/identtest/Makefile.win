@@ -1,0 +1,51 @@
+OCAMLOPT=ocamlopt
+OCAMLLEX=ocamllex
+OCAMLYACC=ocamlyacc
+CC=cl
+RM=del /Q /F
+
+PCAPPATH=D:/WPdpack
+OCAMLLIBS="$(OCAMLLIB)"/unix.cmxa "$(OCAMLLIB)"/threads/threads.cmxa \
+	../ocamlext/rawsock.cmxa ../ocamlext/platform.cmxa
+OCAMLINCL=-I "$(OCAMLLIB)"/lib/ocaml/ -I "$(OCAMLLIB)"/lib/ocaml/threads/\
+	-I ../ocamlext/
+OCAMLCLIB=-cclib "/link /NODEFAULTLIB:LIBC.lib ../ocamlext/platformc.lib ../ocamlext/rawsockc.lib"
+CINCLUDE=/I "$(PCAPPATH)/include"
+CFLAGS=/O2 /Ob1 /D "WIN32" /D "NDEBUG" /D "__STDC__" /D "_MBCS" \
+       /FD /EHsc /W3 /nologo /TC $(CINCLUDE)
+
+all: pcapslurp.exe fileinject.exe parsers injectslurp.exe slurpinject.exe
+
+pcapslurp.exe:
+	$(CC) $(CFLAGS) /Fe$@ pcapslurp.c /link "$(PCAPPATH)/lib/wpcap.lib"
+
+fileinject.exe:
+	$(CC) $(CFLAGS) /Fe$@ fileinject.c /link "ws2_32.lib"
+
+parsers: parser.ml lexer.ml
+	$(OCAMLOPT) -c errors.mli errors.ml
+	$(OCAMLOPT) -c parser.mli parser.ml lexer.ml
+
+injectslurp.exe: injectslurp.cmx
+	$(OCAMLOPT) -o $@ $(OCAMLINCL) $(OCAMLLIBS) injectslurp.cmx $(OCAMLCLIB)
+
+slurpinject.exe: slurpinject.cmx
+	$(OCAMLOPT) -o $@ $(OCAMLINCL) $(OCAMLLIBS) errors.cmx\
+		parser.cmx lexer.cmx slurpinject.cmx $(OCAMLCLIB)
+
+clean:
+	$(RM) *.o* *.lib *.a *.cm* pcapslurp fileinject\
+	slurpinject injectslurp parser.ml parser.mli lexer.ml *.exe
+
+.SUFFIXES:.c .obj .ml .cmx .mly .mll
+.c.obj:
+	$(CC) $(CFLAGS) /c $(INCLUDEDIRS) $<
+
+.ml.cmx:
+	$(OCAMLOPT) -c $(OCAMLINCL) -thread $(OCAMLLIBS) $<
+
+.mly.ml:
+	$(OCAMLYACC) $<
+
+.mll.ml:
+	$(OCAMLLEX) $<

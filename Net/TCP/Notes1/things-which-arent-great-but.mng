@@ -1,0 +1,1030 @@
+% -*- LaTeX -*-
+\documentclass[onecolumn]{article}
+
+\usepackage[a4paper]{geometry}
+\usepackage{ltsmunge}
+\usepackage{url}
+\usepackage{alltt}
+\usepackage{graphicx}
+
+
+\newcommand{\winxp}{Windows XP Professional SP1}
+\newcommand{\bsd}{FreeBSD 4.6-RELEASE}
+\newcommand{\linux}{Linux 2.4.20-8}
+
+\newcommand{\peter}[1]{\textbf{Peter says:} #1}
+
+\newcommand{\bug}[6]{
+\subsection*{#3}
+\bf Platform: \it #1\rm\\
+\noindent\bf Category: \it #4\rm\\[10pt]
+#5\\[10pt]
+\bf Related Rules: \rm #6\\[5pt]
+\hrule
+}
+
+\newcommand{\bugold}[6]{
+\noindent\begin{tabular}{|lp{0.795\textwidth}|}
+\hline
+\multicolumn{2}{|c|}{\rm #3 \rm}\\\hline
+\bf Platform: \rm & #1 \\
+\bf Status: \rm & #4 \\\hline
+\multicolumn{2}{|p{0.97\textwidth}|}{#5}\\\hline
+\bf Related Rules: \rm & #6\\\hline
+\end{tabular}
+\\[10pt]
+}
+\newcommand{\holmod}[1]{\textbf{#1}}
+\newif\ifdraft\drafttrue
+\ifdraft
+  \newcommand{\mlabel}[1]{\label{#1}\raisebox{1.85ex}[0pt][0pt]{\makebox[0pt]{\scriptsize\hspace*{-4em}#1}}}
+  \newcommand{\mref}[1]{\ref{#1}\raisebox{1.85ex}[0pt][0pt]{\makebox[0pt]{\fontseries{m}\selectfont\scriptsize#1}}}
+  \newcommand{\meqref}[1]{\eqref{#1}\raisebox{1.85ex}[0pt][0pt]{\makebox[0pt]{\fontseries{m}\selectfont\scriptsize#1}}}
+\else
+  \newcommand{\mlabel}[1]{\label{#1}\raisebox{1.85ex}[0pt][0pt]{\makebox[0pt]{}}}
+  \newcommand{\mref}[1]{\ref{#1}\raisebox{1.85ex}[0pt][0pt]{\makebox[0pt]{}}}
+  \newcommand{\meqref}[1]{\eqref{#1}\raisebox{1.85ex}[0pt][0pt]{\makebox[0pt]{}}}
+\fi
+
+\begin{document}
+\title{The TCP Specification:\\ Things Which Aren't Great But...}
+\author{The Specification Team}
+\maketitle
+
+\section{Introduction}
+On presentation of our TCP specification, we are invariably asked whether we
+found any bugs in the various implementations, and if so what they were. Of course,
+the concept of a ``bug'' is not well defined in this context, but we certainly
+encountered many things that seem like bad design, and that we could (in principle)
+do better.
+\par
+This document serves as a record of such discoveries, listing the problems found in
+each of \bsd, \linux and \winxp.
+
+\section{UDP}
+This section lists the bugs that we have found in the various UDP implementations:
+\bug{\winxp}
+{UDP}
+{ICMP and UDP datagram delivery}
+{Bug}
+{The socket option [[SO_REUSEADDR]] allows multiple sockets to be bound
+to the same local address, each of which may have different peer addresses
+set; either the full peer address, only its IP address, or no address (wildcard).
+An incoming UDP datagram or ICMP error with this local address as its destination
+will be delivered to one of the sockets, but there is no way to know which
+one it will be. For a given set of sockets, despite the non-determinism of
+the one chosen, all subsequent UDP and ICMP datagrams are delivered to
+the same socket.
+\par
+We think that WinXP may be storing the sockets in a hash table, or
+similar structure, such that any given sockets are allocated randomly
+on their creation. During their lifetime, however, WinXP selects
+deterministically from the set of sockets as a function of their position in
+this structure.
+\par
+A non-deterministic property such as this is clearly undesirable to the
+programmer, may desire the operation of his program to be consistent and
+repeatable.}
+{[[deliver_in_udp_1]], [[deliver_in_icmp_*]]}
+
+\peter{what are we saying here -- that overlapping addrs should be
+  forbidden, or a match order should be defined, or...?  doesn't seem
+  so interesting}
+%---------------------------
+\bug{\winxp}
+{UDP}
+{[[send()]] does not return pending errors for UDP}
+{Bug}
+{After [[send()]] is called on a UDP socket, sending a datagram, an
+[[ICMP_UNREACH PORT]] datagram may be received by the host and
+placed on the socket's receive queue. Calling [[send()]] again will
+not return this error, but will succeed and another datagram will be
+sent out. The only way to retrieve the error is through calling either
+[[getsockerr()]] or [[recv()]]:
+\begin{center}
+\includegraphics*[viewport=50 483 550 752,width=15cm,clip]{example_traces/send_no_return_error}%tr2221
+\end{center}
+\par
+This behaviour means that datagrams may be sent repeatedly, even
+though they are failing to get through, thus wasting network
+bandwidth. The solution is to always call [[getsockerr()]] after a
+[[send()]] call, but in most cases there will not be an error, so
+this call is mostly redundant.}
+{[[send_9]]}
+%---------------------------
+\bug{\winxp}
+{UDP}
+{[[recv()]] returning [[EMSGSIZE]] and some data}
+{Bug}
+{If a call to [[recv()]] is made on a socket, requesting [[n]] bytes
+of data, which is less than the data length of the datagram at the
+head of the socket's receive queue, the call will fail with [[EMSGSIZE]]
+under WinXP. The data buffer passed into [[recv()]] however, will also
+be filled with the [[n]] bytes of data. Whilst this may be useful
+information, it violates Posix.
+\par
+We incorporate this behaviour in our model by letting the return type of
+[[recv()]] be: [[string * ((ip option * port option) * bool) option]],
+where the boolean flag is [[T]] if all the data in the packet is
+returned, and [[F]] if the call returned [[EMSGSIZE]].}
+{[[recv_20]]}
+%--------------------------
+\bug{\linux}
+{UDP}
+{Calling [[connect()]] with a wildcard port}
+{Bug}
+{Under Linux, a call to [[connect()]] with no specified port
+will return successfully. Subsequently calling [[getpeername()]]
+returns [[ENOTCONN]]. However, if a call to [[send()]] is made,
+this returns successfully, sending out a datagram with no destination
+port set:
+\begin{center}
+\includegraphics*[viewport=50 57 550 325,width=15cm,clip]{example_traces/linux_send_wildcard_port}%tr1343
+\end{center}
+\par
+Nothing can be done with this packet, and it is inconsistent for
+[[getpeername()]] to return [[ENOTCONN]] but for the [[send()]] call
+not to, when both calls see the socket in this same state.}
+{[[connect_7]], [[connect_8]], [[getpeername_2]], [[send_9]]}
+%--------------------------
+\bug{\bsd}
+{UDP}
+{Pending error return for a [[connect()]] call}
+{Bug}
+{If a UDP socket has a pending error, then calling [[connect()]] on it will
+cause the call to fail with that error. However, under BSD, the socket's peer
+address will still be set to the values specified by the call.
+\par
+If the call indicates to the user that it has failed then it should not alter
+the socket state as though it had succeeded.}
+{[[connect_10]]}
+%---------------------------
+\bug{\linux}
+{UDP}
+{Calling [[shutdown()]] on a socket with no peer IP address set}
+{Bug}
+{If [[shutdown()]] is called on a UDP socket when it's peer IP address has not been set,
+the call fails with [[ENOTCONN]]. However, the shutdown operation is still performed in
+that the [[cantrcvmore]] and [[cantsndmore]] fields for the socket are set to [[T]]. This
+behaviour results in a socket with which nothing can be done, since we cannot send or
+receive any data through it.
+\par
+A socket call should not fail with an error and also modify the socket state in the
+same way as a successful call. Such an error should be an indication that the call
+did not succeed.}
+{[[shutdown_4]]}
+%---------------------------
+\bug{\linux}
+{UDP}
+{[[getpeername()]] returns incorrectly}
+% MS: is this so? UNPp224 states that 'we can no longer specify the destination IP address
+%     and port' for a UDP-connected socket, however, in this case, we don't has sufficient
+%     information to be able to send anything to the peer - what happens if we call sendto()
+%     (a) specifying a destination
+%     (b) not specifying a destination
+%     surely the latter should not work given that we have insufficient info, but you're (MF)
+%     claiming that getpeername() should treat the socket as though it is UDP-connected, in
+%     which case by the same reasoning, (a) should fail with EISCONN. So what happens in this
+%     case? do we have a socket that can't send anything?
+{Bug}
+{The peer address of a UDP socket may be set by calling [[connect()]], specifying the
+remote IP address, but not the port. It will then only accept an incoming datagram with the
+given as its source IP address. However, calling [[getpeername()]] on such a socket fails
+with [[ENOTCONN]] because there is no port set.}
+{[[getpeername_1]],[[getpeername_2]]}
+
+
+\section{TCP}
+This section lists the bugs that we have found in the various TCP implementations:
+\bug{\bsd}
+{TCP}
+{[[listen()]] may be called from any state}
+{Bug}
+{Under WinXP and Linux, [[listen()]] may only be called from
+either the [[CLOSED]] or [[LISTEN]] states. BSD, however, fails to enforce
+this constraint. If a connected socket enters the [[LISTEN]] state, then it
+retains its full quad (as the BSD [[listen()]] call essentially does nothing
+but change the state of the socket to [[LISTEN]]), thus only enabling it to
+accept connections from the same remote IP/port. An [[accept()]] call may
+occur in the usual way if this is the case. Note that despite having a full
+quad and the [[SS_ISCONNECTED]] flag set, the socket cannot send any data, since
+a call to [[send()]] causes BSD to check its actual state (and tries
+unsuccessfully to call [[connect()]]).}
+{[[listen_*]]}
+%---------------------------
+\bug{\bsd}
+{TCP}
+{Phantom segments from [[LISTEN]] state}
+{Bug}
+{ Due to the bug above, it is possible for a BSD socket in the
+  [[LISTEN]] state to have the retransmit timer set.  When the timer
+  fires, a `phantom segment' will be emitted, with either no flags set
+  at all, or only the FIN flag (if we were retransmitting a FIN).
+  If FIN is set, these will continue as usual for a retransmission.
+  If FIN is clear, only one will be emitted:
+
+  Reason: in BSD, the retransmit timer is restarted each time by
+  \texttt{tcp\_output}; it only (re)starts it if (inter alia) [[snd_nxt' <> snd_una]]
+  (\texttt{tcp\_output.c:804}), where [[snd_nxt']] is the value \emph{after} incrementing by
+  the segment length (including any FIN).  Now tcp\_timer\_rexmt
+  (\texttt{tcp\_timer.c:423}) sets [[snd_nxt]] to [[snd_una]], and the segment is empty, so
+  there will be no more restarts unless FIN is set.
+}
+{[[timer_tt_rexmt_1]]}
+%---------------------------
+\bug{\bsd}
+{TCP}
+{[[getpeername()]] may return incorrectly for a non-connected socket}
+{Bug}
+{Under BSD, when you call [[getpeername()]], it checks to see
+whether the socket flag [[SS_ISCONNECTED]] has been set, returning [[ENOTCONN]]
+if it is not. However, if [[listen()]] has been called from a post-established
+(and connected) state, then [[SS_ISCONNECTED]] is not cleared, and neither
+are the IP address and port of the socket's peer. Thus when [[getpeername()]]
+is called on the now listening socket, it returns the peer IP address and port
+of the previously connected socket:
+\begin{center}
+\includegraphics*[viewport=50 57 550 490,width=15cm,clip]{example_traces/bsd_listen_getpeername}%tr0813
+\end{center}
+This problem arises due to the incorrect behaviour of the [[listen()]] call under BSD.}
+{[[getpeername_*]], [[listen_*]]}
+%---------------------------
+\bug{\bsd}
+{TCP}
+{Calling [[close()]] from [[SYN_RECEIVED]] drops the socket}
+{Discussion}
+{According to the standard TCP state transition diagram, calling
+[[close()]] on a socket in the [[SYN_RECEIVED]] state should result in a [[FIN]]
+being sent, and a direct transition to the [[FIN_WAIT_1]] state. BSD, however,
+simply drops the socket in this situation, sending no indication of its doing so
+to the remote host.
+\par
+It may be argued that either way is the more correct behaviour. In the case of the
+TCP state transitions, when we are in [[SYN_RECEIVED]], we have committed to
+establishing the connection, in that from our perspective, the remote end is set
+up and ready to send data. We must therefore conduct a proper four-way termination
+handshake in the usual way. The argument for BSD's behaviour, however, is that
+the connection was not established, so if we move directly to [[FIN_WAIT_1]] there
+is an implicit assumption that we were established at some point in the past. Thus
+we simply drop the socket, and any subsequent segments from the peer will be
+dropped and replied to with an [[RST]].}
+{[[close_7]]}
+%---------------------------
+\bug{\bsd}
+{TCP}
+{State changes when calling [[shutdown()]] from a pre-established state}
+{Bug}
+{If [[shutdown()]] is called from the [[SYN_SENT]] or [[SYN_RECEIVED]]
+states, BSD performs no immediate state change, but simply sets the [[TF_NEEDFIN]]
+flag, and calls [[tcp_output()]]. The behaviour is such that a [[FIN]] segment is
+sent immediately, meaning that, in the case of [[SYN_SENT]], a [[FIN]] is seen with
+no [[ACK]]:
+\begin{center}
+\includegraphics*[viewport=50 320 550 621,width=15cm,clip]{example_traces/fin_from_syn_sent}%tr1427
+\end{center}
+The socket then remains in its pre-established state, until receiving
+the required stimulus from the peer, which would ordinarily cause a state transition
+to [[ESTABLISHED]]. However, the actual behaviour is that the [[TF_NEEDFIN]] flag
+is noted and cleared, and the socket moves directly into [[FIN_WAIT_1]]. This then
+handles the [[FIN]] retransmission.
+\par
+However, if the socket is in [[SYN_RECEIVED]] and receives an [[ACK]] that acknowledges
+its [[SYN]] but not its [[FIN]], BSD incorrectly changes the state to [[FIN_WAIT_2]]
+rather than [[FIN_WAIT_1]] as would be expected:
+\begin{center}
+\includegraphics*[viewport=50 270 550 571,width=15cm,clip]{example_traces/into_fin_wait_2_bug}%tr1429
+\end{center}
+\par
+In the other cases, while this state-change behaviour seems perfectly reasonable,
+it does not seem at all valid to be sending out a [[FIN]] in the [[SYN_SENT]] state.
+Similarly, we should not send a [[FIN]] in [[SYN_RECEIVED]] unless we then move to
+[[FIN_WAIT_1]], as per the TCP state transition diagram.}
+{[[shutdown_*]], [[deliver_in_*]]}
+%---------------------------
+\bug{\bsd}
+{TCP}
+{Response to [[SYN]],[[FIN]] segments.}
+{Bug}
+{In the [[SYN_SENT]] state, it is possible to receive a [[FIN]] along
+with the required [[SYN]]. In the case of a [[SYN]],[[FIN]],[[ACK]] being received,
+BSD will [[ACK]] both the [[SYN]] and the [[FIN]], moving into [[CLOSE_WAIT]],
+which is perfectly reasonable behaviour. If, however, a [[SYN]],[[FIN]] segment is
+received (a simultaneous open), BSD incorrectly bypasses the [[SYN_RECEIVED]] state
+and moves directly into [[CLOSE_WAIT]]. This means that the [[ESTABLISHED]] state
+has been effectively bypassed, despite never having seen an [[ACK]] for our [[SYN]].
+The correct behaviour should be to either ignore the segment altogether, or ignore
+only the [[FIN]], thus moving into [[SYN_RECEIVED]] as is the usual case.}
+{[[deliver_in_2]], [[deliver_in_3]]}
+%---------------------------
+\bug{\bsd}
+{TCP}
+{Calling [[recv()]] with [[MSG_WAITALL]] doesn't fail on pending error}
+{Discussion}
+{Usually, it is the case that if we call [[recv()]], and subsequently
+receive an [[RST]] from the remote host, the call will fail with [[ECONNRESET]].
+If the [[MSG_WAITALL]] flag was set, however, this failure is not seen, and the
+call simply returns with the data contained in the receive buffer so far. This is
+true for any pending error on the socket, so that we must wait until the next call
+is made to discover the error condition:
+\begin{center}
+\includegraphics*[viewport=50 109 550 209,width=15cm,clip]{example_traces/bsd_recv_no_fail1}\\[0pt]%tr1590
+\includegraphics*[viewport=50 666 550 766,width=15cm,clip]{example_traces/bsd_recv_no_fail2}%tr1590
+\end{center}
+\par
+The argument in favour of this behaviour, is that even though the connection was
+closed, the application may need to see any data that is currently in the receive
+buffer, as this was all sent correctly and before the [[RST]]. However, one may
+also argue that any error on the socket should take precedence, so that, for
+example, the application should be informed that the socket has been reset as
+soon as possible. Furthermore, in this case, since [[MSG_WAITALL]] was set, it
+is apparent to the application that something is wrong when it receives less
+data than was asked for, although no error was returned.
+\par
+What would, in fact, be preferable, is some way in which the application may
+be given both the data in the buffer so far and the pending socket error together.
+It seems that the method employed by BSD is perhaps some best-effort at doing so.}
+{[[recv_3]], [[recv_8a]]}
+%---------------------------
+\bug{\bsd}
+{TCP}
+{Calling [[send()]] with [[MSG_WAITALL]] or [[MSG_PEEK]] set}
+{Discussion}
+{In the context of a [[send()]] call, [[MSG_WAITALL]] and [[MSG_PEEK]]
+are invalid options. BSD handles such a call by ignoring the invalid options,
+rather than failing with an [[EOPNOTSUPP]] error. The argument may be made in
+either direction, though it does seem preferable to fail in this case, since the
+call being made with invalid options may imply that the user is intending a
+different behaviour to that available. Thus, we would want to fail decisively,
+so that the user may be alerted to the problem in their code.}
+{[[send_8]]}
+%---------------------------
+\bug{All}
+{TCP}
+{Use of [[SO_RCVLOWAT]] as a socket option}
+{Discussion}
+{There is no reason in principle why [[SO_RCVLOWAT]] should not be an argument to
+each relevant system call (i.e., each [[recv()]]). Given that it is not required
+asynchronously, it doesn't deserve to be a socket option.
+\par
+This is an API decision.} % This is true of other SO_* and O_* too; which?
+{N/A}
+%---------------------------
+\bug{\bsd}
+{TCP}
+{Window of no RTT cache updates}
+{Bug}
+{After $2^{32}$ packets, there is a 16 packet window during which time, if the TCP % sent/recvd/both?
+connection is closed, the RTT values will not be cached in the routing table
+entry. This is because of an overflow/wraparound problem in \tt t\_rttupdated\rm.}
+{N/A}% we do not model rtable cache updates
+%---------------------------
+\bug{\bsd}
+{TCP}
+{Incorrect updates of RTT estimates after repeated retransmission timeouts}
+{Bug}
+{When the retransmit timer expires the 4th time ($\frac{max\_retransmissions}{4} + 1$), the socket's
+RTT estimate is invalidated, by setting \tt t\_srtt \rm to 0. However, we want to preserve
+the current estimate for retransmit interval computation, so BSD computes (before clearing
+\tt t\_srtt\rm):
+\begin{center}
+\tt t\_rttvar = t\_rttvar \rm + $\frac{1}{32}$\tt t\_srtt\rm\\
+\end{center}
+When the retransmit timer expires and is reset, it then calculates (where \tt backoff\_value \rm
+is from the sequence [1,2,4,8,16,32,64,64...]):
+\begin{center}
+\tt t\_rxtcur = backoff\_value $\times$ $max(1, (\frac{1}{32}$\tt t\_srtt \rm % 1 = min_rtt
++ $\frac{1}{4}$\tt t\_rttvar\rm$))$
+\end{center}
+The hope is that the value of \tt t\_rxtcur \rm will give the same answer, but clearly it
+does not, in the case that ($\frac{1}{32}$\tt t\_srtt \rm + $\frac{1}{4}$\tt t\_rttvar\rm) > 1
+(the minimum RTT estimate):
+\begin{center}
+$\frac{1}{32}$\tt t\_srtt \rm + $\frac{1}{4}$\tt t\_rttvar \rm
+$\ne 0 + \frac{1}{4}$(\tt t\_rttvar \rm + $\frac{1}{32}$\tt t\_srtt\rm)
+$ = \frac{1}{128}$\tt t\_srtt \rm + $\frac{1}{4}$\tt t\_rttvar\rm
+\end{center}
+This should be visible since the retransmit times for BSD are supposed to be in the ratio
+1 2 4 8 16 32 64 64 etc, and this will indeed be seen if the actual RTT is less than 1s. However,
+what we see in practice is (assuming negligible variance in comparison to the RTT):
+\begin{center}
+\begin{tabular}{|c|lllllllll|}
+\hline
+\bf RTT / s \rm & \multicolumn{9}{|c|}{\bf Retransmission Times / s \rm}\\\hline
+1 & 1 & 2 & 4 & 8 & 16 & 32 & 64 & 64 & ...\\
+2 & 2 & 4 & 8 & 16 & 16 & 32 & 64 & 64 & ...\\
+4 & 4 & 8 & 16 & 32 & 16 & 32 & 64 & 64 & ...\\
+8 & 8 & 16 & 32 & 64 & 32 & 64 & 128 & 128 & ...\\
+\hline
+\end{tabular}
+\end{center}
+Note that this is not visible for [[SYN]] retransmits (only for ordinary retransmits), since
+the value of \tt t\_srtt \rm is zero already. The above figures depend on what the variance is;
+if the variance is large, then the effect may not be very noticeable.
+\par
+In our model, this behaviour is incorporated into the timeout of the retransmission timer
+by setting [[BSD_RTTVAR_BUG]] to [[T]].}
+{[[timer_tt_rexmtsyn_1]], [[timer_tt_rexmt_1]]}
+%---------------------------
+\bug{\bsd}
+{TCP}
+{States in which we have received a [[FIN]]}
+{Bug}
+{In the BSD code, the macro \tt TCPS\_HAVERCVDFIN(s) \rm is defined as:
+\begin{alltt}
+\#define TCPS\_HAVERCVDFIN(s)     ((s) >= TCPS\_TIME\_WAIT) %cf TCPv2pp983, 807.
+\end{alltt}
+Clearly, this set of states should also include [[CLOSE_WAIT]], [[LAST_ACK]] and [[CLOSING]],
+since we must have received a [[FIN]] segment to enter such a state.
+\par
+This macro is used three times in the code (in \tt tcp\_input.c\rm), preventing the following
+from happening if we believe we have received a [[FIN]]:
+\begin{enumerate}
+\item % line 1928
+Processing of urgent data (i.e. from segments with the [[URG]] flag set).
+\item % line 1995
+Processing normal data data, and arranging to [[ACK]] it.
+\item % line 2043
+Processing a [[FIN]] segment and performing the appropriate state changes.
+\end{enumerate}
+A consequence of the first of the above is that it is possible (with suitably crafted segments)
+to generate a \tt SIGURG \rm signal from a socket after its connection has been closed. % TODO: check this; trace?
+Data may also be received by a closing socket (which is odd behaviour, but not fatal):
+\begin{center}
+\includegraphics*[viewport=50 221 550 522,width=15cm,clip]{example_traces/bsd_close_wait_recv_data}%tr1872
+\end{center}
+Similarly, extra [[FIN]]s will be processed, which is possibly fatal, since we [[ACK]] them and
+increment the sequence number; of course this will only happen if the peer's TCP stack is horribly
+broken, or if somebody is being malicious.}
+{[[deliver_in_*]]}
+%---------------------------
+\bug{\bsd} % tcp_input:1517; see also TCPv2sec26.6.
+{TCP} % need a trace example for this - bulk data received by the host; no send; delacks
+{Timestamp updates when delaying [[ACK]]s}
+{Bug}
+{The following code appears in \tt tcp\_input.c\rm:
+\begin{alltt}
+\begin{tabbing}
+if ((\=to.\=to\_flags \& TOF\_TS) != 0 \&\&\\
+\>SEQ\_LEQ(th->th\_seq, tp->last\_ack\_sent)) \{\\
+\>\>tp->ts\_recent\_age = ticks;\\
+\>\>tp->ts\_recent = to.to\_tsval;\\
+\}
+\end{tabbing}
+\end{alltt}
+The intention is to record the timestamp of the segment if the last [[ACK]] sent lies within its
+sequence numbers. However, \tt th->th\_seq \rm has already been advanced by the left-end trimming
+code (i.e. trimming any data that we have already received from the start of the segment),
+thus it is always the case that:
+\begin{center}
+\tt th->th\_seq $\ge$ tp->rcv\_nxt $\ge$ tp->last\_ack\_sent\rm.
+\end{center}
+This means that the condition can only be true when \tt th->th\_seq = tp->last\_ack\_sent\rm; i.e.,
+when we receive an inorder segment, and the previous segment was [[ACK]]ed without delay. The
+consequence is that the timestamp does not get updated in the socket's state if we delayed the
+last [[ACK]].}
+{[[deliver_in_3]]}% see di3_topstuff
+%---------------------------
+\bug{\bsd} % tcp_output.c:720
+{TCP}
+{Update of the \tt TF\_RXWIN0SENT \bf socket flag}
+{Bug}
+{The \tt TF\_RXWIN0SENT \rm flag in the socket's control block indicates whether a window of
+zero has been sent to the peer, and therefore that we have closed their send window. This
+is used to disable the sending of delayed [[ACK]]s to the receiver, so that it will receive
+a new window update as soon as possible.
+\par
+This flag is set, however, if the \it calculated \rm receive window, rather than the window
+in the sent segment, is zero. These may differ if the window scaling, \tt rcv\_scale\rm, is
+non-zero, in that a small calculated window may be truncated to zero; transmitted as a
+literal zero.}
+{[[deliver_out_1]]} % see tcp_output_really
+%---------------------------
+\bug{\bsd}
+{TCP}
+{Initiation of the retransmit timer}
+{Bug}
+{When the initial retransmit timer (\tt t\_rxtcur\rm) is set from the RTT statistics in the
+route metric cache (rmx), it is calculated incorrectly. If we compare the calculation done
+by the normal-path code for a received segment with that done by the rmx code (both in
+\tt tcp\_input.c\rm), we see the following.
+\par
+The normal-path code sets the retransmit timer, since the values are scaled, as:
+\begin{center} % see tcp_var.h:281 and tcp_input.c:2408
+\tt t\_rxtcur \rm = $\frac{1}{32}$\tt t\_srtt \rm + $\frac{1}{4}$\tt t\_rttvar \rm = \tt SRTT \rm
++ $4 \times$\tt RTTVAR\rm
+\end{center}
+However, the rmx code calculates it as:
+\begin{center} % see tcp_input.c:2542
+\tt t\_rxtcur \rm = $\frac{1}{8}$\tt t\_srtt \rm + $\frac{1}{2}$\tt t\_rttvar \rm = $4 \times$\tt SRTT \rm
++ $8 \times$\tt RTTVAR\rm
+\end{center}
+The cause of the discrepancy is revealed by the comments in the code, % specifically tcp_var.h:250
+which disagree with what actually happens. Clearly, the scale factors were previously 8 and 4, rather
+than the current values of 32 and 16. Hence the rmx code would originally have computed \tt SRTT \rm +
+$2 \times$\tt RTTVAR \rm, which is still a little out, but not badly so. The rmx code should be changed to:
+\begin{alltt}
+((tp->t\_srtt >$ $> (TCP\_RTT\_SHIFT - TCP\_DELTA\_SHIFT)) + tp->t\_rttvar) >$ $> TCP\_DELTA\_SHIFT
+\end{alltt}
+This would agree with the normal-path code, rather than using hard-coded constant shifts.
+} % TODO: [should trace this: (a) who made the mistake, and (b) is it really desired behaviour after all?]
+{N/A}% we do not model rtable caching
+%---------------------------
+\bug{\bsd}
+{TCP}
+{Simultaneous open responds with an [[ACK]] rather than [[SYN,ACK]]}
+{Bug}
+{BSD incorrectly implements the diagram bug seen in RFC 793:
+\begin{alltt}
+\begin{tabbing}
+\hspace{1cm}\=\hspace{2.5cm}\=\hspace{1cm}\=\hspace{6cm}\=\hspace{1cm}\kill
+    \>TCP A        \>    \>                                \>TCP B\\[10pt]
+
+1.  \>CLOSED       \>    \>                                \>CLOSED\\[10pt]
+
+2.  \>SYN-SENT     \>-$ $-> \><SEQ=100><CTL=SYN>              \>...\\[10pt]
+
+3.  \>SYN-RECEIVED \><-$ $- \><SEQ=300><CTL=SYN>              \><-$ $- SYN-SENT\\[10pt]
+
+4.  \>             \>... \><SEQ=100><CTL=SYN>              \>-$ $-> SYN-RECEIVED\\[10pt]
+
+5.  \>SYN-RECEIVED \>-$ $-> \><SEQ=100><ACK=301><CTL=SYN,ACK> \>...\\[10pt]
+
+6.  \>ESTABLISHED  \><-$ $- \><SEQ=300><ACK=101><CTL=SYN,ACK> \><-$ $- SYN-RECEIVED\\[10pt]
+
+7.  \>             \>... \><SEQ=101><ACK=301><CTL=ACK>     \>-$ $-> ESTABLISHED
+\end{tabbing}
+\end{alltt}
+Here, it should be the case that line 7 has the [[SYN]] flag set, as this is the same
+segment that was sent out in line 6. The BSD implementation sends an [[ACK]]-only segment
+in response to receiving a [[SYN]] in the [[SYN_SENT]] state. If the retransmit timer fires,
+however, then the correct [[SYN,ACK]] segment is sent:
+\begin{center}
+\includegraphics*[viewport=50 255 550 621,width=15cm,clip]{example_traces/bsd_rfc_bug_simopen}%tr1711
+\end{center}
+Note that under normal operation of a simultaneous open, the sent [[ACK]] will correctly cause the peer
+to become [[ESTABLISHED]]. However, it may have been the case that the initial [[SYN]] was lost, in
+which case the peer is in the [[SYN_SENT]] state and expecting a [[SYN,ACK]]. Thus the retransmit
+timer will be required to fire in order to complete the connection handshake.}
+{[[deliver_in_2]], [[timer_tt_rexmtsyn_1]]}
+%---------------------------
+\bug{\linux}
+{TCP} % TODO: test / example trace to demonstrate this
+{Sending options in a [[SYN,ACK]] that are not in the received [[SYN]]}
+{Bug}
+{RFC 1323 describes the timestamp and window scale option in TCP. Importantly, it describes a
+change from the specification given in RFCs 1072 and 1185:
+\begin{alltt}
+The spec was modified so that the extended options will be sent on\\
+<SYN,ACK> segments only when they are received in the corresponding\\
+<SYN> segments. This provides the most conservative possible conditions\\
+for interoperation with implementations without the extensions.
+\end{alltt}
+Linux, however, does not comply with this, in that it sends option values that were not specified
+in the received [[SYN]] segment, in the case of a simultaneous open. More specifically, it retransmits
+the options in its initial sent [[SYN]] without taking into account the options specified in the [[SYN]]
+it just received.}
+{[[deliver_in_2]]}
+%---------------------------
+\bug{All}
+{TCP}
+{Restriction of the remote address for incoming TCP connections} % see TCPv2p722
+{Discussion}
+{Under current implementations, We are not allowed to restrict the remote address for incoming
+TCP connections. We must call [[bind()]] before calling [[listen()]], but we can't do the equivalent
+of a UDP-style [[connect()]]. This means that the full connection handshake must take place, and
+[[accept()]] must be called, before the server can find out the peer's address and make a decision
+to close the socket or not. Note that this behaviour is not a requirement of TCP, but a design decision
+of the sockets API.
+\par
+Under UDP, we can make a call to [[connect()]] specifying the IP and port of the peer, in order
+to restrict the future quad of the socket. An interesting point to note is that the BSD bug of
+allowing [[listen()]] to be called from any state, can essentially achieve the same effect; we
+perform a non-blocking [[connect()]] which returns with [[EINPROGRESS]], then call [[listen()]] on
+the socket, to get it into a state whereby it can only accept incoming connections from the given
+remote address. Relying on an implementation bug in this way, however, is not advisable.}
+{[[listen_*]], [[connect_*]]}
+%---------------------------
+\bug{All} % BSD mentioned specifically. TODO: others?
+{TCP}
+{No window scaling for [[SYN,ACK]] segments}
+{Discussion} % TODO: check for comments in RFC 1323
+{RFC 1323 states that [[SYN]] segments do not get their windows scaled, even in the
+[[SYN,ACK]] segment emitted when a listening socket accepts a [[SYN]]. In this case
+however, we know both the correct scaling to use and that the remote end supports such scaling,
+but we are not allowed to actually scale the window.
+\par
+BSD agrees with the RFC in this respect, and we suspect that it actually just sends
+the low-order 16 bits of the true window. This seems truly weird; especially if the window
+happens to be a multiple of $2^{16}$ (however unlikely this may be).} % TODO: check this
+{[[deliver_in_1]]}
+%---------------------------
+\bug{\bsd}
+{TCP}
+{[[shutdown()]] may be called on an un-connected socket}
+{Discussion}
+{BSD allows a [[shutdown()]] call to succeed on an un-connected socket with a valid file
+descriptor, to close the sending end of the socket. The socket can no longer write, therefore
+further calls to [[connect()]] or [[listen()]] will fail with [[EINVAL]].
+\par
+The socket is now effectively useless, so it may be argued that it is undesirable to allow this
+behaviour. However, this does conform to the semantics of [[shutdown()]], so its operation
+in this case is purely an API design decision.}
+{[[shutdown_1]], [[connect_6]], [[listen_5]]}
+%---------------------------
+\bug{All}
+{TCP}
+{Treatment of [[OPEN_MAX]]}
+{Discussion}
+{The system constant [[OPEN_MAX]] is used as a maximum for the value of a file descriptor,
+rather than as a count of the maximum number of open ``files,'' as the name suggests. This
+means that if a process has fewer than 64 ``files'' open, it still cannot get an fd with value
+[[OPEN_MAX]] + 1. Given that most clients of the OS do not request specific fd's, this isn't
+much of an issue. However, this constant could be more appropriately named to something like
+[[MAX_FD]].}
+{N/A}
+%---------------------------
+\bug{\winxp}
+{TCP}
+{Reduced retransmit [[SYN]] time on receipt of invalid [[RST]]}
+{Bug} % see http://www.cl.cam.ac.uk/~smb50/tthee/batch/autotest-tcp-2004-04-16T18:08:08+0100/trace0069.html
+{In the usual case, WinXP performs a [[SYN]] retransmit after 3s (as is the case with the other
+architectures), but on receipt of an invalid [[RST]] it waits only 350ms.
+%  WinXP       BSD
+% ---------------------------
+%
+%  SYN  --->
+%       .
+%       100ms
+%        .
+%       <---    RST, ~ACK, invalid ack value
+%        .
+%       350ms
+%        .
+%  SYN  --->
+%
+}
+{[[timer_tt_rexmtsyn_1]]}
+%---------------------------
+\bug{\linux}
+{TCP}
+{Inverted writeability semantics in [[pselect()]]}
+{Discussion}
+% see autotest-tcp-2004-07-30T14:27:31+0100/2136..2146  BSD
+% see autotest-tcp-2004-07-30T14:27:31+0100/2201..2211  Linux
+% see autotest-udp-2004-05-25T00:00:00+0100/3356..3366  WinXP except 3362
+{On a socket that has been shutdown in the write direction, Linux
+  reports non-writeable, whereas BSD and WinXP report writeable.
+  POSIX supports the historical (BSD and WinXP) behaviour.  It could
+  be argued that the Linux semantics makes good sense, but the
+  BSD/WinXP/POSIX semantics has the advantage of an unambiguous
+  definition, namely that a socket is readable/writeable iff a
+  blocking call to recv/send would return immediately (irrespective of
+  whether it succeeds or fails).
+}
+{[[pselect_*]], [[sowriteable]]}
+%---------------------------
+\bug{\bsd, \winxp}
+{TCP}
+{[[pselect()]] does not return readable/writeable for [[CLOSED]] socket}
+{Discussion}
+% see autotest-tcp-2004-07-30T14:27:31+0100/2136
+% see autotest-tcp-2004-07-30T14:27:31+0100/2201
+% see autotest-udp-2004-05-25T00:00:00+0100/3356
+{Attempting to call [[recv()]] or [[send()]] on a socket in the [[CLOSED]] state
+  returns immediately with an error on all OSes, but BSD and WinXP
+  fail to report such sockets as readable and writeable in
+  [[pselect()]].  This deviates from the POSIX specification, that a
+  socket is readable/writeable iff a blocking call to recv/send would
+  return immediately (irrespective of whether it succeeds or fails).
+  Linux has the correct behaviour.
+}
+{[[pselect_*]], [[soreadable]], [[sowriteable]]}
+%---------------------------
+\bug{\bsd}
+{TCP}
+{Treatment of bad file descriptors by [[pselect()]]}
+{Discussion}
+% see autotest-tcp-2004-07-30T14:27:31+0100/2086 (BSD)
+% see autotest-tcp-2004-07-30T14:27:31+0100/2151 (linux)
+{If a call to [[pselect()]] is made, giving one or more invalid file descriptors, the
+POSIX specification required that the call fail with [[EBADF]]. This behaviour is
+seen correctly under Linux. BSD, however, successfully returns the call, selecting true
+for each of the ready to read, ready to write, and error conditions on the bad fd.
+It could be argued that this behaviour is valid, in that (for example) a call to
+[[recv()]] with [[O_NONBLOCK]] clear would not block, but fail immediately with the
+error [[EBADF]]. This seems to be the interpretation of the semantics that BSD has
+taken. However, this behaviour is not POSIX compliant, and the programmer does not
+gain anything due to this (other than possible confusion), since the [[EBADF]] failure
+is simply being postponed.
+}
+{[[pselect_*]]}
+%---------------------------
+\bug{\bsd}
+{TCP}
+{The receive window is updated on receipt of a bad segment}
+{Bug}
+% see autotest-tcp-2004-07-30T14:27:31+0100/1728
+{When [[tcp_input()]] is called under BSD, it updates the receive window of the socket
+([[rcv_wnd]]) before it processes the incoming segment. % see tcp_input.c::1049-1053
+This means that, although the segment may end up being dropped (possibly with an [[RST]])
+and therefore ignored by [[tcp_input()]] in other respects, the window update still occurs.
+\par
+Initially, when the TCP control block is attached to the socket by [[tcp_attach()]], the
+receive window [[rcv_wnd]] is initialised to the sysctl [[tcp_recvspace]] (which has a
+value of 57344 by default). Subsequent sent segments have this same window, until we receive
+a segment from the other end (i.e. [[tcp_input()]] is called). Note that the initial [[SYN]]
+of a passive open doesn't count, as this is handled by the BSD syncache.
+\par
+From the first received segment onwards, [[rcv_wnd]] is set by [[tcp_input()]] to the maximum
+of the space in the receive buffer and the current window being advertised. % see tcp_input.c::1052
+Since the receive buffer is initially empty, for a socket in state [[SYN_SENT]], [[rcv_wnd]] is
+set to the full receive buffer size, rounded to a multiple of the MSS. So, for Ethernet with
+timestamp options and a default value of [[tcp_recvspace]], this is 57920.
+\par
+Under most circumstances, this setting of the receive window will not cause it to change if the
+incoming segment is dropped, as it is calculated on the basis of the data currently in the receive
+buffer, and not in the segment that is currently being processed. However, for a socket in the
+[[SYN_SENT]] state, an effect \emph{is} seen, as we are updating from the default value. Thus,
+for subsequent retransmitted [[SYN]] segments, a different window is advertised. Although the
+impact of this is minor, it is quite clear that it is incorrect for a dropped incoming segment
+to alter the state of the socket.
+}
+{[[deliver_in_2]]}
+%---------------------------
+\bug{\bsd}
+{TCP}
+{Conditions under which [[tcp_mss()]] is called}
+{Bug}
+% see autotest-tcp-2004-07-30T14:27:31+0100/1728
+% see autotest-tcp-2004-07-30T14:27:31+0100/1428
+{The function [[tcp_input()]] carries out some updates to the socket state before processing
+the incoming segment. If the segment is not bound for a listening socket (which is dealt with
+by the syncache), then the first action taken is to process the options on a [[SYN]] segment!
+This means that regardless of the rest of the data on the segment, if it contains the [[SYN]]
+flag then its options are processed. This includes the MSS advertisment, for which [[tcp_mss()]]
+is called to set the value of [[t_maxseg]]. This is of course clamped to the peer's offer at
+the time of connection establishment (with a minimum value of 64 minus the TCP options), however
+a rogue [[SYN]] segment could be seen, dropped, and sent an [[RST]], and the socket's internal
+MSS value would still be updated on the basis of the advertisment seen.
+\par
+This opens up the potential for an attack, whereby the IP and port of the remote end of the
+socket are spoofed, and a [[SYN]] segment with extremely low MSS offer is sent to the socket.
+This would cause [[t_maxseg]] to be set to the minimum value allowed, thus the size of subsequently
+sent segments would be restricted, and data would be highly fragmented. In the case of bulk
+data transfer, this would cause a proliferation of packets on the network, which could result in
+denial of service effects.
+\par
+Another bug in the way in which BSD processes options on a [[SYN]] segment, is that [[tcp_mss()]]
+is only called if an MSS option was seen. This is incorrect, as the function is designed to
+deal with this scenario, and assume a default value. The effect of this, is that the value of
+[[t_maxseg]] remains at the default of 512, without the size of the options being subtracted
+from it. Furthermore, since we rely on [[tcp_mss()]] to initialise [[snd_cwnd]], in the case
+where no MSS option is seen, the congestion window remains at some very large initial value.
+This is clearly very detrimental to the TCP congestion control!
+\par
+A point of note is that the option processing in the syncache behaves correctly, thus
+[[tcp_mss()]] is always called on initiation of a passive open.
+}
+{[[deliver_in_2]],[[deliver_in_3]]}% TODO: our deliver_in SYN rules don't currently capture BSD's buggy behaviour
+%---------------------------
+\bug{\bsd}
+{TCP}
+{[[rcv_wnd]] and [[rcv_adv]] are updated differently by a [[SYN_SENT]] and [[SYN_RECEIVED]] socket}
+{Bug}
+% see autotest-tcp-2004-07-30T14:27:31+0100/0990
+{The movement of passive open processing from [[tcp_input()]] to the syncache has caused some
+differences between the behaviour of [[SYN_SENT]] and [[SYN_RECEIVED]] sockets that was not previously
+there. One of these discrepancies relates to the update of the receive window. This is done in
+[[tcp_input()]], but only after the case of a listening socket has been dealt with. On completion
+of a passive open, the syncache creates a new [[SYN_RECEIVED]] socket, which is passed back to
+[[tcp_input()]] for further processing. However, the value of [[rcv_adv]] is incorrectly updated
+by the syncache before [[rcv_wnd]] gets updated. The effect is that although [[rcv_wnd]] still
+expands to its full size (the size of the receive buffer, rounded to a multiple of [[t_maxseg]]),
+[[rcv_adv]] remains limited by its initial default value. Contrast this to the [[SYN_SENT]]
+behaviour, which updates [[rcv_adv]] after updating [[rcv_wnd]].
+\par
+Note that this behaviour doesn't affect the operation from the point of view of window advertisments
+seen on segments, since [[rcv_adv]] is updated to the correct value by [[tcp_output()]] when a
+segment is next emitted. This behaviour does, however, cause internal inconsistency (and is indeed
+inconsistent between the two socket states), so should be labelled as an implementation bug.
+}
+{[[deliver_in_3]]}
+%---------------------------
+\bug{\bsd}
+{TCP}
+{MTU used by [[tcp_mss()]] compared with [[tcp_mssopt()]]}
+{Discussion}
+% see autotest-tcp-2004-07-30T14:27:31+0100/296
+{In the calculation of both the MSS to advertise, and the MSS to use internally ([[t_maxseg]]),
+TCP consults the MTU of the underlying interface. There is, however, a discrepancy between
+the calculation in [[tcp_mss()]] (which stores the internal, negotiated value), and
+[[tcp_mssopt()]] (which calculates the advertised value). In the former, we use the MTU
+stored in the routing table metric cache in preference to the actual interface MTU, however
+the latter always uses the interface's MTU.
+\par
+It clearly makes sense for us to advertise our actual MTU for a new connection, rather than
+a cached value, since the aim is to find the maximum possible MSS that satisfies both ends
+and the link. The problem arises in that the two MTU values may differ, so it is possible
+for us to internally enforce a small MSS, even when both ends have advertised a much larger
+value. Note that TCP does not cache the route MTU in [[tcp_close()]], as it does with other
+metrics such as the round trip time.
+\par
+The argument may be placed either for or against the use of the cached MTU in [[tcp_mss()]].
+The main disadvantage is that we may be arbitrarily clipping the MSS to a much smaller value
+than is necessary. However, of course, the current behaviour enables the user to have control
+over the MTU used, if that is required. Unfortunately, this does mean that bugs in the routing
+table cache entries may affect TCP in this respect, as the bug described below illustrates.
+}
+{[[calculate_buf_sizes]]}
+%---------------------------
+\bug{\bsd}
+{TCP}
+{MTU stored in routing table entry to local IP}
+{Bug}
+% see autotest-tcp-2004-07-30T14:27:31+0100/296
+{Routing table entries may have the [[RTF_CLONING]] flag set in order to allow separate metrics
+to be cached for each individual route in a subnet, without having to manually enter a separate
+entry for each. Thus the system administrator may create a generic route to a subnet, which is
+cloned whenever a specific route is required, by TCP for example. This specific entry is created
+by case [[RTM_RESOLVE]] in [[rtrequest()]], which copies across the route metrics (including MTU),
+and then calls [[link_rtrequest]] % from ifa->ifa_rtrequest
+to update the interface of the entry. % net/route.c::754
+\par
+Consider the case of the local subnet. This will usually have the interface ep0 (in the case of an
+Ethernet adapter), hence an MTU of 1500. If we then clone to get a route to the IP address of
+the adapter itself, then this copies the MTU of 1500 across, but updates the interface to lo0,
+since we will use loopback in this case. However, the default MTU of the loopback interface is
+16384, so this results in us severely throttling the MTU used by any protocol (such as TCP) that
+looks at the cached value. Note that there is no problem if we connect explicitly to the loopback
+address 127.0.0.1, since the MTU cached in this routing table entry is correct.
+}
+{N/A}
+%---------------------------
+\bug{\bsd, \linux}
+{TCP}
+{Return mode of [[connect()]] for non-blocking sockets}
+{Discussion}
+{Under the usual circumstances, a call to [[connect()]] on a non-blocking socket will fail with
+[[EINPROGRESS]], rather than blocking until the socket becomes [[ESTABLISHED]]. An interesting
+situation, however, arises when the connection is made over the loopback interface. Under
+BSD, the call to [[connect()]] proceeds to emit the initial [[SYN]] segment. However, since this
+is being sent over loopback, it is received again almost immediately, and an interrupt is thrown,
+allowing the underlying layers and then TCP to process the segment.
+\par
+In this way, the segment exchange occurs so fast that the socket has connected before the thread
+that called [[connect()]] regains control. When it does, it sees that the socket has been connected,
+and therefore returns with success rather than failing with [[EINPROGRESS]]. Note that since this
+behaviour is due to timing, it may also be possible for the [[connect()]] call to return before all the
+segments have been sent; for example if there was an artificially imposed delay on the loopback
+interface.
+\par
+Linux does not exhibit this behaviour, and the [[connect()]] call fails with [[EINPROGRESS]] under
+this circumstance (though the socket does become [[ESTABLISHED]] before the call returns). The
+argument may be made in favour of either case, though it seems that the approach taken by Linux
+is more consistent with the semantics of a non-blocking socket. The BSD behaviour is not
+incorrect though, and is hinted at in the man page, which states that [[EINPROGRESS]] will
+be returned if ``the socket is non-blocking and the connection cannot be completed immediately.''
+}
+{[[connect_1]]}
+%---------------------------
+\bug{\bsd, \linux} % more a description of 'why it is so' rather than a bug
+{TCP}
+{The syncache entries of a listening socket are not sent [[RST]]s when [[close()]] is called}
+{Discussion}
+{A traditional listening TCP socket has two queues, [[q0]] and [[q]], which correspond to
+[[SYN_RECEIVED]] and [[ESTABLISHED]] sockets respectively. Of course, in current implementations,
+the former is replaced by the syncache. When a [[close()]] call is made on a listening socket,
+both BSD and Linux send [[RST]] segments to the sockets in the listen queue [[q]], but not to
+those in the syncache. One can argue that this behaviour is incorrect, since we have received
+a [[SYN]] segment from the remote host, and therefore have an obligation to [[RST]] their
+socket. On the other hand, the point of a syncache is to prevent denial of service attacks
+due to [[SYN]] flooding. We therefore don't know whether a given entry is an actual
+connection request, or a probing [[SYN]]. Therefore, we do not wish to send out an [[RST]] to
+such entries, as this may only serve to worsen the problem if packet flooding is taking
+place. The current behaviour therefore appears to be perfectly valid.
+}
+{[[close_8]]}
+%---------------------------
+\bug{\bsd}
+{TCP}
+{Processing of data in a [[SYN,ACK]] segment}
+{Discussion}
+{Under the T/TCP (transactional TCP) protocol, data may be sent before a connection is
+established. We therefore need to support the sending and receiving of data on a
+[[SYN,ACK]] segment in order to support T/TCP. Under BSD, the behaviour seen in
+[[tcp_input()]] is such that we process the [[SYN]] flag early on (for a socket in
+the [[SYN_SENT]] state), and then continue to pass flow through to the data processing
+code. The effect of this, is that data arriving on a [[SYN,ACK]] segment is handled
+by BSD no differently to on any other segment (regardless of whether we use T/TCP).
+\par
+The question arises, however, as to whether it is possible to receive data on a
+[[SYN,ACK]] segment when not using T/TCP. The answer is both yes and no. From
+the point of view of the sender, we should never send any data on such a segment,
+because the socket is not yet [[ESTABLISHED]]. From the perspective of the receiver,
+however, there does not appear to be anything awry. We have received a [[SYN]], which
+has been processed to move us into the [[ESTABLISHED]] state, at which point it is
+valid to process the data. Since TCP is a stream protocol, then it should make no
+difference as to what arbitrary points the data stream is split into segments, so
+data on a [[SYN,ACK]] should be treated no differently to the same data on a seperate
+and subsequent segment.
+\par
+The issue here, therefore, is not that BSD is incorrect in processing data on a
+[[SYN,ACK]], but rather that the remote end is incorrect to send data on such
+a segment. So perhaps BSD should either not process data on a [[SYN,ACK]] segment,
+or drop all [[SYN,ACK]] segments containing data (or more generally all [[SYN]]
+segments), because of the indication that the remote end is behaving incorrectly.
+}
+{[[deliver_in_2]]}
+%---------------------------
+\bug{\bsd, \linux}
+{TCP}
+{Path MTU plateau table}
+{Discussion}
+{ Path MTU discovery makes use of a table of likely Internet path MTU
+  ``plateaux''.  BSD uses the table that appears in RFC1191 (November
+  1990); Linux uses that table with the addition of three X.25-related
+  MTUs (576, 216, 128) and the deletion of SLIP's and ARPANET's 1006.
+
+  Discussion on comp.protocols.tcp-ip, Sun, 15 Feb 2004 01:38:26
+  -0000, <102tjcifv6vgm02@corp.supernews.com>, kml@bayarea.net (Kevin
+  Lahey) suggests that this is out-of-date, and 2312 (WiFi 802.11),
+  9180 (common ATM), and 9000 (jumbo Ethernet) should be added.  For
+  some polemic discussion, see \url{http://www.psc.edu/~mathis/MTU/}.
+  Indeed, RFC1191 itself says explicitly ``We do not expect that the
+  values in the table [...] are going to be valid forever.  The values
+  given here are an implementation suggestion, NOT a specification or
+  requirement.  Implementors should use up-to-date references to pick
+  a set of plateaus [...]''.
+
+  BSD and Linux are therefore not compliant here.  This table should
+  be extended so as to be representative of the modern Internet.
+
+  (not tested on Windows).
+}
+{[[mtu_tab, deliver_in_icmp_2]]}
+%---------------------------
+\bug{\bsd}
+{TCP}
+{Duplicate ACK detection ignores FIN}
+{Discussion}
+{ In BSD at least, duplicate ACK detection ignores whether FIN is set
+  or not.  Further, the third (or later) duplicate ACK is dropped on
+  the floor without further processing - in particular, without
+  reaching FIN processing.
+
+  This means that in a sequence of segments ACK, ACK, ACK, ACK+FIN,
+  the FIN would be ignored, with the last segment treated as a
+  duplicate like all the others, and triggering a retransmit.  While
+  the retransmit is (arguably) correct, not noticing the FIN is bad.
+}
+{[[di3_ackstuff]]}
+%---------------------------
+\bug{\bsd}
+{TCP}
+{Received urgent pointer not updated in fast path}
+{Bug}
+{ The urgent pointer stored in the receiver is not updated in the fast
+  path (header prediction succeeded) deliver-in code.
+
+  Normally, with each segment that is received, if the urgent flag is
+  not set then the stored [[rcv_up]] is still pulled along with the
+  left edge of the window.  This ensures that later urgent-pointer
+  comparison is not confused by the 2GB wraparound.
+
+  Omitting this in the fast path means that if 2GB of data is received
+  in the fast path (i.e., always in order, always enough buffer space,
+  no urgent flag set, etc.), [[rcv_up]] appears to be in the future.
+  If now the urgent flag is set in an incoming segment, this will be
+  ignored (since a later urgent pointer apparently exists).
+  Eventually (after another 2GB of data, not necessarily on the fast
+  path) the spurious urgent sequence number will be reached; however
+  the byte will not be erroneously treated as urgent, since URG and
+  urp of the segment need to be set for this to occur.  Once this
+  point is passed, behaviour returns to normal.
+
+  This situation is surely rare, but conceivable, in practice.  Since
+  the default is for OOB data to be received out-of-line, this means
+  that a well-behaved, in-order connection (e.g., one with a fairly
+  low data rate) with no urgent data for 2GB will forfeit the ability
+  to signal urgent data for the subsequent 2GB.
+}
+{[[deliver_in_3]]}
+
+
+% bug template: please copy and paste me.
+% %---------------------------
+% \bug{\bsd, \linux}
+% {TCP}
+% {Title}
+% {Category}
+% { Content
+% }
+% {[[deliver_in_1, deliver_in_3]]}
+
+
+\end{document}
+
+%%% Local Variables:
+%%% LaTeX-label-sequence-N: 1
+%%% LaTeX-label-prefix: "a"
+%%% End:

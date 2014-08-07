@@ -1,0 +1,12 @@
+*** in_systm.h	Tue Feb  4 11:05:14 2003
+--- in_systm.h	Tue Feb  4 11:08:25 2003
+***************
+*** 57,62 ****
+--- 57,63 ----
+
+  #ifdef _KERNEL
+  n_time	 iptime __P((void));
++ void iptime_usec __P((struct timeval*));
+  #endif
+
+  #endif

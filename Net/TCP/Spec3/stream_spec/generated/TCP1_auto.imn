@@ -1,0 +1,175 @@
+(*[ NOECHO ]*)
+(*[ AUX_LIST
+(* automatically generated; do not edit *)
+<> ASSERTION_FAILURE CONCAT_OPTIONAL DROP INSERT_ORDERED MAP_OPTIONAL NOTIN NOTIN' ORDERINGS REPLICATE SPLIT SPLIT_REV SPLIT_REV_0 TAKE TAKEWHILE TAKEWHILE_REV clip_int_to_num decr_list fm_exists funupd funupd_list left_shift_num notinlist num_floor num_floor_and_frac onlywhen real_of_int right_shift_num rounddown roundup
+]*)
+(*[ TYPE_LIST
+(* automatically generated; do not edit *)
+error
+]*)
+(*[ CON_LIST
+(* automatically generated; do not edit *)
+E2BIG EACCES EADDRINUSE EADDRNOTAVAIL EAFNOSUPPORT EAGAIN EALREADY EBADF EBADMSG EBUSY ECANCELED ECHILD ECONNABORTED ECONNREFUSED ECONNRESET EDEADLK EDESTADDRREQ EDOM EDQUOT EEXIST EFAULT EFBIG EHOSTDOWN EHOSTUNREACH EIDRM EILSEQ EINPROGRESS EINTR EINVAL EIO EISCONN EISDIR ELOOP EMFILE EMLINK EMSGSIZE EMULTIHOP ENAMETOOLONG ENETDOWN ENETRESET ENETUNREACH ENFILE ENOBUFS ENODATA ENODEV ENOENT ENOEXEC ENOLCK ENOLINK ENOMEM ENOMSG ENOPROTOOPT ENOSPC ENOSR ENOSTR ENOSYS ENOTCONN ENOTDIR ENOTEMPTY ENOTSOCK ENOTSUP ENOTTY ENXIO EOPNOTSUPP EOVERFLOW EPERM EPIPE EPROTO EPROTONOSUPPORT EPROTOTYPE ERANGE EROFS ESHUTDOWN ESPIPE ESRCH ESTALE ETIME ETIMEDOUT ETXTBSY EWOULDBLOCK EXDEV
+]*)
+(*[ TYPE_LIST
+(* automatically generated; do not edit *)
+signal
+]*)
+(*[ CON_LIST
+(* automatically generated; do not edit *)
+SIGABRT SIGALRM SIGBUS SIGCHLD SIGCONT SIGFPE SIGHUP SIGILL SIGINT SIGKILL SIGPIPE SIGPOLL SIGPROF SIGQUIT SIGSEGV SIGSTOP SIGSYS SIGTERM SIGTRAP SIGTSTP SIGTTIN SIGTTOU SIGURG SIGUSR1 SIGUSR2 SIGVTALRM SIGXCPU SIGXFSZ
+]*)
+(*[ TYPE_LIST
+(* automatically generated; do not edit *)
+TLang TLang_type err errTCP1_baseTypes34 fd filebflag ifid ip listTCP1_baseTypes36 msgbflag netmask optionTCP1_baseTypes35 port prodTCP1_baseTypes33 prodTCP1_baseTypes9 seq32 sockbflag socknflag socktflag socktype tcpForeign tcpLocal tid time tstamp
+]*)
+(*[ CON_LIST
+(* automatically generated; do not edit *)
+ETH FAIL FD LO MSG_DONTWAIT MSG_OOB MSG_PEEK MSG_WAITALL NETMASK OK O_ASYNC O_NONBLOCK Port SEQ32 SOCK_DGRAM SOCK_STREAM SO_BSDCOMPAT SO_DONTROUTE SO_KEEPALIVE SO_LINGER SO_OOBINLINE SO_RCVBUF SO_RCVLOWAT SO_RCVTIMEO SO_REUSEADDR SO_SNDBUF SO_SNDLOWAT SO_SNDTIMEO TID TL_bool TL_err TL_error TL_fd TL_filebflag TL_ifid TL_int TL_ip TL_list TL_netmask TL_one TL_option TL_pair TL_port TL_signal TL_sockbflag TL_socknflag TL_socktflag TL_socktype TL_string TL_tid TLty_bool TLty_err TLty_error TLty_fd TLty_filebflag TLty_ifid TLty_int TLty_ip TLty_lift TLty_list TLty_netmask TLty_one TLty_pair TLty_port TLty_signal TLty_sockbflag TLty_socknflag TLty_socktflag TLty_socktype TLty_string TLty_tid TcpForeign TcpLocal Tstamp time_infty
+]*)
+(*[ AUX_LIST
+(* automatically generated; do not edit *)
+FAIL' OK' OK'_bool OK'_err OK'_error OK'_errorlift OK'_fd OK'_fdipport OK'_fdlisttriple OK'_fileflags OK'_getifaddrs_ret OK'_ifid OK'_int OK'_int_option OK'_intpair_option OK'_ip OK'_ipport OK'_ipportlift OK'_list OK'_netmask OK'_one OK'_option OK'_pair OK'_port OK'_sockbflag OK'_socknflag OK'_socktflag OK'_string OK'_string_ipportpair_pair OK'_tid abstime duration real_mult_time realopt_of_time seq32_coerce seq32_diff seq32_fromto seq32_geq seq32_gt seq32_leq seq32_lt seq32_max seq32_min seq32_minus seq32_minus' seq32_plus seq32_plus' tcp_seq_foreign tcp_seq_foreign_to_local tcp_seq_local tcp_seq_local_to_foreign the_time time_gt time_gte time_lt time_lte time_max time_min time_minus_dur time_plus_dur time_zero ts_seq
+]*)
+(*[ TYPE_LIST
+(* automatically generated; do not edit *)
+icmpDatagram icmpDatagram_brss__0 icmpDatagram_brss__1 icmpType icmp_paramprob_code icmp_redirect_code icmp_source_quench_code icmp_time_exceeded_code icmp_unreach_code msg protocol tcpSegment tcpSegment_brss__0 tcpSegment_brss__1 tcpSegment_brss__2 udpDatagram
+]*)
+(*[ CON_LIST
+(* automatically generated; do not edit *)
+BADHDR FILTER_PROHIB HOST HOST_PROHIB HOST_UNKNOWN ICMP ICMP_PARAMPROB ICMP_REDIRECT ICMP_SOURCE_QUENCH ICMP_TIME_EXCEEDED ICMP_UNREACH INTRANS ISOLATED NEEDFRAG NEEDOPT NET NET_PROHIB NET_UNKNOWN OTHER PORT PP_OTHER PREC_CUTOFF PREC_VIOLATION PROTOCOL PROTO_TCP PROTO_UDP QUENCH RD_HOST RD_NET RD_OTHER RD_TOSHOST RD_TOSNET REASS SQ_OTHER SRCFAIL TCP TOSHOST TOSNET TX_OTHER UDP
+]*)
+(*[ FIELD_LIST
+(* automatically generated; do not edit *)
+ACK FIN PSH RST SYN URG ack data is1 is2 is3 is4 mss proto ps1 ps2 ps3 ps4 seq t ts urp win ws
+]*)
+(*[ AUX_LIST
+(* automatically generated; do not edit *)
+msg_is1 msg_is2 sane_msg sane_seg sane_udpdgm
+]*)
+(*[ TYPE_LIST
+(* automatically generated; do not edit *)
+Lhost0
+]*)
+(*[ CON_LIST
+(* automatically generated; do not edit *)
+Lh_call Lh_epsilon Lh_interface Lh_loopdatagram Lh_recvdatagram Lh_return Lh_senddatagram Lh_tau Lh_trace
+]*)
+(*[ TYPE_LIST
+(* automatically generated; do not edit *)
+stopwatch ticker timed timer timewindow
+]*)
+(*[ CON_LIST
+(* automatically generated; do not edit *)
+Stopwatch Ticker TimeWindow TimeWindowClosed Timed Timer
+]*)
+(*[ AUX_LIST
+(* automatically generated; do not edit *)
+Time_Pass_stopwatch Time_Pass_ticker Time_Pass_timed Time_Pass_timer Time_Pass_timewindow fuzzy_timer never_timer opttorel sharp_timer stopwatch_val_of tick_imax tick_imin ticker_ok ticks_of time_pass_additive time_pass_trajectory timed_expires timed_timer_of timed_val_of timer_expires timewindow_open timewindow_val_of upper_timer
+]*)
+(*[ TYPE_LIST
+(* automatically generated; do not edit *)
+bandlim_reason dgram dgram_error dgram_msg hostParams hostThreadState hostid ifd routing_table_entry rule_cat rule_proto rule_status socket_listen tcpstate traceflavour udp_socket
+]*)
+(*[ CON_LIST
+(* automatically generated; do not edit *)
+Accept2 Aux BANDLIM_RST_CLOSEDPORT BANDLIM_RST_OPENPORT BANDLIM_UNLIMITED CLOSED CLOSE_WAIT CLOSING Close2 Connect2 Dgram_error Dgram_msg ESTABLISHED FIN_WAIT_1 FIN_WAIT_2 LAST_ACK LISTEN PSelect2 Recv2 Ret Run SYN_RECEIVED SYN_SENT Send2 TA_DROP TA_INPUT TA_OUTPUT TA_RESPOND TA_USER TIME_WAIT Test badfail block fail fast misc network rp_all rp_tcp rp_udp slow succeed
+]*)
+(*[ FIELD_LIST
+(* automatically generated; do not edit *)
+data destination_ip destination_netmask e ifid ipset is max_eph_port min_eph_port netmask primary ps q q0 qlimit rcvq up
+]*)
+(*[ AUX_LIST
+(* automatically generated; do not edit *)
+INADDR_BROADCAST IN_MULTICAST IP LOOPBACK_ADDRS accept_incoming_q accept_incoming_q0 auto_outroute bsd_arch dequeue dequeue_iq dequeue_oq drop_from_q0 enqueue enqueue_iq enqueue_list enqueue_list_qinfo enqueue_oq enqueue_oq_list enqueue_oq_list_qinfo fast_timer fdle fdlt fid_ref_count if_any if_broadcast ifid_up in_local in_loopback inqueue_timer ip_localhost is_broadormulticast is_localnet is_urgent kern_timer leastfd linux_arch local_ips local_primary_ips loopback_on_wire mask mask_bits nextfd nonurgent outqueue_timer outroute outroute_ifids route_and_enqueue_oq routeable sched_timer slow_timer test_outroute test_outroute_ip time_of_tltime time_of_tltimeopt tltimeopt_of_time tltimeopt_wf unix_arch urgent windows_arch
+]*)
+(*[ TYPE_LIST
+(* automatically generated; do not edit *)
+host host_brss__0 host_brss__1 iobc protocol_info rexmtmode rttinf rttinf_brss__0 rttinf_brss__1 socket socket_brss__0 socket_brss__1 tcpReassSegment tcp_socket tcp_socket_brss__0 tcp_socket_brss__1 tcpcb tcpcb_brss__0 tcpcb_brss__1 tcpcb_brss__2 tcpcb_brss__3 tcpcb_brss__4 tcpcb_brss__5
+]*)
+(*[ CON_LIST
+(* automatically generated; do not edit *)
+HAD_OOBDATA NO_OOBDATA OOBDATA Persist Rexmt RexmtSyn TCP_PROTO UDP_PROTO
+]*)
+(*[ FIELD_LIST
+(* automatically generated; do not edit *)
+FIN arch bndlm bound bsd_cantconnect cantrcvmore cantsndmore cb data es fds fid files ifds iobc iq irs is1 is2 iss last_ack_sent lis listen oq params pr privs ps1 ps2 rcv_adv rcv_nxt rcv_scale rcv_up rcv_wnd rcvq rcvurp request_r_scale rttab seq sf snd_cwnd snd_cwnd_prev snd_max snd_nxt snd_recover snd_scale snd_ssthresh snd_ssthresh_prev snd_una snd_wl1 snd_wl2 snd_wnd sndq sndurp socks spliced_urp st t_advmss t_badrxtwin t_dupacks t_idletime t_lastrtt t_lastshift t_maxseg t_rttinf t_rttmin t_rttseg t_rttupdated t_rttvar t_segq t_softerror t_srtt t_wassyn tf_doing_tstmp tf_doing_ws tf_needfin tf_req_tstmp tf_rxwin0sent tf_shouldacknow tf_srtt_valid ticks ts ts_recent tt_2msl tt_conn_est tt_delack tt_fin_wait_2 tt_keep tt_rexmt
+]*)
+(*[ AUX_LIST
+(* automatically generated; do not edit *)
+Sock TCP_Sock TCP_Sock0 UDP_Sock UDP_Sock0 ephemeral_ports privileged_ports proto_eq proto_of tcp_sock_of tracecb_eq tracesock_eq udp_sock_of
+]*)
+(*[ TYPE_LIST
+(* automatically generated; do not edit *)
+arch fid file fileflags filetype sid sockflags
+]*)
+(*[ CON_LIST
+(* automatically generated; do not edit *)
+FID FT_Console FT_Socket FreeBSD_4_6_RELEASE Linux_2_4_20_8 SID WinXP_Prof_SP1
+]*)
+(*[ FIELD_LIST
+(* automatically generated; do not edit *)
+b ff ft n t
+]*)
+(*[ AUX_LIST
+(* automatically generated; do not edit *)
+BSD_RTTVAR_BUG FAST_TIMER_INTVL FAST_TIMER_MODEL_INTVL FD_SETSIZE File HZ INFINITE_RESOURCES KERN_TIMER_INTVL KERN_TIMER_MODEL_INTVL MCLBYTES MSIZE MSSDFLT OPEN_MAX OPEN_MAX_FD SB_MAX SLOW_TIMER_INTVL SLOW_TIMER_MODEL_INTVL SOMAXCONN SS_FLTSZ SS_FLTSZ_LOCAL TCPTV_DELACK TCPTV_KEEPCNT TCPTV_KEEPINTVL TCPTV_KEEP_IDLE TCPTV_KEEP_INIT TCPTV_MAXIDLE TCPTV_MIN TCPTV_MSL TCPTV_PERSMAX TCPTV_PERSMIN TCPTV_REXMTMAX TCPTV_RTOBASE TCPTV_RTTVARBASE TCP_BSD_BACKOFFS TCP_DO_NEWRENO TCP_LINUX_BACKOFFS TCP_MAXRXTSHIFT TCP_MAXWIN TCP_MAXWINSCALE TCP_Q0MAXLIMIT TCP_Q0MINLIMIT TCP_SYNACKMAXRXTSHIFT TCP_SYN_BSD_BACKOFFS TCP_SYN_LINUX_BACKOFFS TCP_SYN_WINXP_BACKOFFS TCP_WINXP_BACKOFFS UDPpayloadMax backlog_fudge diqmax doqmax dschedmax dtsinval ff_default ff_default_b oob_extra_sndbuf pselect_timeo_t_max sf_default sf_default_b sf_default_n sf_default_t sf_max_n sf_min_n sndrcv_timeo_t_max stopwatch_zero stopwatchfuzz tickintvlmax tickintvlmin
+]*)
+(*[ AUX_LIST
+(* automatically generated; do not edit *)
+andThen assert assert_failure autobind bandlim_rst_ok bandlim_rst_ok_always bandlim_rst_ok_simple bandlim_state_init bound_after bound_port_allowed bound_ports_protocol_autobind bsd_make_phantom_segment calculate_bsd_rcv_wnd calculate_buf_sizes calculate_tcp_options_len chooseM computed_rto computed_rxtcur cont do_tcp_options dosend dropwithreset dropwithreset_ignore_fail emit_segs emit_segs_pred enqueue_and_ignore_fail enqueue_each_and_ignore_fail enqueue_oq_bndlim_rst enqueue_or_fail enqueue_or_fail_sock expand_cwnd get_cb get_sock get_tcp_sock initial_cb lookup_icmp lookup_udp make_ack_segment make_rst_segment_from_cb make_rst_segment_from_seg make_syn_ack_segment make_syn_segment match_score mlift_dropafterack_or_fail mlift_tcp_output_perhaps_or_fail mliftc mliftc_bndlm mode_of modify_cb modify_sock modify_tcp_sock mtu_tab next_smaller rollback_tcp_output sane_socket send_queue_space shift_of simple_limit start_tt_persist start_tt_rexmt start_tt_rexmt_gen start_tt_rexmtsyn stop tcp_backoffs tcp_close tcp_drop_and_close tcp_output_perhaps tcp_output_really tcp_output_required tcp_reass tcp_reass_prune tcp_socket_best_match tcp_syn_backoffs update_idle update_rtt
+]*)
+(*[ AUX_LIST
+(* automatically generated; do not edit *)
+Time_Pass_host Time_Pass_socket Time_Pass_tcpcb Time_Pass_timedoption di3_ackstuff di3_datastuff di3_datastuff_really di3_newackstuff di3_socks_update di3_ststuff di3_topstuff fmap_every fmap_every_pred revimp soexceptional soreadable sowriteable
+]*)
+(*[ TYPE_LIST
+(* automatically generated; do not edit *)
+Lnet0
+]*)
+(*[ CON_LIST
+(* automatically generated; do not edit *)
+Ln0_call Ln0_epsilon Ln0_interface Ln0_return Ln0_tau Ln0_trace
+]*)
+(*[ AUX_LIST
+(* automatically generated; do not edit *)
+hosts_to_net
+]*)
+(*[ TYPE_LIST
+(* automatically generated; do not edit *)
+Lnet1
+]*)
+(*[ CON_LIST
+(* automatically generated; do not edit *)
+Ln1_epsilon Ln1_host
+]*)
+(*[ AUX_LIST
+(* automatically generated; do not edit *)
+Lnet1_to_Lnet0 is_initial_net is_net1_path
+]*)
+(*[ AUX_LIST
+(* automatically generated; do not edit *)
+dummy_cb dummy_socket dummy_sockets initial_host simple_host simple_ifd_eth simple_ifd_lo simple_rttab tid_initial
+]*)
+(*[ TYPE_LIST
+(* automatically generated; do not edit *)
+LIB_interface
+]*)
+(*[ LIB_LIST
+(* automatically generated; do not edit *)
+accept bind close connect disconnect dup dupfd getfileflags getifaddrs getpeername getsockbopt getsockerr getsocklistening getsockname getsocknopt getsocktopt listen pselect recv send setfileflags setsockbopt setsocknopt setsocktopt shutdown sockatmark socket
+]*)
+(*[ AUX_LIST
+(* automatically generated; do not edit *)
+fd_op fd_sockop retType
+]*)
+(*[ CLASS RULE "\tsrule" ]*)
+(*[ TYPE_LIST
+(* automatically generated; do not edit *)
+rule_ids
+]*)
+(*[ CLASS_LIST RULE
+(* automatically generated; do not edit *)
+FIXME accept_1 accept_2 accept_3 accept_4 accept_5 accept_6 accept_7 badf_1 bind_1 bind_2 bind_3 bind_5 bind_7 bind_9 close_1 close_10 close_2 close_3 close_4 close_5 close_6 close_7 close_8 connect_1 connect_10 connect_1a connect_2 connect_3 connect_4 connect_4a connect_5 connect_5a connect_5b connect_5c connect_5d connect_6 connect_7 connect_8 connect_9 deliver_in_1 deliver_in_1b deliver_in_2 deliver_in_2a deliver_in_3 deliver_in_3a deliver_in_3b deliver_in_3c deliver_in_4 deliver_in_5 deliver_in_6 deliver_in_7 deliver_in_7a deliver_in_7b deliver_in_7c deliver_in_7d deliver_in_8 deliver_in_9 deliver_in_99 deliver_in_99a deliver_in_icmp_1 deliver_in_icmp_2 deliver_in_icmp_3 deliver_in_icmp_4 deliver_in_icmp_5 deliver_in_icmp_6 deliver_in_icmp_7 deliver_in_udp_1 deliver_in_udp_2 deliver_in_udp_3 deliver_loop_99 deliver_out_1 deliver_out_99 disconnect_1 disconnect_2 disconnect_3 disconnect_4 disconnect_5 dup_1 dup_2 dupfd_1 dupfd_3 dupfd_4 epsilon_1 epsilon_2 getfileflags_1 getifaddrs_1 getpeername_1 getpeername_2 getsockbopt_1 getsockbopt_2 getsockerr_1 getsockerr_2 getsocklistening_1 getsocklistening_2 getsocklistening_3 getsockname_1 getsockname_2 getsockname_3 getsocknopt_1 getsocknopt_4 getsocktopt_1 getsocktopt_4 interface_1 intr_1 listen_1 listen_1b listen_1c listen_2 listen_3 listen_4 listen_5 listen_7 notsock_1 pselect_1 pselect_2 pselect_3 pselect_4 pselect_5 pselect_6 recv_1 recv_11 recv_12 recv_13 recv_14 recv_15 recv_16 recv_17 recv_2 recv_20 recv_21 recv_22 recv_23 recv_24 recv_3 recv_4 recv_5 recv_6 recv_7 recv_8 recv_8a recv_9 resourcefail_1 resourcefail_2 return_1 send_1 send_10 send_11 send_12 send_13 send_14 send_15 send_16 send_17 send_18 send_19 send_2 send_21 send_22 send_23 send_3 send_3a send_4 send_5 send_5a send_6 send_7 send_8 send_9 setfileflags_1 setsockbopt_1 setsockbopt_2 setsocknopt_1 setsocknopt_2 setsocknopt_4 setsocktopt_1 setsocktopt_4 setsocktopt_5 shutdown_1 shutdown_2 shutdown_3 shutdown_4 sockatmark_1 sockatmark_2 socket_1 socket_2 timer_tt_2msl_1 timer_tt_conn_est_1 timer_tt_delack_1 timer_tt_fin_wait_2_1 timer_tt_keep_1 timer_tt_persist_1 timer_tt_rexmt_1 timer_tt_rexmtsyn_1 trace_1 trace_2
+]*)
+(*[ ECHO ]*)
