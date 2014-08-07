@@ -1,7 +1,6 @@
-In this file, an initial 'X' on a line denotes a file that is
-CONFIDENTIAL and should be deleted from all public versions.  The
-filename should follow after a single space.  Obtain a list of all
-such files as follows:
+In this file, an initial 'X' on a line denotes a file that was not
+included in the public spec tarballs.  The filename should follow
+after a single space.  Obtain a list of all such files as follows:
 
 grep ^X MANIFEST | awk '{print $2}'
 
