@@ -2,7 +2,7 @@ In this file, an initial 'X' on a line denotes a file that was not
 included in the public spec tarballs.  The filename should follow
 after a single space.  Obtain a list of all such files as follows:
 
-grep ^X MANIFEST | awk '{print $2}'
+grep ^X README | awk '{print $2}'
 
 
 Evaluator
@@ -118,7 +118,7 @@ Specification
 Miscellaneous
 ~~~~~~~~~~~~~
 
-MANIFEST - this file
+README - this file
 
 glossary.mng - start of a glossary; never continued.
 
