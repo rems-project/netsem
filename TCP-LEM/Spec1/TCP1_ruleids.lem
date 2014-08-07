@@ -1,3 +1,4 @@
+(*
 (* A HOL98 specification of TCP *)
 
 (* Rule names for the host specification LTS *)
@@ -15,6 +16,8 @@ open HolDoc
 val _ = new_theory "TCP1_ruleids";
 
 val _ = Version.registerTheory "$RCSfile: TCP1_ruleidsScript.sml,v $" "$Revision: 1.22 $" "$Date: 2009/02/17 11:56:46 $";
+*)
+
 
 (*: @chapter [[TCP1_ruleids]] Rule names
 
@@ -32,9 +35,8 @@ We list here the names of all rules in the host LTS.
 
 :*)
 
-val _ =
-    Hol_datatype
-      `rule_ids = return_1
+type 
+      rule_ids = return_1
                 | socket_1 | socket_2
                 | accept_1 | accept_2 | accept_3 | accept_4 | accept_5 | accept_6 | accept_7
                 | bind_1 | bind_2 | bind_3 | bind_5 | bind_7 | bind_9
@@ -100,9 +102,9 @@ val _ =
                 | interface_1
                 | epsilon_1
 		| epsilon_2
-`;
+
 (* REMARK connect_1a is Spec3 only *)
 (* -------------------------------------------------- *)
-
+(*
 val _ = export_theory();
-
+*)

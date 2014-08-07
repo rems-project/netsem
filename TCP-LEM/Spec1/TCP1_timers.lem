@@ -23,6 +23,8 @@ val _ = new_theory "TCP1_timers";
 val _ = Version.registerTheory "$RCSfile: TCP1_timersScript.sml,v $" "$Revision: 1.60 $" "$Date: 2005/10/20 09:00:14 $";
 *)
 
+open import Pervasives_extra
+open TCP1_lemSupport
 open TCP1_baseTypes
 open TCP1_utils
 
@@ -68,7 +70,7 @@ specification.
 
    For each timer we define a constructor and a time-passage function.
    The time-passage function takes a duration (positive real) and a
-   timer, and returns either the timer, or [[NONE]] if time is not
+   timer, and returns either the timer, or [[None]] if time is not
    permitted by the timer to pass that far (i.e., an urgent instant
    would be passed).  Timers that never need to stop time do not
    return an option type.  Timers that behave nondeterministically are
@@ -95,8 +97,8 @@ Axioms of time, that all timers must satisfy.
 let
   time_pass_additive
                       (time_pass : (duration -> 'a -> 'a -> bool) )
-     = forall dur1 dur2 s0 s1 s2.
-         time_pass dur1 s0 s1 && time_pass dur2 s1 s2 --> time_pass (real_plus dur1 dur2) s0 s2
+     = forall dur1 dur2 s0 s1 s2.         
+(time_pass dur1 s0 s1 && time_pass dur2 s1 s2) --> time_pass (real_plus dur1 dur2) s0 s2
 (*: @description
 Property S1, additivity:
 %
@@ -108,16 +110,16 @@ let
                       (time_pass : (duration -> 'a -> 'a -> bool) )
      = forall dur s0 s1.
          time_pass dur s0 s1
-         -->
-         exists w.
-           w real_zero = s0 &&
-           w dur = s1 &&
-           forall t t'.
-             real_lte real_zero t && real_lte t dur &&
-             real_lte real_zero t' && real_lte t' dur &&
-             real_lt t t'
+         -->         
+(exists w.
+           w real_zero = s0 &&           
+(w dur = s1 &&           
+(forall t t'.             
+(real_lte real_zero t && (real_lte t dur &&             
+(real_lte real_zero t' && (real_lte t' dur &&
+             real_lt t t'))))
              -->
-             time_pass (real_minus t' t) (w t) (w t')
+             time_pass (real_minus t' t) (w t) (w t'))))
 
 (*: @description
 Property S2 is defined as follows:
@@ -144,8 +146,8 @@ let
   opttorel
             tp dur x y
      = match tp dur x with
-           Some x' -> y = x'
-        | None    -> false
+           Just x' -> y = x'
+        | Nothing    -> false
 end
 (*: @description
 Impedance-matching coercion.
@@ -168,16 +170,17 @@ beyond the maximum expiry time.
 (* building block for deadline timer and time-window timer *)
 type timer = Timer of (duration * time * time)  (* elapsed, min, max *)
 
+val fuzzy_timer : time -> duration -> duration -> timer
 let 
   (*: timer that goes off in the interval [[ [d-eps,d+fuz] ]], like a BSD ticks-based timer :*)
   (*: [[fuz]] is some fuzziness added to mask the atomic nature of the model. :*)
 
   fuzzy_timer (* fuzzy_timer : time -> duration -> duration -> timer *)
-               d eps fuz = Timer(real_zero,time_minus_dur d eps,time_plus_dur d fuz)
+               d eps fuz = Timer(real_zero,time_minus_dur (d:time) (eps:duration),time_plus_dur d (fuz:duration))
 
 let 
 (*: timer that goes off at exactly [[d]] after now :*)
-  sharp_timer d = fuzzy_timer d time_zero time_zero
+  sharp_timer d = fuzzy_timer (d:time) 0 0
  (*: @mergewithnext :*) 
 let 
 (*: timer that never goes off :*)
@@ -203,12 +206,12 @@ let
      in
      if time_lte (time e') deadmax
      then SOME (Timer(e',deadmin,deadmax))
-     else NONE
+     else None
 
-
-let _FIXME_assertion_Time_Pass_timer_additive =
+(* these are assertions, presumably in need of proof at some point *)
+let _assertion_Time_Pass_timer_additive =
   time_pass_additive (opttorel Time_Pass_timer)
-let _FIXME_assertion_Time_Pass_timer_trajectory =
+let _assertion_Time_Pass_timer_trajectory =
   time_pass_additive (opttorel Time_Pass_timer)
 
 
@@ -240,14 +243,14 @@ let
   Time_Pass_timed  (* Time_Pass_timed : duration -> 'a timed -> 'a timed option *)
      dur (Timed(x,d))
    = match Time_Pass_timer dur d with
-        Some d' -> Some (Timed(x,d'))
-     | None    -> None
+        Just d' -> Just (Timed(x,d'))
+     | Nothing    -> Nothing
 end
 
 
-let _FIXME_assertion_Time_Pass_timed_additive =
+let _assertion_Time_Pass_timed_additive =
   time_pass_additive (opttorel Time_Pass_timed)
-let _FIXME_assertion_Time_Pass_timed_trajectory =
+let _assertion_Time_Pass_timed_trajectory =
   time_pass_additive (opttorel Time_Pass_timed)
 
 
@@ -273,8 +276,8 @@ type timewindow 'a = TimeWindow of ('a * timer) | TimeWindowClosed
 
 let 
   timewindow_val_of x = (match x with
-  | (TimeWindow(x,_)) -> Some x 
-  |  TimeWindowClosed -> None end)
+  | (TimeWindow(x,_)) -> Just x 
+  |  TimeWindowClosed -> Nothing end)
 
 
 let 
@@ -287,14 +290,14 @@ let
      dur x tw'
    = (match x with
   | (TimeWindow(x,d)) -> (match Time_Pass_timer dur d with
-         None    -> tw' = TimeWindowClosed
-      | Some d' -> tw' = TimeWindow(x,d') ||
-                    (timer_expires d' && tw' = TimeWindowClosed) end) 
+         Nothing    -> tw' = TimeWindowClosed
+      | Just d' -> tw' = TimeWindow(x,d') ||
+                    (timer_expires d' && (tw' = TimeWindowClosed)) end) 
   | TimeWindowClosed  -> (tw' = TimeWindowClosed) end)
 
-let _FIXME_assertion_Time_Pass_timewindow_additive =
+let _assertion_Time_Pass_timewindow_additive =
   time_pass_additive Time_Pass_timewindow
-let _FIXME_assertion_Time_Pass_timewindow_trajectory =
+let _assertion_Time_Pass_timewindow_trajectory =
   time_pass_additive Time_Pass_timewindow
 
 
@@ -329,14 +332,14 @@ let
    = let d = real_plus remdr dur
      in
        exists delta remdr'.
-          real_lte (real_minus d (real_times (real_of_num delta) intvlmax)) remdr' &&
-          real_lte remdr' (real_minus d (real_times (real_of_num delta) intvlmin)) &&
-          real_lte real_zero remdr' && real_lt remdr' intvlmax &&
-          t' = Ticker(seq32_plus ticks delta, remdr', intvlmin, intvlmax)
+          real_lte (real_minus d (real_times (real_of_num delta) intvlmax)) remdr' &&          
+(real_lte remdr' (real_minus d (real_times (real_of_num delta) intvlmin)) &&          
+(real_lte real_zero remdr' && (real_lt remdr' intvlmax &&          
+(t' = Ticker(seq32_plus ticks delta, remdr', intvlmin, intvlmax)))))
 
 let
   ticker_ok (Ticker(ticks, remdr, imin, imax)) =
-    (real_lte real_zero remdr && real_lt remdr imax && real_lte imin imax && real_lt real_zero imin)
+    (real_lte real_zero remdr && (real_lt remdr imax && (real_lte imin imax && real_lt real_zero imin)))
 
 let
   tick_imin(Ticker(t,r,imin, imax)) = imin
@@ -345,9 +348,9 @@ let
   tick_imax(Ticker(t,r,imin,imax)) = imax
 
 
-let _FIXME_assertion_Time_Pass_ticker_additive =
+let _assertion_Time_Pass_ticker_additive =
   time_pass_additive Time_Pass_ticker
-let _FIXME_assertion_Time_Pass_ticker_trajectory =
+let _assertion_Time_Pass_ticker_trajectory =
   time_pass_trajectory Time_Pass_ticker
 
 
@@ -372,12 +375,12 @@ let
 let 
   Time_Pass_stopwatch (* Time_Pass_stopwatch : duration -> stopwatch -> stopwatch -> bool *)
     dur (Stopwatch(d,ratemin,ratemax)) s'
-   = exists rate. real_lte ratemin rate && real_lte rate ratemax &&
-     s' = Stopwatch(real_plus d (real_times dur rate),ratemin,ratemax)
+   = exists rate. real_lte ratemin rate && (real_lte rate ratemax &&     
+(s' = Stopwatch(real_plus d (real_times dur rate),ratemin,ratemax)))
 
-let _FIXME_assertion_Time_Pass_stopwatch_additive =
+let _assertion_Time_Pass_stopwatch_additive =
   time_pass_additive Time_Pass_stopwatch
-let _FIXME_assertion_Time_Pass_stopwatch_trajectory =
+let _assertion_Time_Pass_stopwatch_trajectory =
   time_pass_additive Time_Pass_stopwatch
 
 

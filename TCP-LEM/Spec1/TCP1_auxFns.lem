@@ -1,3 +1,4 @@
+(*
 (* A HOL98 specification of TCP *)
 
 (* Host auxiliary functions *)
@@ -29,6 +30,19 @@ val Term = Parse.Term;
 val _ = new_theory "TCP1_auxFns";
 
 val _ = Version.registerTheory "$RCSfile: TCP1_auxFnsScript.sml,v $" "$Revision: 1.224 $" "$Date: 2006/10/04 10:23:17 $";
+*)
+
+open import Pervasives_extra
+(* open import Transform *)
+open TCP1_lemSupport
+open TCP1_errors
+open TCP1_utils
+open TCP1_baseTypes
+open TCP1_timers
+open TCP1_params
+open TCP1_netTypes
+open TCP1_preHostTypes
+open TCP1_hostTypes
 
 (*: @chapter [[TCP1_auxFns]] Auxiliary functions
 
@@ -54,15 +68,17 @@ specification.
 :*)
 (* ------------------------------------------------------------------ *)
 
-val sane_socket_def = Phase.phase 1 Define`(*: socket sanity invariants hold :*)
-  sane_socket sock = case sock.pr of
+let (*: socket sanity invariants hold :*)
+  sane_socket sock = (match sock.pr with
                          TCP_PROTO tcp_sock ->
-                           (*LENGTH tcp_sock.rcvq <= sock.sf.n(SO_RCVBUF) /\  (* true?? *)*)
-                           LENGTH tcp_sock.rcvq <= TCP_MAXWIN << TCP_MAXWINSCALE (*/\*)
+                           (*LENGTH tcp_sock.rcvq <= sock.sf.n(SO_RCVBUF) &&  (* true?? *)*)
+                           LENGTH tcp_sock.rcvq <= shift_left TCP_MAXWIN TCP_MAXWINSCALE (*&&*)
                            (*LENGTH tcp_sock.sndq <= sock.sf.n(SO_SNDBUF)     (* true?? *)*)
-                       || UDP_PROTO udp_sock ->
+                       | UDP_PROTO udp_sock ->
                            T
-`
+end)
+
+
 (*:
 @description
  There are some demonstrable invariants on a socket; this definition
@@ -70,7 +86,7 @@ val sane_socket_def = Phase.phase 1 Define`(*: socket sanity invariants hold :*)
  the symbolic evaluator.
 
 :*)
-;
+
 
 
 
@@ -81,7 +97,7 @@ val sane_socket_def = Phase.phase 1 Define`(*: socket sanity invariants hold :*)
 Both TCP and UDP have a concept of a socket being \emph{bound} to a
 local port, which means that that socket may receive datagrams
 addressed to that port.  A specific local IP address may also be
-specified, and a remote IP address and/or port.  This `quadruple'
+specified, and a remote IP address and/or port.  This quadruple'
 (really a quintuple, since the protocol is also relevant) is used to
 determine the socket that best matches an incoming datagram.
 
@@ -96,38 +112,38 @@ user does not specify one.
 
 
 (* DON'T phase: in betters *)
-val bound_ports_protocol_autobind_def  = Define `(*: the set of ports currently bound by a socket for a protocol :*)
-  bound_ports_protocol_autobind pr socks = {p | ?s:socket.
-						 s IN FRANGE socks /\ s.ps1 = SOME p /\
-                                                 proto_of s.pr = pr}
-`(*:
+let (*: the set of ports currently bound by a socket for a protocol :*)
+  bound_ports_protocol_autobind pr socks = {p | exists s. (* s:socket *)
+						 s IN FRANGE socks && (s.ps1 = SOME p &&                                                 
+(proto_of s.pr = pr))}
+(*:
 @description
 Rebinding of ports already bound is often restricted. [[bound_ports_protocol_autobind]] is a list of all ports having
 a socket of the given protocol binding that port.
 
 :*)
-;
+
 
 
 
 (* DON'T phase: in betters *)
-val bound_port_allowed_def = Define`(*: is it permitted to bind the given (IP,port) pair? :*)
-  bound_port_allowed pr socks sf arch is p =
-    p NOTIN
-     {port | ?s:socket.
-        s IN FRANGE socks /\ s.ps1 = SOME port /\
-        proto_eq s.pr pr /\
-        (if bsd_arch arch /\ SO_REUSEADDR IN sf.b then
-           s.is2 = NONE /\ s.is1 = is
-         else if linux_arch arch /\ SO_REUSEADDR IN sf.b /\ SO_REUSEADDR IN s.sf.b /\
-                 ((?tcp_sock. TCP_PROTO(tcp_sock) = s.pr /\ ~(tcp_sock.st = LISTEN)) \/
-                   ?udp_sock. UDP_PROTO(udp_sock) = s.pr) then
+let (*: is it permitted to bind the given (IP,port) pair? :*)
+  bound_port_allowed pr socks sf arch is p = (
+    NOTIN (p:port) 
+     {port | exists s (*s:socket*).
+        s IN FRANGE socks && (s.ps1 = SOME port &&        
+(proto_eq s.pr pr &&
+        (if bsd_arch arch && (SO_REUSEADDR IN (set_of_bool_fn sf.b1)) then
+           s.is2 = None && (s.is1 = is)
+         else if linux_arch arch && (SO_REUSEADDR IN (set_of_bool_fn sf.b1) && (SO_REUSEADDR IN (set_of_bool_fn s.sf.b1) &&
+                 ((exists tcp_sock. (TCP_PROTO(tcp_sock) = s.pr) && not (tcp_sock.st = LISTEN)) ||                   
+(exists udp_sock. UDP_PROTO(udp_sock) = s.pr)))) then
             F (* If socket is not in LISTEN state or is a UDP socket can always rebind here *)
-	 else if windows_arch arch /\ SO_REUSEADDR IN sf.b then
+	 else if windows_arch arch && (SO_REUSEADDR IN (set_of_bool_fn sf.b1)) then
 	    F (* can rebind any UDP address; not sure about TCP - assume the same for now *)
          else
-            (is = NONE \/ s.is1 = NONE \/ (?i:ip. is = SOME i /\ s.is1 = SOME i))) }
-`
+            (is = None || (s.is1 = None || (exists i (*i:ip*). is = SOME i && (s.is1 = SOME i))))))) })
+
 (*:
 @description
    This determines whether binding a socket (of protocol [[pr]]) to local address [[is,p]] is
@@ -137,43 +153,50 @@ val bound_port_allowed_def = Define`(*: is it permitted to bind the given (IP,po
    and Linux through exhaustive manual verification.
    Note: WinXP is still to be checked.
 :*)
-;
+
 
 (* old bound_ports_protocol and bound_ipports_protocol removed;
 OBSELETED by bound_port_allowed.  See CVS, v1.166 and before *)
 
-val autobind_def = Phase.phase 1 Define`(*: set of ports available for autobinding :*)
-  autobind(SOME p,_,_,_) = {p} /\
-  autobind(NONE,pr,h,socks) = (ephemeral_ports h) DIFF (bound_ports_protocol_autobind pr socks)
-`
+let (*: set of ports available for autobinding :*)
+  autobind x = (match x with 
+  | (Just p,_,_,_) -> {p} 
+  | (Nothing,pr,h,socks) -> DIFF (ephemeral_ports h) (bound_ports_protocol_autobind pr socks)
+end)
+
 (*:
 @description
 Note that [[SO_REUSEADDR]] is not considered when choosing a port to
 autobind to.
 
-:*);
+:*)
 
-val bound_after_def = Phase.phase 1 Define `(*: was [[sid]] bound more recently than [[sid']]? :*)
-  bound_after (sid:sid) sid' [] = ASSERTION_FAILURE "bound_after" (* should never reach this case *) /\
-  bound_after sid sid' (sid0::bound) =
+let rec (*: was [[sid]] bound more recently than [[sid']]? :*)
+  bound_after sid sid' xs = (match xs with
+  | [] -> ASSERTION_FAILURE "bound_after" (* should never reach this case *) 
+  | (sid0::bound) -> (
     if sid = sid0 then T  (* newly-bound sockets are added to the head *)
     else if sid' = sid0 then F
-	else bound_after sid sid' bound
-`(*:@mergewithnext:*);
+	else bound_after sid sid' bound)
+end)
+(*:@mergewithnext:*)
 
-val match_score_def =
-  Phase.phase 1  Define`(*: score the match against the given pattern of the given quadruple :*)
-    (match_score (_:ip option,NONE:port option,_:ip option,_:port option) _ = 0n) /\
-    (match_score (NONE, SOME p1, NONE, NONE) (i3,ps3,i4,ps4) =
-       if ps4 = SOME p1 then 1 else 0) /\
-    (match_score (SOME i1, SOME p1, NONE, NONE) (i3,ps3,i4,ps4) =
-       if (i1 = i4) /\ (SOME p1 = ps4) then 2 else 0) /\
-    (match_score (SOME i1, SOME p1, SOME i2, NONE) (i3,ps3,i4,ps4) =
-       if (i2 = i3) /\ (i1 = i4) /\ (SOME p1 = ps4) then 3 else 0) /\
-    (match_score (SOME i1, SOME p1, SOME i2, SOME p2) (i3,ps3,i4,ps4) =
-       if (SOME p2 = ps3) /\ (i2 = i3) /\ (i1 = i4) /\ (SOME p1 = ps4) then 4
-       else 0)
-`
+
+let (*: score the match against the given pattern of the given quadruple :*)
+  match_score x y = (match (x,y) with
+    | ((_(*:ip option*),Nothing(*:option port*),_(*:ip option*),_(*:port option*)),_) -> (0:nat)
+    | ((Nothing, Just p1, Nothing, Nothing), (i3,ps3,i4,ps4)) ->
+       if ps4 = Just p1 then 1 else 0 
+    | ((Just i1, Just p1, Nothing, Nothing), (i3,ps3,i4,ps4)) -> 
+       if (i1 = i4) && (Just p1 = ps4) then 2 else 0 
+    | ((Just i1, Just p1, Just i2, Nothing), (i3,ps3,i4,ps4)) -> 
+       if (i2 = i3) && ((i1 = i4) && (Just p1 = ps4)) then 3 else 0
+    | ((Just i1, Just p1, Just i2, Just p2), (i3,ps3,i4,ps4)) ->
+       if (Just p2 = ps3) && ((i2 = i3) && ((i1 = i4) && (Just p1 = ps4))) then 4
+       else 0
+    | (_,_) -> failwith "match_score: impossible?" 
+end)
+
 (*:
 @description
 These two functions are used to match an incoming UDP datagram to a
@@ -187,24 +210,24 @@ address quads, one from a socket and one from a datagram, correspond;
 a higher score indicates a more specific match.
 
 :*)
-;
 
-val lookup_udp_def = Phase.phase 2 Define `(*: the set of sockets matching an address quad, for UDP :*)
+
+let (*: the set of sockets matching an address quad, for UDP :*)
   lookup_udp socks quad bound arch =
-           { sid | sid IN FDOM socks /\
-	           let s = socks ' sid in
+           { sid | sid IN FDOM socks &&	           
+(let s = FAPPLY socks sid in
 		   let sn = match_score (s.is1,s.ps1,s.is2,s.ps2) quad in
-		       sn > 0 /\
-		       if windows_arch arch  then
+		       sn > 0 &&		       
+(if windows_arch arch  then
 			   if sn = 1 then
-			       ~(? (sid',s') :: (socks \\ sid). match_score (s'.is1,s'.ps1,s'.is2,s'.ps2) quad > sn)
+			       not (exists  sid' s'. (sid',s') IN (set_of_fmap (DOMSUB socks sid)) && (match_score (s'.is1,s'.ps1,s'.is2,s'.ps2) quad > sn))
 			   else T
 		       else
-			   ~(?(sid',s') :: (socks \\ sid).
-				       (match_score (s'.is1,s'.ps1,s'.is2,s'.ps2) quad > sn \/
-					(linux_arch arch /\ match_score (s'.is1,s'.ps1,s'.is2,s'.ps2) quad = sn /\
-                                         bound_after sid' sid bound))) }
-`
+			   not (exists sid' s'. (sid',s') IN (set_of_fmap (DOMSUB socks sid)) && (
+				       (match_score (s'.is1,s'.ps1,s'.is2,s'.ps2) quad > sn ||
+					(linux_arch arch && (match_score (s'.is1,s'.ps1,s'.is2,s'.ps2) quad = sn &&
+                                         bound_after sid' sid bound))))))) }
+
 (*:
 
 @description
@@ -232,18 +255,19 @@ all the other sockets with the same score.
 For WinXP, the set contains all the sockets with score greater than one and also the sockets for which the score is one, [[sn=1]], and there are no sockets
 with greater scores.
 
-:*);
+:*)
 
-val tcp_socket_best_match_def = Phase.phase 2 Define `(*: the set of sockets matching a quad, for TCP :*)
-  tcp_socket_best_match (socks : sid |-> socket) (sid,sock) (seg : tcpSegment) arch =
-    (* is the socket sid the best match for segment seg? *)
+let (*: the set of sockets matching a quad, for TCP :*)
+  tcp_socket_best_match socks (*socks : sid |-> socket*) (sid,sock) seg (*seg : tcpSegment*) arch =
+    (* is the socket sid the best match for segment segexists  *)
     let s = sock in
+    let seg = (seg:tcpSegment) in
     let score = match_score (s.is1, s.ps1, s.is2, s.ps2)
-                            (THE seg.is1, seg.ps1, THE seg.is2, seg.ps2) in
-    ~(?(sid',s') :: socks \\ sid.
-                match_score (s'.is1, s'.ps1, s'.is2, s'.ps2)
-                            (THE seg.is1, seg.ps1, THE seg.is2, seg.ps2) > score)
-`
+                            (THE seg.TCP1_netTypes.is1, seg.TCP1_netTypes.ps1, THE seg.TCP1_netTypes.is2, seg.TCP1_netTypes.ps2) in
+    not(exists sid' s'. (sid',s') IN (set_of_fmap (DOMSUB (socks:fmap sid socket) sid)) &&                
+(match_score (s'.is1, s'.ps1, s'.is2, s'.ps2)
+                            (THE seg.TCP1_netTypes.is1, seg.TCP1_netTypes.ps1, THE seg.TCP1_netTypes.is2, seg.TCP1_netTypes.ps2) > score))
+
 (*:
 
  @description
@@ -255,25 +279,26 @@ val tcp_socket_best_match_def = Phase.phase 2 Define `(*: the set of sockets mat
  socket in [[socks]].  If none have a greater score, this is the best
  match and true is returned; otherwise, false is returned.
 
-:*);
+:*)
 
-val lookup_icmp_def = Phase.phase 2 Define `(*: the set of sockets matching a quad, for ICMP :*)
+let (*: the set of sockets matching a quad, for ICMP :*)
   lookup_icmp socks icmp arch bound =
-       { sid0 | ? (sid,sock) :: socks.
-	       sock.ps1 = icmp.ps3 /\ proto_of sock.pr = icmp.proto /\ sid0 = sid /\
-	       if windows_arch arch then T
+       { sid0 | exists  sid sock. (sid,sock) IN (set_of_fmap socks) && (
+	       sock.ps1 = icmp.icmp_ps3 && (proto_of sock.pr = icmp.icmp_proto && (sid0 = sid &&	       
+(if windows_arch arch then T
                else
-		   sock.is1 = icmp.is3 /\ sock.is2 = icmp.is4 /\
-                   (sock.ps2 = icmp.ps4 \/
-                    (linux_arch arch /\
-		     proto_of sock.pr = PROTO_UDP /\ sock.ps2 = NONE /\
-		     ~(? (sid',s) :: (socks \\ sid).
-		     	     s.is1 = icmp.is3 /\ s.is2 = icmp.is4 /\
-		     	     s.ps1 = icmp.ps3 /\ s.ps2 = icmp.ps4 /\
-		     	     proto_of s.pr = icmp.proto /\
-		     	     bound_after sid' sid bound)
-                    )) }
-`(*:
+		   sock.is1 = icmp.icmp_is3 && (sock.is2 = icmp.icmp_is4 &&
+                   (sock.ps2 = icmp.icmp_ps4 ||
+                    (linux_arch arch &&		     
+(proto_of sock.pr = PROTO_UDP && (sock.ps2 = Nothing &&
+		     not(exists  sid' s. (sid',s) IN (set_of_fmap (DOMSUB socks sid)) && (
+		     	     s.is1 = icmp.icmp_is3 && (s.is2 = icmp.icmp_is4 &&		     	     
+(s.ps1 = icmp.icmp_ps3 && (s.ps2 = icmp.icmp_ps4 &&		     	     
+(proto_of s.pr = icmp.icmp_proto &&
+		     	     bound_after sid' sid bound)))))
+                    ))))))))) )}
+
+(*:
 
   @description
 
@@ -306,7 +331,7 @@ val lookup_icmp_def = Phase.phase 2 Define `(*: the set of sockets matching a qu
   For FreeBSD, the behaviour is as described above.
 
 
-:*);
+:*)
 
 
 
@@ -326,22 +351,22 @@ TCP option handling.
 
 
 (* Don't phase: handled in testEval *)
-val do_tcp_options_def = Define`
+let 
 (*: Constrain the TCP timestamp option values that appear in an outgoing segment :*)
   do_tcp_options cb_tf_doing_tstmp cb_ts_recent cb_ts_val  =
     if cb_tf_doing_tstmp then
-       let ts_ecr' = option_case (ts_seq 0w) I (timewindow_val_of cb_ts_recent) in
-           SOME(cb_ts_val,ts_ecr')
+       let ts_ecr' = option_case (ts_seq word_zero) I (timewindow_val_of cb_ts_recent) in
+           Just(cb_ts_val,ts_ecr')
      else
-         NONE
-`;
+         Nothing
 
 
-val calculate_tcp_options_len_def =  Phase.phase 1 Define`
+
+let 
 (*: Calculate the length consumed by the TCP options in a real TCP segment :*)
   calculate_tcp_options_len cb_tf_doing_tstmp =
-    if cb_tf_doing_tstmp then 12 else 0 : num
-`
+    if cb_tf_doing_tstmp then 12 else (0:nat) (*: num*)
+
 (*: @description
 This calculation omits
    window-scaling and mss options as these only appear in SYN segments during connection setup.
@@ -349,7 +374,7 @@ This calculation omits
    The total length consumed by all options will always be a multiple of 4 bytes due to padding.
    If more TCP options were added to the model, the space consumed by options would be
    architecture/options/alignment/padding dependent.
-:*);
+:*)
 
 (*:
  @section [[aux_buffers]] ALL Buffers, windows, and queues
@@ -361,7 +386,7 @@ architecture-specific.
 :*)
 
 (* Don't Phase: handled by testEval *)
-val calculate_buf_sizes_def = Define`
+let 
 (*: Calculate buffer sizes for [[rcvbufsize]], [[sndbufsize]], [[t_maxseg]], and [[snd_cwnd]]
 :*)
   calculate_buf_sizes cb_t_maxseg seg_mss bw_delay_product_for_rt is_local_conn
@@ -372,7 +397,7 @@ val calculate_buf_sizes_def = Define`
          BSD has the route MTU if avail, or [[MIN MSSDFLT (link MTU)]] otherwise, as the first argument
          of the MIN below.  That is the same calculation as we did in [[connect_1]]. We don't repeat it,
          but use the cached value in [[cb.t_maxseg]]. :*)
-      let maxseg = (MIN cb_t_maxseg (MAX 64 (option_case MSSDFLT I seg_mss))) in
+      let maxseg = (num_MIN cb_t_maxseg (num_MAX 64 (option_case MSSDFLT I seg_mss))) in
           if linux_arch arch then
             maxseg
           else
@@ -391,57 +416,57 @@ val calculate_buf_sizes_def = Define`
     let rcvbufsize' = option_case rcvbufsize I bw_delay_product_for_rt in
     let (rcvbufsize'',t_maxseg''') = (if rcvbufsize' < t_maxseg''
                                      then (rcvbufsize',rcvbufsize')
-                                     else (MIN SB_MAX (roundup t_maxseg'' rcvbufsize'),
+                                     else (num_MIN SB_MAX (roundup t_maxseg'' rcvbufsize'),
                                            t_maxseg'')) in
 
     (* buffootle: snd *)
     let sndbufsize' = option_case sndbufsize I bw_delay_product_for_rt in
     let sndbufsize'' = (if sndbufsize' < t_maxseg'''
                         then sndbufsize'
-                        else MIN SB_MAX (roundup t_maxseg'' sndbufsize')) in
+                        else num_MIN SB_MAX (roundup t_maxseg'' sndbufsize')) in
 
     let do_rfc3390 = F in (* FIXME - fine in FreeBSD 4.6, may become T in
                                 FreeBSD 6.0 *)
 
     (* compute initial cwnd *)
     let snd_cwnd =
-      if do_rfc3390 then MIN (4 * t_maxseg''') (MAX (2 * t_maxseg''') 4380)
+      if do_rfc3390 then num_MIN (4 * t_maxseg''') (num_MAX (2 * t_maxseg''') 4380)
       else
         (t_maxseg''' * (if is_local_conn then SS_FLTSZ_LOCAL else SS_FLTSZ)) in
     (rcvbufsize'',sndbufsize'',t_maxseg''',snd_cwnd)
-`
+
 (*: @description
 Used in [[deliver_in_1]] and [[deliver_in_2]]. :*)
-;
 
 
-val calculate_bsd_rcv_wnd = Phase.phase 1 Define`
+
+let 
 (*:  Calculation of [[rcv_wnd]] :*)
   calculate_bsd_rcv_wnd sf tcp_sock =
-    MAX (Num (tcp_sock.cb.rcv_adv - tcp_sock.cb.rcv_nxt))
+    num_MAX (num_of_int (seq32_diff tcp_sock.cb.rcv_adv tcp_sock.cb.rcv_nxt))
         (sf.n(SO_RCVBUF) - LENGTH tcp_sock.rcvq)
-`(*: @description
+(*: @description
  Calculation of [[rcv_wnd]] as done in BSD's |tcp_input.c|, line 1052. The model currently calls this from
    [[tcp_output_really]] in post-ESTABLISHED states, using [[deliver_in_3]] to update [[rcv_wnd]] as
    soon as a segment comes, rather than waiting for the next [[deliver_in]], as BSD does --- this
    is a saner thing to do. In order to comply with BSD however, we need [[calculate_bsd_rcv]]
    to be called on receipt of the first 'real' (i.e. non-syncache) segment, to update [[rcv_wnd]]
    from the temporary initial value.
-:*);
+:*)
 
 
 
-val send_queue_space_def = Phase.phase 1 Define `
-    send_queue_space (sndq_max : num) sndq_size oob arch maxseg i2 =
+let 
+    send_queue_space (sndq_max : nat) sndq_size oob arch maxseg i2 =
        { n | if bsd_arch arch then
 	        n <= (sndq_max - sndq_size) + (if oob then oob_extra_sndbuf else 0)
 	     else if linux_arch arch then
 		 (if in_loopback i2 then
-		      n = maxseg + ((sndq_max - sndq_size) DIV 16816) * maxseg
+		      n = maxseg + (DIV (sndq_max - sndq_size) 16816) * maxseg
 		  else
-		      n = (2 * maxseg) + ((sndq_max - sndq_size - 1890) DIV 1888) * maxseg)
+		      n = (2 * maxseg) + (DIV (sndq_max - sndq_size - 1890) 1888) * maxseg)
 	     else n >= 0 }
-`
+
 (*:
  @description
    Calculation of the usable send queue space.
@@ -458,7 +483,7 @@ val send_queue_space_def = Phase.phase 1 Define `
    Windows is very strange.  Leaving it completely unconstrained is not
    what actually happens, but more investigation is needed in future to determine the actual behaviour.
 
- :*) ;
+ :*) 
 
 
 (* ------------------------------------------------------------------ *)
@@ -482,71 +507,74 @@ first two.
 :*)
 (* ------------------------------------------------------------------ *)
 
-val bandlim_state_init_def = Phase.phase 1 Define`(*: initial state of bandlimiter :*)
-  bandlim_state_init = [] : bandlim_state
-`(*:@mergewithnext:*);
+let (*: initial state of bandlimiter :*)
+  bandlim_state_init = ([] : bandlim_state)
+(*:@mergewithnext:*)
 
-val bandlim_rst_ok_always_def = Phase.phase 1 Define`(*: the trivial 'always OK' bandlimiter :*)
-  (bandlim_rst_ok_always : tcpSegment # ts_seq # bandlim_reason # bandlim_state -> bool # bandlim_state)
+let (*: the trivial 'always OK' bandlimiter :*)
+  bandlim_rst_ok_always (*(bandlim_rst_ok_always : tcpSegment # ts_seq # bandlim_reason # bandlim_state -> bool # bandlim_state)*)
         (seg,ticks,reason,bndlm)
         = let bndlm' = (seg,ticks,reason)::bndlm
           in
           (T,bndlm')
-`(*:@mergewithnext:*);
+(*:@mergewithnext:*)
 
-val simple_limit_def = Phase.phase 1 Define`(*: simple-bandlimiter rate settings :*)
-  (simple_limit : bandlim_reason -> num option)
-                BANDLIM_UNLIMITED      = NONE /\
-  simple_limit BANDLIM_RST_CLOSEDPORT = SOME 200 /\
-  simple_limit BANDLIM_RST_OPENPORT   = SOME 200
-`(*:@mergewithnext:*);
+let (*: simple-bandlimiter rate settings :*)
+  simple_limit x = (match x with
+  (*simple_limit : bandlim_reason -> num option*)
+    BANDLIM_UNLIMITED      -> Nothing 
+  | BANDLIM_RST_CLOSEDPORT -> Just (200:nat)
+  | BANDLIM_RST_OPENPORT   -> Just 200
+end)
+(*:@mergewithnext:*)
 
-val bandlim_rst_ok_simple_def = Phase.phase 1 Define`(*: a simple rate-limiting bandlimiter :*)
-  (bandlim_rst_ok_simple : tcpSegment # ts_seq # bandlim_reason # bandlim_state -> bool # bandlim_state)
-                  (seg,ticks,reason,bndlm)
-     = let reasoneq = (\ r0. \ (s,t,r). r = r0)
-       and ticksgt  = (\ t0. \ (s,t,r). t > t0)
+val bandlim_rst_ok_simple : tcpSegment * ts_seq * bandlim_reason * bandlim_state -> bool * bandlim_state
+let (*: a simple rate-limiting bandlimiter :*)
+  bandlim_rst_ok_simple (*(bandlim_rst_ok_simple : tcpSegment # ts_seq # bandlim_reason # bandlim_state -> bool # bandlim_state)*)
+                  (seg,(ticks:ts_seq),reason,bndlm)
+     = let reasoneq = (fun r0 -> fun (s,t,r) -> r = r0) in
+       let ticksgt  = (fun t0 -> fun (s,t,r) -> t > t0)
        in
-       let count = LENGTH (FILTER (reasoneq reason) (TAKEWHILE (ticksgt (ticks - num_floor (1 * HZ))) bndlm))
+       let count = LENGTH (FILTER (reasoneq reason) (TAKEWHILE (ticksgt (seq32_minus ticks (num_floor (real_times (real_of_num 1) HZ)))) bndlm))
        in
-       ((case simple_limit reason of
-            NONE   -> T
-         || SOME n -> count < n),
-        (seg,ticks,reason)::bndlm)
-`
+       ((match simple_limit reason with
+            Nothing   -> T
+         | Just n -> count < n end),        
+((seg,ticks,reason)::bndlm))
+
 (*:
 @description
  Simple bandlimiter: limit number of ICMPs in the last second to the listed value.  This is based roughly on the BSD behaviour, save that for BSD it is "since the
    last second" not "in the last second".
 :*)
-;
 
-val bandlim_rst_ok_def = Phase.phase 1 Define`(*: the bandlimiter actually used :*)
+
+let (*: the bandlimiter actually used :*)
 bandlim_rst_ok = bandlim_rst_ok_simple
-`
+
 (*:
 @description
  Which band limiter to use?
 :*)
-;
+
 
 (* TODO: think: should bandlim_rst_ok be a function or a relation?  currently function. *)
 
 
-val enqueue_oq_bndlim_rst_def = Phase.phase 1 Define`(*: enqueue onto out-queue if allowed by bandlimiter :*)
+let (*: enqueue onto out-queue if allowed by bandlimiter :*)
   enqueue_oq_bndlim_rst(oq,seg,ticks,reason,bndlm,oq',bndlm',queued_or_dropped)
     = let (emit,bndlm0) = bandlim_rst_ok(seg,ticks,reason,bndlm)
       in
-      bndlm' = bndlm0 /\
-      if emit then
+      bndlm' = bndlm0 &&      
+(if emit then
         enqueue_oq(oq,TCP seg,oq',queued_or_dropped)
       else
-        (oq' = oq /\ queued_or_dropped = T)
-`(*:
+        (oq' = oq && (queued_or_dropped = T)))
+(*:
 @description
 For convenience, combine enqueueing and bandlimiting into a single function.
 
-:*);
+:*)
 
 
 
@@ -559,28 +587,31 @@ Performing a UDP send, filling in required details as necessary.
 :*)
 (* ------------------------------------------------------------------ *)
 
-val dosend_def =
-  Phase.phase 1 Define`(*: do a UDP send, filling in source address and port as necessary :*)
-   (dosend (ifds, rttab, (NONE, data), (SOME i1, SOME p1, SOME i2, ps2), oq, oq', ok) =
-      enqueue_oq(oq,UDP(<| is1 := SOME i1; is2 := SOME i2;
-			   ps1 := SOME p1; ps2 := ps2;
-			   data := data |>),
-		 oq',ok)) /\
-   (dosend (ifds, rttab, (SOME(i,p), data), (NONE, SOME p1, NONE, NONE), oq, oq', ok) =
-      (?i1'.enqueue_oq(oq,UDP(<| is1 := SOME i1'; is2 := SOME i;
-		   	         ps1 := SOME p1;  ps2 := SOME p;
-			         data := data |>),
-		       oq',ok) /\ i1' IN auto_outroute(i,NONE,rttab,ifds))) /\
-   (dosend (ifds, rttab, (SOME(i,p), data),(SOME i1, SOME p1, is2, ps2), oq, oq', ok) =
-      enqueue_oq(oq,UDP(<| is1 := SOME i1; is2 := SOME i;
-			   ps1 := SOME p1; ps2 := SOME p;
-			   data := data |>),
-		 oq',ok))`
+let (*: do a UDP send, filling in source address and port as necessary :*)
+  dosend x = (match x with 
+  | (ifds, rttab, (Nothing, data), (Just i1, Just p1, Just i2, ps2), oq, oq', ok) -> (
+      enqueue_oq(oq,UDP(<| udp_is1 = (Just i1); udp_is2 = (Just i2);
+			   udp_ps1 = (Just p1); udp_ps2 = ps2;
+			   udp_data = data |>),
+		 oq',ok))
+  | (ifds, rttab, (Just(i,p), data), (Nothing, Just p1, Nothing, Nothing), oq, oq', ok) -> (
+      (exists i1'.enqueue_oq(oq,UDP(<| udp_is1 = (Just i1'); udp_is2 = (Just i);
+		   	         udp_ps1 = (Just p1);  udp_ps2 = (Just p);
+			         udp_data = data |>),
+		       oq',ok) && (i1' IN auto_outroute(i,Nothing,rttab,ifds))))
+  | (ifds, rttab, (Just(i,p), data),(Just i1, Just p1, is2, ps2), oq, oq', ok) -> (
+      enqueue_oq(oq,UDP(<| udp_is1 = (Just i1); udp_is2 = (Just i);
+			   udp_ps1 = (Just p1); udp_ps2 = (Just p);
+			   udp_data = data |>),
+		 oq',ok))
+  | _ -> failwith "dosend: impossible?" (* missing cases? or impossible? *)
+end)
+
 (*:
 @description
  For use in UDP [[sendto()]].
 :*)
-;
+
 
 
 
@@ -590,7 +621,7 @@ val dosend_def =
 
 TCP performs repeated transmissions in three situations:
 retransmission of unacknowledged data, retransmission of an
-unacknowledged SYN, and probing a closed window (`persisting').  In
+unacknowledged SYN, and probing a closed window (persisting').  In
 each case the interval between transmissions is a function of the
 estimated round-trip time for the connection, and is exponentially
 backed off if no response is received.  The RTT estimate indicates
@@ -600,31 +631,32 @@ TCP's resource usage.
 :*)
 (* ------------------------------------------------------------------ *)
 
-val tcp_backoffs_def = Phase.phase 1 Define`(*: select this architecture's retransmit backoff list :*)
+let (*: select this architecture's retransmit backoff list :*)
   tcp_backoffs (arch: arch) =
     if bsd_arch arch then TCP_BSD_BACKOFFS
     else if linux_arch arch then TCP_LINUX_BACKOFFS
     else if windows_arch arch then TCP_WINXP_BACKOFFS
     else TCP_BSD_BACKOFFS (* default to BSD *)
-`(*:@mergewithnext:*);
+(*:@mergewithnext:*)
 
-val tcp_syn_backoffs_def = Phase.phase 1 Define`(*: select this architecture's [[SYN]]-retransmit backoff list :*)
+let (*: select this architecture's [[SYN]]-retransmit backoff list :*)
   tcp_syn_backoffs (arch: arch) =
     if bsd_arch arch then TCP_SYN_BSD_BACKOFFS
     else if linux_arch arch then TCP_SYN_LINUX_BACKOFFS
     else if windows_arch arch then TCP_SYN_WINXP_BACKOFFS
     else TCP_SYN_BSD_BACKOFFS (* default to BSD *)
-`;
 
-val mode_of_def = Phase.phase 1 Define`(*: obtain the mode of a backoff timer :*)
-  (mode_of : (rexmtmode # num) timed option -> rexmtmode option)
-          (SOME (Timed((mode,_),_))) = SOME mode /\
-  mode_of  NONE                      = NONE
-`(*:@mergewithnext:*);
 
-val shift_of_def = Phase.phase 1 Define`(*: obtain the shift of a backoff timer :*)
-  shift_of (SOME (Timed((_,shift),_))) = shift
-`
+let (*: obtain the mode of a backoff timer :*)
+  mode_of x (*(mode_of : (rexmtmode # num) timed option -> rexmtmode option)*) = (match x with
+  |  (Just (Timed((mode,_),_))) -> Just mode 
+  |  Nothing                      -> Nothing
+end)
+(*:@mergewithnext:*)
+
+let (*: obtain the shift of a backoff timer :*)
+  shift_of (Just (Timed((_,shift),_))) = shift
+
 (*:
 @description
  TCP exponential-backoff timers are represented as [[(rexmtmode # num) timed option]],
@@ -632,22 +664,22 @@ val shift_of_def = Phase.phase 1 Define`(*: obtain the shift of a backoff timer 
    [[shift : num]] is the 0-origin index into the backoff list of the
    interval \emph{currently underway}.
 :*)
-;
 
-val computed_rto_def = Phase.phase 2 Define`(*: compute retransmit timeout to use :*)
-  computed_rto (backoffs:num list) (shift:num) (ri:rttinf)
-    = real_of_num (EL shift backoffs) *
-      MAX ri.t_rttmin (ri.t_srtt     + 4 * ri.t_rttvar)
-`(*:@mergewithnext:*);
 
-val computed_rxtcur_def = Define`(*: compute the last-used [[rxtcur]] :*)
+let (*: compute retransmit timeout to use :*)
+  computed_rto (backoffs:list nat) (shift:nat) (ri:rttinf)
+    = real_times (real_of_num (EL shift backoffs))
+      (real_MAX ri.t_rttmin (real_plus ri.t_srtt     (real_times (real_of_num 4) ri.t_rttvar)))
+(*:@mergewithnext:*)
+
+let (*: compute the last-used [[rxtcur]] :*)
   computed_rxtcur (ri:rttinf) (arch: arch)
-    = MAX ri.t_rttmin
-          (MIN (THE TCPTV_REXMTMAX)
+    = real_MAX ri.t_rttmin
+          (real_MIN (the_time TCPTV_REXMTMAX)
                (computed_rto (if ri.t_wassyn then tcp_syn_backoffs arch
                               else tcp_backoffs arch)
                               ri.t_lastshift ri))
-`
+
 (*:
 @description
 
@@ -667,37 +699,37 @@ val computed_rxtcur_def = Define`(*: compute the last-used [[rxtcur]] :*)
  Note: [[TCPTV_REXMTMAX]] had better not be infinite!
 
 :*)
-;
 
-val start_tt_rexmt_gen_def = Phase.phase 2 Define`(*: construct retransmit timer (generic) :*)
-  start_tt_rexmt_gen (mode:rexmtmode) (backoffs:num list) (shift:num) (wantmin:bool) (ri:rttinf)
-    = let rxtcur = MAX (if wantmin
-                        then MAX ri.t_rttmin (ri.t_lastrtt + 2/HZ)
+
+let (*: construct retransmit timer (generic) :*)
+  start_tt_rexmt_gen (mode:rexmtmode) (backoffs:list nat) (shift:nat) (wantmin:bool) (ri:rttinf)
+    = let rxtcur = real_MAX (if wantmin
+                        then real_MAX ri.t_rttmin (real_plus ri.t_lastrtt (real_div (real_of_num 2) HZ))
                         else ri.t_rttmin)
-                       (MIN (THE TCPTV_REXMTMAX (* better not be infinite! *) )
+                       (real_MIN (the_time TCPTV_REXMTMAX (* better not be infinite! *) )
                             (computed_rto backoffs shift ri)
                        )
       in
-      SOME (Timed((mode,shift),slow_timer (time rxtcur)))
-`(*:@mergewithnext:*);
+      Just (Timed((mode,shift),slow_timer (time rxtcur)))
+(*:@mergewithnext:*)
 
-val start_tt_rexmt_def = Phase.phase 1 Define`(*: construct normal retransmit timer :*)
+let (*: construct normal retransmit timer :*)
   start_tt_rexmt (arch: arch) = start_tt_rexmt_gen Rexmt (tcp_backoffs arch)
-`(*:@mergewithnext:*);
+(*:@mergewithnext:*)
 
-val start_tt_rexmtsyn_def = Phase.phase 1 Define`(*: construct [[SYN]]-retransmit timer :*)
+let (*: construct [[SYN]]-retransmit timer :*)
   start_tt_rexmtsyn (arch: arch) = start_tt_rexmt_gen RexmtSyn (tcp_syn_backoffs arch)
-`(*:@mergewithnext:*);
+(*:@mergewithnext:*)
 
-val start_tt_persist_def = Phase.phase 2 Define`(*: construct persist timer :*)
-  start_tt_persist (shift:num) (ri:rttinf) (arch: arch)
-    = let cur = MAX (THE TCPTV_PERSMIN (* better not be infinite! *) )
-                    (MIN (THE TCPTV_PERSMAX (* better not be infinite! *) )
+let (*: construct persist timer :*)
+  start_tt_persist (shift:nat) (ri:rttinf) (arch: arch)
+    = let cur = real_MAX (the_time TCPTV_PERSMIN (* better not be infinite! *) )
+                    (MIN (the_time TCPTV_PERSMAX (* better not be infinite! *) )
                          (computed_rto (tcp_backoffs arch) shift ri)
                     )
       in
-      SOME (Timed((Persist,shift),slow_timer (time cur)))
-`
+      Just (Timed((Persist,shift),slow_timer (time cur)))
+
 (*:
 @description
 
@@ -721,19 +753,19 @@ val start_tt_persist_def = Phase.phase 2 Define`(*: construct persist timer :*)
    for the benefit of [[update_rtt]].
 
 :*)
-;
 
 
-val update_rtt_def = Phase.phase 1 Define`(*: update RTT estimators from new measurement :*)
+
+let (*: update RTT estimators from new measurement :*)
   update_rtt (rtt:duration) (ri:rttinf)
     = let (t_srtt',t_rttvar')
         = (if ri.tf_srtt_valid then
              let delta     = (rtt - 1/HZ) - ri.t_srtt
              in
-             let vardelta  = abs delta - ri.t_rttvar
+             let vardelta  = abs delta - ri.t_rttvar 
              in
-             let t_srtt'   = MAX (1/(32*HZ)) (ri.t_srtt + (1/8) * delta)
-             and t_rttvar' = MAX (1/(16*HZ)) (ri.t_rttvar + (1/4) * vardelta)
+             let t_srtt'   = max (1/(32*HZ)) (ri.t_srtt + (1/8) * delta)
+             in let t_rttvar' = max (1/(16*HZ)) (ri.t_rttvar + (1/4) * vardelta)
                  (* BSD behaviour is never to let these go to zero,
                     but clip at the least positive value.  Since SRTT
                     is measured in 1/32 tick and RTTVAR in 1/16 tick,
@@ -743,36 +775,36 @@ val update_rtt_def = Phase.phase 1 Define`(*: update RTT estimators from new mea
              (t_srtt',t_rttvar')
            else
              let t_srtt' = rtt
-             and t_rttvar' = rtt / 2
+             in let t_rttvar' = rtt / 2 
              in
              (t_srtt',t_rttvar'))
       in
-      ri with <| t_rttupdated  := ri.t_rttupdated + 1;
-                 tf_srtt_valid := T;
-                 t_srtt        := t_srtt';
-                 t_rttvar      := t_rttvar';
-                 t_lastrtt     := rtt;
-                 t_lastshift   := 0;
-                 t_wassyn      := F  (* if t_lastshift=0, this doesn't make a difference *)
+      <| ri with t_rttupdated  = ri.t_rttupdated + 1;
+                 tf_srtt_valid = T;
+                 t_srtt        = t_srtt';
+                 t_rttvar      = t_rttvar';
+                 t_lastrtt     = rtt;
+                 t_lastshift   = 0;
+                 t_wassyn      = F  (* if t_lastshift=0, this doesn't make a difference *)
                  (* t_softerror, t_rttseg, and t_rxtcur must be handled by the caller *)
               |>
-`
+
 (*:
 @description
  Update the round trip time estimators on obtaining a new instantaneous value.
  Based on a close reading of tcp\_xmit\_timer(), tcp\_input.c:2347-2419.
 :*)
-;
+
 
 
 (* -------------------------------------------------- *)
 (*                WINDOW CALCULATION                  *)
 (* -------------------------------------------------- *)
 
-val expand_cwnd_def = Phase.phase 1 Define`(*: expand congestion window :*)
+let (*: expand congestion window :*)
   expand_cwnd ssthresh maxseg maxwin cwnd
-    = MIN maxwin (cwnd + (if cwnd > ssthresh then (maxseg * maxseg) DIV cwnd else maxseg))
-`
+    = num_MIN maxwin (cwnd + (if cwnd > ssthresh then DIV (maxseg * maxseg) cwnd else maxseg))
+
 (*:
 @description
 
@@ -780,7 +812,7 @@ val expand_cwnd_def = Phase.phase 1 Define`(*: expand congestion window :*)
  current threshold [[ssthresh]].
 
 :*)
-;
+
 
 
 
@@ -794,9 +826,9 @@ access only to the maximum packet size (MTU) for the interfaces at
 either end of the connection -- it has no information about routers
 and links in between.
 
-To determine the MTU for the entire path, TCP marks all datagrams `do
+To determine the MTU for the entire path, TCP marks all datagrams do
 not fragment'.  It begins by sending a large datagram; if it receives
-a `fragmentation needed' ICMP in return it reduces the size of the
+a fragmentation needed' ICMP in return it reduces the size of the
 datagram and repeats the process.  Most modern routers include the
 link MTU in the ICMP message; if the message does not contain an MTU,
 however, TCP uses the next lower MTU in the table below.
@@ -805,16 +837,16 @@ however, TCP uses the next lower MTU in the table below.
 (* ------------------------------------------------------------------ *)
 
 
-val next_smaller_def = Phase.phase 1 Define`(*: find next-smaller element of a set :*)
-  (next_smaller:(num->bool) -> num -> num) xs y = @x::xs. x < y /\ !x'::xs. x' > x ==> x' >= y
-`(*:@mergewithnext:*);
+let (*: find next-smaller element of a set :*)
+  next_smaller (*(next_smaller:(num->bool) -> num -> num)*) xs y = SET_CHOOSE { x | x IN (xs:set nat) && (x < y && (forall x'. (x' IN xs && (x' > x)) --> (x' >= y)))}
+(*:@mergewithnext:*)
 
-val mtu_tab_def = Phase.phase 1 Define`(*: path MTU plateaus to try :*)
+let (*: path MTU plateaus to try :*)
   mtu_tab arch = if linux_arch arch then
-                     {32000; 17914; 8166; 4352; 2002; 1492; 576; 296; 216; 128; 68} : num set
+                     ({32000; 17914; 8166; 4352; 2002; 1492; 576; 296; 216; 128; 68} : set nat)
                  else
                      {65535; 32000; 17914; 8166; 4352; 2002; 1492; 1006; 508; 296; 68}
-`
+
 (*:
 @description
  MTUs to guess for path MTU discovery.  This table is from RFC1191,
@@ -838,7 +870,7 @@ val mtu_tab_def = Phase.phase 1 Define`(*: path MTU plateaus to try :*)
    Linux does not include the modern MTUs listed above.
 
 :*)
-;
+
 
 
 (* ------------------------------------------------------------------ *)
@@ -860,44 +892,45 @@ are completely nondeterministic, and allow any legal reassembly.
 (* ------------------------------------------------------------------ *)
 
 (* DON'T phase: handled by betters *)
-val tcp_reass_def = Define`(*: perform TCP segment reassembly :*)
-  tcp_reass seq (rsegq : tcpReassSegment list) =
-     let myrel = { (i,c) | ?rseg.
-                              rseg IN' rsegq /\
-                              i >= rseg.seq /\
-                              i < rseg.seq + LENGTH rseg.data +
-                                    (if rseg.spliced_urp <> NONE then 1 else 0) /\
-                              (case rseg.spliced_urp of
-                                 SOME(n) ->
+val tcp_reass: tcp_seq_foreign -> list tcpReassSegment -> set (list byte * nat * bool)
+let (*: perform TCP segment reassembly :*)
+  tcp_reass seq (*seq:tcp_seq_foreign?*) (rsegq : list tcpReassSegment) =
+     let myrel = { (i,c) | exists rseg. (* i:tcp_seq_foreign? c:byte *)
+                              IN' rseg rsegq &&
+                              (i:tcp_seq_foreign) >= rseg.tcpReassSegment_seq &&
+                              i < rseg.tcpReassSegment_seq + (n2s(LENGTH rseg.data)) +
+                                    (n2s(if rseg.spliced_urp <> None then 1 else 0)) &&
+                              (match rseg.spliced_urp with
+                                 Some(n:tcp_seq_foreign) ->
                                    (if i > n then
-                                     c = SOME(EL (Num (i - rseg.seq - 1)) (rseg.data))
+                                     c = Some(EL (num_of_int ((seq32_diff i rseg.tcpReassSegment_seq) - 1)) (rseg.data))
                                     else if i = n then
-                                     c = NONE
+                                     c = None
                                     else
-                                     c = SOME(EL (Num (i - rseg.seq)) (rseg.data))) ||
-                                 NONE ->
-                                     c = SOME(EL (Num (i - rseg.seq)) (rseg.data))) } in
-     { (cs',len,FIN) | ?cs. cs' = CONCAT_OPTIONAL cs /\
-                   (!n:num. n < LENGTH cs ==> (seq+n,EL n cs) IN myrel) /\
-                   (~?c. (seq+LENGTH cs,c) IN myrel) /\
-                   (len = LENGTH cs) /\
-                   (FIN = ?rseg. rseg IN' rsegq /\
-                                 rseg.seq + LENGTH rseg.data +
-                                   (if rseg.spliced_urp <> NONE then 1 else 0) =
-                                     seq + LENGTH cs /\
+                                     c = Some(EL (num_of_int (seq32_diff i rseg.tcpReassSegment_seq)) (rseg.data))) |
+                                 None ->
+                                     c = Some(EL (num_of_int (seq32_diff i rseg.tcpReassSegment_seq)) (rseg.data)) end) } in
+     { (cs',len,FIN) | exists cs. cs' = CONCAT_OPTIONAL cs &&
+                   (forall n. (n:nat) < LENGTH cs --> (seq+(n2s n),EL n cs) IN myrel) &&
+                   (not (exists c. (seq+(n2s(LENGTH cs)),c) IN myrel)) &&
+                   (len = LENGTH cs) &&
+                   (FIN = exists rseg. IN' rseg rsegq &&
+                                 rseg.tcpReassSegment_seq + (n2s(LENGTH rseg.data)) +
+                                   (n2s(if rseg.spliced_urp <> None then 1 else 0)) =
+                                     seq + (n2s(LENGTH cs)) &&
 	  	                 rseg.FIN ) }
 
          (* NB: the FIN may come from a 0-length segment, or from a
          different segment from that which the last character came but logically is
          always at the end of cs's. *)
-`
+
 (*:
 @description
  Returns the set of maximal-length strings starting at [[seq]] that can
    be constructed by taking bytes from the segments in [[rsegq]], accounting for
    any spliced (out-of-line) urgent data.
 :*)
-;
+
 
 (*
 
@@ -945,17 +978,17 @@ val tcp_reass_def = Define`(*: perform TCP segment reassembly :*)
 
 *)
 
-val tcp_reass_prune_def = Phase.phase 1 Define`(*: drop prefix of reassembly queue :*)
-  tcp_reass_prune seq (rsegq : tcpReassSegment list) =
-    FILTER (\rseg. rseg.seq + LENGTH rseg.data + (if rseg.spliced_urp <> NONE then 1 else 0) +
-                     (if rseg.FIN then 1 else 0) > seq) rsegq
-`
+let (*: drop prefix of reassembly queue :*)
+  tcp_reass_prune seq (rsegq : list tcpReassSegment) =
+    FILTER (fun (rseg:tcpReassSegment) -> rseg.tcpReassSegment_seq + (n2s(LENGTH rseg.TCP1_hostTypes.data)) + (n2s(if rseg.spliced_urp <> None then 1 else 0)) +
+                     (n2s(if rseg.FIN then 1 else 0)) > seq) rsegq
+
 (*:
 @description
  Prune away every segment ending before the specified [[seq]], accounting for
    any spliced (out-of-line) urgent data.
 :*)
-;
+
 
 
 
@@ -971,73 +1004,73 @@ The initial state of the TCP control block.
 
 (* the all-bits-zero TCPCB, i.e., bzero(), as updated by tcp_newtcpcb *)
 (* Don't Phase: handled specially by testEval *)
-val initial_cb_def = Define`
+let 
   initial_cb =
-    <| t_segq            := [];
-       tt_rexmt          := NONE;
-       tt_keep           := NONE;
-       tt_2msl           := NONE;
-       tt_delack         := NONE;
-       tt_conn_est       := NONE;
-       tt_fin_wait_2     := NONE;
-       tf_needfin        := F;
-       tf_shouldacknow   := F;
-       snd_una           := tcp_seq_local 0w;
-       snd_max           := tcp_seq_local 0w;
-       snd_nxt           := tcp_seq_local 0w;
-       snd_wl1           := tcp_seq_foreign 0w;
-       snd_wl2           := tcp_seq_local 0w;
-       iss               := tcp_seq_local 0w;
-       snd_wnd           := 0;
-       snd_cwnd          := TCP_MAXWIN << TCP_MAXWINSCALE;
-       snd_ssthresh      := TCP_MAXWIN << TCP_MAXWINSCALE;
-       rcv_wnd           := 0;
-       tf_rxwin0sent     := F;
-       rcv_nxt           := tcp_seq_foreign 0w;
-       rcv_up            := tcp_seq_foreign 0w;
-       irs               := tcp_seq_foreign 0w;
-       rcv_adv           := tcp_seq_foreign 0w;
-       snd_recover       := tcp_seq_local 0w;
-       t_maxseg          := MSSDFLT;
-       t_advmss          := NONE;
-       t_rttseg          := NONE;
-       t_rttinf :=
+    <| t_segq            = [];
+       tt_rexmt          = Nothing;
+       tt_keep           = Nothing;
+       tt_2msl           = Nothing;
+       tt_delack         = Nothing;
+       tt_conn_est       = Nothing;
+       tt_fin_wait_2     = Nothing;
+       tf_needfin        = F;
+       tf_shouldacknow   = F;
+       snd_una           = (tcp_seq_local word_zero);
+       snd_max           = (tcp_seq_local word_zero);
+       snd_nxt           = (tcp_seq_local word_zero);
+       snd_wl1           = (tcp_seq_foreign word_zero);
+       snd_wl2           = (tcp_seq_local word_zero);
+       iss               = (tcp_seq_local word_zero);
+       snd_wnd           = 0;
+       snd_cwnd          = (shift_left TCP_MAXWIN TCP_MAXWINSCALE);
+       snd_ssthresh      = (shift_left TCP_MAXWIN TCP_MAXWINSCALE);
+       rcv_wnd           = 0;
+       tf_rxwin0sent     = F;
+       rcv_nxt           = (tcp_seq_foreign word_zero);
+       rcv_up            = (tcp_seq_foreign word_zero);
+       irs               = (tcp_seq_foreign word_zero);
+       rcv_adv           = (tcp_seq_foreign word_zero);
+       snd_recover       = (tcp_seq_local word_zero);
+       t_maxseg          = MSSDFLT;
+       t_advmss          = Nothing;
+       t_rttseg          = Nothing;
+       t_rttinf =
        <|
-         t_rttupdated      := 0;
-         tf_srtt_valid     := F;
-         t_srtt            := TCPTV_RTOBASE;
-         t_rttvar          := TCPTV_RTTVARBASE;
-         t_rttmin          := TCPTV_MIN;
-         t_lastrtt         := 0;
-         t_lastshift       := 0;
-         t_wassyn          := F  (* if t_lastshift=0, this doesn't make a difference *)
+         t_rttupdated      = 0;
+         tf_srtt_valid     = F;
+         t_srtt            = TCPTV_RTOBASE;
+         t_rttvar          = TCPTV_RTTVARBASE;
+         t_rttmin          = TCPTV_MIN;
+         t_lastrtt         = duration_zero;
+         t_lastshift       = 0;
+         t_wassyn          = F  (* if t_lastshift=0, this doesn't make a difference *)
        |>;
-       t_dupacks         := 0;
-       t_idletime        := stopwatch_zero;
-       t_softerror       := NONE;
-       snd_scale         := 0;
-       rcv_scale         := 0;
-       request_r_scale   := NONE; (* this like many other things is overwritten with
+       t_dupacks         = 0;
+       t_idletime        = stopwatch_zero;
+       t_softerror       = Nothing;
+       snd_scale         = 0;
+       rcv_scale         = 0;
+       request_r_scale   = Nothing; (* this like many other things is overwritten with
                                      the chosen value later - cf tcp_newtcpcb() *)
-       tf_doing_ws       := F;
-       ts_recent         := TimeWindowClosed;
-       tf_req_tstmp      := F;    (* cf tcp_newtcpcb() *)
-       tf_doing_tstmp    := F;
-       last_ack_sent     := tcp_seq_foreign 0w;
-       bsd_cantconnect   := F;
-       snd_cwnd_prev     := 0;
-       snd_ssthresh_prev := 0;
-       t_badrxtwin       := TimeWindowClosed
+       tf_doing_ws       = F;
+       ts_recent         = TimeWindowClosed;
+       tf_req_tstmp      = F;    (* cf tcp_newtcpcb() *)
+       tf_doing_tstmp    = F;
+       last_ack_sent     = (tcp_seq_foreign word_zero);
+       bsd_cantconnect   = F;
+       snd_cwnd_prev     = 0;
+       snd_ssthresh_prev = 0;
+       t_badrxtwin       = TimeWindowClosed
        (* Note: everything should be listed here, leaving nothing as ARB. *)
        (* Many are always overwritten, however. *)
     |>
-`;
+
 
 
 (* ------------------------------------------------------------------ *)
 (*: @chapter [[TCP1_auxFns_relmonad]] Relational monad
 
-The relational `monad' is used to describe stateful computation in a
+The relational monad' is used to describe stateful computation in a
 convenient and compositional way.
 
 :*)
@@ -1106,116 +1139,121 @@ convenient and compositional way.
 :*)
 (* ------------------------------------------------------------------ *)
 
+(* not in Lem -  we bracket expressions (...) andThen (...) so no ambiguity
 val _ = add_infix ("andThen", 97, LEFT); (* absolutely no idea what precedence to choose *)
+*)
 
-val andThen_def = Phase.phase_x 2 xDefine "andThen" `(*: normal sequencing :*)
-  (op1 andThen op2) =
-     \ (sock:socket,bndlm:bandlim_state) ((sock':socket,bndlm':bandlim_state,outsegs':'msg list),continue':bool).
-       ?sock1 bndlm1 outsegs1 continue1 sock2 bndlm2 outsegs2 continue2.
-       op1 (sock,bndlm) ((sock1,bndlm1,outsegs1),continue1) /\
-       if continue1 then
-           op2 (sock1,bndlm1) ((sock2,bndlm2,outsegs2),continue2) /\
-           (sock' = sock2 /\ bndlm' = bndlm2 /\ outsegs' = APPEND outsegs1 outsegs2 /\ continue' = continue2)
+let (*: normal sequencing :*)
+  andThen op1 op2 =
+     fun ((sock:socket),(bndlm:bandlim_state)) (((sock':socket),(bndlm':bandlim_state),(outsegs':list 'msg)),(continue':bool)) ->
+       exists sock1 bndlm1 outsegs1 continue1 sock2 bndlm2 outsegs2 continue2.
+       op1 (sock,bndlm) ((sock1,bndlm1,outsegs1),continue1) &&       
+(if continue1 then
+           op2 (sock1,bndlm1) ((sock2,bndlm2,outsegs2),continue2) &&
+           (sock' = sock2 && (bndlm' = bndlm2 && (outsegs' = APPEND outsegs1 outsegs2 && (continue' = continue2))))
        else
-           (sock' = sock1 /\ bndlm' = bndlm1 /\ outsegs' = outsegs1 /\ continue' = F)
-`(*:@mergewithnext:*);
+           (sock' = sock1 && (bndlm' = bndlm1 && (outsegs' = outsegs1 && (continue' = F)))))
+(*:@mergewithnext:*)
 
-val cont_def = Phase.phase 2 Define`(*: do nothing, and continue (unit for [[andThen]]) :*)
+(* in order to allow lem to process infix operator andThen, we give it this infix-acceptable syntax *)
+let ( **> ) = andThen
+
+let (*: do nothing, and continue (unit for [[andThen]]) :*)
   cont =
-     \ (sock:socket,bndlm:bandlim_state) ((sock':socket,bndlm':bandlim_state,outsegs':'msg list),continue':bool).
-       (sock' = sock /\ bndlm' = bndlm /\ outsegs' = [] /\ continue' = T)
-`(*:@mergewithnext:*);
+     fun ((sock:socket),(bndlm:bandlim_state)) (((sock':socket),(bndlm':bandlim_state),(outsegs':list 'msg)),(continue':bool)) ->
+       (sock' = sock && (bndlm' = bndlm && (outsegs' = [] && (continue' = T))))
+(*:@mergewithnext:*)
 
-val stop_def = Phase.phase 2 Define`(*: do nothing, and stop (zero for [[andThen]]) :*)
+let (*: do nothing, and stop (zero for [[andThen]]) :*)
   stop =
-     \ (sock:socket,bndlm:bandlim_state) ((sock':socket,bndlm':bandlim_state,outsegs':'msg list),continue':bool).
-       (sock' = sock /\ bndlm' = bndlm /\ outsegs' = [] /\ continue' = F)
-`(*:@mergewithnext:*);
+     fun ((sock:socket),(bndlm:bandlim_state)) (((sock':socket),(bndlm':bandlim_state),(outsegs':list 'msg)),(continue':bool)) ->
+       (sock' = sock && (bndlm' = bndlm && (outsegs' = [] && (continue' = F))))
+(*:@mergewithnext:*)
 
-val assert_def = Phase.phase 2 Define`(*: assert truth of condition, and continue :*)
-  assert p =
-     \ (sock:socket,bndlm:bandlim_state) ((sock':socket,bndlm':bandlim_state,outsegs':'msg list),continue':bool).
-       (p /\ sock' = sock /\ bndlm' = bndlm /\ outsegs' = [] /\ continue' = T)
-`(*:@mergewithnext:*);
+let (*: assert truth of condition, and continue :*)
+  myassert p =
+     fun ((sock:socket),(bndlm:bandlim_state)) (((sock':socket),(bndlm':bandlim_state),(outsegs':list 'msg)),(continue':bool)) ->
+       (p && (sock' = sock && (bndlm' = bndlm && (outsegs' = [] && (continue' = T)))))
+(*:@mergewithnext:*)
 
-val assert_failure_def = Phase.phase 2 Define`(*: assertion violated; fail noisily :*)
+let (*: assertion violated; fail noisily :*)
   assert_failure s =
-     \ (sock:socket,bndlm:bandlim_state) ((sock':socket,bndlm':bandlim_state,outsegs':'msg list),continue':bool).
+     fun ((sock:socket),(bndlm:bandlim_state)) (((sock':socket),(bndlm':bandlim_state),(outsegs':list 'msg)),(continue':bool)) ->
        ASSERTION_FAILURE s
-`(*:@mergewithnext:*);
+(*:@mergewithnext:*)
 
-val chooseM_def = Phase.phase 2 Define`(*: choose a value from a set, nondeterministically :*)
+let (*: choose a value from a set, nondeterministically :*)
   chooseM s f =
-     \ (sock:socket,bndlm:bandlim_state) ((sock':socket,bndlm':bandlim_state,outsegs':'msg list),continue':bool).
-       choose x :: s. f x (sock,bndlm) ((sock',bndlm',outsegs'),continue')
-`;
+      fun ((sock:socket),(bndlm:bandlim_state)) (((sock':socket),(bndlm':bandlim_state),(outsegs':list 'msg)),(continue':bool)) ->
+       mychoose s (fun x -> f x (sock,bndlm) ((sock',bndlm',outsegs'),continue'))
 
-val get_sock_def = Phase.phase 2 Define`(*: get current socket :*)
+
+let (*: get current socket :*)
   get_sock f =
-     \ (sock:socket,bndlm:bandlim_state) ((sock':socket,bndlm':bandlim_state,outsegs':'msg list),continue':bool).
+      fun ((sock:socket),(bndlm:bandlim_state)) (((sock':socket),(bndlm':bandlim_state),(outsegs':list 'msg)),(continue':bool)) ->
        f sock (sock,bndlm) ((sock',bndlm',outsegs'),continue')
-`(*: @mergewithnext :*);
-val get_tcp_sock_def = Phase.phase 2 Define`(*: assert current socket is TCP, and get its protocol data :*)
+(*: @mergewithnext :*)
+let (*: assert current socket is TCP, and get its protocol data :*)
   get_tcp_sock f =
-     \ (sock:socket,bndlm:bandlim_state) ((sock':socket,bndlm':bandlim_state,outsegs':'msg list),continue':bool).
-       ?tcp_sock.
-       sock.pr = TCP_PROTO(tcp_sock) /\
+      fun ((sock:socket),(bndlm:bandlim_state)) (((sock':socket),(bndlm':bandlim_state),(outsegs':list 'msg)),(continue':bool)) ->
+       exists tcp_sock.
+       sock.pr = TCP_PROTO(tcp_sock) &&
        f tcp_sock (sock,bndlm) ((sock',bndlm',outsegs'),continue')
-`(*: @mergewithnext :*);
-val get_cb_def = Phase.phase 2 Define`(*: assert current socket is TCP, and get its control block :*)
+(*: @mergewithnext :*)
+let (*: assert current socket is TCP, and get its control block :*)
   get_cb f =
-     \ (sock:socket,bndlm:bandlim_state) ((sock':socket,bndlm':bandlim_state,outsegs':'msg list),continue':bool).
-       ?tcp_sock.
-       sock.pr = TCP_PROTO(tcp_sock) /\
+      fun ((sock:socket),(bndlm:bandlim_state)) (((sock':socket),(bndlm':bandlim_state),(outsegs':list 'msg)),(continue':bool)) ->
+       exists tcp_sock.
+       sock.pr = TCP_PROTO(tcp_sock) &&
        f tcp_sock.cb (sock,bndlm) ((sock',bndlm',outsegs'),continue')
-`(*: @mergewithnext :*);
+(*: @mergewithnext :*)
 
 (* alter socket *)
-val modify_sock_def = Phase.phase 2 Define`(*: apply function to current socket :*)
+let (*: apply function to current socket :*)
   modify_sock f =
-     \ (sock:socket,bndlm:bandlim_state) ((sock':socket,bndlm':bandlim_state,outsegs':'msg list),continue':bool).
-       (sock' = f sock /\ bndlm' = bndlm /\ outsegs' = [] /\ continue' = T)
-`(*: @mergewithnext :*);
+      fun ((sock:socket),(bndlm:bandlim_state)) (((sock':socket),(bndlm':bandlim_state),(outsegs':list 'msg)),(continue':bool)) ->
+       (sock' = f sock && (bndlm' = bndlm && (outsegs' = [] && (continue' = T))))
+(*: @mergewithnext :*)
 (* alter TCP socket *)
-val modify_tcp_sock_def = Phase.phase 2 Define`(*: apply function to current socket :*)
+let (*: apply function to current socket :*)
   modify_tcp_sock f =
-     \ (sock:socket,bndlm:bandlim_state) ((sock':socket,bndlm':bandlim_state,outsegs':'msg list),continue':bool).
-       (?tcp_sock.
-        sock.pr = TCP_PROTO(tcp_sock) /\
-        sock' = sock with <| pr := TCP_PROTO (f tcp_sock) |> /\ bndlm' = bndlm /\ outsegs' = [] /\ continue' = T)
-`(*: @mergewithnext :*);
-val modify_cb_def = Phase.phase 2 Define`(*: assert current socket is TCP, and apply function to its control block :*)
+      fun ((sock:socket),(bndlm:bandlim_state)) (((sock':socket),(bndlm':bandlim_state),(outsegs':list 'msg)),(continue':bool)) ->
+       (exists tcp_sock.
+        sock.pr = TCP_PROTO(tcp_sock) &&        
+(sock' =  <| sock with pr = TCP_PROTO (f tcp_sock) |> && (bndlm' = bndlm && (outsegs' = [] && (continue' = T)))))
+(*: @mergewithnext :*)
+let (*: assert current socket is TCP, and apply function to its control block :*)
   modify_cb f =
-     \ (sock:socket,bndlm:bandlim_state) ((sock':socket,bndlm':bandlim_state,outsegs':'msg list),continue':bool).
-       ?tcp_sock.
-       sock.pr = TCP_PROTO(tcp_sock) /\
-       (sock' = sock with <| pr := TCP_PROTO(tcp_sock with <| cb := (f tcp_sock.cb) |>) |> /\
-        bndlm' = bndlm /\ outsegs' = [] /\ continue' = T)
-`;
+      fun ((sock:socket),(bndlm:bandlim_state)) (((sock':socket),(bndlm':bandlim_state),(outsegs':list 'msg)),(continue':bool)) ->
+       exists tcp_sock.
+       sock.pr = TCP_PROTO(tcp_sock) &&
+       (sock' = <| sock with pr = TCP_PROTO(<| tcp_sock with cb = (f tcp_sock.cb) |>) |> &&        
+(bndlm' = bndlm && (outsegs' = [] && (continue' = T))))
 
-val emit_segs_def = Phase.phase 2 Define`(*: append segments to current output list :*)
+
+let (*: append segments to current output list :*)
   emit_segs segs =
-     \ (sock:socket,bndlm:bandlim_state) ((sock':socket,bndlm':bandlim_state,outsegs':'msg list),continue':bool).
-       (sock' = sock /\ bndlm' = bndlm /\ outsegs' = segs /\ continue' = T)
-`(*:@mergewithnext:*);
+      fun ((sock:socket),(bndlm:bandlim_state)) (((sock':socket),(bndlm':bandlim_state),(outsegs':list 'msg)),(continue':bool)) ->
+       (sock' = sock && (bndlm' = bndlm && (outsegs' = segs && (continue' = T))))
+(*:@mergewithnext:*)
 
-val emit_segs_pred_def = Phase.phase 2 Define`(*: append segments specified by a predicate (nondeterministic) :*)
+let (*: append segments specified by a predicate (nondeterministic) :*)
   emit_segs_pred f =
-     \ (sock:socket,bndlm:bandlim_state) ((sock':socket,bndlm':bandlim_state,outsegs':'msg list),continue':bool).
-       (sock' = sock /\ f bndlm bndlm' outsegs' /\ continue' = T)
-`;
+      fun ((sock:socket),(bndlm:bandlim_state)) (((sock':socket),(bndlm':bandlim_state),(outsegs':list 'msg)),(continue':bool)) ->
+       (sock' = sock && (f bndlm bndlm' outsegs' && (continue' = T)))
 
-val mliftc_def = Phase.phase 2 Define`(*: lift a monadic operation not involving [[continue]] or [[bndlm]] :*)
+
+let (*: lift a monadic operation not involving [[continue]] or [[bndlm]] :*)
   mliftc f =
-     \ (sock:socket,bndlm:bandlim_state) ((sock':socket,bndlm':bandlim_state,outsegs':'msg list),continue':bool).
-       (f sock (sock',outsegs') /\ bndlm' = bndlm /\ continue' = T)
-`(*:@mergewithnext:*);
+      fun ((sock:socket),(bndlm:bandlim_state)) (((sock':socket),(bndlm':bandlim_state),(outsegs':list 'msg)),(continue':bool)) ->
+       (f sock (sock',outsegs') && (bndlm' = bndlm && (continue' = T)))
+(*:@mergewithnext:*)
 
-val mliftc_bndlm_def = Phase.phase 2 Define`(*: lift a monadic operation not involving [[continue]] :*)
+let (*: lift a monadic operation not involving [[continue]] :*)
   mliftc_bndlm f =
-     \ (sock:socket,bndlm:bandlim_state) ((sock':socket,bndlm':bandlim_state,outsegs':'msg list),continue':bool).
-       (f (sock,bndlm) (sock',bndlm',outsegs') /\ continue' = T)
-`;
+      fun ((sock:socket),(bndlm:bandlim_state)) (((sock':socket),(bndlm':bandlim_state),(outsegs':list 'msg)),(continue':bool)) ->
+       (f (sock,bndlm) (sock',bndlm',outsegs') && (continue' = T))
+
 
 
 (* ALL THIS BELOW WAS AT THE START OF TCP1_hostLTSSCript.sml *)
@@ -1236,284 +1274,281 @@ Generating various simple segments (none of which contain any user data).
      :*)
 (* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ *)
 
+
 (* Don't Phase: handled by testEval *)
-val make_syn_segment_def = Define`
+let 
 (*: Make a SYN segment for emission by [[connect_1]] etc :*)
   make_syn_segment cb (i1,i2,p1,p2) ts_val seg' =
-    (choose urp_any :: UNIV.
-     choose ack_any :: UNIV.
+    (mychoose UNIV (fun urp_any -> 
+     mychoose UNIV (fun ack_any -> 
 
     (* Determine window size; fail if out of range *)
-    let win = n2w cb.rcv_wnd in
-    w2n win = cb.rcv_wnd /\ (* FIXME: silly window avoidance logic missing*)
+    let win = n2w16 cb.rcv_wnd in
+    w2n win = cb.rcv_wnd &&    
+( (* FIXME: silly window avoidance logic missing*)
 
     (* Choose a window scaling; fail if out of range *)
-    (* Note there may be a better place for this assertion. *)
-    let ws = OPTION_MAP CHR cb.request_r_scale in
-    (IS_SOME cb.request_r_scale ==> ORD (THE ws) = THE cb.request_r_scale) /\
-    (case ws of NONE -> T || SOME n -> ORD n <= TCP_MAXWINSCALE) /\
+    (* Note there may be a better place for this assertion. *)let ws = OPTION_MAP CHR cb.request_r_scale in
+    (is_Some cb.request_r_scale --> (ORD (THE ws) = THE cb.request_r_scale)) &&    
+((match ws with Nothing -> T | Just n -> ORD n <= TCP_MAXWINSCALE end) &&    
+(
 
     (* Determine maximum segment size; fail if out of range *)
-    (*: Put the MSS we initially advertise into [[t_advmss]] :*)
-    let mss = (case cb.t_advmss of
-                  NONE   -> NONE
-               || SOME v -> SOME (n2w v)) in
-    (case cb.t_advmss of
-        NONE   -> T
-     || SOME v -> v = w2n (THE mss)) /\
+    (*: Put the MSS we initially advertise into [[t_advmss]] :*)let mss = (match cb.t_advmss with
+                  Nothing   -> Nothing
+               | Just v -> Just (n2w16 v) end) in
+    (match cb.t_advmss with
+        Nothing   -> T
+     | Just v -> v = w2n (THE mss) end) &&    
+(
 
-    (* Do timestamping? *)
-    let ts = do_tcp_options cb.tf_req_tstmp cb.ts_recent ts_val in
+    (* Do timestamping? *)let ts = do_tcp_options cb.tf_req_tstmp cb.ts_recent ts_val in
 
-    seg' = <| is1  := SOME i1;
-              is2  := SOME i2;
-              ps1  := SOME p1;
-              ps2  := SOME p2;
-              seq  := cb.iss;
-              ack  := ack_any;
-              URG  := F;
-              ACK  := F;
-              PSH  := F;
-              RST  := F;
-              SYN  := T;
-              FIN  := F;
-              win  := win;
-              ws   := ws;
-              urp  := urp_any;
-              mss  := mss;
-              ts   := ts;
-              data := []
-           |>
-    )
-`;
+    seg' = <| TCP1_netTypes.is1  = (Just i1);
+              TCP1_netTypes.is2  = (Just i2);
+              TCP1_netTypes.ps1  = (Just p1);
+              TCP1_netTypes.ps2  = (Just p2);
+              TCP1_netTypes.seq  = cb.iss; (* want local *)
+              TCP1_netTypes.ack  = ack_any;
+              TCP1_netTypes.URG  = F;
+              TCP1_netTypes.ACK  = F;
+              TCP1_netTypes.PSH  = F;
+              TCP1_netTypes.RST  = F;
+              TCP1_netTypes.SYN  = T;
+              TCP1_netTypes.FIN  = F;
+              TCP1_netTypes.win  = win; (* expected word16 *)
+              TCP1_netTypes.ws   = ws;
+              TCP1_netTypes.urp  = urp_any;
+              TCP1_netTypes.mss  = mss;
+              TCP1_netTypes.tcpSegment_ts   = ts;
+              TCP1_netTypes.data = []
+           |>))))
+    )))
 
 (* Don't Phase: handled by testEval *)
-val make_syn_ack_segment_def = Define`
+let 
 (*: Make a SYN,ACK segment for emission by [[deliver_in_1]], [[deliver_in_2]], etc.:*)
-  make_syn_ack_segment cb (i1,i2,p1,p2) ts_val' seg' =
-    choose urp_any :: UNIV.
+  make_syn_ack_segment cb (i1,i2,p1,p2) ts_val' seg' = (
+    mychoose UNIV (fun urp_any ->
 
     (* Determine window size; fail if out of range *)
     (*: We don't scale yet ([[>> rcv_scale']]). RFC1323 says: segments with SYN are not scaled, and BSD
        agrees.  Even though we know what scaling the other end wants to use, and we know whether we
        are doing scaling, we can't use it until we reach the ESTABLISHED state. :*)
-    let win = n2w cb.rcv_wnd in (*: [[rcv_window - LENGTH data']] :*)
-    w2n win = cb.rcv_wnd /\ (* FIXME: silly window avoidance logic *)
+    let win = n2w16 cb.rcv_wnd in (*: [[rcv_window - LENGTH data']] :*)
+    w2n win = cb.rcv_wnd &&    
+( (* FIXME: silly window avoidance logic *)
 
-    (* If doing window scaling, set it; fail if out of range *)
-    let ws = if cb.tf_doing_ws then SOME (CHR cb.rcv_scale) else NONE in
-    (cb.tf_doing_ws ==> ORD (THE ws) = cb.rcv_scale) /\
+    (* If doing window scaling, set it; fail if out of range *)let ws = if cb.tf_doing_ws then Just (CHR cb.rcv_scale) else Nothing in
+    (cb.tf_doing_ws --> (ORD (THE ws) = cb.rcv_scale)) &&    
+(
 
     (* Determine maximum segment size; fail if out of range *)
-    (*: Put the MSS we initially advertise into [[t_advmss]] :*)
-    let mss = (case cb.t_advmss of
-                  NONE   -> NONE
-               || SOME v -> SOME (n2w v)) in
-    (case cb.t_advmss of
-        NONE   -> T
-     || SOME v -> v = w2n (THE mss)) /\
+    (*: Put the MSS we initially advertise into [[t_advmss]] :*)let mss = (match cb.t_advmss with
+                  Nothing   -> Nothing
+               | Just v -> Just (n2w16 v) end) in
+    (match cb.t_advmss with
+        Nothing   -> T
+     | Just v -> v = w2n (THE mss) end) &&    
+(
 
-    (* Set timestamping option? *)
-    let ts =  do_tcp_options cb.tf_doing_tstmp cb.ts_recent ts_val' in
+    (* Set timestamping option? *)let ts =  do_tcp_options cb.tf_doing_tstmp cb.ts_recent ts_val' in
 
-    seg' = <| is1  := SOME i1;
-              is2  := SOME i2;
-              ps1  := SOME p1;
-              ps2  := SOME p2;
-              seq  := cb.iss;
-              ack  := cb.rcv_nxt;
-              URG  := F;
-              ACK  := T;
-              PSH  := F;  (*: see below :*)
-              RST  := F;
-              SYN  := T;
-              FIN  := F;  (* Note: we are not modelling T/TCP *)
-              win  := win;
-              ws   := ws;
-              urp  := urp_any;
-              mss  := mss;
-              ts   := ts;
-              data := []  (*: see below :*)
-           |>
+    seg' = <| TCP1_netTypes.is1  = (Just i1);
+              TCP1_netTypes.is2  = (Just i2);
+              TCP1_netTypes.ps1  = (Just p1);
+              TCP1_netTypes.ps2  = (Just p2);
+              TCP1_netTypes.seq  = cb.iss;
+              TCP1_netTypes.ack  = cb.rcv_nxt;
+              TCP1_netTypes.URG  = F;
+              TCP1_netTypes.ACK  = T;
+              TCP1_netTypes.PSH  = F;  (*: see below :*)
+              TCP1_netTypes.RST  = F;
+              TCP1_netTypes.SYN  = T;
+              TCP1_netTypes.FIN  = F;  (* Note: we are not modelling T/TCP *)
+              TCP1_netTypes.win  = win;
+              TCP1_netTypes.ws   = ws;
+              TCP1_netTypes.urp  = urp_any;
+              TCP1_netTypes.mss  = mss;
+              TCP1_netTypes.tcpSegment_ts   = ts;
+              TCP1_netTypes.data = []  (*: see below :*)
+           |>)))))
 (*: No [[data]] can be send here using the BSD sockets API, although
 TCP notionally allows it.  Accordingly, the [[PSH]] flag is never set
 (under BSD, PSH is only set if we're sending a non-zero amount of data
-(and emptying the send buffer); see |tcp_output.c:626|). :*) `;
-
+(and emptying the send buffer); see |tcp_output.c:626|). :*) 
 
 
 (* Don't Phase: handled by testEval *)
-val make_ack_segment_def = Define`
+let 
 (*: Make a plain boring ACK segment in response to a SYN,ACK segment :*)
-  make_ack_segment cb FIN (i1,i2,p1,p2) ts_val' seg' =
+  make_ack_segment cb FIN (i1,i2,p1,p2) ts_val' seg' = (
     ((* SB thinks these should be unconstrained. *)
-    choose urp_garbage :: UNIV.
+    mychoose UNIV (fun urp_garbage ->
 
     (* Determine window size; fail if out of range *)
     (* Connection is now established so any scaling should be taken into account *)
     (* Note it might be appropriate to clip the value to be in range rather than failing if out of range. *)
-    let win = n2w (cb.rcv_wnd >> cb.rcv_scale) in
-    w2n win = cb.rcv_wnd >> cb.rcv_scale /\ (* FIXME: silly window avoidance *)
+    let win = n2w16 (cb.rcv_wnd >> cb.rcv_scale) in
+    w2n win = (shift_right cb.rcv_wnd cb.rcv_scale) &&    
+( (* FIXME: silly window avoidance *)
 
-    (* Set timestamping option? *)
-    let ts = do_tcp_options cb.tf_doing_tstmp cb.ts_recent ts_val' in
+    (* Set timestamping option? *)let ts = do_tcp_options cb.tf_doing_tstmp cb.ts_recent ts_val' in
 
-    seg' = <| is1  := SOME i1;
-              is2  := SOME i2;
-              ps1  := SOME p1;
-              ps2  := SOME p2;
-              seq  := if FIN then cb.snd_una else cb.snd_nxt;
-              ack  := cb.rcv_nxt;
-              URG  := F;
-              ACK  := T;
-              PSH  := F;  (*: see comment for [[make_syn_ack_segment]] :*)
-              RST  := F;
-              SYN  := F;
-              FIN  := FIN;
-              win  := win;
-              ws   := NONE;
-              urp  := urp_garbage;
-              mss  := NONE;
-              ts   := ts;
-              data := [] (*: Note that if there is data in [[sndq]] then it
+    seg' = <| TCP1_netTypes.is1  = (Just i1);
+              TCP1_netTypes.is2  = (Just i2);
+              TCP1_netTypes.ps1  = (Just p1);
+              TCP1_netTypes.ps2  = (Just p2);
+              TCP1_netTypes.seq  = (if FIN then cb.snd_una else cb.snd_nxt);
+              TCP1_netTypes.ack  = cb.rcv_nxt;
+              TCP1_netTypes.URG  = F;
+              TCP1_netTypes.ACK  = T;
+              TCP1_netTypes.PSH  = F;  (*: see comment for [[make_syn_ack_segment]] :*)
+              TCP1_netTypes.RST  = F;
+              TCP1_netTypes.SYN  = F;
+              TCP1_netTypes.FIN  = FIN;
+              TCP1_netTypes.win  = win;
+              TCP1_netTypes.ws   = Nothing;
+              TCP1_netTypes.urp  = urp_garbage;
+              TCP1_netTypes.mss  = Nothing;
+              TCP1_netTypes.tcpSegment_ts   = ts;
+              TCP1_netTypes.data = [] (*: Note that if there is data in [[sndq]] then it
                             should always appear in a seperate segment after the connnection
                             establishment handshake, but this needs to be verified. :*)
-           |>)
-`;
+           |>))))
+
 
 
 (* Don't Phase: handled by testEval *)
-val bsd_make_phantom_segment_def = Define`
+let 
 (*: Make phantom (no flags) segment for BSD [[LISTEN]] bug :*)
 (* If a socket is changed to the LISTEN state, the rexmt timer may still be running.
    If it fires, phantom segments are emitted. *)
-  bsd_make_phantom_segment cb (i1,i2,p1,p2) ts_val' cantsndmore seg' =
-    (choose urp_garbage :: UNIV.
+  bsd_make_phantom_segment cb (i1,i2,p1,p2) ts_val' cantsndmore seg' = (
+    (mychoose UNIV (fun urp_garbage ->
 
     (* Determine window size; fail if out of range *)
     (* Connection is now established so any scaling should be taken into account *)
     (* Note it might be appropriate to clip the value to be in range rather than failing if out of range. *)
-    let win = n2w (cb.rcv_wnd >> cb.rcv_scale) in
-    w2n win = cb.rcv_wnd >> cb.rcv_scale /\ (* FIXME: silly window avoidance*)
+    let win = n2w16 (shift_right cb.rcv_wnd cb.rcv_scale) in
+    w2n win = shift_right cb.rcv_wnd cb.rcv_scale &&    
 
-    let FIN = (cantsndmore /\ cb.snd_una < (cb.snd_max - 1)) in
+( (* FIXME: silly window avoidance*)let FIN = (cantsndmore && seq32_lt cb.snd_una (seq32_minus cb.snd_max 1)) in
 
     (* Set timestamping option? *)
     let ts = do_tcp_options cb.tf_doing_tstmp cb.ts_recent ts_val' in
 
-    seg' = <| is1  := SOME i1;
-              is2  := SOME i2;
-              ps1  := SOME p1;
-              ps2  := SOME p2;
-              seq  := if FIN then cb.snd_una else cb.snd_max; (* no flags, no data, and no persist timer so use snd_max *)
-              ack  := cb.rcv_nxt;  (*: yes, really, even though [[~ACK]] :*)
-              URG  := F;
-              ACK  := F;
-              PSH  := F;
-              RST  := F;
-              SYN  := F;
-              FIN  := FIN;
-              win  := win;
-              ws   := NONE;
-              urp  := urp_garbage;
-              mss  := NONE;
-              ts   := ts;
-              data := [] (*: sndq always empty in this situation :*)
-           |>)
-`;
+    seg' = <| TCP1_netTypes.is1  = (Just i1);
+              TCP1_netTypes.is2  = (Just i2);
+              TCP1_netTypes.ps1  = (Just p1);
+              TCP1_netTypes.ps2  = (Just p2);
+              TCP1_netTypes.seq  = (if FIN then cb.snd_una else cb.snd_max); (* no flags, no data, and no persist timer so use snd_max *)
+              TCP1_netTypes.ack  = cb.rcv_nxt;  (*: yes, really, even though [[~ACK]] :*)
+              TCP1_netTypes.URG  = F;
+              TCP1_netTypes.ACK  = F;
+              TCP1_netTypes.PSH  = F;
+              TCP1_netTypes.RST  = F;
+              TCP1_netTypes.SYN  = F;
+              TCP1_netTypes.FIN  = FIN;
+              TCP1_netTypes.win  = win;
+              TCP1_netTypes.ws   = Nothing;
+              TCP1_netTypes.urp  = urp_garbage;
+              TCP1_netTypes.mss  = Nothing;
+              TCP1_netTypes.tcpSegment_ts   = ts;
+              TCP1_netTypes.data = [] (*: sndq always empty in this situation :*)
+           |>))))
 
 
 (* Don't phase: handled by testEval *)
-val make_rst_segment_from_cb_def = Define`
+let 
 (*: Make a RST segment asynchronously, from socket information only :*)
-  make_rst_segment_from_cb cb (i1,i2,p1,p2) seg' =
+  make_rst_segment_from_cb cb (i1,i2,p1,p2) seg' = (
     (* Deliberately unconstrained *)
-    choose urp_garbage  :: UNIV .
-    choose URG_garbage  :: UNIV .
-    choose PSH_garbage  :: UNIV .
-    choose win_garbage  :: UNIV .
-    choose data_garbage :: UNIV.
-    choose FIN_garbage  :: UNIV .
+    mychoose UNIV (fun  urp_garbage  ->
+    mychoose UNIV (fun  URG_garbage  ->
+    mychoose UNIV (fun  PSH_garbage  ->
+    mychoose UNIV (fun  win_garbage  ->
+    mychoose UNIV (fun  data_garbage ->
+    mychoose UNIV (fun  FIN_garbage  ->
 
     (*: Note that BSD is perfectly capable of putting data in a RST segment; try filling the buffer
        and then doing a force close: the result is a segment with RST+PSH+data+win advertisement.
        Presumably URG is also possible.  This is *not* the same as the RFC-suggested data carried by
        a RST; that would be an error message, this is just data from the buffer!  :*)
-    seg' = <| is1  := SOME i1;
-              ps1  := SOME p1;
-              is2  := SOME i2;
-              ps2  := SOME p2;
-              seq  := cb.snd_nxt;   (*: from RFC793p62 :*)
-              ack  := cb.rcv_nxt;   (*: seems the right thing to do :*)
-              URG  := URG_garbage;  (*: expect: [[F]] :*)
-              ACK  := T;            (*: from TCPv1p248 :*)
-              PSH  := PSH_garbage;  (*: expect: [[F]] :*)
-              RST  := T;
-              SYN  := F;
-              FIN  := FIN_garbage;  (*: expect: [[F]] :*)
-              win  := win_garbage;  (*: expect: [[0w]] :*)
-              ws   := NONE;
-              urp  := urp_garbage;  (*: expect: [[0w]] :*)
-              mss  := NONE;
-              ts   := NONE;  (*: RFC1323 S4.2 recommends no TS on RST, and BSD follows this :*)
-              data := data_garbage  (*: expect: [[ [] ]] :*)
-           |>
-`;
+    seg' = <| TCP1_netTypes.is1  = (Just i1);
+              TCP1_netTypes.ps1  = (Just p1);
+              TCP1_netTypes.is2  = (Just i2);
+              TCP1_netTypes.ps2  = (Just p2);
+              TCP1_netTypes.seq  = cb.snd_nxt;   (*: from RFC793p62 :*)
+              TCP1_netTypes.ack  = cb.rcv_nxt;   (*: seems the right thing to do :*)
+              TCP1_netTypes.URG  = URG_garbage;  (*: expect: [[F]] :*)
+              TCP1_netTypes.ACK  = T;            (*: from TCPv1p248 :*)
+              TCP1_netTypes.PSH  = PSH_garbage;  (*: expect: [[F]] :*)
+              TCP1_netTypes.RST  = T;
+              TCP1_netTypes.SYN  = F;
+              TCP1_netTypes.FIN  = FIN_garbage;  (*: expect: [[F]] :*)
+              TCP1_netTypes.win  = win_garbage;  (*: expect: [[0w]] :*)
+              TCP1_netTypes.ws   = Nothing;
+              TCP1_netTypes.urp  = urp_garbage;  (*: expect: [[0w]] :*)
+              TCP1_netTypes.mss  = Nothing;
+              TCP1_netTypes.tcpSegment_ts   = Nothing;  (*: RFC1323 S4.2 recommends no TS on RST, and BSD follows this :*)
+              TCP1_netTypes.data = data_garbage  (*: expect: [[ [] ]] :*)
+           |>)))))))
 
 
 
-val make_rst_segment_from_seg_def = Phase.phase 2 Define`
+
+let 
 (*: Make a RST segment synchronously, in response to an incoming segment :*)
-  make_rst_segment_from_seg seg seg' =
-    (seg.RST = F /\  (* Sanity check: never RST a RST *)
+  make_rst_segment_from_seg seg seg' = (
+    (seg.RST = F &&  (* Sanity check: never RST a RST *)
 
-    (?ack'.
+    (exists ack'.
     (* Deliberately unconstrained *)
-    choose urp_garbage::UNIV.
-    choose URG_garbage::UNIV.
-    choose PSH_garbage::UNIV.
-    choose win_garbage::UNIV.
-    choose data_garbage::UNIV.
-    choose FIN_garbage::UNIV.
+    mychoose UNIV (fun urp_garbage -> 
+    mychoose UNIV (fun URG_garbage -> 
+    mychoose UNIV (fun PSH_garbage -> 
+    mychoose UNIV (fun win_garbage -> 
+    mychoose UNIV (fun data_garbage ->
+    mychoose UNIV (fun FIN_garbage -> 
 
     (* RFC795 S3.4: only ack segments that don't contain an ACK.
        SB believes this is equivalent to: only send a RST+ACK segment in response to a bad SYN
        segment *)
-    let ACK' = ~seg.ACK in
+    let ACK' = not seg.ACK in
 
     (* Sequence number is zero for RST+ACK segments, otherwise it is the next sequence number
        expected *)
-    let seq' = if seg.ACK then tcp_seq_flip_sense seg.ack
-	       else tcp_seq_local 0w in
+    let seq' = if seg.ACK then tcp_seq_foreign_to_local seg.ack
+	       else tcp_seq_local word_zero in
 
    (if ACK' then
        (* RFC794 S3.4: for RST+ACK segments the ack value must be valid *)
-       ack' = tcp_seq_flip_sense seg.seq + LENGTH seg.data + (if seg.SYN then 1 else 0)
+       ack' = (seq32_plus (seq32_plus (tcp_seq_local_to_foreign seg.TCP1_netTypes.seq) (LENGTH seg.TCP1_netTypes.data)) (if seg.SYN then 1 else 0))
      else
        (* otherwise it can be arbitrary, although it possibly should be zero *)
        ack' IN { n | T }
-    ) /\
-    seg' = <| is1  := seg.is2;
-              ps1  := seg.ps2;
-              is2  := seg.is1;
-              ps2  := seg.ps1;
-              seq  := seq';
-              ack  := ack';
-              URG  := URG_garbage;  (*: expect: [[F]] :*)
-              ACK  := ACK';
-              PSH  := PSH_garbage;  (*: expect: [[F]] :*)
-              RST  := T;
-              SYN  := F;
-              FIN  := FIN_garbage;  (*: expect: [[F]] :*)
-              win  := win_garbage;  (*: expect: [[0w]] :*)
-              ws   := NONE;
-              urp  := urp_garbage;  (*: expect: [[0w]] :*)
-              mss  := NONE;
-              ts   := NONE;  (*: RFC1323 S4.2 recommends no TS on RST, and BSD follows this :*)
-              data := data_garbage  (*: expect: [[ [] ]] :*)
-           |>
-    ))
-`;
+    ) &&    
+(seg' = <| TCP1_netTypes.is1  = seg.TCP1_netTypes.is2;
+              TCP1_netTypes.ps1  = seg.TCP1_netTypes.ps2;
+              TCP1_netTypes.is2  = seg.TCP1_netTypes.is1;
+              TCP1_netTypes.ps2  = seg.TCP1_netTypes.ps1;
+              TCP1_netTypes.seq  = seq';
+              TCP1_netTypes.ack  = ack';
+              TCP1_netTypes.URG  = URG_garbage;  (*: expect: [[F]] :*)
+              TCP1_netTypes.ACK  = ACK';
+              TCP1_netTypes.PSH  = PSH_garbage;  (*: expect: [[F]] :*)
+              TCP1_netTypes.RST  = T;
+              TCP1_netTypes.SYN  = F;
+              TCP1_netTypes.FIN  = FIN_garbage;  (*: expect: [[F]] :*)
+              TCP1_netTypes.win  = win_garbage;  (*: expect: [[0w]] :*)
+              TCP1_netTypes.ws   = Nothing;
+              TCP1_netTypes.urp  = urp_garbage;  (*: expect: [[0w]] :*)
+              TCP1_netTypes.mss  = Nothing;
+              TCP1_netTypes.tcpSegment_ts   = Nothing;  (*: RFC1323 S4.2 recommends no TS on RST, and BSD follows this :*)
+              TCP1_netTypes.data = data_garbage  (*: expect: [[ [] ]] :*)
+           |>)
+    )))))))))
 
 
 (* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ *)
@@ -1529,16 +1564,16 @@ The TCP output routines.  These, together with the input routines in
 (* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ *)
 
 (* Don't Phase: handled specially by netEval *)
-val tcp_output_required_def = Define`
+let 
 (*: determine whether TCP output is required :*)
-  tcp_output_required arch ifds0 sock =
+  tcp_output_required arch ifds0 sock = (
     let tcp_sock = tcp_sock_of sock in
     let cb = tcp_sock.cb in
 
     (*: Note this does not deal with |TF_LASTIDLE| and |PRU_MORETOCOME| :*)
     let snd_cwnd' =
-      if ~(cb.snd_max = cb.snd_una /\
-           stopwatch_val_of cb.t_idletime >= computed_rxtcur cb.t_rttinf arch)
+      if not (cb.snd_max = cb.snd_una &&
+           real_gte (stopwatch_val_of cb.t_idletime) (computed_rxtcur cb.t_rttinf arch))
       then  (* inverted so this clause is tried first *)
          cb.snd_cwnd
       else
@@ -1548,32 +1583,32 @@ val tcp_output_required_def = Define`
 
     (*: Calculate the amount of unused send window :*)
     let win = MIN cb.snd_wnd snd_cwnd' in
-    let snd_wnd_unused = int_of_num win - (cb.snd_nxt - cb.snd_una) in
+    let snd_wnd_unused = (int_of_num win) - (seq32_diff cb.snd_nxt cb.snd_una) in
 
     (*: Is it possible that a FIN may need to be sent? :*)
-    let fin_required = (sock.cantsndmore /\ tcp_sock.st NOTIN {FIN_WAIT_2;TIME_WAIT}) in
+    let fin_required = (sock.cantsndmore && NOTIN tcp_sock.st {FIN_WAIT_2;TIME_WAIT}) in
 
     (*: Under BSD, we may need to send a [[FIN]] in state [[SYN_SENT]] or [[SYN_RECEIVED]], so we may
         effectively still have a [[SYN]] on the send queue. :*)
-    let syn_not_acked = (bsd_arch arch /\ tcp_sock.st IN {SYN_SENT;SYN_RECEIVED}) in
+    let syn_not_acked = (bsd_arch arch && tcp_sock.st IN {SYN_SENT;SYN_RECEIVED}) in
 
     (*: Is there data or a FIN to transmit? :*)
-    let last_sndq_data_seq = cb.snd_una + LENGTH tcp_sock.sndq in
-    let last_sndq_data_and_fin_seq  = last_sndq_data_seq + (if fin_required then 1 else 0)
-                                                         + (if syn_not_acked then 1 else 0) in
-    let have_data_to_send = cb.snd_nxt < last_sndq_data_seq in
-    let have_data_or_fin_to_send = cb.snd_nxt < last_sndq_data_and_fin_seq in
+    let last_sndq_data_seq = seq32_plus cb.snd_una (LENGTH tcp_sock.sndq) in
+    let last_sndq_data_and_fin_seq  = (seq32_plus (seq32_plus last_sndq_data_seq (if fin_required then 1 else 0))
+                                                         (if syn_not_acked then 1 else 0)) in
+    let have_data_to_send = seq32_lt cb.snd_nxt last_sndq_data_seq in
+    let have_data_or_fin_to_send = seq32_lt cb.snd_nxt last_sndq_data_and_fin_seq in
 
     (*: The amount by which the right edge of the advertised window could be moved :*)
-    let window_update_delta = (int_min (int_of_num(TCP_MAXWIN << cb.rcv_scale))
+    let window_update_delta = (int_min (int_of_num(shift_left TCP_MAXWIN cb.rcv_scale))
 				       (int_of_num(sock.sf.n(SO_RCVBUF)) - int_of_num(LENGTH
-				       tcp_sock.rcvq))) -
-			      (cb.rcv_adv - cb.rcv_nxt) in
+				       tcp_sock.rcvq))) - 
+			      (seq32_diff cb.rcv_adv cb.rcv_nxt) in
 
     (*: Send a window update? This occurs when (a) the advertised window can be increased by at
         least two maximum segment sizes, or (b) the advertised window can be increased by at least
         half the receive buffer size. See |tcp_output.c:322ff|. :*)
-    let need_to_send_a_window_update = (window_update_delta >= int_of_num (2 * cb.t_maxseg) \/
+    let need_to_send_a_window_update = (window_update_delta >= int_of_num (2 * cb.t_maxseg) ||
                                        2 * window_update_delta >= int_of_num (sock.sf.n(SO_RCVBUF)))
     in
 
@@ -1582,29 +1617,29 @@ val tcp_output_required_def = Define`
     (*: Can a segment be transmitted? :*)
     let do_output = (
       (*: Data to send and the send window has some space, or a FIN can be sent :*)
-      (have_data_or_fin_to_send /\
-       (have_data_to_send ==> snd_wnd_unused > 0)) \/  (* don't need space if only sending FIN *)
+      (have_data_or_fin_to_send &&
+       (have_data_to_send --> snd_wnd_unused > 0)) ||  (* don't need space if only sending FIN *)
 
       (*: Can send a window update :*)
-      need_to_send_a_window_update \/
+      need_to_send_a_window_update ||
 
       (*: There is outstanding urgent data to be transmitted :*)
-      IS_SOME tcp_sock.sndurp \/
+      is_Some tcp_sock.sndurp ||
 
       (*: An ACK should be sent immediately (e.g. in reply to a window probe) :*)
       cb.tf_shouldacknow
       ) in
 
     let persist_fun =
-      let cant_send = (~do_output /\ tcp_sock.sndq <> [] /\ mode_of cb.tt_rexmt = NONE) in
-      let window_shrunk = (win = 0 /\ snd_wnd_unused < 0 /\ (*: [[win = 0]] if in [[SYN_SENT]], but still may send FIN :*)
-                           (bsd_arch arch ==> tcp_sock.st <> SYN_SENT)) in
+      let cant_send = (not do_output && tcp_sock.sndq <> [] && mode_of cb.tt_rexmt = None) in
+      let window_shrunk = (win = 0 && snd_wnd_unused < 0 && (*: [[win = 0]] if in [[SYN_SENT]], but still may send FIN :*)
+                           (bsd_arch arch --> tcp_sock.st <> SYN_SENT)) in
 
       if cant_send then  (* takes priority over window_shrunk; note this needs to be checked *)
         (*: Can not transmit a segment despite a non-empty send queue and no running persist or
             retransmit timer. Must be the case that the receiver's advertised window is now zero, so
             start the persist timer. Normal: |tcp_output.c:378ff| :*)
-        SOME \cb. cb with <| tt_rexmt := start_tt_persist 0 cb.t_rttinf arch |>
+        Some (fun cb -> <| cb with tt_rexmt = start_tt_persist 0 cb.t_rttinf arch |>)
       else if window_shrunk then
         (*: The receiver's advertised window is zero and the receiver has retracted window space
             that it had previously advertised. Reset [[snd_nxt]] to [[snd_una]] because the data
@@ -1612,16 +1647,17 @@ val tcp_output_required_def = Define`
             be retransmitted. Bizzarely (on FreeBSD 4.6-RELEASE), if the persist timer is running
             reset its shift value :*)
         (* Window shrunk: |tcp_output.c:250ff| *)
-        SOME \cb.
-         cb with <| tt_rexmt := case cb.tt_rexmt of
-                        SOME (Timed((Persist,shift),d)) -> SOME (Timed((Persist,0),d))
-                        || _593 -> start_tt_persist 0 cb.t_rttinf arch ;
-                    snd_nxt := cb.snd_una |>
+        Some (fun cb ->
+         <| cb with tt_rexmt = (match cb.tt_rexmt with
+                        None -> start_tt_persist 0 cb.t_rttinf arch 
+                        | Some (Timed((Persist,shift),d)) -> Some (Timed((Persist,0),d)) 
+                        | Some _ -> failwith "tcp_output_required: impossible" end);
+                    snd_nxt = cb.snd_una |>)
       else
         (*: Otherwise, leave the persist timer alone :*)
-        NONE
+        None
     in
-      (do_output,persist_fun)`
+      (do_output,persist_fun))
 
 
 (*:
@@ -1644,7 +1680,7 @@ val tcp_output_required_def = Define`
   conditions in tcp_output hold, particularly at the moments it is called from deliver_in_3.
 
   NB: whenever tcp\_output.c has nothing to do, absolutely nothing happens, even though this might
-  not be immediately apparent; we know [[~do_output ==> ~force_output ==> tt_persist' =
+  not be immediately apparent; we know [[not do_output --> not force_output --> tt_persist' =
   cb.tt_persist]], and nothing else has changed.
 
   ARGH!  Not quite true - snd_cwnd may change if idle!
@@ -1669,30 +1705,29 @@ val tcp_output_required_def = Define`
 
   -- retransmission timer (tt_rexmt) expires - currently dealt with by timer_tt_rexmt_1
 
-  IS_SOME tcp_sock.sndurp:
+  is_Some tcp_sock.sndurp:
 
   This condition cannot made false by emitting a segment, whereas the other disjuncts may be. OTOH,
   this condition is superfluous as it is (really) contained within have_data_{or_fin_}to_send
 
-:*);
+:*)
 
 
-
-val tcp_output_really_def = Phase.phase 2 Define`
+let 
 (*: do TCP output :*)
   tcp_output_really arch window_probe ts_val' ifds0 sock (sock',outsegs') =
     let tcp_sock = tcp_sock_of sock in
     let cb = tcp_sock.cb in
 
     (*: Assert that the socket is fully bound and connected :*)
-    sock.is1 <> NONE /\
-    sock.is2 <> NONE /\
-    sock.ps1 <> NONE /\
-    sock.ps2 <> NONE /\
+    sock.is1 <> None &&
+    sock.is2 <> None &&
+    sock.ps1 <> None &&
+    sock.ps2 <> None &&
 
     (*: Note this does not deal with |TF_LASTIDLE| and |PRU_MORETOCOME| :*)
     let snd_cwnd' =
-      if ~(cb.snd_max = cb.snd_una /\
+      if not (cb.snd_max = cb.snd_una &&
            stopwatch_val_of cb.t_idletime >= computed_rxtcur cb.t_rttinf arch)
       then  (* inverted so this clause is tried first *)
          cb.snd_cwnd
@@ -1703,57 +1738,55 @@ val tcp_output_really_def = Phase.phase 2 Define`
 
     (*: Calculate the amount of unused send window :*)
     let win0 = MIN cb.snd_wnd snd_cwnd' in
-    let win = (if window_probe /\ win0 = 0 then 1 else win0) in
-    let (snd_wnd_unused : int) = int_of_num win - (cb.snd_nxt - cb.snd_una) in
+    let win = (if window_probe && win0 = 0 then 1 else win0) in
+    let (snd_wnd_unused : int) = (int_of_num win) - (seq32_diff cb.snd_nxt cb.snd_una) in
 
     (*: Is it possible that a [[FIN]] may need to be transmitted? :*)
-    let fin_required = (sock.cantsndmore /\ tcp_sock.st NOTIN {FIN_WAIT_2;TIME_WAIT}) in
+    let fin_required = (sock.cantsndmore && NOTIN tcp_sock.st {FIN_WAIT_2;TIME_WAIT}) in
 
     (*: Calculate the sequence number after the last data byte in the send queue :*)
-    let last_sndq_data_seq = cb.snd_una + LENGTH tcp_sock.sndq in
+    let last_sndq_data_seq = seq32_plus cb.snd_una (LENGTH tcp_sock.sndq) in
 
     (*: The data to send in this segment (if any) :*)
-    let data' = DROP (Num (cb.snd_nxt - cb.snd_una)) tcp_sock.sndq in
-    let data_to_send = TAKE (MIN (clip_int_to_num snd_wnd_unused) cb.t_maxseg) data' in
+    let data' = DROP (num_of_int (seq32_diff cb.snd_nxt cb.snd_una)) tcp_sock.sndq in
+    let data_to_send = TAKE (num_MIN (clip_int_to_num snd_wnd_unused) cb.t_maxseg) data' in
 
     (*: Should [[FIN]] be set in this segment? :*)
-    let FIN = (fin_required /\ cb.snd_nxt + LENGTH data_to_send >= last_sndq_data_seq) in
+    let FIN = (fin_required && seq32_plus cb.snd_nxt (LENGTH data_to_send) >= last_sndq_data_seq) in
 
     (*: Should [[ACK]] be set in this segment? Under BSD, it is not set if the socket is in [[SYN_SENT]]
         and emitting a [[FIN]] segment due to [[shutdown()]] having been called. :*)
-    let ACK = if (bsd_arch arch /\ FIN /\ tcp_sock.st = SYN_SENT) then F else T in
+    let ACK = if (bsd_arch arch && FIN && tcp_sock.st = SYN_SENT) then F else T in
 
     (*: If this socket has previously sent a [[FIN]] which has not yet been acked, and [[snd_nxt]]
         is past the [[FIN]]'s sequence number, then [[snd_nxt]] should be set to the sequence number
         of the [[FIN]] flag, i.e. a retransmission. Check that [[snd_una <> iss]] as in this case no
         data has yet been sent over the socket  :*)
-    let snd_nxt' = if FIN /\ (cb.snd_nxt + LENGTH data_to_send = last_sndq_data_seq+1 /\
-                      cb.snd_una  <> cb.iss \/ Num(cb.snd_nxt - cb.iss) = 2) then
-		     cb.snd_nxt - 1
+    let snd_nxt' = if FIN && (seq32_plus cb.snd_nxt (LENGTH data_to_send) = seq32_plus last_sndq_data_seq 1 &&
+                      cb.snd_una  <> cb.iss || num_of_int(seq32_diff cb.snd_nxt cb.iss) = 2) then
+		     seq32_minus cb.snd_nxt 1
                    else
 		     cb.snd_nxt in
-
     (*: The BSD way: set [[PSH]] whenever sending the last byte of data in the send queue :*)
-    let PSH = (data_to_send <> [] /\ cb.snd_nxt + LENGTH data_to_send = last_sndq_data_seq) in
+    let PSH = (data_to_send <> [] && seq32_plus cb.snd_nxt (LENGTH data_to_send) = last_sndq_data_seq) in
 
     (*: If sending urgent data, set the [[URG]] and [[urp]] fields appropriately :*)
-    let (URG,urp) = (case tcp_sock.sndurp of
-                      NONE -> (F,0) ||  (*: No urgent data; don't set :*)
-                      SOME sndurpn -> let urp_n = (cb.snd_una + sndurpn) - cb.snd_nxt + 1 in
+    let (URG,urp) = (match tcp_sock.sndurp with
+                      None -> (F,0) |  (*: No urgent data; don't set :*)
+                      Some sndurpn -> let urp_n = seq32_diff (cb.snd_una + (n2s(sndurpn))) (cb.snd_nxt + (n2s 1))  in
                                           (* points one byte *past* the urgent byte *)
                                       if urp_n < 1 then
                                         (F,0) (*: Urgent data out of range; don't set :*)
                                       else if urp_n < 65536 then
-                                        (T,Num urp_n) (*: Urgent data in range; set :*)
+                                        (T,num_of_int urp_n) (*: Urgent data in range; set :*)
                                       else
 					(*: Urgent data in the very distant future; set :*)
 					(* Steven's suggestion; not sure if followed *)
-                                        (T,65535)) in
-
+                                        (T,65535) end) in
     (*: Calculate size of the receive window (based upon available buffer space) :*)
     let rcv_wnd'' = calculate_bsd_rcv_wnd sock.sf tcp_sock in
-    let rcv_wnd' = MAX (Num (cb.rcv_adv - cb.rcv_nxt)) (MIN (TCP_MAXWIN << cb.rcv_scale)
-                  (if rcv_wnd'' < sock.sf.n(SO_RCVBUF) DIV 4 /\ rcv_wnd'' < cb.t_maxseg
+    let rcv_wnd' = num_MAX (num_of_int (seq32_diff cb.rcv_adv cb.rcv_nxt)) (num_MIN (shift_left TCP_MAXWIN cb.rcv_scale)
+                  (if rcv_wnd'' < DIV (sock.sf.n(SO_RCVBUF)) 4 && rcv_wnd'' < cb.t_maxseg
 		   then 0  (*: Silly window avoidance: shouldn't advertise a tiny window :*)
                    else rcv_wnd'')) in
 
@@ -1761,61 +1794,61 @@ val tcp_output_really_def = Phase.phase 2 Define`
         [[FIN]] segment from [[SYN_SENT]], if the user called [[shutdown()]], in which
         case the timestamp option hasn't yet been negotiated, so we used [[tf_req_tstmp]]
         rather than [[tf_doing_tstmp]]. :*)
-    let want_tstmp = if (bsd_arch arch /\ tcp_sock.st = SYN_SENT) then cb.tf_req_tstmp
+    let want_tstmp = if (bsd_arch arch && tcp_sock.st = SYN_SENT) then cb.tf_req_tstmp
                                                                   else cb.tf_doing_tstmp in
     let ts = do_tcp_options want_tstmp cb.ts_recent ts_val' in
 
     (*: Advertise an appropriately scaled receive window :*)
     (*: Assert the advertised window is within a sensible range :*)
-    let win = n2w (rcv_wnd' >> cb.rcv_scale) in
-    w2n win = rcv_wnd' >> cb.rcv_scale /\
+    let win = n2w16 (rcv_wnd' >> cb.rcv_scale) in
+    w2n win = (rcv_wnd' >> cb.rcv_scale) &&
 
     (*: Assert the urgent pointer is within a sensible range :*)
-    let urp_ = n2w urp in
-    w2n urp_ = urp /\
+    let urp_ = n2w16 urp in
+    w2n urp_ = urp &&
 
-    let seg = <| is1  := sock.is1;
-                 is2  := sock.is2;
-                 ps1  := sock.ps1;
-                 ps2  := sock.ps2;
-                 seq  := snd_nxt';
-                 ack  := cb.rcv_nxt;
-                 URG  := URG;
-                 ACK  := ACK;
-                 PSH  := PSH;
-                 RST  := F;
-                 SYN  := F;
-                 FIN  := FIN;
-                 win  := win;
-                 ws   := NONE;
-                 urp  := urp_;
-                 mss  := NONE;
-                 ts   := ts;
-                 data := data_to_send
+    let seg = <| TCP1_netTypes.is1  = sock.is1;
+                 TCP1_netTypes.is2  = sock.is2;
+                 TCP1_netTypes.ps1  = sock.ps1;
+                 TCP1_netTypes.ps2  = sock.ps2;
+                 TCP1_netTypes.seq  = snd_nxt';
+                 TCP1_netTypes.ack  = cb.rcv_nxt;
+                 TCP1_netTypes.URG  = URG;
+                 TCP1_netTypes.ACK  = ACK;
+                 TCP1_netTypes.PSH  = PSH;
+                 TCP1_netTypes.RST  = F;
+                 TCP1_netTypes.SYN  = F;
+                 TCP1_netTypes.FIN  = FIN;
+                 TCP1_netTypes.win  = win;
+                 TCP1_netTypes.ws   = None;
+                 TCP1_netTypes.urp  = urp_;
+                 TCP1_netTypes.mss  = None;
+                 TCP1_netTypes.tcpSegment_ts   = ts;
+                 TCP1_netTypes.data = data_to_send
                |> in
 
     (*: If emitting a [[FIN]] for the first time then change TCP state :*)
     let st' = if FIN then
-                case tcp_sock.st of
-                  SYN_SENT     -> tcp_sock.st ||    (*: can't move yet -- wait until connection established (see [[deliver_in_2]]/[[deliver_in_3]]) :*)
-                  SYN_RECEIVED -> tcp_sock.st ||    (*: can't move yet -- wait until connection established (see [[deliver_in_2]]/[[deliver_in_3]]) :*)
-                  ESTABLISHED  -> FIN_WAIT_1 ||
-                  CLOSE_WAIT   -> LAST_ACK ||
-                  FIN_WAIT_1   -> tcp_sock.st ||    (*: FIN retransmission :*)
-                  FIN_WAIT_2   -> tcp_sock.st ||    (*: can't happen       :*)
-                  CLOSING      -> tcp_sock.st ||    (*: FIN retransmission :*)
-                  LAST_ACK     -> tcp_sock.st ||    (*: FIN retransmission :*)
-                  TIME_WAIT    -> tcp_sock.st       (*: can't happen       :*)
+                (match tcp_sock.st with
+                  SYN_SENT     -> tcp_sock.st |    (*: can't move yet -- wait until connection established (see [[deliver_in_2]]/[[deliver_in_3]]) :*)
+                  SYN_RECEIVED -> tcp_sock.st |    (*: can't move yet -- wait until connection established (see [[deliver_in_2]]/[[deliver_in_3]]) :*)
+                  ESTABLISHED  -> FIN_WAIT_1 |
+                  CLOSE_WAIT   -> LAST_ACK |
+                  FIN_WAIT_1   -> tcp_sock.st |    (*: FIN retransmission :*)
+                  FIN_WAIT_2   -> tcp_sock.st |    (*: can't happen       :*)
+                  CLOSING      -> tcp_sock.st |    (*: FIN retransmission :*)
+                  LAST_ACK     -> tcp_sock.st |    (*: FIN retransmission :*)
+                  TIME_WAIT    -> tcp_sock.st       (*: can't happen       :*) end)
               else
                 tcp_sock.st in
 
     (*: Updated values to store in the control block after the segment is output :*)
-    let snd_nxt'' = snd_nxt' + LENGTH data_to_send + (if FIN then 1 else 0) in
-    let snd_max' = MAX cb.snd_max snd_nxt'' in
+    let snd_nxt'' = snd_nxt' + (n2s(LENGTH data_to_send)) + (n2s(if FIN then 1 else 0)) in
+    let snd_max' = seq32_MAX cb.snd_max snd_nxt'' in
 
     (*: Following a |tcp_output| code walkthrough by SB: :*)
-    let tt_rexmt' = if (mode_of cb.tt_rexmt = NONE \/
-		       (mode_of cb.tt_rexmt = SOME(Persist) /\ ~window_probe)) /\
+    let tt_rexmt' = if (mode_of cb.tt_rexmt = None ||
+		       (mode_of cb.tt_rexmt = Some(Persist) && not window_probe)) &&
                         snd_nxt'' > cb.snd_una then
                        (*: If the retransmit timer is not running, or the persist timer is running
                            and this segment isn't a window probe, and this segment contains data or
@@ -1823,14 +1856,14 @@ val tcp_output_really_def = Phase.phase 2 Define`
                            retransmit timer. Note: if the persist timer is running it will be
                            implicitly stopped :*)
                        start_tt_rexmt arch 0 F cb.t_rttinf
-		    else if (window_probe \/ (IS_SOME tcp_sock.sndurp)) /\ win0 <> 0 /\
-                       mode_of cb.tt_rexmt = SOME(Persist) then
+		    else if (window_probe || (is_Some tcp_sock.sndurp)) && win0 <> 0 &&
+                       mode_of cb.tt_rexmt = Some(Persist) then
                        (*: If the segment is a window probe or urgent data is being sent, and in
                            either case the send window is not closed, stop any running persist
                            timer. Note: if [[window_probe]] is [[T]] then a persist timer will
                            always be running but this isn't necessarily true when urgent data is
                            being sent :*)
-                       NONE (*: stop persisting :*)
+                       None (*: stop persisting :*)
                     else
 		       (*: Otherwise, leave the timers alone :*)
                        cb.tt_rexmt in
@@ -1838,32 +1871,32 @@ val tcp_output_really_def = Phase.phase 2 Define`
     (*: Time this segment if it is sensible to do so, i.e.~the following conditions hold : (a) a
         segment is not already being timed, and (b) data or a FIN are being sent, and (c) the
         segment being emitted is not a retransmit, and (d) the segment is not a window probe :*)
-    let t_rttseg' = if IS_NONE cb.t_rttseg /\ (data_to_send <> [] \/ FIN) /\
-                       snd_nxt'' > cb.snd_max /\ ~window_probe
+    let t_rttseg' = if IS_None cb.t_rttseg && (data_to_send <> [] || FIN) &&
+                       snd_nxt'' > cb.snd_max && not window_probe
 		    then
-                       SOME(ts_val', snd_nxt')
+                       Some(ts_val', snd_nxt')
                     else
                        cb.t_rttseg in
 
     (*: Update the socket :*)
-    sock' = sock with <| pr := TCP_PROTO(tcp_sock with
-                        <| st := st'; cb := tcp_sock.cb with
-                          <| tt_rexmt      := tt_rexmt';
-                             snd_cwnd      := snd_cwnd';
-                             rcv_wnd       := rcv_wnd';
-                             tf_rxwin0sent := (rcv_wnd' = 0);
-                             tf_shouldacknow := F;
-                             t_rttseg      := t_rttseg';
-                             snd_max       := snd_max';
-                             snd_nxt       := snd_nxt'';
-                             tt_delack     := NONE;
-                             last_ack_sent := cb.rcv_nxt;
-                             rcv_adv       := cb.rcv_nxt + rcv_wnd'
-                       |> |>) |> /\
+    sock' = <| sock with pr = TCP_PROTO(
+                        <| tcp_sock with st = st'; cb = 
+                          <| tcp_sock.cb with tt_rexmt      = tt_rexmt';
+                             snd_cwnd      = snd_cwnd';
+                             rcv_wnd       = rcv_wnd';
+                             tf_rxwin0sent = (rcv_wnd' = 0);
+                             tf_shouldacknow = F;
+                             t_rttseg      = t_rttseg';
+                             snd_max       = snd_max';
+                             snd_nxt       = snd_nxt'';
+                             tt_delack     = None;
+                             last_ack_sent = cb.rcv_nxt;
+                             rcv_adv       = seq32_plus cb.rcv_nxt rcv_wnd' 
+                       |> |>) |> &&
 
     (*: Constrain the list of output segments to contain just the segment being emitted :*)
     outsegs' = [TCP seg]
-`
+
 (*:
 
   @description
@@ -1892,7 +1925,7 @@ val tcp_output_really_def = Phase.phase 2 Define`
   end sends a [[FIN]],[[ACK]] segment where the [[ack]] value does not acknowledge our [[FIN]]. When
   we [[ACK]] their [[FIN]] our seq number must be in range (and thus [[FIN]] should be set too)
 
-:*);
+:*)
 
 
 
@@ -1900,18 +1933,21 @@ val tcp_output_really_def = Phase.phase 2 Define`
 
 (* combine both chunks into something a bit like tcp_output.c; sometimes useful *)
 
-val tcp_output_perhaps_def = Phase.phase 2 Define`
+let 
 (*: combination of [[tcp_output_required]] and [[tcp_output_really]] :*)
   tcp_output_perhaps arch ts_val ifds0 sock (sock',outsegs) =
     let (do_output,persist_fun) = tcp_output_required arch ifds0 sock in
     let sock'' =
-      option_case sock (\ f. sock with <| pr := TCP_PROTO(tcp_sock_of sock with cb updated_by f) |>)
+      option_case sock 
+        (fun f -> 
+          let tcp_sock = tcp_sock_of sock in 
+          <| sock with pr = TCP_PROTO(<| tcp_sock with cb = (f tcp_sock.cb) |>) |>)
         persist_fun in
     if do_output then
       tcp_output_really arch F ts_val ifds0 sock'' (sock',outsegs)
     else
-      (sock' = sock'' /\ outsegs = [])
-`;
+      (sock' = sock'' && outsegs = [])
+
 
 
 (* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ *)
@@ -1929,7 +1965,7 @@ enqueuing-and-possibly-rolling-back process.
 
 
 (* Don't Phase: handled specially by testEval *)
-val rollback_tcp_output_def = Define`
+let 
 (*: Attempt to enqueue segments, reverting appropriate socket fields if the enqueue fails :*)
   rollback_tcp_output rcvdsyn seg arch rttab ifds is_connect cb0 cb_in (cb',es',outsegs') =
 
@@ -1937,58 +1973,58 @@ val rollback_tcp_output_def = Define`
         [[tf_rxwin0sent]], [[t_rttseg]], [[snd_max]], [[tt_rexmt]] are
         used. :*)
 
-     (choose allocated :: (if INFINITE_RESOURCES then {T} else {T;F}).
+     (mychoose (if INFINITE_RESOURCES then {T} else {T;F}) (fun allocated -> 
       let route = test_outroute (seg,rttab,ifds,arch) in
-      let f0 = \cb. cb with <| (* revert to original values; on ip_output failure *)
-                               snd_nxt       := cb0.snd_nxt;
-                               tt_delack     := cb0.tt_delack;
-                               last_ack_sent := cb0.last_ack_sent;
-                               rcv_adv       := cb0.rcv_adv
+      let f0 = fun cb -> <| cb with (* revert to original values; on ip_output failure *)
+                               snd_nxt       = cb0.snd_nxt;
+                               tt_delack     = cb0.tt_delack;
+                               last_ack_sent = cb0.last_ack_sent;
+                               rcv_adv       = cb0.rcv_adv
                             |> in
-      let f1 = \cb. if ~rcvdsyn then
+      let f1 = fun cb -> if not rcvdsyn then
                         cb
                     else
-                        cb with <| (* set soft error flag; on ip_output routing failure *)
-                                   t_softerror := THE route  (* assumes route = SOME (SOME e) *)
+                        <| cb with (* set soft error flag; on ip_output routing failure *)
+                                   t_softerror = THE route  (* assumes route = Some (Some e) *)
                                 |> in
-      let f2 = \cb. cb with <| (* revert to original values; on early ENOBUFS *)
-                               tf_rxwin0sent := cb0.tf_rxwin0sent;
-                               t_rttseg      := cb0.t_rttseg;
-                               snd_max       := cb0.snd_max;
-                               tt_rexmt      := cb0.tt_rexmt
+      let f2 = fun cb -> <| cb with (* revert to original values; on early ENOBUFS *)
+                               tf_rxwin0sent = cb0.tf_rxwin0sent;
+                               t_rttseg      = cb0.t_rttseg;
+                               snd_max       = cb0.snd_max;
+                               tt_rexmt      = cb0.tt_rexmt
                             |> in
-      let f3 = \cb. if IS_SOME cb.tt_rexmt \/ is_connect then  (* quench; on ENOBUFS *)
+      let f3 = fun cb -> if is_Some cb.tt_rexmt || is_connect then  (* quench; on ENOBUFS *)
                         cb
                     else
-                        cb with <| (* maybe start rexmt and close down window *)
-                                   tt_rexmt      := start_tt_rexmt arch 0 F cb.t_rttinf;
-                                   snd_cwnd      := cb.t_maxseg (* no LAN allowance, by design *)
+                        <| cb with (* maybe start rexmt and close down window *)
+                                   tt_rexmt      = start_tt_rexmt arch 0 F cb.t_rttinf;
+                                   snd_cwnd      = cb.t_maxseg (* no LAN allowance, by design *)
                                 |> in
-      if ~allocated then  (* allocation failure *)
-          cb' = f3 (f2 (f0 cb_in)) /\ outsegs' = [] /\ es' = SOME ENOBUFS
-      else if route = NONE then  (* ill-formed segment *)
+      if not allocated then  (* allocation failure *)
+          cb' = f3 (f2 (f0 cb_in)) && outsegs' = [] && es' = Some ENOBUFS
+      else if route = None then  (* ill-formed segment *)
           ASSERTION_FAILURE "rollback_tcp_output:1"  (* should never happen *)
-      else if ?e. route = SOME (SOME e) then  (* routing failure *)
-          cb' = f1 (f0 cb_in) /\ outsegs' = [] /\ es' = THE route
+      else if exists e. route = Some (Some e) then  (* routing failure *)
+          cb' = f1 (f0 cb_in) && outsegs' = [] && es' = THE route
       else if loopback_on_wire seg ifds then (* loopback not allowed on wire - RFC1122 *)
           (if windows_arch arch then
-               cb' = cb_in /\ outsegs' = [] /\ es' = NONE  (* Windows silently drops segment! *)
+               cb' = cb_in && outsegs' = [] && es' = None  (* Windows silently drops segment! *)
            else if bsd_arch arch then
-               cb' = f0 cb_in /\ outsegs' = [] /\ es' = SOME EADDRNOTAVAIL
+               cb' = f0 cb_in && outsegs' = [] && es' = Some EADDRNOTAVAIL
            else if linux_arch arch then
-               cb' = f0 cb_in /\ outsegs' = [] /\ es' = SOME EINVAL
+               cb' = f0 cb_in && outsegs' = [] && es' = Some EINVAL
            else
                ASSERTION_FAILURE "rollback_tcp_output:2" (* never happen *)
           )
       else
-          (?queued.
-           outsegs' = [(seg,queued)] /\
-           if ~queued then  (* queueing failure *)
-               cb' = f3 (f0 cb_in) /\ es' = SOME ENOBUFS
+          (exists queued.
+           outsegs' = [(seg,queued)] &&
+           if not queued then  (* queueing failure *)
+               cb' = f3 (f0 cb_in) && es' = Some ENOBUFS
            else  (* success *)
-               cb' = cb_in /\ es' = NONE)
-     )
-`(* @description
+               cb' = cb_in && es' = None)
+     ))
+(* @description
    Attempt to enqueue segments, reverting appropriate socket fields if
    the enqueue fails.  Models failure behaviour of FreeBSD 4.6-RELEASE's
    |tcp_output()|.  We must return whether the queueing succeeded because
@@ -2018,66 +2054,68 @@ val rollback_tcp_output_def = Define`
     error if any.  [[outsegs']] is the output list (empty or singleton)
     of pairs of segments and queueing success flags.
 :*)
-;
 
-val enqueue_or_fail_def = Phase.phase 2 Define`
+
+let 
 (*: wrap [[rollback_tcp_output]] together with enqueue :*)
   enqueue_or_fail rcvdsyn arch rttab ifds outsegs oq cb0 cb_in (cb',oq') =
-    (case outsegs of
-        []    -> cb' = cb0 /\ oq' = oq
-     || [seg] -> (?outsegs' es'.
-                  rollback_tcp_output rcvdsyn seg arch rttab ifds F cb0 cb_in (cb',es',outsegs') /\
+    (match outsegs with
+        []    -> cb' = cb0 && oq' = oq
+     | [seg] -> (exists outsegs' es'.
+                  rollback_tcp_output rcvdsyn seg arch rttab ifds F cb0 cb_in (cb',es',outsegs') &&
                   enqueue_oq_list_qinfo (oq,outsegs',oq'))
-     || _other84 -> ASSERTION_FAILURE "enqueue_or_fail" (* only 0 or 1 segments at a time *)
-    )
-`;
+     | _other84 -> ASSERTION_FAILURE "enqueue_or_fail" (* only 0 or 1 segments at a time *)
+    end)
 
 
-val enqueue_or_fail_sock_def = Phase.phase 2 Define`
+
+let 
   (*: version of [[enqueue_or_fail]] that works with sockets rather than cbs :*)
   enqueue_or_fail_sock rcvdsyn arch rttab ifds outsegs oq sock0 sock (sock',oq') =
     (*: NB: could calculate [[rcvdsyn]], but clearer to pass it in :*)
     let tcp_sock = tcp_sock_of sock in
     let tcp_sock0 = tcp_sock_of sock0 in
-    (?cb'.
-     enqueue_or_fail rcvdsyn arch rttab ifds outsegs oq (tcp_sock_of sock0).cb (tcp_sock_of sock).cb (cb',oq') /\
-     sock' = sock with <| pr := TCP_PROTO(tcp_sock_of sock with <|
-                                             cb := cb'
+    (exists cb'.
+     enqueue_or_fail rcvdsyn arch rttab ifds outsegs oq (tcp_sock_of sock0).cb (tcp_sock_of sock).cb (cb',oq') &&
+     sock' = <| sock with pr = TCP_PROTO(<| tcp_sock_of sock with
+                                             cb = cb'
                         |>) |>)
-`;
 
 
-val enqueue_and_ignore_fail_def = Phase.phase 2 Define`
+
+let 
 (*: version of [[enqueue_or_fail]] that ignores errors and doesn't touch the tcpcb :*)
   enqueue_and_ignore_fail arch rttab ifds outsegs oq oq' =
-    ?rcvdsyn cb0 cb_in cb'.
+    exists rcvdsyn cb0 cb_in cb'.
     enqueue_or_fail rcvdsyn arch rttab ifds outsegs oq cb0 cb_in (cb',oq')
-`;
 
-val enqueue_each_and_ignore_fail_def = Phase.phase 2 Define`
+
+let rec
 (*: version of above that ignores errors and doesn't touch the tcpcb :*)
-  (enqueue_each_and_ignore_fail arch rttab ifds [] oq oq' = (oq = oq')) /\
-  (enqueue_each_and_ignore_fail arch rttab ifds (seg::segs) oq oq''
-     = ?oq'. enqueue_and_ignore_fail arch rttab ifds [seg] oq oq' /\
-             enqueue_each_and_ignore_fail arch rttab ifds segs oq' oq'')
-`;
+  enqueue_each_and_ignore_fail arch rttab ifds x oq oq' = (match x with 
+  | [] -> (oq = oq')
+  | (seg::segs) ->
+     exists oq''. enqueue_and_ignore_fail arch rttab ifds [seg] oq oq'' &&
+             enqueue_each_and_ignore_fail arch rttab ifds segs oq'' oq'
+end)
 
 
-val mlift_tcp_output_perhaps_or_fail_def = Phase.phase 2 Define`
+
+let 
 (*: do mliftc for function returning at most one segment and not dealing with queueing flag :*)
   mlift_tcp_output_perhaps_or_fail ts_val arch rttab ifds0 =
-    mliftc (\ s (s',outsegs').
-              ?s1 segs.
-              tcp_output_perhaps arch ts_val ifds0 s (s1,segs) /\
-              case segs of
-                 []       -> s' = s1 /\ outsegs' = []
-              || [seg]    -> (?cb' es'.  (* ignore error return *)
+    mliftc (fun s (s',outsegs') ->
+              exists s1 segs.
+              tcp_output_perhaps arch ts_val ifds0 s (s1,segs) &&
+              (match segs with
+                 []       -> s' = s1 && outsegs' = []
+              | [seg]    -> (exists cb' es'.  (* ignore error return *)
                               rollback_tcp_output T seg arch rttab ifds0 F
-                                                  (tcp_sock_of s).cb (tcp_sock_of s1).cb (cb',es',outsegs') /\
-                              s' = s1 with <| pr := TCP_PROTO(tcp_sock_of s1 with <| cb := cb' |>) |>)
-              || _other58 -> ASSERTION_FAILURE "mlift_tcp_output_perhaps_or_fail"  (* never happen *)
+                                                  (tcp_sock_of s).cb (tcp_sock_of s1).cb (cb',es',outsegs') &&
+                              s' = <| s1 with pr = TCP_PROTO(<| tcp_sock_of s1 with cb = cb' |>) |>)
+              | _other58 -> ASSERTION_FAILURE "mlift_tcp_output_perhaps_or_fail"  (* never happen *)
+              end)
            )
-`;
 
 
 (* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ *)
@@ -2090,21 +2128,20 @@ every incoming segment.
 (* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ *)
 
 (* Don't Phase: handled by testEval *)
-val update_idle_def = Define`
+let 
 (*: Do updates appropriate to receiving a new segment on a connection :*)
   update_idle tcp_sock =
     let t_idletime' = stopwatch_zero in     (*: update 'time most recent packet received' field :*)
-    let tt_keep' = (if ~(tcp_sock.st = SYN_RECEIVED /\ tcp_sock.cb.tf_needfin) then
+    let tt_keep' = (if not (tcp_sock.st = SYN_RECEIVED && tcp_sock.cb.tf_needfin) then
                       (*: reset keepalive timer to 2 hours. :*)
-                      SOME (Timed((),slow_timer TCPTV_KEEP_IDLE))
+                      Some (Timed((),slow_timer TCPTV_KEEP_IDLE))
                     else
                       tcp_sock.cb.tt_keep) in
     let tt_fin_wait_2' = (if tcp_sock.st = FIN_WAIT_2 then
-                            SOME (Timed((),slow_timer TCPTV_MAXIDLE))
+                            Some (Timed((),slow_timer TCPTV_MAXIDLE))
                           else
                             tcp_sock.cb.tt_fin_wait_2) in
     (t_idletime', tt_keep', tt_fin_wait_2')
-`;
 
 
 (* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ *)
@@ -2118,82 +2155,78 @@ means of a RST or ACK segment.
 (* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ *)
 
 
-val dropwithreset_def = Phase.phase 2 Define`
+let 
 (*: emit a RST segment corresponding to the passed segment, unless that would be stupid. :*)
   dropwithreset seg ifds0 ticks reason bndlm bndlm' outsegs =
    (*: Needs list of the host's interfaces, to verify that the incoming segment wasn't broadcast.
    Returns a list of segments. :*)
 
     if  (* never RST a RST *)
-        seg.RST \/
+        seg.RST ||
         (* is segment a (link-layer?) broadcast or multicast? *)
-        F \/
+        F ||
         (* is source or destination broadcast or multicast? *)
-        (?i1. seg.is1 = SOME i1 /\ is_broadormulticast FEMPTY i1) \/
-        (?i2. seg.is2 = SOME i2 /\ is_broadormulticast ifds0 i2)
+        (exists i1. seg.TCP1_netTypes.is1 = Some i1 && is_broadormulticast (set_of_fmap FEMPTY) i1) ||
+        (exists i2. seg.TCP1_netTypes.is2 = Some i2 && is_broadormulticast (set_of_fmap (ifds0:fmap ifid ifd)) i2)
           (* BSD only checks incoming interface, but should have same effect as long as interfaces don't overlap *)
     then
-        outsegs = [] /\ bndlm' = bndlm
+        outsegs = [] && bndlm' = bndlm
     else
-        (choose seg' :: make_rst_segment_from_seg seg.
+        (mychoose (set_of_bool_fn (make_rst_segment_from_seg seg)) (fun seg' ->
         let (emit,bndlm'') = bandlim_rst_ok(seg',ticks,reason,bndlm) in  (* finally: check if band-limited *)
-        bndlm' = bndlm'' /\
-        outsegs = if emit then [TCP seg'] else [])
-`;
+        bndlm' = bndlm'' &&
+        outsegs = if emit then [TCP seg'] else []))
 
 
 
-
-
-val mlift_dropafterack_or_fail_def = Phase.phase 2 Define`
+let 
 (*: send immediate ACK to segment, but otherwise process it no further :*)
   mlift_dropafterack_or_fail seg arch rttab ifds ticks (sock,bndlm) ((sock',bndlm',outsegs'),continue) =
    (*:    [[ifds]] is just in case we need to send a RST, to make sure we don't
    send it to a broadcast address. :*)
    let tcp_sock = tcp_sock_of sock in
-    (continue = T /\
+    (continue = T &&
      let cb = tcp_sock.cb in
-     if tcp_sock.st = SYN_RECEIVED /\
-        seg.ACK /\
-        (let ack = tcp_seq_flip_sense seg.ack in
-          (ack < cb.snd_una \/ cb.snd_max < ack))
+     if tcp_sock.st = SYN_RECEIVED &&
+        seg.ACK &&
+        (let ack = tcp_seq_foreign_to_local seg.ack in
+          (ack < cb.snd_una || cb.snd_max < ack))
      then
          (*: break loop in "LAND" DoS attack, and also prevent ACK
             storm between two listening ports that have been sent
             forged SYN segments, each with the source address of
             the other. (|tcp_input.c:2141|) :*)
-         sock' = sock /\
+         sock' = sock &&
          dropwithreset seg ifds ticks BANDLIM_RST_OPENPORT bndlm bndlm' (MAP FST outsegs')
               (* ignore queue full error *)
      else
-         (?sock1 msg cb' es'.  (* ignore errors *)
+         (exists sock1 msg cb' es'.  (* ignore errors *)
           let tcp_sock1 = tcp_sock_of sock1 in
-          tcp_output_really arch F ticks ifds sock (sock1,[msg]) /\  (*: did set [[tf_acknow]] and call [[tcp_output_perhaps]], which seemed a bit silly :*)
+          tcp_output_really arch F ticks ifds sock (sock1,[msg]) &&  (*: did set [[tf_acknow]] and call [[tcp_output_perhaps]], which seemed a bit silly :*)
           (*: notice we here bake in the assumption that the timestamps use the same counter as the band limiter; perhaps this is unwise :*)
-          rollback_tcp_output T msg arch rttab ifds F tcp_sock.cb tcp_sock1.cb (cb',es',outsegs') /\
-          sock' = sock1 with <| pr := TCP_PROTO(tcp_sock1 with <| cb := cb' |>) |> /\
+          rollback_tcp_output T msg arch rttab ifds F tcp_sock.cb tcp_sock1.cb (cb',es',outsegs') &&
+          sock' = <| sock1 with pr = TCP_PROTO(<| tcp_sock1 with cb = cb' |>) |> &&
           bndlm' = bndlm))
-`;
 
 
-val dropwithreset_ignore_fail_def = Phase.phase 2 Define`
+let 
 (*: do [[emit_segs_pred]], for function returning at most one seg and not dealing with queueing flag :*)
-  dropwithreset_ignore_fail seg_in arch ifds rttab ticks reason b b' (outsegs':(msg # bool) list) =
+  dropwithreset_ignore_fail seg_in arch ifds rttab ticks reason b b' (outsegs':list (msg * bool)) =
   (*:  No rollback necessary here. :*)
-    ?segs.
-    dropwithreset seg_in ifds ticks reason b b' segs /\
-    case segs of
+    exists segs.
+    dropwithreset seg_in ifds ticks reason b b' segs &&
+    (match segs with
        []       -> outsegs' = []
-    || [seg]    -> (choose allocated :: if INFINITE_RESOURCES then {T} else {T;F}.
-                    if ~allocated then
+    | [seg]    -> (mychoose (if INFINITE_RESOURCES then {T} else {T;F}) (fun allocated ->
+                    if not allocated then
                         outsegs' = []
                     else
-                        (case test_outroute (seg,rttab,ifds,arch) of
-                            NONE          -> ASSERTION_FAILURE "dropwithreset_ignore_fail:1"  (* never happen *)
-                         || SOME (SOME e) -> outsegs' = []  (* ignore error *)
-                         || SOME NONE     -> ?queued. outsegs' = [(seg,queued)]))
-    || _other57 -> ASSERTION_FAILURE "dropwithreset_ignore_fail:2"  (* never happen *)
-`;
+                        (match test_outroute (seg,rttab,ifds,arch) with
+                            None          -> ASSERTION_FAILURE "dropwithreset_ignore_fail:1"  (* never happen *)
+                         | Some (Some e) -> outsegs' = []  (* ignore error *)
+                         | Some None     -> exists queued. outsegs' = [(seg,queued)] end)))
+    | _other57 -> ASSERTION_FAILURE "dropwithreset_ignore_fail:2"  (* never happen *)
+    end)
 
 
 (* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ *)
@@ -2206,53 +2239,52 @@ appropriately.
 (* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ *)
 
 (* Don't Phase: handled by testEval *)
-val tcp_close_def = Define`
+let 
 (*: close the socket and remove the TCPCB :*)
-  tcp_close arch sock = sock with
-    <| cantrcvmore := T; (* MF doesn't believe this is correct for Linux or WinXP *)
-       cantsndmore := T;
-       is1 := if bsd_arch arch then NONE else sock.is1;
-       ps1 := if bsd_arch arch then NONE else sock.ps1;
-       pr := TCP_PROTO(tcp_sock_of sock with
-         <| st := CLOSED;
-            cb := initial_cb with (* in reality, it's dropped entirely, but we don't do that *)
-                  <| bsd_cantconnect := if bsd_arch arch then T else F |> ;
-            sndq := [] |>)
+  tcp_close arch sock = 
+    <| sock with cantrcvmore = T; (* MF doesn't believe this is correct for Linux or WinXP *)
+       cantsndmore = T;
+       is1 = if bsd_arch arch then None else sock.is1;
+       ps1 = if bsd_arch arch then None else sock.ps1;
+       pr = TCP_PROTO(
+         <| tcp_sock_of sock with st = CLOSED;
+            cb = (* in reality, it's dropped entirely, but we don't do that *)
+                  <| initial_cb with bsd_cantconnect = if bsd_arch arch then T else F |> ;
+            sndq = [] |>)
      |>
-`(*: @description
+(*: @description
    This is similar to BSD's |tcp_close()|, except
    that we do not actually remove the protocol/control blocks. The quad of the socket is
    cleared, to enable another socket to bind to the port we were previously using --- this
    isn't actually done by BSD, but the effect is the same. The [[bsd_cantconnect]] flag is
    set to indicate that the socket is in such a detached state. :*)
-;
 
 
 
 (* Don't Phase: handled by testEval *)
-val tcp_drop_and_close_def = Define`
+let 
 (*: drop TCP connection, reporting the specified error.  If synchronised, send RST to peer :*)
   tcp_drop_and_close arch err sock (sock',outsegs) =
     let tcp_sock = tcp_sock_of sock in (
-      (if tcp_sock.st NOTIN {CLOSED;LISTEN;SYN_SENT} then
-         (choose seg :: (make_rst_segment_from_cb tcp_sock.cb
-                          (THE sock.is1, THE sock.is2, THE sock.ps1, THE sock.ps2)).
-          outsegs = [TCP seg])
+      (if  NOTIN tcp_sock.st {CLOSED;LISTEN;SYN_SENT} then
+         (mychoose (set_of_bool_fn (make_rst_segment_from_cb tcp_sock.cb
+                          (THE sock.is1, THE sock.is2, THE sock.ps1, THE sock.ps2))) (fun seg ->
+          outsegs = [TCP seg]))
        else
-          outsegs = []) /\
+          outsegs = []) &&
     let es' =
-      if err = SOME ETIMEDOUT then
-       (if tcp_sock.cb.t_softerror <> NONE then
+      if err = Some ETIMEDOUT then
+       (if tcp_sock.cb.t_softerror <> None then
           tcp_sock.cb.t_softerror
         else
-          SOME ETIMEDOUT)
-      else if err <> NONE then err
+          Some ETIMEDOUT)
+      else if err <> None then err
       else sock.es
     in
-      sock' = tcp_close arch (sock with <| es := es' |>))
-`(*: @description
+      sock' = tcp_close arch (<| sock with es = es' |>))
+(*: @description
  BSD calls this |tcp_drop| :*)
-;
+
 
 (* --- TIDY: SB has tidied up the layout and comments down to here --- *)
 
@@ -2263,4 +2295,6 @@ val tcp_drop_and_close_def = Define`
 
 (* -------------------------------------------------- *)
 
+(**
 val _ = export_theory();
+**)

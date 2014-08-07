@@ -27,6 +27,7 @@ val _ = new_theory "TCP1_params";
 val _ = Version.registerTheory "$RCSfile: TCP1_paramsScript.sml,v $" "$Revision: 1.30 $" "$Date: 2009/02/17 11:56:46 $";
 *)
 
+open import Pervasives_extra
 open TCP1_lemSupport
 open TCP1_utils
 open TCP1_baseTypes
@@ -72,9 +73,9 @@ These types used to be in hostTypes. They should probably be moved to baseTypes.
 TODO3
 :*)
 
-type (*: file ID :*) fid = FID of num(*:@mergewithnext:*)
+type (*: file ID :*) fid = FID of nat(*:@mergewithnext:*)
 
-type (* socket ID *) sid = SID of num(*:
+type (* socket ID *) sid = SID of nat(*:
 @description
 File IDs [[fid]] and socket IDs [[sid]] are really unique, unlike file
 descriptors [[fd]].
@@ -112,7 +113,7 @@ The file flags are defined in TCP1\_baseTypes: see {@link
 (* sockflag types are defined in TCP1_baseTypes *)
 type (*: flags set on a socket :*)
    sockflags = <| b1 : sockbflag -> bool;
-                  n : socknflag -> num;
+                  n : socknflag -> nat;
                   t : socktflag -> time
                |>
  (* removed @mergewithnext *)
@@ -207,7 +208,7 @@ Parameters controlling the timing of the OS scheduler.
 (* ------------------------------------------------------------------ *)
 
 (* maximum host op scheduling delay: *)
-let dschedmax = time (real_div 1000 1000) (* make large for now, tighten when better understood *)(*: @mergewithnext :*)
+let dschedmax = time (real_div (1000:real) (1000:real)) (* make large for now, tighten when better understood *)(*: @mergewithnext :*)
 
 
 (* maximum inqueue scheduling delay: *)
@@ -336,7 +337,7 @@ file descriptors and sockets.
 (* ------------------------------------------------------------------ *)
 
 let 
-  OPEN_MAX = 957  (*: typical value of |kern.maxfilesperproc| on one of our BSD boxen :*)
+  OPEN_MAX = (957:nat)  (*: typical value of |kern.maxfilesperproc| on one of our BSD boxen :*)
 (*: @mergewithnext :*)
 
 let 
@@ -351,9 +352,9 @@ architectures, and so the first forbidden file descriptor is [[OPEN_MAX_FD]].
 
 
 let FD_SETSIZE x = (match x with
-   | Linux_2_4_20_8 -> 1024
+   | Linux_2_4_20_8 -> (1024:nat)
    | WinXP_Prof_SP1 -> 64
-   | FreeBDS_4_6_RELEASE -> 1024 end)
+   | FreeBSD_4_6_RELEASE -> 1024 end)
 
 (*:
 @description
@@ -369,7 +370,7 @@ file descriptor set.
 
 
 let 
-  SOMAXCONN = 128 
+  SOMAXCONN = (128:nat)
 
 (*:
 @description
@@ -389,7 +390,7 @@ UDP-specific parameters.
 (* ------------------------------------------------------------------ *)
 
 let UDPpayloadMax x = (match x with
-    | Linux_2_4_20_8 -> 65507
+    | Linux_2_4_20_8 -> (65507:nat)
     | WinXP_Prof_SP1 -> 65507
     | FreeBSD_4_6_RELEASE -> 9216 end)
 
@@ -411,19 +412,19 @@ Parameters to the buffer size computation.
 (* ------------------------------------------------------------------ *)
 
 let 
-  MCLBYTES = 2048  (* BSD default on i386; really, just needs to be >=1500 to fit an etherseg *)
+  MCLBYTES = (2048:nat)  (* BSD default on i386; really, just needs to be >=1500 to fit an etherseg *)
 (*: @mergewithnext :*)
 
 let 
-  MSIZE = 256  (* BSD default on i386; really, size of an mbuf *)
+  MSIZE = (256:nat)  (* BSD default on i386; really, size of an mbuf *)
 (*: @mergewithnext :*)
 
 let 
-  SB_MAX = 256 * 1024  (* BSD *)
+  SB_MAX = (256:nat) * 1024  (* BSD *)
 (*: @mergewithnext :*)
 
 let 
-  oob_extra_sndbuf = 1024 
+  oob_extra_sndbuf = (1024:nat)
 
 
 
@@ -460,7 +461,7 @@ let
 (*: [[num]] socket flags defaults :*)
   sf_default_n (* sf_default_n : arch -> socktype -> socknflag -> num *)
     x y z = (match (x,y,z) with
-    (Linux_2_4_20_8,SOCK_STREAM,SO_SNDBUF     ) -> 16384  (* from tests *)
+    (Linux_2_4_20_8,SOCK_STREAM,SO_SNDBUF     ) -> (16384:nat)  (* from tests *)
   | (WinXP_Prof_SP1,SOCK_STREAM,SO_SNDBUF     ) -> 8192  (* from tests *)
   | (FreeBSD_4_6_RELEASE,SOCK_STREAM,SO_SNDBUF) -> 32*1024  (* from code*)
     
@@ -507,7 +508,7 @@ end)
 let
 (*: socket flags defaults :*)
   sf_default arch socktype = <| b1 = sf_default_b;
-                                n = sf_default_n arch socktype;
+                                n = (sf_default_n arch socktype);
                                 t = sf_default_t
                               |>
 
@@ -515,7 +516,7 @@ let
 (*: minimum values of [[num]] socket flags :*)
   sf_min_n  (* sf_min_n : arch -> socknflag -> num *)
     x y = (match (x,y) with
-  | (Linux_2_4_20_8,SO_SNDBUF     ) -> 2048  (* from tests *)
+  | (Linux_2_4_20_8,SO_SNDBUF     ) -> (2048:nat)  (* from tests *)
   | (WinXP_Prof_SP1,SO_SNDBUF     ) -> 0  (* from tests *)
   | (FreeBSD_4_6_RELEASE,SO_SNDBUF) -> 1  (* from code *)
   | (Linux_2_4_20_8,SO_RCVBUF     ) -> 256  (* from tests *)
@@ -533,7 +534,7 @@ end)
 let
 (*: maximum values of [[num]] socket flags :*)
   sf_max_n (* sf_max_n : arch -> socknflag -> num *) x y = (match (x,y) with
-  | (Linux_2_4_20_8,SO_SNDBUF     ) -> 131070  (* from tests *)
+  | (Linux_2_4_20_8,SO_SNDBUF     ) -> (131070:nat)  (* from tests *)
   | (WinXP_Prof_SP1,SO_SNDBUF     ) -> 131070  (* from tests *)
   | (FreeBSD_4_6_RELEASE,SO_SNDBUF) ->
        DIV (SB_MAX * MCLBYTES) (MCLBYTES + MSIZE)  (* from code *)
@@ -582,12 +583,12 @@ RFC1323 s4.2.3: timestamp validity period.
 
 let 
 (*: maximum (scaled) window size :*)
-  TCP_MAXWIN = 65535 
+  TCP_MAXWIN = (65535:nat)
 (*: @mergewithnext :*)
 
 let
 (*: maximum window scaling exponent :*)
-  TCP_MAXWINSCALE = 14 
+  TCP_MAXWINSCALE = (14:nat)
 
 (*:
 @description
@@ -612,17 +613,17 @@ worthwhile modelling these parameters changing during operation.
 
 let 
 (*: initial [[t_maxseg]], modulo route and link MTUs :*)
-  MSSDFLT = (512 : num)  (* BSD default; RFC1122 sec. 4.2.2.6 says this MUST be 536 *)
+  MSSDFLT = (512 : nat)  (* BSD default; RFC1122 sec. 4.2.2.6 says this MUST be 536 *)
 
 
 let 
 (*: initial [[snd_cwnd]] for local connections :*)
-  SS_FLTSZ_LOCAL = (4 : num)  (* BSD; is a sysctl *)
+  SS_FLTSZ_LOCAL = (4 : nat)  (* BSD; is a sysctl *)
 (*: @mergewithnext :*)
 
 let 
 (*: initial [[snd_cwnd]] for non-local connections :*)
-  SS_FLTSZ = (1 : num)  (* BSD; is a sysctl *)
+  SS_FLTSZ = (1 : nat)  (* BSD; is a sysctl *)
 
 
 let 
@@ -631,11 +632,11 @@ let
 
 
 let 
-  TCP_Q0MINLIMIT = (30 : num)  (* FreeBSD 4.6-RELEASE: tcp_syncache.bucket_limit *)
+  TCP_Q0MINLIMIT = (30 : nat)  (* FreeBSD 4.6-RELEASE: tcp_syncache.bucket_limit *)
 (*: @mergewithnext :*)
 
 let 
-  TCP_Q0MAXLIMIT = (512 * 30 : num)  (* FreeBSD 4.6-RELEASE: tcp_syncache.cache_limit *)
+  TCP_Q0MAXLIMIT = (512 * 30 : nat)  (* FreeBSD 4.6-RELEASE: tcp_syncache.cache_limit *)
 
 (*:
 @description
@@ -647,7 +648,7 @@ length limit.  Connections \emph{may} be dropped once [[q0]] reaches
 
 
 let 
-  backlog_fudge (n:int) = MIN SOMAXCONN (clip_int_to_num n)
+  backlog_fudge (n:int) = num_MIN (SOMAXCONN:nat) (clip_int_to_num n)
 
 (*:
 @description
@@ -724,7 +725,7 @@ let
 (*: @mergewithnext :*)
 
 let 
-  TCPTV_KEEPCNT = (8 : num) (* max number of keepalive probes (+/- a few?): BSD: tcp_timer.h:91 *)
+  TCPTV_KEEPCNT = (8 : nat) (* max number of keepalive probes (+/- a few?): BSD: tcp_timer.h:91 *)
 (*: @mergewithnext :*)
 
 let 
@@ -743,42 +744,42 @@ Parameters relating to TCP's exponential backoff.
 (* ------------------------------------------------------------------ *)
 
 let  (* TCP exponential retransmit backoff: BSD: from source code, tcp_timer.c:155 *)
-  TCP_BSD_BACKOFFS = ([ 1; 2; 4; 8; 16; 32; 64; 64; 64; 64; 64; 64; 64 ] : list num)
+  TCP_BSD_BACKOFFS = ([ 1; 2; 4; 8; 16; 32; 64; 64; 64; 64; 64; 64; 64 ] : list nat)
 (*: @mergewithnext :*)
 
 let  (* TCP exponential retransmit backoff: Linux: experimentally determined *)
-  TCP_LINUX_BACKOFFS = ([ 1; 2; 4; 8; 16; 32; 64; 128; 256; 512; 512 ] : list num) (* Note: the tail may be  incomplete *)
+  TCP_LINUX_BACKOFFS = ([ 1; 2; 4; 8; 16; 32; 64; 128; 256; 512; 512 ] : list nat) (* Note: the tail may be  incomplete *)
 (*: @mergewithnext :*)
 
 let  (* TCP exponential retransmit backoff: WinXP: experimentally determined *)
-  TCP_WINXP_BACKOFFS = ([ 1; 2; 4; 8; 16 ] : list num) (* Note: the tail may be incomplete *)
+  TCP_WINXP_BACKOFFS = ([ 1; 2; 4; 8; 16 ] : list nat) (* Note: the tail may be incomplete *)
 
 
 let 
 (*: TCP maximum retransmit shift :*)
-  TCP_MAXRXTSHIFT = (12 : num)  (* TCPv2p842 *)
+  TCP_MAXRXTSHIFT = (12 : nat)  (* TCPv2p842 *)
 (*: @mergewithnext :*)
 
 let 
 (*: TCP maximum SYNACK retransmit shift :*)
-  TCP_SYNACKMAXRXTSHIFT = (3 : num)  (* FreeBSD 4.6-RELEASE, tcp_syncache.c:SYNCACHE_MAXREXMTS *)
+  TCP_SYNACKMAXRXTSHIFT = (3 : nat)  (* FreeBSD 4.6-RELEASE, tcp_syncache.c:SYNCACHE_MAXREXMTS *)
 
 
 
 let  (* TCP exponential SYN retransmit backoff: BSD: tcp_timer.c:152 *)
-  TCP_SYN_BSD_BACKOFFS = ([ 1; 1; 1; 1; 1; 2; 4; 8; 16; 32; 64; 64; 64 ] : list num) (* Our experimentation shows that this list stops at 8. This will be
+  TCP_SYN_BSD_BACKOFFS = ([ 1; 1; 1; 1; 1; 2; 4; 8; 16; 32; 64; 64; 64 ] : list nat) (* Our experimentation shows that this list stops at 8. This will be
    due to the connection establishment timer firing. Values here are
    obtained from the BSD source *)
 (*: @mergewithnext :*)
 
 let  (* TCP exponential SYN retransmit backoff: Linux: experimentally determined *)
-  TCP_SYN_LINUX_BACKOFFS = ([ 1; 2; 4; 8; 16 ] : list num)  (* This list might be longer. Experimentation does not show further entries, perhaps
+  TCP_SYN_LINUX_BACKOFFS = ([ 1; 2; 4; 8; 16 ] : list nat)  (* This list might be longer. Experimentation does not show further entries, perhaps
    due to the connection establishment timer firing *)
 
 (*: @mergewithnext :*)
 
 let  (* TCP exponential SYN retransmit backoff: WinXP: experimentally determined *)
-  TCP_SYN_WINXP_BACKOFFS = ([ 1; 2 ] : list num)  (* This list might be longer. Experimentation does not show further entries, perhaps
+  TCP_SYN_WINXP_BACKOFFS = ([ 1; 2 ] : list nat)  (* This list might be longer. Experimentation does not show further entries, perhaps
    due to the connection establishment timer firing *)
 
 

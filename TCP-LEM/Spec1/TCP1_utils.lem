@@ -23,6 +23,7 @@ val _ = BasicProvers.augment_srw_ss [rewrites [LET_THM]]
 val _ = Version.registerTheory "$RCSfile: TCP1_utilsScript.sml,v $" "$Revision: 1.69 $" "$Date: 2005/02/07 15:12:27 $";
 *)
 
+open import Pervasives_extra
 open TCP1_lemSupport
 
 (*: @chapter [[TCP1_utils]] Utility functions
@@ -62,34 +63,40 @@ val _ = overload_on("NOTIN", ``notinlist``)
    rewriting; it's handled specially elsewhere *)
 *)
 
+let notinlist x l = not (List.elem x l)
+
 
 (*: update one point of a function:*)
-let funupd f x y = fun x' -> if x'=x then y else f x
+let funupd f x y = fun x' -> if Basic_classes.(=) x' x then y else f x
 (*: @mergewithnext :*)
 
 (*: update multiple points of a function:*)
-let  funupd_list f xys = List.fold_left (fun f (x,y) -> funupd f x y) f xys
+let  funupd_list f xys = fold_left (fun f (x,y) -> funupd f x y) f xys
 (*: @mergewithnext :*)
 
-let clip (i:int) = if Int.(<) i int_zero then 0 else 0
+let clip (i:int) = if i < (0:int) then (0:int) else 0
 
-let tmp = (Int.int 0) = int_zero
+(* let tmp = (Int.int 0) = (0:int) *)
 
 (*: clip [[int]] to [[num]] :*)
-let clip_int_to_num (i:int) = if Int.(<) i i then 0 else 0
+let clip_int_to_num (i:int) = if i < 0 then 0 else num_of_int i
 (*: @mergewithnext :*)
 
 (* shifts on naturals (only defined on words so far) *)
   (*: left shift, written [[<<]] :*)
-let left_shift_num (n:num) (i:num) = n * (2 ** i)
+let left_shift_num (n:nat) (i:nat) = n * (2 ** i)
 (*: @mergewithnext :*)
 
   (*: right shift, written [[>>]] :*)
-let right_shift_num (n:num) (i:num) = n / (2 ** i)
+let right_shift_num (n:nat) (i:nat) = n / (2 ** i)
   (*: @mergewithnext :*)
 
 let (<<) = left_shift_num
 let (>>) = right_shift_num
+
+let shift_left x y = x << y
+let shift_right x y = x >> y
+
 
 let DIV = fun x y -> x / y
 
@@ -101,7 +108,7 @@ let  rounddown bs v = if v < bs then v else (DIV v bs) * bs
 
 (* Don't Phase: handled by testEval *)
   (*: round [[v]] up to next multiple of [[bs]]; if [[v = k*bs]] then no change :*)
-let  roundup   bs v = (DIV (v + (bs - 1)) bs) * bs
+let  roundup   bs v = (DIV ((v:nat) + (bs - 1)) bs) * bs
 (*: @mergewithnext :*) 
 
 
@@ -124,46 +131,21 @@ val _ = add_bare_numeral_form (#"w", SOME "n2w")
 (*                   REAL                             *)
 (* -------------------------------------------------- *)
 
-(* FIXME this is a hack just to get a type for real *)
-type real = Real of (num -> bool)
-let FIXME_real = Real (fun x -> true)
+(* MIN and MAX on reals are now Min and Max *)
 
-let MIN = fun x y -> FIXME_real
-let MAX = fun x y -> FIXME_real
-
-let real_of_num = fun x -> FIXME_real
-
-let real_zero = FIXME_real
-
-let Num x = x
-
-let (~) = fun x -> real_zero (* FIXME *)
 
 (* this definition really should be built in... *)
 (* ... doesn't need phasing; handled specially in testEval *)
 (*: inject [[int]] into [[real]] :*)
-let  real_of_int (i:int) = if Int.(<) i int_zero then ~(real_of_num (Num ~i))
-                                 else real_of_num (Num i)
+let  real_of_int (i:int) = if Basic_classes.(<) i (0:int) then ~(real_of_num (num_of_int (int_neg i)))
+                                 else real_of_num (num_of_int i)
 (*: @mergewithnext :*)
 
-let FIXME_bool = true
-let real_gt x y = FIXME_bool
-let real_lt x y = FIXME_bool
-let real_lte x y = real_lt x y || x=y
-
-let FIXME_least s d = Set.choose s d
-
-let FIXME_num = 0
-
 (*: [[num]] floor of [[real]] :*)
-let num_floor (x:real) = FIXME_least { (n:num) | real_gt (real_of_num (n+1)) x } FIXME_num 
+let num_floor (x:real) = LEAST { n | (real_of_num (n+1)) > x } 
 (*: @mergewithnext :*) (* better version proved in TCP1_timerProps, though could/should be here
       really *)
 
-let real_minus x y = FIXME_real
-let real_plus x y = FIXME_real
-let real_div x y = FIXME_real
-let real_times x y = FIXME_real
 
 (*: [[num]] floor and fractional part of [[real]] :*)
 let  num_floor_and_frac (x:real)
@@ -178,7 +160,7 @@ let  num_floor_and_frac (x:real)
    ---------------------------------------------------------------------- *)
 
   (*: finite map exists, written [[?(k,v) :: fm . P (k,v)]] :*)
-let  fm_exists fm P = exists k. k IN Pmap.domain fm && P (k, Pmap.find k fm)
+let  fm_exists fm P = exists k. k IN FDOM fm && P (k, FAPPLY fm k)
   (*: @mergewithnext :*)
 
 (* enable syntax like
@@ -187,8 +169,7 @@ let  fm_exists fm P = exists k. k IN Pmap.domain fm && P (k, Pmap.find k fm)
      there exists a (k,v) pair in the finite map fm \\ k0, such that
      k = v
 *)
-(* 
-FIXME
+(* this syntax was removed in Lem version
 val _ = overload_on ("RES_EXISTS", ``fm_exists``)
 *)
 
@@ -200,9 +181,14 @@ val _ = overload_on ("RES_EXISTS", ``fm_exists``)
 (* allows you to say  cb with <| field updated_by value onlywhen condition |>
    instead of cb with <| field := if condition then value else cb.field |> *)
 
-(* FIXME
+(* onlywhen removed in Lem version
 val _ = add_infix ("onlywhen", 460, NONASSOC);  (* slightly tighter than updated_by (=450) *)
 *)
+
+(* for lem *)
+let updated_by_onlywhen v0 v c = if c then v else v0 
+(* ie r with <| f updated_by v onlywhen c |> becomes <| r with f = updated_by_onlywhen r.f v c |>; this is a hard translation because we need to construct r.f, and the expression r may be hard to isolate *)
+
 
 
 let K x y = x
@@ -241,7 +227,8 @@ val _ = overload_on("choose", ``$?``);
 val _ = overload_on("?", ``$?``);
 *)
 
-(* FIXME lem version of choose *)
+(* lem version of choose is not what we want *)
+let mychoose s P = (exists (e IN  s).  P e)
 
 (* by repeating that there is a link from constant ? to "?", the system
    knows that we prefer to see "?" rather than "choose" when it prints
@@ -287,7 +274,7 @@ This section contains a number of basic functions for manipulating lists.
 (*: split worker function:*)
 let rec SPLIT_REV_0 n ls rs = (match (n,ls,rs) with 
   | (0,ls,rs) -> (ls,rs)
-  | (n',ls,(r::rs)) -> (SPLIT_REV_0 (n'-1) (r::ls) rs)
+  | (n',ls,(r::rs)) -> (SPLIT_REV_0 (n' - 1) (r::ls) rs)
   | (n',ls,[]) -> (ls,[])
 end)
 (*: @mergewithnext :*)
@@ -298,7 +285,7 @@ and the remainder:*)
 let  SPLIT_REV n rs = SPLIT_REV_0 n [] rs
 (*: @mergewithnext :*)
 
-let REVERSE xs = List.rev xs
+let REVERSE xs = reverse xs
 
 (*: split a list after [[n]] elements, returning the prefix and the remainder:*)
 let  SPLIT n rs = let (ls,rs) = SPLIT_REV n rs in (REVERSE ls,rs)
@@ -334,12 +321,12 @@ end)
 (*: decrement a list of nums by a num, dropping any that count below zero:*)
 (*  : num -> num list -> num list *)
 let rec decr_list d ns = (match ns with
-| [] -> ([]:list num)
+| [] -> ([]:list nat)
 | (n::ns) -> (if n < d then I else (::) (n-d)) (decr_list d ns)
 end)
 (*: @mergewithnext :*)
 
-(* FIXME 
+(* these infixes replaced by prefix versions in Lem
 (* member and not-member for lists *)
 val _ = add_infix ("IN'"   , 450, RIGHT);
 val _ = overload_on ("IN'", ``MEM``);
@@ -349,41 +336,40 @@ val NOTIN'_def = xDefine "NOTIN'" `
 (*: not in :*)
 (x NOTIN' y) = ~(MEM x y)` (*: @mergewithnext:*);  (* xDefine only because of HOLDoc limitations *)
 *)
-let IN' x xs = List.mem x xs
+let IN' x xs = elem x xs
 let NOTIN' x xs = not (IN' x xs)
 
-let APPEND = List.append
+let APPEND = List.(++)
 
 (*: map with optional result:*)
 let rec MAP_OPTIONAL f xs = (match xs with
   | (x::xs) -> (APPEND (match f x with
-                                      None -> []
-                                   | Some y -> [y] end)
+                                      Nothing -> []
+                                   | Just y -> [y] end)
                                   (MAP_OPTIONAL f xs))
   | [] -> []
 end)
 (*: @mergewithnext :*)
 
-(*: concatentation of option list that drops all [[NONE]]s:*)
+(*: concatentation of option list that drops all [[None]]s:*)
 let CONCAT_OPTIONAL xs = MAP_OPTIONAL I xs
 (*: @mergewithnext :*)
 
-let LIST_TO_SET xs = Set.from_list xs
+let LIST_TO_SET xs = fromList xs
 
-let CARD = Set.cardinal
+val CARD : forall 'a. SetType 'a => set 'a -> nat 
+let CARD x = Set.size x
 
 let LENGTH = List.length
 
 (*: the set of all orderings of a set :*)
-let ORDERINGS s l = (LIST_TO_SET l = s &&
-                   LENGTH l      = CARD s)
+let ORDERINGS s l = (LIST_TO_SET l = s &&                   
+(LENGTH l      = CARD s))
 (*: @mergewithnext :*)
-
-let FILTER = List.filter
 
 (*: insert ordered:*)
 let INSERT_ORDERED new old bad =
-     FILTER (fun fd -> fd IN' new || fd IN' bad) old
+     FILTER (fun fd -> IN' fd new || IN' fd bad) old
 
 
 (* -------------------------------------------------- *)
@@ -403,7 +389,7 @@ let ASSERTION_FAILURE (s:string) = false
 
 (*
 val _ = adjoin_to_theory
-        { sig_ps = NONE,
+        { sig_ps = None,
           struct_ps =
           SOME (fn pps =>
                    (PP.add_string pps "val _ = Datatype.big_record_size := 8;";
