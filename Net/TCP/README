@@ -1,25 +1,75 @@
-# To build the NetSem TCP specifications:
-#
-# Version 2.01 of mosml was used, with the patched gc_ctrl.c from Mar 5, 2008
-#
-# The version of HOL used was that of 2008-01-01 (svn checkout from sourceforge)
-#
-# There are two specifications: the protocol-level specification and the service-level specification. These live in
-# directories Spec1 and Spec3 respectively.
-#
-# Changelog:
-#
-#  2011-11-17 Updated licenses, checked HOL compilation on i386 kubuntu 10.10 system.
-#
+This collection of files contains the Netsem specification as of November 2011.
+
+Copyright (c)2005-2011 The Netsem Team:
+
+  Steve Bishop, Matthew Fairbairn, Michael Norrish, Tom Ridge,
+  Peter Sewell, Michael Smith, Keith Wansbrough
+
+This is the PUBLIC VERSION.  Please distribute at will, subject to the
+copyright and license given in the file LICENSE-spec-public.
+
+See <http://www.cl.cam.ac.uk/~pes20/Netsem/> for further details.
 
 
-# Unpack tarball-spec-public.tar.gz to tmp by typing
-tar -C /tmp -xvzf tarball-spec-public.tar.gz
+Contents:
 
-# check that Spec1 is accepted by HOL
-cd /tmp/tarball-spec-public/Spec1
-Holmake --holmakefile Holmakefile.public
+  README-spec-public        - this file
+  LICENSE-spec-public       - the copyright license
+  VERSIONS-spec-public      - cvs version data for the spec files
 
-# check that Spec3 is accepted by HOL
-cd /tmp/tarball-spec-public/Spec3
-Holmake TCP3_absFunTheory.uo
+Protocol-level Specification (Spec1)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(Note added 2014: the previous "PUBLIC VERSION" omitted the trace checker code and testing infrastructure.  For more details of the former, see the Spec1/MANIFEST file; for the latter see the Test directory.)
+
+- spec support:
+
+  Net_Hol_reln.sig - turn <== to ==> and do Hol_reln (defines the spec constructor)
+  Net_Hol_reln.sml - turn <== to ==> and do Hol_reln (defines the spec constructor)
+
+  Version.sig - version tracking constructs - used in spec but not essential
+  Version.sml - version tracking constructs - used in spec but not essential
+
+- phasing spec support:
+
+  Phase.sig - phase control constructs - used in spec, but for symeval purposes only
+  Phase.sml - phase control constructs - used in spec, but for symeval purposes only
+
+- spec proper:
+
+  TCP1_LIBinterfaceScript.sml - system calls
+  TCP1_auxFnsScript.sml - auxiliary functions
+  TCP1_baseTypesScript.sml - base types and typing
+  TCP1_errorsScript.sml - error codes
+  TCP1_evalSupportScript.sml - typical initial hosts
+  TCP1_host0Script.sml - host labels and rule categories
+  TCP1_hostLTSScript.sml - host labelled transition system and some auxiliary defs
+  TCP1_hostTypesScript.sml - host datatypes
+  TCP1_netTypesScript.sml - network datatypes, and .is1/.is2 hack
+  TCP1_paramsScript.sml - host behavioural constants
+  TCP1_ruleidsScript.sml - rule names
+  TCP1_signalsScript.sml - signal names
+  TCP1_timersScript.sml - timers
+  TCP1_utilsScript.sml - basic syntax and helper functions
+
+
+Service-level Specification (Spec3)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  fmapUtilsScript.sml
+  Holmakefile
+  LICENSE-spec-public
+  README-spec-public
+  TCP3_auxFnsScript.sml - auxiliary functions
+  TCP3_absFunScript.sml - the abstraction function
+  TCP3_host0Script.sml - host labels and rule categories
+  TCP3_hostLTSScript.sml - host labelled transition system and some auxiliary defs
+  TCP3_hostTypesScript.sml - host datatypes
+  TCP3_netScript.sml - network model
+  TCP3_streamScript.sml - streams
+  TCP3_streamTypesScript.sml - stream types
+  VERSIONS-spec-public
+
+
+--Peter Sewell, for the Netsem team, 2011-11-17
+
