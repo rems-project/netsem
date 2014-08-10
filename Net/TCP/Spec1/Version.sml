@@ -8,7 +8,7 @@ struct
 val versions = ref []
 
 fun dercs s0 =
-    let val s = Substring.all s0
+    let val s = Substring.full s0
     in let val s' = if Substring.size s = 0 orelse Substring.sub (s,0) <> #"$"
                     then s
                     else Substring.triml 1 (Substring.dropl (not o Char.isSpace) s)
