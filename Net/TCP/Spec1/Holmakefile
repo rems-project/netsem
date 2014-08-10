@@ -34,21 +34,21 @@ trace_checker.exe: trace_checker.uo TCP1_evalSupportTheory.uo
 CheckTraces.exe: CheckTraces.uo $(OBJS)
 	$(HOLMOSMLC) -o $@ $<
 
+ifdef POLY
+genstrings.uo: poly-genstrings.ML genstrings.sml
+	$(POLY) < $<
+
+genstrings.exe: genstrings.o
+	cc -o $@ $< $(POLY_LDFLAGS)
+
+else
+
 genstrings.exe : genstrings.uo
 	$(HOLMOSMLC) -o $@ $<
+endif
 
 strings.sml : genstrings.exe html_header html_trailer
 	./genstrings.exe html_header html_trailer > $@
-
-word16Theory.ui word16Theory.uo : \
-                  $(SIGOBJ)/wordFunctor.ui $(SIGOBJ)/wordFunctorLib.ui \
-                  $(SIGOBJ)/bitsTheory.ui
-	$(HOLDIR)/bin/mkword.exe 16
-
-word32Theory.uo word32Theory.ui : \
-                  $(SIGOBJ)/wordFunctor.ui $(SIGOBJ)/wordFunctorLib.ui \
-                  $(SIGOBJ)/bitsTheory.ui
-	$(HOLDIR)/bin/mkword.exe 32
 
 HolDoc.sml HolDoc.sig : \
 		$(HOLDIR)/tools/holdoc/HolDoc.sml \
@@ -57,4 +57,3 @@ HolDoc.sml HolDoc.sig : \
 
 EXTRA_CLEANS=HolDoc.sml HolDoc.sig trace_checker.exe CheckTraces.exe \
              genstrings.exe strings.sml
-
