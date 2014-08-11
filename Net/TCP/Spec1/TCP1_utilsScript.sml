@@ -12,7 +12,7 @@ open bossLib
 open HolDoc
 
 local open arithmeticTheory stringTheory pred_setTheory integerTheory
-           finite_mapTheory realTheory word16Theory word32Theory
+           finite_mapTheory realTheory wordsTheory
            containerTheory in end;
 
 val _ = new_theory "TCP1_utils";
@@ -40,15 +40,7 @@ Basic utilities for functions, numbers, maps, and records.
 :*)
 
 (* equal and not-equal with same precedence as comparison operators, tighter than /\ *)
-val _ = set_fixity "=" (Infixr 450);  (* ALTERS FIXITY OF = !! *)
-     (* making it RIGHT makes little sense, but < <= > >= are RIGHT already, so can't change *)
-val _ = add_infix ("<>", 450, RIGHT);
-val neq_def = xDefine "neq" `(x <> y) = ~(x = y)` (*: @norender :*);
-val _ = Phase.add_to_phase 1 "neq_def";
-
-val _ = add_infix ("NOTIN", 450, RIGHT);
-val notin_def = xDefine "NOTIN" `(x NOTIN s) = ~(x IN s)` (*: @norender :*);  (* xDefine only because of HOLDoc limitations *)
-val _ = BasicProvers.export_rewrites ["NOTIN_def"]
+val _ = ParseExtras.tight_equality()
 
 val notinlist_def = Define`notinlist x l = ~MEM x l` (*: @norender :*);
 val _ = BasicProvers.export_rewrites ["notinlist_def"]
@@ -169,7 +161,7 @@ val _ = overload_on ("RES_EXISTS", ``fm_exists``)
 (* allows you to say  cb with <| field updated_by value onlywhen condition |>
    instead of cb with <| field := if condition then value else cb.field |> *)
 
-val _ = add_infix ("onlywhen", 460, NONASSOC);  (* slightly tighter than updated_by (=450) *)
+val _ = add_infix ("onlywhen", 461, NONASSOC);  (* slightly tighter than updated_by (=450) *)
 
 val onlywhen_def = Phase.phase_x 1 xDefine "onlywhen" `
   (*: used for conditional record updates :*)
@@ -195,7 +187,7 @@ val onlywhen_def = Phase.phase_x 1 xDefine "onlywhen" `
    Note, this is angelic nondeterminism (I think).  Beware.
 *)
 
-val _ = add_binder("choose", 0);
+val _ = set_fixity "choose" Binder;
 val _ = associate_restriction("choose", "choose_from_set");
 val _ = overload_on("choose_from_set", ``bool$RES_EXISTS``);
 
@@ -297,10 +289,10 @@ val decr_list_def = Phase.phase 1 Define`
 `(*: @mergewithnext :*);
 
 (* member and not-member for lists *)
-val _ = add_infix ("IN'"   , 450, RIGHT);
+val _ = add_infix ("IN'"   , 450, NONASSOC);
 val _ = overload_on ("IN'", ``MEM``);
 
-val _ = add_infix ("NOTIN'", 450, RIGHT);
+val _ = add_infix ("NOTIN'", 450, NONASSOC);
 val NOTIN'_def = xDefine "NOTIN'" `
 (*: not in :*)
 (x NOTIN' y) = ~(MEM x y)` (*: @mergewithnext:*);  (* xDefine only because of HOLDoc limitations *)
@@ -308,8 +300,8 @@ val NOTIN'_def = xDefine "NOTIN'" `
 val MAP_OPTIONAL_def = Phase.phase 1 Define`
 (*: map with optional result:*)
   MAP_OPTIONAL f (x::xs) = APPEND (case f x of
-                                      NONE -> []
-                                   || SOME y -> [y])
+                                     NONE => []
+                                   | SOME y => [y])
                                   (MAP_OPTIONAL f xs) /\
   MAP_OPTIONAL f []      = []
 `
@@ -361,4 +353,3 @@ val _ = adjoin_to_theory
                     PP.add_newline pps))}
 
 val _ = export_theory();
-
