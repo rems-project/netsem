@@ -1,6 +1,8 @@
 (* A HOL98 specification of TCP *)
 
 (* This file contains helper functions for the symbolic evaluator *)
+structure Evaluator =
+struct
 
 open HolKernel boolLib simpLib BasicProvers
 
@@ -102,3 +104,5 @@ in
     end
   | NONE => NO_CONV t
 end
+
+end (* struct *)
