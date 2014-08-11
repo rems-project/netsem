@@ -16,7 +16,7 @@ local open TCP1_baseTypesTheory
 in end
 
 local open arithmeticTheory stringTheory pred_setTheory bagTheory
-           integerTheory finite_mapTheory realTheory word32Theory word16Theory in end;
+           integerTheory finite_mapTheory realTheory in end;
 
 val _ = new_theory "TCP1_netTypes";
 
@@ -134,7 +134,7 @@ val sane_seg_def = Phase.phase 1 Define`
 (*:
 segment well-formedness test (physical constraints imposed by format)
 :*)
-  sane_seg seg = LENGTH seg.data < (65536 - 40)
+  sane_seg seg <=> LENGTH seg.data < (65536 - 40)
 `
 ;
 
@@ -159,7 +159,7 @@ val sane_udpdgm_def = Phase.phase 1 Define`
 (*:
 message well-formedness test (physical constraints imposed by format)
 :*)
-  sane_udpdgm dgm = LENGTH dgm.data < (65536-20-8)
+  sane_udpdgm dgm <=> LENGTH dgm.data < (65536-20-8)
 `
 ;
 
@@ -326,4 +326,3 @@ val _ = Parse.add_record_field("is2",``msg_is2``);  (* overload x.is2 *)
 (* -------------------------------------------------- *)
 
 val _ = export_theory();
-
