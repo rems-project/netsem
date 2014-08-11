@@ -74,7 +74,7 @@ val _ = add_rule { block_style = (AroundEachPhrase, (PP.INCONSISTENT, 0)),
                                   TM, (* host0 *)
                                   BreakSpace(1,2), TOK "--", HardSpace 1,
                                   TM, (* label *)
-                                  HardSpace 1, TOK "--=>", BreakSpace(1,0)],
+                                  HardSpace 1, TOK "--->", BreakSpace(1,0)],
                    term_name = "host_redn"
                    };
 
@@ -297,36 +297,36 @@ val di3_newackstuff_def = Phase.phase 2 Define`
 
     (*: Attempt to calculate a new round-trip time estimate :*)
     let emission_time = case (ts, cb'.t_rttseg) of
-                           (SOME (ts_val,ts_ecr), _) ->
+                           (SOME (ts_val,ts_ecr), _) =>
                               (*: By using the segment's timestamp if it has one :*)
                               SOME (ts_ecr - 1)
-                        || (NONE, SOME (ts0,seq0)) ->
+                        | (NONE, SOME (ts0,seq0)) =>
                               (*: Or if not, by the control blocks round-trip timer, if it covers
                                   the segment(s) being acknowledged :*)
                               if ack > seq0 then SOME ts0 else NONE
-                        || (NONE, NONE) ->
+                        | (NONE, NONE) =>
                               (*: Otherwise, it is not possible to calculate a round-trip update :*)
                               NONE in
 
     (*: If a new round-trip time estimate was calculated above, update the round-trip information
         held by the socket's control block :*)
     let t_rttinf' = case emission_time of
-                      SOME t_rttinf -> update_rtt (real_of_int (ticks - THE emission_time) / HZ)
+                      SOME t_rttinf => update_rtt (real_of_int (ticks - THE emission_time) / HZ)
                                         cb'.t_rttinf
-                   || NONE -> cb'.t_rttinf in
+                   | NONE => cb'.t_rttinf in
 
     (*: Update the retransmit timer :*)
     let tt_rexmt' =
      (if ack = cb'.snd_max then
          NONE (*: If all sent data has been acknowledged, disable the timer :*)
       else case mode_of cb'.tt_rexmt of
-         NONE ->
+         NONE =>
            (*: If not set, set it as there is still unacknowledged data :*)
            start_tt_rexmt arch 0 T t_rttinf'
-      || SOME Rexmt ->
+      | SOME Rexmt =>
            (*: If set, reset it as a new acknowledgement segment has arrived :*)
            start_tt_rexmt arch 0 T t_rttinf'
-      || _444 ->
+      | _444 =>
            (*: Otherwise, leave it alone. The timer will never be in [[RexmtSyn]] here and the
                only other case is [[Persist]], in which case it should be left alone until such
                time as a window update is received :*)
@@ -994,7 +994,7 @@ val di3_ststuff_def = Phase.phase 2 Define`
           the remote end has been reassembled :*)
       case ((tcp_sock_of sock).st, FIN_reass) of
 
-       (SYN_RECEIVED,F) -> (*: In [[SYN_RECEIVED]] and have not received a [[FIN]] :*)
+       (SYN_RECEIVED,F) => (*: In [[SYN_RECEIVED]] and have not received a [[FIN]] :*)
           if ack >= cb.iss + 1 then
             (*: This socket's initial [[SYN]] has been acknowledged :*)
             modify_tcp_sock (\s. s with
@@ -1012,37 +1012,37 @@ val di3_ststuff_def = Phase.phase 2 Define`
                |>)
           else
             (*: Not a valid path :*)
-            stop ||
+            stop |
 
-       (SYN_RECEIVED,T) ->  (*: In [[SYN_RECEIVED]] and have received a [[FIN]] :*)
+       (SYN_RECEIVED,T) =>  (*: In [[SYN_RECEIVED]] and have received a [[FIN]] :*)
           (*: Enter the [[CLOSE_WAIT]] state, missing out [[ESTABLISHED]] :*)
-          modify_tcp_sock (\s.s with <| st := CLOSE_WAIT |>) ||
+          modify_tcp_sock (\s.s with <| st := CLOSE_WAIT |>) |
 
-       (ESTABLISHED,F)  ->  (*: In [[ESTABLISHED]] and have not received a [[FIN]] :*)
+       (ESTABLISHED,F)  =>  (*: In [[ESTABLISHED]] and have not received a [[FIN]] :*)
           (*: Doing common-case data delivery and acknowledgements. Remain in [[ESTABLISHED]]. :*)
-          cont ||
+          cont |
 
 
-       (ESTABLISHED,T)  ->  (*: In [[ESTABLISHED]] and received a [[FIN]] :*)
+       (ESTABLISHED,T)  =>  (*: In [[ESTABLISHED]] and received a [[FIN]] :*)
           (*: Move into the [[CLOSE_WAIT]] state :*)
-          modify_tcp_sock (\s.s with <| st := CLOSE_WAIT |>) ||
+          modify_tcp_sock (\s.s with <| st := CLOSE_WAIT |>) |
 
 
-       (CLOSE_WAIT,F)   ->  (*: In [[CLOSE_WAIT]] and have not received a [[FIN]] :*)
+       (CLOSE_WAIT,F)   =>  (*: In [[CLOSE_WAIT]] and have not received a [[FIN]] :*)
          (*: Do nothing and remain in [[CLOSE_WAIT]]. The socket has its receive-side shut down due to
              the [[FIN]] it received previously from the remote end. It can continue to emit
              segments containing data and receive acknowledgements back until such a time that it
              closes down and emits a [[FIN]] :*)
-         cont ||
+         cont |
 
-       (CLOSE_WAIT,T)   ->  (*: In [[CLOSE_WAIT]] and received (another) [[FIN]] :*)
+       (CLOSE_WAIT,T)   =>  (*: In [[CLOSE_WAIT]] and received (another) [[FIN]] :*)
          (*: The duplicate [[FIN]] will have had a new sequence number to be valid and reach this
              point; RFC793 says "ignore" it so do not change state! If it were a duplicate with the
              same sequence number as the previously accepted [[FIN]], then the [[deliver_in_3]]
              acknowledgement processing function [[di3_ackstuff]] would have dropped it. :*)
-         cont ||
+         cont |
 
-       (FIN_WAIT_1,F)   ->  (*: In [[FIN_WAIT_1]] and have not received a [[FIN]] :*)
+       (FIN_WAIT_1,F)   =>  (*: In [[FIN_WAIT_1]] and have not received a [[FIN]] :*)
           (*: This socket will have emitted a [[FIN]] to enter [[FIN_WAIT_1]]. :*)
           if ourfinisacked then
             (*: If this socket's [[FIN]] has been acknowledged, enter state [[FIN_WAIT_2]] and start
@@ -1059,9 +1059,9 @@ val di3_ststuff_def = Phase.phase 2 Define`
 
           else
             (*: If this socket's [[FIN]] has not been acknowledged then remain in [[FIN_WAIT_1]] :*)
-            cont ||
+            cont |
 
-       (FIN_WAIT_1,T)   ->  (*: In [[FIN_WAIT_1]] and received a [[FIN]] :*)
+       (FIN_WAIT_1,T)   =>  (*: In [[FIN_WAIT_1]] and received a [[FIN]] :*)
           if ourfinisacked then
             (*: ...and this socket's [[FIN]] has been acknowledged then the connection has been
                 closed successfully so enter [[TIME_WAIT]]. Note: this differs slightly from the
@@ -1072,22 +1072,22 @@ val di3_ststuff_def = Phase.phase 2 Define`
             (*: If this socket's [[FIN]] has not been acknowledged then the other end is attempting
                 to close the connection simultaneously (a simultaneous close). Move to the
                 [[CLOSING]] state :*)
-            modify_tcp_sock (\s.s with <| st := CLOSING |>) ||
+            modify_tcp_sock (\s.s with <| st := CLOSING |>) |
 
-       (FIN_WAIT_2,F)   ->  (*: In [[FIN_WAIT_2]] and have not received a [[FIN]] :*)
+       (FIN_WAIT_2,F)   =>  (*: In [[FIN_WAIT_2]] and have not received a [[FIN]] :*)
           (*: This socket has previously emitted a [[FIN]] which has already been acknowledged. It
               can continue to receive data from the other end which it must acknowledge. During
               this time the socket should remain in [[FIN_WAIT_2]] until such a time that it
               receives a valid [[FIN]] from the remote end, or if no activity occurs on the
               connection the [[FIN_WAIT_2]] timer will fire, eventually closing the socket :*)
-         cont ||
+         cont |
 
-       (FIN_WAIT_2,T)   ->  (*: In [[FIN_WAIT_2]] and have received a [[FIN]] :*)
+       (FIN_WAIT_2,T)   =>  (*: In [[FIN_WAIT_2]] and have received a [[FIN]] :*)
           (*: Connection has been shutdown so enter [[TIME_WAIT]] :*)
-          enter_TIME_WAIT ||
+          enter_TIME_WAIT |
 
 
-       (CLOSING,F)      ->   (*: In [[CLOSING]] and have not received a [[FIN]] :*)
+       (CLOSING,F)      =>   (*: In [[CLOSING]] and have not received a [[FIN]] :*)
           if ourfinisacked then
             (*: If this socket's [[FIN]] has been acknowledged (common-case), enter [[TIME_WAIT]] as
                 the connection has been successfully closed :*)
@@ -1097,9 +1097,9 @@ val di3_ststuff_def = Phase.phase 2 Define`
                 this socket. Remain in the [[CLOSING]] state until it does so. Note: if the
                 previosuly emitted [[FIN]] is not acknowledged this socket's retransmit timer will
                 eventually fire causing retransmission of the [[FIN]]. :*)
-            cont ||
+            cont |
 
-       (CLOSING,T)      ->  (*: In [[CLOSING]] and have received a [[FIN]] :*)
+       (CLOSING,T)      =>  (*: In [[CLOSING]] and have received a [[FIN]] :*)
           (*: The received [[FIN]] is a duplicate [[FIN]] with a new sequence number so as per RFC793 is
               ignored -- if it were a duplicate with the same sequence number as the previously
               accepted [[FIN]], then the [[deliver_in_3]] acknowledgement processing function
@@ -1110,23 +1110,23 @@ val di3_ststuff_def = Phase.phase 2 Define`
               enter_TIME_WAIT
            else
              (*: Otherwise, ignore the new [[FIN]] and remain in the same state :*)
-             cont ||
+             cont |
 
-       (LAST_ACK,F)     ->  (*: In [[LAST_ACK]] and have not received a [[FIN]] :*)
+       (LAST_ACK,F)     =>  (*: In [[LAST_ACK]] and have not received a [[FIN]] :*)
           (*: Remain in [[LAST_ACK]] until this socket's [[FIN]] is acknowledged. Note: eventually
               the retransmit timer will fire forcing the [[FIN]] to be retransmitted. :*)
-          cont ||
+          cont |
 
-       (LAST_ACK,T)     ->  (*: In [[LAST_ACK]] and have received a [[FIN]] :*)
+       (LAST_ACK,T)     =>  (*: In [[LAST_ACK]] and have received a [[FIN]] :*)
           (*: This transition is handled specially at the end of [[di3_newackstuff]] at which point
               processing stops, thus this transition is not possible :*)
-          assert_failure "di3_ststuff" (*: impossible :*) ||
+          assert_failure "di3_ststuff" (*: impossible :*) |
 
-       (TIME_WAIT,F)    ->  (*: In [[TIME_WAIT]] and have not received a [[FIN]] :*)
+       (TIME_WAIT,F)    =>  (*: In [[TIME_WAIT]] and have not received a [[FIN]] :*)
           (*: Remaining in [[TIME_WAIT]] until the \wasverb{2MSL} timer expires :*)
-          cont ||
+          cont |
 
-       (TIME_WAIT,T)    ->  (*: In [[TIME_WAIT]] and have received a [[FIN]] :*)
+       (TIME_WAIT,T)    =>  (*: In [[TIME_WAIT]] and have received a [[FIN]] :*)
           (*: Remaining in [[TIME_WAIT]] until the \wasverb{2MSL} timer expires :*)
           cont
     )
@@ -1157,11 +1157,11 @@ val di3_socks_update_def = Phase.phase 2 Define`
    let interesting = \sid'.
          sid' <> sid /\
          case (socks ' sid').pr of
-            UDP_PROTO udp_sock -> F
-         || TCP_PROTO(tcp_sock') ->
+            UDP_PROTO udp_sock => F
+         | TCP_PROTO(tcp_sock') =>
               case tcp_sock'.lis of
-                 NONE -> F
-              || SOME lis ->
+                 NONE => F
+              | SOME lis =>
                    sid IN' lis.q0 in
 
    let interesting_sids = (FDOM socks) INTER interesting in
@@ -1237,15 +1237,15 @@ val soreadable_def = Phase.phase 1 Define`
 (*: check whether a socket is readable :*)
   soreadable arch sock =
     case sock.pr of
-      TCP_PROTO(tcp) ->
+      TCP_PROTO(tcp) =>
        (LENGTH tcp.rcvq >= sock.sf.n(SO_RCVLOWAT) \/
         sock.cantrcvmore \/
         (linux_arch arch /\ tcp.st = CLOSED) \/
         (tcp.st = LISTEN /\
          ?lis. tcp.lis = SOME lis /\
                lis.q <> []) \/
-        sock.es <> NONE) ||
-      UDP_PROTO(udp) ->
+        sock.es <> NONE) |
+      UDP_PROTO(udp) =>
        (udp.rcvq <> [] \/ sock.es <> NONE \/ (sock.cantrcvmore /\ ~windows_arch arch))
 `
 (*:
@@ -1278,13 +1278,13 @@ val sowriteable_def = Phase.phase 1 Define`
 (*: check whether a socket is writable :*)
   sowriteable arch sock =
     case sock.pr of
-      TCP_PROTO(tcp) ->
+      TCP_PROTO(tcp) =>
         ((tcp.st IN {ESTABLISHED; CLOSE_WAIT} /\
           sock.sf.n(SO_SNDBUF) - LENGTH tcp.sndq  >= sock.sf.n(SO_SNDLOWAT)) \/ (* change to send_buffer_space *)
         (if linux_arch arch then ~sock.cantsndmore else sock.cantsndmore) \/
         (linux_arch arch /\ tcp.st = CLOSED) \/
-        sock.es <> NONE) ||
-      UDP_PROTO(udp) -> T
+        sock.es <> NONE) |
+      UDP_PROTO(udp) => T
 `
 (*:
 
@@ -1316,11 +1316,11 @@ val soexceptional_def = Phase.phase 1 Define`
 (*: check whether a socket is exceptional :*)
   soexceptional arch sock =
     case sock.pr of
-      TCP_PROTO(tcp) ->
+      TCP_PROTO(tcp) =>
         (tcp.st = ESTABLISHED /\
         (tcp.rcvurp = SOME 0 \/
-         (?c. tcp.iobc = OOBDATA c))) ||
-      UDP_PROTO(udp) -> F
+         (?c. tcp.iobc = OOBDATA c))) |
+      UDP_PROTO(udp) => F
 `
 (*:
 
@@ -2205,9 +2205,9 @@ val (host_redn0_rules, host_redn0_ind, host_redn0_cases) =
      (h0.privs \/ p1 NOTIN privileged_ports h0) /\
      bound_port_allowed pr (h0.socks \\ sid) sf h0.arch is1 p1 /\
      (case pr of
-        TCP_PROTO(tcp_sock) -> tcp_sock  = TCP_Sock0(CLOSED,cb,NONE,[],NONE,[],NONE,NO_OOBDATA) /\
-	                       (bsd_arch h0.arch ==> cantsndmore=F /\ cb.bsd_cantconnect = F) ||
-        UDP_PROTO(udp_sock) -> udp_sock = UDP_Sock0([]))
+        TCP_PROTO(tcp_sock) => tcp_sock  = TCP_Sock0(CLOSED,cb,NONE,[],NONE,[],NONE,NO_OOBDATA) /\
+	                       (bsd_arch h0.arch ==> cantsndmore=F /\ cb.bsd_cantconnect = F) |
+        UDP_PROTO(udp_sock) => udp_sock = UDP_Sock0([]))
 
 
    (*:
@@ -2294,7 +2294,7 @@ val (host_redn0_rules, host_redn0_ind, host_redn0_cases) =
      FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
      sock = (h.socks ' sid) /\
      ~(bound_port_allowed sock.pr (h.socks \\ sid) sock.sf h.arch is1 p1) /\
-     (option_case T (\i1. i1 IN local_ips(h.ifds)) is1  \/ windows_arch h.arch)
+     ((case is1 of NONE => T | SOME i1 => i1 IN local_ips(h.ifds)) \/ windows_arch h.arch)
 
 
    (*:
@@ -3775,7 +3775,7 @@ val (host_redn0_rules, host_redn0_ind, host_redn0_cases) =
      (rcv_wnd0:num) IN { n | n > 0 /\ n <= TCP_MAXWIN } /\  (* we feel a zero window would be dumb (deaf?) *)
      (rcv_wnd:num) = rcv_wnd0 << (option_case 0 I request_r_scale) /\
 *)
-     (rcv_wnd:num) IN { n | n > 0 /\ n <= (TCP_MAXWIN << (option_case 0 I request_r_scale)) } /\
+     (rcv_wnd:num) IN { n | n > 0 /\ n <= (TCP_MAXWIN << (option_CASE request_r_scale 0 I)) } /\
 
      rcv_wnd <= sf.n(SO_RCVBUF) /\
 
@@ -4413,27 +4413,27 @@ val (host_redn0_rules, host_redn0_ind, host_redn0_cases) =
      FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
      TCP_PROTO(tcp_sock) = (h.socks ' sid).pr /\
      case tcp_sock.st of
-         SYN_SENT     -> if     ff.b(O_NONBLOCK) = T then err = EALREADY (*: connection already in progress :*)
+         SYN_SENT     => if     ff.b(O_NONBLOCK) = T then err = EALREADY (*: connection already in progress :*)
                          else if windows_arch h.arch then err = EALREADY (*: connection already in progress :*)
                          else if bsd_arch     h.arch then err = EISCONN  (*: connection being established :*)
-                         else ASSERTION_FAILURE "connect_5:1" || (*: never happen :*)
-         SYN_RECEIVED -> if     ff.b(O_NONBLOCK) = T then err = EALREADY (*: connection already in progress :*)
+                         else ASSERTION_FAILURE "connect_5:1" | (*: never happen :*)
+         SYN_RECEIVED => if     ff.b(O_NONBLOCK) = T then err = EALREADY (*: connection already in progress :*)
                          else if windows_arch h.arch then err = EALREADY
                          else if bsd_arch     h.arch then err = EISCONN  (*: connection being established :*)
-                         else ASSERTION_FAILURE "connect_5:2" || (*: never happen :*)
-         LISTEN      -> if      windows_arch h.arch then err = EINVAL  (*: socket is listening :*)
+                         else ASSERTION_FAILURE "connect_5:2" | (*: never happen :*)
+         LISTEN      => if      windows_arch h.arch then err = EINVAL  (*: socket is listening :*)
                         else if bsd_arch     h.arch then err = EOPNOTSUPP
                         else if linux_arch   h.arch then err = EISCONN
-                        else ASSERTION_FAILURE "connect_5:3" || (*: never happen :*)
-         ESTABLISHED -> err = EISCONN ||  (*: socket already connected :*)
-         FIN_WAIT_1 -> err = EISCONN ||   (*: socket already connected :*)
-         FIN_WAIT_2 -> err = EISCONN ||   (*: socket already connected :*)
-         CLOSING -> err = EISCONN ||      (*: socket already connected :*)
-         CLOSE_WAIT -> err = EISCONN ||   (*: socket already connected :*)
-         LAST_ACK -> err = EISCONN ||     (*: socket already connected; seems that fd is valid in this state :*)
-         TIME_WAIT -> (windows_arch h.arch \/ linux_arch h.arch) /\ err = EISCONN ||
+                        else ASSERTION_FAILURE "connect_5:3" | (*: never happen :*)
+         ESTABLISHED => err = EISCONN |  (*: socket already connected :*)
+         FIN_WAIT_1 => err = EISCONN |   (*: socket already connected :*)
+         FIN_WAIT_2 => err = EISCONN |   (*: socket already connected :*)
+         CLOSING => err = EISCONN |      (*: socket already connected :*)
+         CLOSE_WAIT => err = EISCONN |   (*: socket already connected :*)
+         LAST_ACK => err = EISCONN |     (*: socket already connected; seems that fd is valid in this state :*)
+         TIME_WAIT => (windows_arch h.arch \/ linux_arch h.arch) /\ err = EISCONN |
                      (*: BSD allows a [[TIME_WAIT]] socket to be reconnected :*)
-         CLOSED -> err = EINVAL /\ bsd_arch h.arch /\ tcp_sock.cb.bsd_cantconnect = T
+         CLOSED => err = EINVAL /\ bsd_arch h.arch /\ tcp_sock.cb.bsd_cantconnect = T
 
 
    (*:
@@ -4521,8 +4521,8 @@ val (host_redn0_rules, host_redn0_ind, host_redn0_cases) =
 	  (if ps1 = NONE then bound = sid::h.bound else bound = h.bound)
      else is1' = NONE /\ ps1' = ps1 /\ bound = h.bound) /\
      case test_outroute_ip(i2,h.rttab,h.ifds,h.arch) of
-	 SOME e   -> err = e
-     ||  _other29 -> F  (* other cases not considered in this rule *) /\
+	 SOME e   => err = e
+     |  _other29 => F  (* other cases not considered in this rule *) /\
      (proto_of sock.pr = PROTO_UDP ==> ~bsd_arch h.arch)
 
 
@@ -5122,20 +5122,20 @@ val (host_redn0_rules, host_redn0_ind, host_redn0_cases) =
      TCP_PROTO(tcp_sock) = (h.socks ' sid).pr /\
      ~(linux_arch h.arch) /\
      case tcp_sock.st of
-         CLOSED      -> if bsd_arch h.arch then
+         CLOSED      => if bsd_arch h.arch then
 	                    if tcp_sock.cb.bsd_cantconnect = T then err = EINVAL
 			    else  err = EAFNOSUPPORT
-                        else err = EAFNOSUPPORT ||
-         LISTEN      -> if      windows_arch h.arch then err = EAFNOSUPPORT  (*: socket is listening :*)
+                        else err = EAFNOSUPPORT |
+         LISTEN      => if      windows_arch h.arch then err = EAFNOSUPPORT  (*: socket is listening :*)
                         else if bsd_arch     h.arch then err = EOPNOTSUPP
-                        else ASSERTION_FAILURE "disconnect_4:1" || (*: never happen :*)
-         SYN_SENT    -> err = EALREADY || (*: connection already in progress :*)
-         SYN_RECEIVED -> err = EALREADY || (*: connection already in progress :*)
-         ESTABLISHED  -> err = EISCONN ||  (*: socket already connected :*)
-         TIME_WAIT    -> if windows_arch h.arch then err = EISCONN
+                        else ASSERTION_FAILURE "disconnect_4:1" | (*: never happen :*)
+         SYN_SENT    => err = EALREADY | (*: connection already in progress :*)
+         SYN_RECEIVED => err = EALREADY | (*: connection already in progress :*)
+         ESTABLISHED  => err = EISCONN |  (*: socket already connected :*)
+         TIME_WAIT    => if windows_arch h.arch then err = EISCONN
                          else if bsd_arch h.arch then err = EAFNOSUPPORT
-                         else ASSERTION_FAILURE "disconnect_4:2" || (*: never happen :*)
-         _1           -> err = EISCONN (*: all other states :*)
+                         else ASSERTION_FAILURE "disconnect_4:2" | (*: never happen :*)
+         _1           => err = EISCONN (*: all other states :*)
 
 
    (*:
@@ -6936,9 +6936,9 @@ val (host_redn0_rules, host_redn0_ind, host_redn0_cases) =
      FAPPLY h.files fid = File(FT_Socket(sid),ff) /\
      sock = h.socks ' sid /\
      (case sock.pr of
-        TCP_PROTO(tcp_sock) ->
-          bsd_arch h.arch ==> ~(tcp_sock.cb.bsd_cantconnect = T /\ sock.ps1 = NONE) ||
-        UDP_PROTO(_444) -> T) /\
+        TCP_PROTO(tcp_sock) =>
+          bsd_arch h.arch ==> ~(tcp_sock.cb.bsd_cantconnect = T /\ sock.ps1 = NONE) |
+        UDP_PROTO(_444) => T) /\
      (windows_arch h.arch ==> sock.is1 <> NONE \/ sock.ps1 <> NONE)
 
 
@@ -8812,14 +8812,14 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
 
      ((str,rcvq') = SPLIT (MIN n
                                (case rcvurp of
-                                  NONE -> LENGTH rcvq ||
-                                  SOME om -> if om = 0 then (LENGTH rcvq) (* not just the OOB byte *)
+                                  NONE => LENGTH rcvq |
+                                  SOME om => if om = 0 then (LENGTH rcvq) (* not just the OOB byte *)
                                                        else MIN om (LENGTH rcvq)))
                           rcvq) /\
      rcvq'' = (if MSG_PEEK IN opts then rcvq else rcvq') /\
      rcvurp' = (case rcvurp of
-                   NONE -> NONE ||
-                   SOME om -> if om = 0 then NONE
+                   NONE => NONE |
+                   SOME om => if om = 0 then NONE
                               (* NOTE: it should never be the case that om < LENGTH str *)
                               else if om <= LENGTH str then SOME 0 else SOME (om-LENGTH str))
 
@@ -9027,14 +9027,14 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
 
      (str,rcvq') = SPLIT (MIN n
                               (case rcvurp of
-                                  NONE -> LENGTH rcvq ||
-                                  SOME om -> if om = 0 then (LENGTH rcvq) (* not just the OOB byte *)
+                                  NONE => LENGTH rcvq |
+                                  SOME om => if om = 0 then (LENGTH rcvq) (* not just the OOB byte *)
                                                        else MIN om (LENGTH rcvq)))
                          rcvq /\
      rcvq'' = (if MSG_PEEK IN opts then rcvq else rcvq') /\
      rcvurp' = (case rcvurp of
-                   NONE -> NONE ||
-                   SOME om -> if om = 0 then NONE
+                   NONE => NONE |
+                   SOME om => if om = 0 then NONE
                               (* NOTE: it should never be the case that om < LENGTH str *)
                               else if om <= LENGTH str then SOME 0 else SOME (om-LENGTH str))
 
@@ -9332,9 +9332,9 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
                     expecting any urgent data in the future. Otherwise, if rcvurp = SOME(v)
                     then we fail with EAGAIN as we'll have to block to wait for the advertised
                     oob data. *)
-             NO_OOBDATA -> (e = if rcvurp = NONE then EINVAL else EAGAIN) ||
-             OOBDATA c -> F ||
-             HAD_OOBDATA -> (e = EINVAL))
+             NO_OOBDATA => (e = if rcvurp = NONE then EINVAL else EAGAIN) |
+             OOBDATA c => F |
+             HAD_OOBDATA => (e = EINVAL))
 
 
    (*:
@@ -9628,7 +9628,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
 (*:
 
 @section [[udp_recv]] UDP [[recv()]]
- \[ <[recv: (fd * int * msgbflag list) -> (string * ((ip * port) * bool) option)]> \]
+ \[ <[recv: (fd * int * msgbflag list) => (string * ((ip * port) * bool) option)]> \]
 
   A call to [[recv(fd,n,opts)]] returns data from the datagram on the head of a socket's receive
   queue.
@@ -10574,7 +10574,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
 (*:
 
 @section [[tcp_send]] TCP [[send()]]
- \[ <[send: fd * (ip * port) option * string * msgbflag list -> string ]> \]
+ \[ <[send: fd * (ip * port) option * string * msgbflag list => string ]> \]
 
   This section describes
   the behaviour of [[send()]] for TCP sockets.
@@ -11448,7 +11448,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
 (*:
 
 @section [[udp_send]] UDP [[send()]]
- \[ <[send: (fd * (ip * port) option * string * msgbflag list) -> string]> \]
+ \[ <[send: (fd * (ip * port) option * string * msgbflag list) => string]> \]
 
   This section describes
   the behaviour of [[send()]] for UDP sockets.
@@ -12566,7 +12566,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
 
 (*:
 @section [[setfileflags]] ALL [[setfileflags()]]
- \[ <[setfileflags: (fd * filebflag list) -> unit]> \]
+ \[ <[setfileflags: (fd * filebflag list) => unit]> \]
 
   A call to [[setfileflags(fd,flags)]] sets the flags on a file referred to by [[fd]]. [[flags]] is
   the list of file flags to set. The possible flags are:
@@ -12697,7 +12697,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
 (*:
 
 @section [[setsockbopt]] ALL [[setsockbopt()]]
-  \[ <[setsockbopt: (fd * sockbflag * bool) -> unit]> \]
+  \[ <[setsockbopt: (fd * sockbflag * bool) => unit]> \]
 
   A call [[setsockbopt(fd,f,b)]] sets the value of one of a socket's boolean flags.
 
@@ -12906,7 +12906,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
 (*:
 
 @section [[setsocknopt]] ALL [[setsocknopt()]]
-  \[ <[setsocknopt: (fd * socknflag * int) -> unit]> \]
+  \[ <[setsocknopt: (fd * socknflag * int) => unit]> \]
 
   A call [[setsocknopt(fd,f,n)]] sets the value of one of a socket's numeric flags. The [[fd]]
   argument is a file descriptor referring to a socket to set a flag on, [[f]] is the numeric socket
@@ -13176,7 +13176,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
 (*:
 
 @section [[setsocktopt]] ALL [[setsocktopt()]]
- \[ <[setsocktopt: (fd * socktflag * (int * int) option) -> unit]> \]
+ \[ <[setsocktopt: (fd * socktflag * (int * int) option) => unit]> \]
 
   A call [[setsocktopt(fd,f,t)]] sets the value of one of a socket's time-option flags.
 
@@ -13450,7 +13450,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
 (*:
 
 @section [[shutdown]] ALL [[shutdown()]]
-  \[ <[shutdown: (fd * bool * bool) -> unit]> \]
+  \[ <[shutdown: (fd * bool * bool) => unit]> \]
 
   A call of [[shutdown(fd,r,w)]] shuts down either the read-half of a connection, the write-half of
   a connection, or both. The [[fd]] is a file descriptor referring to the socket to shutdown; the [[r]] and [[w]] indicate whether the socket should be shut down for reading and writing respectively.
@@ -13778,7 +13778,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
 (*:
 
 @section [[sockatmark]] TCP [[sockatmark()]]
-   \[ <[sockatmark: fd -> bool]> \]
+   \[ <[sockatmark: fd => bool]> \]
 
   A call to [[sockatmark(fd)]] returns a [[bool]] specifying whether or not a socket is at the
   urgent mark.
@@ -13979,7 +13979,7 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
 (*:
 
 @section [[socket]] ALL [[socket()]]
- \[ <[socket: sock_type -> fd]> \]
+ \[ <[socket: sock_type => fd]> \]
 
   A call to [[socket(type)]] creates a new socket. Here [[type]] is the type of socket to create:
   [[SOCK_STREAM]] for TCP and [[SOCK_DGRAM]] for UDP. The returned [[fd]] is the file descriptor of
@@ -14097,9 +14097,9 @@ the socket's [[SO_OOBINLINE]] cannot be set (i.e.~out-of-band data must not be b
      nextfd h.arch fds fd /\
      fds' = fds |+ (fd, fid) /\
      (case socktype of
-       SOCK_DGRAM -> (sock =
-         Sock(SOME fid,sf_default h.arch socktype,NONE,NONE,NONE,NONE,NONE,F,F,UDP_Sock([]))) ||
-       SOCK_STREAM -> (sock =
+       SOCK_DGRAM => (sock =
+         Sock(SOME fid,sf_default h.arch socktype,NONE,NONE,NONE,NONE,NONE,F,F,UDP_Sock([]))) |
+       SOCK_STREAM => (sock =
          Sock(SOME fid,sf_default h.arch socktype,NONE,NONE,NONE,NONE,NONE,F,F,
               TCP_Sock(CLOSED,initial_cb,NONE,[],NONE,[],NONE,NO_OOBDATA))))
      (* an alternative would be to set them to default values here,
@@ -14691,7 +14691,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
         acceptable because the socket is listening on all local [[IP]] addresses. The segment must
         not have been sent by socket [[sock]].  Note: a socket is permitted to connect to itself by
         a simultaneous open. This is handled by {@link [[deliver_in_2]]} and not here. :*)
-    (case is1 of SOME i1' -> i1' = i1 || NONE -> T) /\
+    (case is1 of SOME i1' => i1' = i1 | NONE => T) /\
     ~(i1 = i2 /\ p1 = p2) /\
 
     (*: If another socket in the [[TIME_WAIT]] state matches the address quad of the SYN segment
@@ -14789,7 +14789,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
     (if tf_doing_ws' then (*: Doing window scaling :*)
        (*: Constrain the receive scale to be within the correct range and the send scale to be that
            received from the remote host :*)
-       rcv_scale' IN { n | n >= 0 /\ n <= TCP_MAXWINSCALE } /\ snd_scale' = option_case 0 I ws
+       rcv_scale' IN { n | n >= 0 /\ n <= TCP_MAXWINSCALE } /\ snd_scale' = option_CASE ws 0 I
      else
        (*: Otherwise, turn off scaling :*)
        rcv_scale' = 0 /\ snd_scale' = 0) /\
@@ -14838,8 +14838,8 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
               snd_scale         := snd_scale';
               tf_doing_ws       := tf_doing_ws';
               ts_recent         := case ts of
-                                       NONE -> cb.ts_recent ||
-                                       SOME (ts_val,ts_ecr) -> TimeWindow(ts_val,kern_timer dtsinval);
+                                       NONE => cb.ts_recent |
+                                       SOME (ts_val,ts_ecr) => TimeWindow(ts_val,kern_timer dtsinval);
               last_ack_sent     := ack';
               t_rttseg          := t_rttseg';
               tf_req_tstmp      := tf_doing_tstmp';
@@ -14970,7 +14970,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
     either requested\_s\_scale or request\_r\_scale; in an active open, we'd need to remember what
     we said (i.e., request\_r\_scale) in fact, observe that in our model we only save
     request\_r\_scale, not requested\_s\_scale, and we initialise snd\_scale and rcv\_scale earlier
-    than in BSD (i.e., at LISTEN -> SYN\_RECEIVED rather than at SYN\_RECEIVED->ESTABLISHED), simply
+    than in BSD (i.e., at LISTEN => SYN\_RECEIVED rather than at SYN\_RECEIVED->ESTABLISHED), simply
     not using their values if we're in SYN\_RECEIVED.  This is a nice simplification, but it is one
     thing that will make white-box testing a little less convenient (rcv\_adv is another)
 
@@ -15078,7 +15078,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
 
     (*: If socket [[sock]] has a local IP address specified it should be the same as the destination
         IP address of segment [[seg]]. :*)
-    (case is1 of SOME i1' -> i1' = i1 || NONE -> T) /\
+    (case is1 of SOME i1' => i1' = i1 | NONE => T) /\
 
     (*: A BSD socket in the [[LISTEN]] state may have its peer's IP address [[is2]] and port [[ps2]]
        set because [[listen()]] can be called from any TCP state. On other architectures they are
@@ -15192,10 +15192,10 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
 
      (*: resolve negotiated window scaling :*)
      (case (cb.request_r_scale, ws) of
-         (SOME rs, SOME ss) -> rcv_scale' = rs /\
+         (SOME rs, SOME ss) => rcv_scale' = rs /\
                                snd_scale' = ss /\
-                               tf_doing_ws' = T ||
-         _15432             -> rcv_scale' = 0 /\
+                               tf_doing_ws' = T |
+         _15432             => rcv_scale' = 0 /\
                                snd_scale' = 0 /\
                                tf_doing_ws' = F) /\
 
@@ -15207,8 +15207,8 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
      bw_delay_product_for_rt = NONE /\
 
      let ourmss = (case cb.t_advmss of
-                      NONE   -> cb.t_maxseg (*: we did not advertise an MSS, so use the default value :*)
-                   || SOME v -> v) in
+                      NONE   => cb.t_maxseg (*: we did not advertise an MSS, so use the default value :*)
+                   | SOME v => v) in
 
      ((rcvbufsize',sndbufsize',t_maxseg'',snd_cwnd') =
          if mss <> NONE \/ ~bsd_arch h.arch then
@@ -15283,13 +15283,13 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
 
               (*: update RTT estimators from timestamp or roundtrip time :*)
               let emission_time = case ts of
-                                      SOME (ts_val,ts_ecr) -> SOME (ts_ecr - 1)
-                                  || NONE ->
+                                      SOME (ts_val,ts_ecr) => SOME (ts_ecr - 1)
+                                  | NONE =>
                                   (case cb.t_rttseg of
-                                       SOME (ts0,seq0) -> if ack > seq0
+                                       SOME (ts0,seq0) => if ack > seq0
                                                           then SOME ts0
                                                           else NONE
-                                    || NONE            -> NONE) in
+                                    | NONE            => NONE) in
 
               (*: clear soft error, cancel timer, and update estimators if we successfully timed a segment round-trip :*)
               let (t_softerror',t_rttseg',t_rttinf')
@@ -15321,8 +15321,8 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
                else if emission_time <> NONE then
                    case cb.tt_rexmt of
                        (*: bizarre but true. |tcp_input.c:1766| says c.f.~Phil Karn's retransmit algorithm :*)
-                       NONE -> NONE
-                    || SOME (Timed((mode,shift),d)) -> SOME (Timed((mode,0),d))
+                       NONE => NONE
+                    | SOME (Timed((mode,shift),d)) => SOME (Timed((mode,0),d))
                else
                    (*: do nothing :*)
                    cb.tt_rexmt
@@ -15421,8 +15421,8 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
               t_maxseg    := t_maxseg'';
               ts_recent     := case ts of
                                (*: record irrespective of whether we negotiated to do this or not, like BSD :*)
-                                  NONE -> cb.ts_recent ||
-                                  SOME (ts_val,ts_ecr) -> TimeWindow(ts_val,kern_timer dtsinval);
+                                  NONE => cb.ts_recent |
+                                  SOME (ts_val,ts_ecr) => TimeWindow(ts_val,kern_timer dtsinval);
                                   (*: timestamp will become invalid in 24 days :*)
               last_ack_sent := rcv_nxt';
               t_softerror   := t_softerror';
@@ -15741,7 +15741,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
 
     (*: Socket [[sock]] has previously sent a [[FIN]] segment iff [[snd_max]] is strictly greater
         than the sequence number of the byte after the last byte in the send queue [[sndq]]. :*)
-    let wesentafin = tcp_sock.cb.snd_max > tcp_sock.cb.snd_una + LENGTH tcp_sock.sndq in
+    let wesentafin = (tcp_sock.cb.snd_max > tcp_sock.cb.snd_una + LENGTH tcp_sock.sndq) in
 
     (*: If the socket [[sock]] has previously sent a [[FIN]] segment it has been acknowledged by
         segment [[seg]] if the segment has the [[ACK]] flag set and an acknowledgment number [[ack
@@ -16413,8 +16413,8 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
      ~(is_broadormulticast h.ifds i1) /\
      ~(is_broadormulticast h.ifds i2) /\
      (case is1 of
-          SOME i1' -> i1' = i1 ||
-          NONE -> T) /\
+          SOME i1' => i1' = i1 |
+          NONE => T) /\
 
      (?seq_discard ack_discard URG_discard ACK_discard PSH_discard SYN_discard FIN_discard
        win_discard ws_discard urp_discard mss_discard ts_discard data_discard.
@@ -16901,8 +16901,9 @@ TODO3
     (do_output \/ persist_fun <> NONE) /\
 
     (*: Apply any persist timer side-effect from [[tcp_output_required]] :*)
-    let sock0 = option_case sock (\ f. sock with
-                  <| pr := TCP_PROTO(tcp_sock with cb updated_by f) |>) persist_fun in
+    let sock0 = case persist_fun of
+                    NONE => sock
+                  | SOME f => sock with <| pr := TCP_PROTO(tcp_sock with cb updated_by f) |> in
 
     (if do_output then (*: output a segment :*)
        (*: Construct the segment to emit, updating the socket's state :*)
@@ -17339,7 +17340,7 @@ TODO3
      w2n win_ = cb.rcv_wnd >> cb.rcv_scale /\
 
      let ts = if cb.tf_doing_tstmp then
-                  let ts_ecr' = option_case (ts_seq 0w) I (timewindow_val_of cb.ts_recent) in
+                  let ts_ecr' = option_CASE (timewindow_val_of cb.ts_recent) (ts_seq 0w) I in
                   SOME((ticks_of h.ticks),ts_ecr')
               else
                   NONE in
@@ -17676,7 +17677,7 @@ TODO3
 
 
    (!h iq iq' oq oq' socks icmp sid sock sock'
-     i3 outsegs tcp_sock udp_sock h0.
+     i3 outsegs h0.
 
    deliver_in_icmp_1 /* rp_all, network nonurgent (*: Receive [[ICMP_UNREACH_NET]] etc for known socket :*) */
      h0
@@ -17700,7 +17701,7 @@ TODO3
      i3 NOTIN IN_MULTICAST /\
      sid IN lookup_icmp h0.socks icmp h0.arch h0.bound /\
      (case sock.pr of
-        TCP_PROTO(tcp_sock) ->
+        TCP_PROTO(tcp_sock) =>
           (?icmp_seq. icmp.seq = SOME icmp_seq /\
           if tcp_sock.cb.snd_una <= icmp_seq /\ icmp_seq < tcp_sock.cb.snd_max then (* tcp_notify() *)
               if tcp_sock.st = ESTABLISHED then
@@ -17719,8 +17720,8 @@ TODO3
           else
                 (*: Note the case where it is a syncache entry is not dealt with here: a |syncache_unreach()| should be done instead :*)
               sock' = sock /\
-              oq' = oq ) ||
-        UDP_PROTO(udp_sock) ->
+              oq' = oq ) |
+        UDP_PROTO(udp_sock) =>
            if windows_arch h.arch then
                sock' = sock with <| pr := UDP_PROTO(udp_sock with
                                  <| rcvq := APPEND udp_sock.rcvq [(Dgram_error(<| e := ECONNRESET |>))] |>) |> /\ oq' = oq
@@ -17737,7 +17738,7 @@ TODO3
 
 /\
    (!h iq iq' oq oq' socks icmp sid sock sock'
-     tcp_sock icmpmtu udp_sock h0.
+     icmpmtu h0.
 
 
 
@@ -17770,8 +17771,8 @@ TODO3
                       F then (*: Note this is a placeholder for "|rmx.mtu| not locked" :*)
                        let curmtu = 1492 in (*: Note this value should be taken from |rmx.mtu| :*)
                        let nextmtu = case icmpmtu of
-                                        SOME mtu -> w2n mtu
-                                     || NONE     -> next_smaller (mtu_tab h0.arch) curmtu in
+                                        SOME mtu => w2n mtu
+                                     | NONE     => next_smaller (mtu_tab h0.arch) curmtu in
                        if nextmtu < 296 then
                            (*: Note this should lock curmtu in rmxcache; and not change rmxcache MTU from curmtu :*)
                            SOME curmtu
@@ -17781,7 +17782,7 @@ TODO3
                    else
                        NONE in
      (case sock.pr of
-          TCP_PROTO(tcp_sock) ->
+          TCP_PROTO(tcp_sock) =>
             (?icmp_seq. icmp.seq = SOME icmp_seq /\
             if IS_SOME icmp.is3 then
                (if tcp_sock.cb.snd_una <= icmp_seq /\ icmp_seq < tcp_sock.cb.snd_max then (* tcp_mtudisc() *)
@@ -17813,8 +17814,8 @@ TODO3
                 (*: Note the case where it is a syncache entry is not dealt with here: a |syncache_unreach()| should be done instead :*)
                    sock' = sock /\ oq' = oq)
             else
-                sock' = sock /\ oq' = oq ) ||
-          UDP_PROTO(udp_sock) ->
+                sock' = sock /\ oq' = oq ) |
+          UDP_PROTO(udp_sock) =>
           if windows_arch h.arch then
               sock' = sock with <| pr := UDP_PROTO(udp_sock with
                                 <| rcvq := APPEND udp_sock.rcvq [(Dgram_error(<| e := EMSGSIZE |>))] |>) |> /\ oq' = oq
@@ -17831,7 +17832,7 @@ TODO3
 /\
 
    (!h iq iq' oq oq' socks icmp sid sock sock'
-     tcp_sock i3 udp_sock h0.
+     i3 h0.
 
 
 
@@ -17863,7 +17864,7 @@ TODO3
      i3 NOTIN IN_MULTICAST /\
      sid IN lookup_icmp h0.socks icmp h0.arch h0.bound /\
      (case sock.pr of
-          TCP_PROTO(tcp_sock) ->
+          TCP_PROTO(tcp_sock) =>
             (?icmp_seq. icmp.seq = SOME icmp_seq /\
             if tcp_sock.cb.snd_una <= icmp_seq /\ icmp_seq < tcp_sock.cb.snd_max then (* tcp_drop_syn_sent() *)
                 if tcp_sock.st = SYN_SENT then
@@ -17872,8 +17873,8 @@ TODO3
                     sock' = sock /\ oq' = oq
             else
                 (*: Note the case where it is a syncache entry is not dealt with here: a |syncache_unreach()| should be done instead :*)
-                sock' = sock /\ oq' = oq ) ||
-          UDP_PROTO(udp_sock) ->
+                sock' = sock /\ oq' = oq ) |
+          UDP_PROTO(udp_sock) =>
               (if windows_arch h.arch then
                    sock' = sock with <| pr := UDP_PROTO(udp_sock with
                                      <| rcvq := APPEND udp_sock.rcvq [(Dgram_error(<| e := ECONNRESET |>))] |>) |> /\
@@ -17893,7 +17894,7 @@ TODO3
 
 /\
    (!h iq iq' oq oq' socks icmp sid sock sock'
-     i3 outsegs tcp_sock udp_sock h0.
+     i3 outsegs h0.
 
 
 
@@ -17925,7 +17926,7 @@ TODO3
      i3 NOTIN IN_MULTICAST /\
      sid IN lookup_icmp h0.socks icmp h0.arch h0.bound /\
      (case sock.pr of
-          TCP_PROTO(tcp_sock) ->
+          TCP_PROTO(tcp_sock) =>
             (?icmp_seq. icmp.seq = SOME icmp_seq /\
             if tcp_sock.cb.snd_una <= icmp_seq /\ icmp_seq < tcp_sock.cb.snd_max then (* tcp_notify() *)
                 if tcp_sock.st IN {CLOSED;LISTEN;SYN_SENT;SYN_RECEIVED} /\
@@ -17941,8 +17942,8 @@ TODO3
                     oq' = oq
             else
                 (* TODO: if it would be a syncache entry, should do syncache_unreach() instead *)
-                sock' = sock /\ oq' = oq ) ||
-          UDP_PROTO(udp_sock) ->
+                sock' = sock /\ oq' = oq ) |
+          UDP_PROTO(udp_sock) =>
               (if windows_arch h.arch then
                    sock' = sock with <| pr := UDP_PROTO(udp_sock with
                                      <| rcvq := APPEND udp_sock.rcvq
@@ -17961,7 +17962,7 @@ TODO3
 
 /\
    (!h iq iq' socks icmp sid sock sock'
-     i3 tcp_sock udp_sock h0.
+     i3 h0.
 
 
 
@@ -17990,7 +17991,7 @@ TODO3
      i3 NOTIN IN_MULTICAST /\
      sid IN lookup_icmp h0.socks icmp h0.arch h0.bound /\
      (case sock.pr of
-          TCP_PROTO(tcp_sock) ->
+          TCP_PROTO(tcp_sock) =>
             (?icmp_seq. icmp.seq = SOME icmp_seq /\
             if tcp_sock.cb.snd_una <= icmp_seq /\ icmp_seq < tcp_sock.cb.snd_max then (* tcp_quench() *)
                 sock' = sock with <| pr := TCP_PROTO(tcp_sock with
@@ -18000,8 +18001,8 @@ TODO3
             (*: Note it might be necessary to make an allowance for local/remote connection? :*)
             else
                 (*: Note the case where it is a syncache entry is not dealt with here: a |syncache_unreach()| should be done instead :*)
-                sock' = sock ) ||
-          UDP_PROTO(udp_sock) ->
+                sock' = sock ) |
+          UDP_PROTO(udp_sock) =>
               (if windows_arch h.arch then
                    sock' = sock with <| pr := UDP_PROTO(udp_sock with
                                      <| rcvq := APPEND udp_sock.rcvq [(Dgram_error(<| e := EHOSTUNREACH |>))] |>) |>
@@ -18283,10 +18284,10 @@ TODO3
         proto_of sock.pr = PROTO_TCP /\
         tcp_sock = tcp_sock_of sock /\
         (case quad of
-          SOME (is1,ps1,is2,ps2) -> if flav = TA_DROP \/ tcp_sock.st = CLOSED then T
+          SOME (is1,ps1,is2,ps2) => if flav = TA_DROP \/ tcp_sock.st = CLOSED then T
 				    else
-					is1 = sock.is1 /\ ps1 = sock.ps1 /\ is2 = sock.is2 /\ ps2 = sock.ps2 ||
-          NONE                   -> T) /\
+					is1 = sock.is1 /\ ps1 = sock.ps1 /\ is2 = sock.is2 /\ ps2 = sock.ps2 |
+          NONE                   => T) /\
         (st  = tcp_sock.st \/ tcp_sock.st = CLOSED))))
 
 
@@ -18367,10 +18368,10 @@ val Time_Pass_timedoption_def = Phase.phase 3 Define`
   (Time_Pass_timedoption : duration -> 'a timed option -> 'a timed option option)
      dur x0
    = case x0 of
-       NONE   -> SOME NONE ||
-       SOME x -> (case Time_Pass_timed dur x of
-                    NONE -> NONE ||
-                    SOME x0' -> SOME (SOME x0'))
+       NONE   => SOME NONE |
+       SOME x => (case Time_Pass_timed dur x of
+                    NONE => NONE |
+                    SOME x0' => SOME (SOME x0'))
 `;
 
 val Time_Pass_tcpcb_def = Define`
@@ -18418,8 +18419,8 @@ val Time_Pass_socket_def = Define`
 (*: time passes for a socket :*)
   (Time_Pass_socket : duration -> socket -> socket set option)
      dur s
-   = case s.pr of UDP_PROTO(udp) -> SOME { s }
-     || TCP_PROTO(tcp_s) ->
+   = case s.pr of UDP_PROTO(udp) => SOME { s }
+     | TCP_PROTO(tcp_s) =>
        let cb's = Time_Pass_tcpcb dur tcp_s.cb
        in
        if IS_SOME cb's
@@ -18503,7 +18504,7 @@ val Time_Pass_host_def = Define`
 
 (*: @section [[time_passage_section]] ALL Host transitions with time
 
-We now build the relation [[-- ( ) --=>]], which includes time transitions, from the relation [[-- ( ) -->]],
+We now build the relation [[-- ( ) --->]], which includes time transitions, from the relation [[-- ( ) -->]],
 which is instantaneous.  This avoids circularity (or at best inductiveness) in the definition of
 the transition relation.
 
@@ -18516,7 +18517,7 @@ val (host_redn_rules, host_redn_ind, host_redn_cases) =
 
    epsilon_1 /* rp_all, misc nonurgent (*: Time passes :*) */
      h
-   -- Lh_epsilon dur --=>
+   -- Lh_epsilon dur --->
      h'
 
    <==
@@ -18543,17 +18544,17 @@ val (host_redn_rules, host_redn_ind, host_redn_cases) =
 
    epsilon_2 /* rp_all, misc nonurgent (*: Inductively defined time passage :*) */
      h
-   -- Lh_epsilon dur --=>
+   -- Lh_epsilon dur --->
      h'
 
    <==
 
     (?h1 h2 dur' dur''.
        dur' < dur /\
-       (?rn rp rc. rn /* rp, rc */ h -- (Lh_epsilon dur') --=> h1) /\
-       (?rn rp rc. rn /* rp, rc */ h1 -- (Lh_tau) --=> h2) /\
+       (?rn rp rc. rn /* rp, rc */ h -- (Lh_epsilon dur') ---> h1) /\
+       (?rn rp rc. rn /* rp, rc */ h1 -- (Lh_tau) ---> h2) /\
        dur' + dur'' = dur /\
-       (?rn rp rc. rn /* rp, rc */ h2 -- (Lh_epsilon dur'') --=> h')
+       (?rn rp rc. rn /* rp, rc */ h2 -- (Lh_epsilon dur'') ---> h')
     )
 
 
@@ -18573,7 +18574,7 @@ val (host_redn_rules, host_redn_ind, host_redn_cases) =
 
    rn /* rp, rc */
      h
-   -- lbl --=>
+   -- lbl --->
      h'
 
    <==
