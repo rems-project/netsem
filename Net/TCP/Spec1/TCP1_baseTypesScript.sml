@@ -15,7 +15,7 @@ open HolDoc
 local open TCP1_errorsTheory TCP1_signalsTheory TCP1_utilsTheory in end
 
 local open arithmeticTheory stringTheory pred_setTheory integerTheory
-           finite_mapTheory realTheory word32Theory in end;
+           finite_mapTheory realTheory in end;
 
 val _ = new_theory "TCP1_baseTypes";
 
@@ -553,13 +553,13 @@ val _ = type_abbrev ("duration", ``:real``);
 
 val time_lt_def  = Phase.phase 1 Define `
  (*: written [[<]] :*)
-    ((time_lt:time -> time -> bool) (time x) (time y) = x < y)
+    ((time_lt:time -> time -> bool) (time x) (time y) = (x < y))
  /\ (time_lt  time_infty     ys      = F)
  /\ (time_lt xs        time_infty    = T)
 `(*: @mergewithnext :*) ;
 val time_lte_def = Phase.phase 1 Define `
  (*: written [[<=]] :*)
-  time_lte (time x) (time y) = x <= y /\
+  time_lte (time x) (time y) = (x <= y) /\
   time_lte t time_infty = T /\
   time_lte time_infty t = (t = time_infty)
 `(*: @mergewithnext :*) ;
@@ -684,7 +684,7 @@ val _ = type_abbrev ("byte", ``:char``);
 (* Sequence numbers are 32-bit quantities
    with special wraparound comparison operators *)
 
-local open integer_word32Theory (* for w2i and i2w functions *) in end;
+local open integer_wordTheory (* for w2i and i2w functions *) in end;
 
 
 val _ = Hol_datatype `
@@ -737,19 +737,19 @@ val _ = overload_on("-", ``seq32_diff``);
 
 val seq32_lt_def = Phase.phase 1 Define`
  (*: written [[<]] :*)
-  seq32_lt  (n:'a seq32) (m:'a seq32) = ( (n - m) : int ) < 0
+  seq32_lt  (n:'a seq32) (m:'a seq32) <=> ( (n - m) : int ) < 0
 `(*: @mergewithnext :*);
 val seq32_leq_def = Phase.phase 1 Define`
  (*: written [[<=]] :*)
-  seq32_leq (n:'a seq32) (m:'a seq32) = ( (n - m) : int ) <= 0
+  seq32_leq (n:'a seq32) (m:'a seq32) <=> ( (n - m) : int ) <= 0
 `(*: @mergewithnext :*);
 val seq32_gt_def = Phase.phase 1 Define`
  (*: written [[>]] :*)
-  seq32_gt  (n:'a seq32) (m:'a seq32) = ( (n - m) : int ) > 0
+  seq32_gt  (n:'a seq32) (m:'a seq32) <=> ( (n - m) : int ) > 0
 `(*: @mergewithnext :*);
 val seq32_geq_def = Phase.phase 1 Define`
  (*: written [[>=]] :*)
-  seq32_geq (n:'a seq32) (m:'a seq32) = ( (n - m) : int ) >= 0
+  seq32_geq (n:'a seq32) (m:'a seq32) <=> ( (n - m) : int ) >= 0
 `(*: @mergewithnext :*);
 val _ = overload_on("<" , ``seq32_lt`` );
 val _ = overload_on("<=", ``seq32_leq``);
@@ -808,4 +808,3 @@ val _ = Phase.phase 1 Define`ts_seq (n:word32) = SEQ32 Tstamp n`;
 (* -------------------------------------------------- *)
 
 val _ = export_theory();
-
