@@ -392,10 +392,10 @@ val Sock_def = xDefine "Sock" `(*: helper constructor :*)
 (* added manually to phase 1 in testEval *)
 
 val tcp_sock_of_def = Phase.phase 1 Define`(*: helper accessor (beware ARBitrary behaviour on non-TCP socket) :*)
-  tcp_sock_of sock = case sock.pr of TCP_PROTO(tcp_sock) -> tcp_sock || _ -> ARB
+  tcp_sock_of sock = case sock.pr of TCP_PROTO(tcp_sock) => tcp_sock | _ => ARB
 `(*:@mergewithnext:*);
 val udp_sock_of_def = Phase.phase 1 Define`(*: helper accessor (beware ARBitrary behaviour on non-UDP socket) :*)
-  udp_sock_of sock = case sock.pr of UDP_PROTO(udp_sock) -> udp_sock || _ -> ARB
+  udp_sock_of sock = case sock.pr of UDP_PROTO(udp_sock) => udp_sock | _ => ARB
 `(*:@mergewithnext:*);
 
 val proto_of_def = Phase.phase 1 Define`(*: helper accessor :*)
@@ -580,11 +580,11 @@ val tracesock_eq = Phase.phase 2 Define`(*: compare two sockets for "equality" m
           dropped because it is somehow invalid (and thus not safe to
           compare) :*)
        (case quad of
-         SOME (is1,ps1,is2,ps2) -> is1 = sock.is1 /\
+         SOME (is1,ps1,is2,ps2) => is1 = sock.is1 /\
                                    ps1 = sock.ps1 /\
                                    (if flav = TA_DROP then T else is2 = sock.is2) /\
-                                   (if flav = TA_DROP then T else ps2 = sock.ps2) ||
-         NONE                   -> T) /\
+                                   (if flav = TA_DROP then T else ps2 = sock.ps2) |
+         NONE                   => T) /\
        st  = tcp_sock.st /\
        tracecb_eq flav st sock.es cb tcp_sock.cb)
 `;
@@ -594,7 +594,3 @@ val tracesock_eq = Phase.phase 2 Define`(*: compare two sockets for "equality" m
 (* -------------------------------------------------- *)
 
 val _ = export_theory();
-
-
-
-
