@@ -415,7 +415,7 @@ val is_localnet_def = Define`(*: is IP address on a local subnet of this host? :
 val if_broadcast_def = Phase.phase 1 Define`(*: is IP address a broadcast address? :*)
   if_broadcast (ifd0:ifd)
     = case (ifd0.netmask, mask ifd0.netmask ifd0.primary) of
-          (NETMASK m, ip n (* n has been masked by m above *)) ->
+          (NETMASK m, ip n (* n has been masked by m above *)) =>
             ip (n + 2 EXP (32 - m) - 1)
     (*: Note: would be much easier if IPs were actually [[word32]] rather than [[num]] :*)
     (*: corresponds to [[INADDR_BROADCAST]] for the interface :*)
@@ -424,7 +424,7 @@ val if_broadcast_def = Phase.phase 1 Define`(*: is IP address a broadcast addres
 val if_any_def = Phase.phase 1 Define`(*: the set of addresses in an interface's subnet :*)
   if_any (ifd0:ifd)
     = case (ifd0.netmask, mask ifd0.netmask ifd0.primary) of
-          (NETMASK m, ip n (* n has been masked by m above *)) ->
+          (NETMASK m, ip n (* n has been masked by m above *)) =>
             ip (n)
     (*: Note: would be much easier if IPs were actually [[word32]] rather than [[num]] :*)
 `
@@ -484,14 +484,14 @@ IP, based on the routing table.
 :*);
 
 val ifid_up_def = Phase.phase 1 Define`(*: is the interface up? :*)
-  ifid_up ifds ifid = (ifds ' ifid).up
+  ifid_up (ifds : ifid |-> ifd) ifid = (ifds ' ifid).up
 `(*:@mergewithnext:*);
 
 val outroute_def = Phase.phase 1 Define`(*: compute interface to use to send to given IP, if any :*)
   outroute(i2,rttab:routing_table,ifds:ifid |-> ifd) =
     case FILTER (ifid_up ifds) (outroute_ifids(i2,rttab)) of
-        []           -> NONE
-     || (ifid::_987) -> SOME ifid
+        []           => NONE
+     |  (ifid::_987) => SOME ifid
 `
 (*:
 @description
@@ -507,8 +507,8 @@ Returns the first up interface that can route to the destination.
 val auto_outroute_def = Phase.phase 1 Define`(*: compute source address to use to route to given IP :*)
   auto_outroute(i2',SOME i2,rttab,ifds) = {i2} /\
   auto_outroute(i2',NONE   ,rttab,ifds) = case outroute(i2',rttab,ifds) of
-                                              SOME ifid -> { (ifds ' ifid).primary }
-                                           || NONE      -> {}
+                                             SOME ifid => { (ifds ' ifid).primary }
+                                           | NONE      => {}
 `(*:
 @description
 %
@@ -535,8 +535,8 @@ val test_outroute_ip_def = Phase.phase 1 Define`(*: test if we can route to give
 val test_outroute_def = Define`(*: if destination IP specified, do [[test_outroute_ip]] :*)
   test_outroute(msg:msg,rttab,ifds,arch)
     = case msg.is2 of
-        SOME i2 -> SOME (test_outroute_ip(i2,rttab,ifds,arch))
-     || _ -> NONE
+        SOME i2 => SOME (test_outroute_ip(i2,rttab,ifds,arch))
+      | _ => NONE
 `
 (*:
 @description
@@ -571,10 +571,10 @@ the same.  test 20030204T1525 or so.
 val loopback_on_wire_def = Phase.phase 1 Define`(*: check if a message bears a loopback address :*)
   loopback_on_wire (msg:msg) (ifds:ifid |-> ifd) =
      case (msg.is1, msg.is2) of
-        (NONE, NONE) -> F
-     || (NONE, SOME j) -> F
-     || (SOME i, NONE) -> F
-     || (SOME i, SOME j) -> in_loopback i /\ ~in_local ifds j
+        (NONE, NONE)     => F
+      | (NONE, SOME j)   => F
+      | (SOME i, NONE)   => F
+      | (SOME i, SOME j) => in_loopback i /\ ~in_local ifds j
 `
 (*:
 @description
@@ -606,11 +606,11 @@ val loopback_on_wire_def = Phase.phase 1 Define`(*: check if a message bears a l
    that were here became inlined into the hostLTS side conditions. *)
 
 val fdlt_def = Phase.phase 1 Define`(*: [[<]] comparison on file descriptors :*)
-  fdlt (FD n) (FD m) = n < m
+  fdlt (FD n) (FD m) <=> n < m
 `(*: @mergewithnext :*);
 
 val fdle_def = Phase.phase 1 Define`(*: [[<=]] comparison on file descriptors :*)
-  fdle (FD n) (FD m) = n <= m
+  fdle (FD n) (FD m) <=> n <= m
 `(*:@mergewithnext:*);
 
 val _ = overload_on ("<", ``fdlt``);
@@ -845,8 +845,8 @@ Add a message to the respective queue, returning the new queue and a flag
 val dequeue_def = Phase.phase 2 Define`(*: attempt to dequeue a message :*)
   dequeue dq (Timed(q,d),Timed(q',d'),msg)
     = case q of
-        (msg0::q0) -> q' = q0 /\ msg = SOME msg0 /\ d' = (if q0 = [] then never_timer else dq) ||
-        []         -> q' = q  /\ msg = NONE      /\ d' = d
+        (msg0::q0) => q' = q0 /\ msg = SOME msg0 /\ d' = (if q0 = [] then never_timer else dq) |
+        []         => q' = q  /\ msg = NONE      /\ d' = d
 `(*:@mergewithnext:*);
 
 val dequeue_iq_def = Phase.phase 1 Define`(*: attempt to dequeue from the in-queue :*)
@@ -871,9 +871,9 @@ Remove a message from the queue, returning the new queue, and the
 val route_and_enqueue_oq_def = Define`(*: attempt to route and then enqueue an outgoing message :*)
   route_and_enqueue_oq (rttab,ifds,oq,msg,oq',es,arch)
     = case test_outroute (msg,rttab,ifds,arch) of
-         NONE -> F
-      || SOME (SOME e) -> oq' = oq /\ es = SOME e
-      || SOME NONE -> ?queued.
+         NONE => F
+       | SOME (SOME e) => oq' = oq /\ es = SOME e
+       | SOME NONE => ?queued.
                          enqueue_oq (oq,msg,oq',queued) /\
                          es = if queued then NONE else SOME ENOBUFS
 `
@@ -921,12 +921,12 @@ val enqueue_oq_list_def = Phase.phase 1 Define`(*: attempt to enqueue a list of 
 
 val accept_incoming_q0_def = Phase.phase 1 Define`(*: should an incoming incomplete connection be accepted? :*)
   accept_incoming_q0 (lis:socket_listen) (b:bool)
-    = (b = LENGTH lis.q < backlog_fudge lis.qlimit)
+    <=> (b <=> LENGTH lis.q < backlog_fudge lis.qlimit)
 `(*: @mergewithnext :*);
 
 val accept_incoming_q_def = Phase.phase 1 Define`(*: should an incoming completed connection be accepted? :*)
   accept_incoming_q (lis:socket_listen) (b:bool)
-    = (b = LENGTH lis.q < 3 * backlog_fudge lis.qlimit DIV 2)
+    <=> (b <=> LENGTH lis.q < 3 * backlog_fudge lis.qlimit DIV 2)
 `(*:@mergewithnext:*);
 
 val drop_from_q0_def = Phase.phase 1 Define`(*: drop from incomplete-connection queue? :*)
