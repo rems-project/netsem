@@ -536,7 +536,7 @@ val sf_max_n_def = Phase.phase 1 Define`
   sf_max_n WinXP_Prof_SP1 SO_SNDLOWAT      = 1 /\ (* Note this value has not been checked in testing. *)
   sf_max_n FreeBSD_4_6_RELEASE SO_SNDLOWAT =
        SB_MAX * MCLBYTES DIV (MCLBYTES + MSIZE) /\ (* clip to SO_SNDBUF *)
-  sf_max_n Linux_2_4_20_8 SO_RCVLOWAT      = w2n INT32_SIGNED_MAX /\ (* from code *)
+  sf_max_n Linux_2_4_20_8 SO_RCVLOWAT      = INT_MAX(:32) /\ (* from code *)
   sf_max_n WinXP_Prof_SP1 SO_RCVLOWAT      = 1 /\ (* Note this value has not been checked in testing. *)
   sf_max_n FreeBSD_4_6_RELEASE SO_RCVLOWAT =
        SB_MAX * MCLBYTES DIV (MCLBYTES + MSIZE)(* clip to SO_RCVBUF *)
