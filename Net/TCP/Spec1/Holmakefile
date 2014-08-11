@@ -4,6 +4,9 @@ OBJS = testEval.uo LetComputeLib.uo strings.uo numrelnorm.uo \
        NetEvalTheory.uo LetComputeTheory.uo Chaining.uo \
        Net_fmap_analyse.uo \
        $(patsubst %,TCP1_%Theory.uo, $(TCP1_FILES))
+HOLDOCDIR = ../../HOLDoc/src
+
+INCLUDES = $(HOLDOCDIR)
 
 all: HolDoc.sml HolDoc.sig trace_checker.exe CheckTraces.exe GroundTraces.exe
 
@@ -49,11 +52,6 @@ endif
 
 strings.sml : genstrings.exe html_header html_trailer
 	./genstrings.exe html_header html_trailer > $@
-
-HolDoc.sml HolDoc.sig : \
-		$(HOLDIR)/tools/holdoc/HolDoc.sml \
-		$(HOLDIR)/tools/holdoc/HolDoc.sig
-	cp $(HOLDIR)/tools/holdoc/HolDoc.sml $(HOLDIR)/tools/holdoc/HolDoc.sig .
 
 EXTRA_CLEANS=HolDoc.sml HolDoc.sig trace_checker.exe CheckTraces.exe \
              genstrings.exe strings.sml
