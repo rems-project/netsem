@@ -1,0 +1,11 @@
+*.cmi
+*.cmx
+*.o
+.depend
+hollex.ml
+holparse.ml
+holparse.mli
+holparse.output
+mng_to_latex
+simplemngdump
+simplemosmldump
