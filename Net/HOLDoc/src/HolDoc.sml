@@ -61,7 +61,7 @@ fun get_field_names possible_types oinfo = let
   fun overloads_to_accessor_on_possible_type (s, {actual_ops, ...}) = let
     fun ty_ok ty = mem (#1 (dest_type (#1 (dom_rng ty)))) possible_types
   in
-    List.exists (ty_ok o #Ty) actual_ops
+    List.exists (ty_ok o type_of) actual_ops
   end
   val final_ops = List.filter overloads_to_accessor_on_possible_type ops1
 in
