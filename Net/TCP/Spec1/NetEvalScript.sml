@@ -27,7 +27,7 @@ val letsubstitute = new_definition(
 
 val better_dupfd_1 = prove(
   ``(FD (Num n) < OPEN_MAX_FD /\ fd' = FD ((LEAST) P) /\ p) =
-    let doit = FD(Num n) < OPEN_MAX_FD in
+    let doit = (FD(Num n) < OPEN_MAX_FD) in
     let fd'' = if doit then FD ((LEAST) P) else FD 0 in
       doit /\ fd' = fd'' /\ p``,
   SIMP_TAC (std_ss ++ boolSimps.CONJ_ss) [CONJ_ASSOC, LET_THM]);
@@ -118,7 +118,7 @@ val better_timer_tt_rexmt_clause = prove(
      (let st = tcp_sock.st in
         ~(st = CLOSED) /\ (~(st = LISTEN) \/ bsd_arch h.arch) /\ ~(st = SYN_SENT) /\
         ~(st = CLOSE_WAIT) /\ ~(st = FIN_WAIT_2) /\ ~(st = TIME_WAIT)) /\ p)``,
-  REWRITE_TAC [sock_wants_to_rexmtX_def, TCP1_utilsTheory.NOTIN_def,
+  REWRITE_TAC [sock_wants_to_rexmtX_def,
                pred_setTheory.IN_INSERT, pred_setTheory.NOT_IN_EMPTY,
                DE_MORGAN_THM, LET_THM] THEN BETA_TAC  THEN
   EQ_TAC THEN STRIP_TAC THEN
@@ -325,8 +325,8 @@ val better_deliver_out_1a = prove(
                TCP1_hostTypesTheory.TCP_Sock0_def,
                finite_mapTheory.FUPDATE_LIST_THM] THEN
   EQ_TAC THEN STRIP_TAC THEN
-  Q.ABBREV_TAC `set = {ESTABLISHED; CLOSE_WAIT; FIN_WAIT_1; FIN_WAIT_2;
-                       CLOSING; LAST_ACK; TIME_WAIT}` THEN
+  Q.ABBREV_TAC `myset = {ESTABLISHED; CLOSE_WAIT; FIN_WAIT_1; FIN_WAIT_2;
+                         CLOSING; LAST_ACK; TIME_WAIT}` THEN
   POP_ASSUM (K ALL_TAC) THEN REPEAT BasicProvers.VAR_EQ_TAC THEN
   FULL_SIMP_TAC (srw_ss()) [] THEN SRW_TAC [][] THEN
   FULL_SIMP_TAC (srw_ss()) []);
@@ -346,8 +346,8 @@ val better_sock_might_deliver = store_thm(
             sock.cantsndmore /\ tcp_sock.cb.tf_shouldacknow)) \/
        sock_might_deliver (smap \\ sid') sid sock arch)``,
   REWRITE_TAC [sock_might_deliver_def] THEN
-  Q.ABBREV_TAC `set = {ESTABLISHED; CLOSE_WAIT; FIN_WAIT_1; FIN_WAIT_2;
-                       CLOSING; LAST_ACK; TIME_WAIT}` THEN
+  Q.ABBREV_TAC `myset = {ESTABLISHED; CLOSE_WAIT; FIN_WAIT_1; FIN_WAIT_2;
+                         CLOSING; LAST_ACK; TIME_WAIT}` THEN
   POP_ASSUM (K ALL_TAC) THEN
   SRW_TAC [][EQ_IMP_THM] THEN
   FULL_SIMP_TAC (srw_ss()) [finite_mapTheory.DOMSUB_FAPPLY_NEQ,
@@ -606,7 +606,7 @@ val better_deliver_out_1b = prove(
   ONCE_REWRITE_TAC [LET_THM] THEN
   REPEAT mylet_tac THEN
   REPEAT (COND_CASES_TAC THEN ASM_REWRITE_TAC []) THEN
-  SIMP_TAC std_ss [TCP1_utilsTheory.neq_def, LET_THM] THEN
+  SIMP_TAC std_ss [LET_THM] THEN
   sock_eq_tac THEN
   SRW_TAC [][TCP1_hostTypesTheory.socket_component_equality] THEN
   SRW_TAC [][TCP1_hostTypesTheory.tcp_socket_component_equality] THEN
@@ -643,8 +643,8 @@ fun bigrec_subtypes ss thyname tyname = let
     if is_substring GrammarSpecials.bigrec_subdivider_string Tyop then let
         val {rewrs, convs} = TypeBase.simpls_of ty
         val ss' = simpLib.SSFRAG {convs = convs, rewrs = rewrs,
-                                   ac = [], dprocs = [], filter = NONE,
-                                   congs = []}
+                                  ac = [], dprocs = [], filter = NONE,
+                                  congs = [], name = NONE}
       in
         simpLib.merge_ss [ss, ss']
       end
@@ -672,7 +672,7 @@ fun remove_ugly_existential_idiom t = let
   val {convs,rewrs} = TypeBase.simpls_of ty
   val ss0 = simpLib.SSFRAG {convs = convs, rewrs = rewrs,
                             ac = [], filter = NONE, dprocs = [],
-                            congs = []}
+                            congs = [], name = NONE}
   val ss = bigrec_subtypes ss0 Thy Tyop
 in
   STRIP_QUANT_CONV (REWR_CONV compeqth) THENC
@@ -686,7 +686,7 @@ val REMOVE_UGLY_ss = simpLib.SSFRAG {
                                  name = "remove_ugly_existential_idiom",
                                  trace = 2}],
   dprocs = [], filter = NONE,
-  rewrs = []};
+  rewrs = [], name = SOME "REMOVE_UGLY"};
 
 
 fun bad_sock_exists t = let
@@ -732,10 +732,11 @@ fun deal_to_bad_sock_exists t =
 
 val deal_to_bad_socks =
     simpLib.SSFRAG {ac = [],
-                     convs = [{conv = K (K deal_to_bad_sock_exists),
-                               key = SOME ([], ``?s:'a. P s``),
-                               name = "deal_to_bad_socks", trace = 2}],
-                     congs = [], dprocs = [], filter = NONE, rewrs = []}
+                    convs = [{conv = K (K deal_to_bad_sock_exists),
+                              key = SOME ([], ``?s:'a. P s``),
+                              name = "deal_to_bad_socks", trace = 2}],
+                    congs = [], dprocs = [], filter = NONE, rewrs = [],
+                    name = NONE}
 
 (* ----------------------------------------------------------------------
     A brand new, tip-top method for ridding the world of ugly finite map
@@ -796,7 +797,7 @@ in
   recurse [] t
 end
 
-val domsub_t = ``finite_map$\\``
+val domsub_t = ``finite_map$fdomsub``
 val dest_domsub = let
   val ddomsub_exn = mk_HOL_ERR "finite_mapSyntax" "dest_domsub"
                                "Term not a domain subtraction"
