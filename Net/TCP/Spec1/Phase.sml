@@ -29,7 +29,7 @@ fun add_to_phase n defname =
                           ^ " " ^ defname ^ ";");
 
 fun guess_defname thm = let  (* won't work for xDefine *)
-  val cs = strip_conj (concl thm)
+  val cs = thm |> concl |> strip_forall |> #2 |> strip_conj
   fun head_of_clause t = let
     val (_, body) = strip_forall t
     val (l, _) = dest_eq body

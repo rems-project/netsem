@@ -18,7 +18,7 @@ open HolKernel Parse boolLib
 
 fun analyse_definition_result result = let
   (* result is a conjunction of possibly universally quantified equations *)
-  val cs = strip_conj (concl result)
+  val cs = result |> concl |> strip_forall |> #2 |> strip_conj
   fun head_of_clause t = let
     val (_, body) = strip_forall t
     val (l, _) = dest_eq body
