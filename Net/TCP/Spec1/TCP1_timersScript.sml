@@ -13,7 +13,7 @@ open HolDoc
 
 local open TCP1_baseTypesTheory TCP1_utilsTheory in end
 
-local open arithmeticTheory realTheory word32Theory in end;
+local open arithmeticTheory realTheory in end;
 
 val _ = BasicProvers.augment_srw_ss [rewrites [LET_THM]]
 
@@ -140,8 +140,8 @@ val opttorel_def = Define`
   (opttorel : (duration -> 'a -> 'a option) -> (duration -> 'a -> 'a -> bool))
             tp dur x y
      = case tp dur x of
-           SOME x' -> y = x'
-        || NONE    -> F
+          SOME x' => y = x'
+        | NONE    => F
 `(*: @description
 Impedance-matching coercion.
 :*);
@@ -234,8 +234,8 @@ val Time_Pass_timed_def = Phase.phase 3 Define`
   (Time_Pass_timed : duration -> 'a timed -> 'a timed option)
      dur (Timed(x,d))
    = case Time_Pass_timer dur d of
-        SOME d' -> SOME (Timed(x,d'))
-     || NONE    -> NONE
+        SOME d' => SOME (Timed(x,d'))
+      | NONE    => NONE
 `;
 
 
@@ -279,8 +279,8 @@ val Time_Pass_timewindow_def = Phase.phase 3 Define`
   (Time_Pass_timewindow : duration -> 'a timewindow -> 'a timewindow -> bool)
      dur (TimeWindow(x,d)) tw'
    = (case Time_Pass_timer dur d of
-         NONE    -> tw' = TimeWindowClosed
-      || SOME d' -> tw' = TimeWindow(x,d') \/
+         NONE    => tw' = TimeWindowClosed
+       | SOME d' => tw' = TimeWindow(x,d') \/
                     (timer_expires d' /\ tw' = TimeWindowClosed)) /\
    Time_Pass_timewindow dur TimeWindowClosed tw' = (tw' = TimeWindowClosed)
 `;
