@@ -56,11 +56,11 @@ specification.
 
 val sane_socket_def = Phase.phase 1 Define`(*: socket sanity invariants hold :*)
   sane_socket sock = case sock.pr of
-                         TCP_PROTO tcp_sock ->
+                         TCP_PROTO tcp_sock =>
                            (*LENGTH tcp_sock.rcvq <= sock.sf.n(SO_RCVBUF) /\  (* true?? *)*)
                            LENGTH tcp_sock.rcvq <= TCP_MAXWIN << TCP_MAXWINSCALE (*/\*)
                            (*LENGTH tcp_sock.sndq <= sock.sf.n(SO_SNDBUF)     (* true?? *)*)
-                       || UDP_PROTO udp_sock ->
+                        | UDP_PROTO udp_sock =>
                            T
 `
 (*:
@@ -112,7 +112,7 @@ a socket of the given protocol binding that port.
 
 (* DON'T phase: in betters *)
 val bound_port_allowed_def = Define`(*: is it permitted to bind the given (IP,port) pair? :*)
-  bound_port_allowed pr socks sf arch is p =
+  bound_port_allowed pr socks sf arch is p <=>
     p NOTIN
      {port | ?s:socket.
         s IN FRANGE socks /\ s.ps1 = SOME port /\
@@ -330,7 +330,7 @@ val do_tcp_options_def = Define`
 (*: Constrain the TCP timestamp option values that appear in an outgoing segment :*)
   do_tcp_options cb_tf_doing_tstmp cb_ts_recent cb_ts_val  =
     if cb_tf_doing_tstmp then
-       let ts_ecr' = option_case (ts_seq 0w) I (timewindow_val_of cb_ts_recent) in
+       let ts_ecr' = option_CASE (timewindow_val_of cb_ts_recent) (ts_seq 0w) I in
            SOME(cb_ts_val,ts_ecr')
      else
          NONE
@@ -372,7 +372,7 @@ val calculate_buf_sizes_def = Define`
          BSD has the route MTU if avail, or [[MIN MSSDFLT (link MTU)]] otherwise, as the first argument
          of the MIN below.  That is the same calculation as we did in [[connect_1]]. We don't repeat it,
          but use the cached value in [[cb.t_maxseg]]. :*)
-      let maxseg = (MIN cb_t_maxseg (MAX 64 (option_case MSSDFLT I seg_mss))) in
+      let maxseg = (MIN cb_t_maxseg (MAX 64 (option_CASE seg_mss MSSDFLT I))) in
           if linux_arch arch then
             maxseg
           else
@@ -388,14 +388,14 @@ val calculate_buf_sizes_def = Define`
                      else rounddown MCLBYTES t_maxseg' in
 
     (* buffootle: rcv *)
-    let rcvbufsize' = option_case rcvbufsize I bw_delay_product_for_rt in
+    let rcvbufsize' = option_CASE bw_delay_product_for_rt rcvbufsize I in
     let (rcvbufsize'',t_maxseg''') = (if rcvbufsize' < t_maxseg''
                                      then (rcvbufsize',rcvbufsize')
                                      else (MIN SB_MAX (roundup t_maxseg'' rcvbufsize'),
                                            t_maxseg'')) in
 
     (* buffootle: snd *)
-    let sndbufsize' = option_case sndbufsize I bw_delay_product_for_rt in
+    let sndbufsize' = option_CASE bw_delay_product_for_rt sndbufsize I in
     let sndbufsize'' = (if sndbufsize' < t_maxseg'''
                         then sndbufsize'
                         else MIN SB_MAX (roundup t_maxseg'' sndbufsize')) in
@@ -510,8 +510,8 @@ val bandlim_rst_ok_simple_def = Phase.phase 1 Define`(*: a simple rate-limiting 
        let count = LENGTH (FILTER (reasoneq reason) (TAKEWHILE (ticksgt (ticks - num_floor (1 * HZ))) bndlm))
        in
        ((case simple_limit reason of
-            NONE   -> T
-         || SOME n -> count < n),
+            NONE   => T
+          | SOME n => count < n),
         (seg,ticks,reason)::bndlm)
 `
 (*:
@@ -868,14 +868,14 @@ val tcp_reass_def = Define`(*: perform TCP segment reassembly :*)
                               i < rseg.seq + LENGTH rseg.data +
                                     (if rseg.spliced_urp <> NONE then 1 else 0) /\
                               (case rseg.spliced_urp of
-                                 SOME(n) ->
+                                 SOME(n) =>
                                    (if i > n then
                                      c = SOME(EL (Num (i - rseg.seq - 1)) (rseg.data))
                                     else if i = n then
                                      c = NONE
                                     else
-                                     c = SOME(EL (Num (i - rseg.seq)) (rseg.data))) ||
-                                 NONE ->
+                                     c = SOME(EL (Num (i - rseg.seq)) (rseg.data))) |
+                                 NONE =>
                                      c = SOME(EL (Num (i - rseg.seq)) (rseg.data))) } in
      { (cs',len,FIN) | ?cs. cs' = CONCAT_OPTIONAL cs /\
                    (!n:num. n < LENGTH cs ==> (seq+n,EL n cs) IN myrel) /\
@@ -1251,16 +1251,16 @@ val make_syn_segment_def = Define`
     (* Note there may be a better place for this assertion. *)
     let ws = OPTION_MAP CHR cb.request_r_scale in
     (IS_SOME cb.request_r_scale ==> ORD (THE ws) = THE cb.request_r_scale) /\
-    (case ws of NONE -> T || SOME n -> ORD n <= TCP_MAXWINSCALE) /\
+    (case ws of NONE => T | SOME n => ORD n <= TCP_MAXWINSCALE) /\
 
     (* Determine maximum segment size; fail if out of range *)
     (*: Put the MSS we initially advertise into [[t_advmss]] :*)
     let mss = (case cb.t_advmss of
-                  NONE   -> NONE
-               || SOME v -> SOME (n2w v)) in
+                  NONE   => NONE
+                | SOME v => SOME (n2w v)) in
     (case cb.t_advmss of
-        NONE   -> T
-     || SOME v -> v = w2n (THE mss)) /\
+        NONE   => T
+      | SOME v => v = w2n (THE mss)) /\
 
     (* Do timestamping? *)
     let ts = do_tcp_options cb.tf_req_tstmp cb.ts_recent ts_val in
@@ -1307,11 +1307,11 @@ val make_syn_ack_segment_def = Define`
     (* Determine maximum segment size; fail if out of range *)
     (*: Put the MSS we initially advertise into [[t_advmss]] :*)
     let mss = (case cb.t_advmss of
-                  NONE   -> NONE
-               || SOME v -> SOME (n2w v)) in
+                  NONE   => NONE
+                | SOME v => SOME (n2w v)) in
     (case cb.t_advmss of
-        NONE   -> T
-     || SOME v -> v = w2n (THE mss)) /\
+        NONE   => T
+      | SOME v => v = w2n (THE mss)) /\
 
     (* Set timestamping option? *)
     let ts =  do_tcp_options cb.tf_doing_tstmp cb.ts_recent ts_val' in
@@ -1561,8 +1561,8 @@ val tcp_output_required_def = Define`
     let last_sndq_data_seq = cb.snd_una + LENGTH tcp_sock.sndq in
     let last_sndq_data_and_fin_seq  = last_sndq_data_seq + (if fin_required then 1 else 0)
                                                          + (if syn_not_acked then 1 else 0) in
-    let have_data_to_send = cb.snd_nxt < last_sndq_data_seq in
-    let have_data_or_fin_to_send = cb.snd_nxt < last_sndq_data_and_fin_seq in
+    let have_data_to_send = (cb.snd_nxt < last_sndq_data_seq) in
+    let have_data_or_fin_to_send = (cb.snd_nxt < last_sndq_data_and_fin_seq) in
 
     (*: The amount by which the right edge of the advertised window could be moved :*)
     let window_update_delta = (int_min (int_of_num(TCP_MAXWIN << cb.rcv_scale))
@@ -1574,7 +1574,7 @@ val tcp_output_required_def = Define`
         least two maximum segment sizes, or (b) the advertised window can be increased by at least
         half the receive buffer size. See |tcp_output.c:322ff|. :*)
     let need_to_send_a_window_update = (window_update_delta >= int_of_num (2 * cb.t_maxseg) \/
-                                       2 * window_update_delta >= int_of_num (sock.sf.n(SO_RCVBUF)))
+                                        2 * window_update_delta >= int_of_num (sock.sf.n(SO_RCVBUF)))
     in
 
     (*: Note that silly window avoidance and [[max_sndwnd]] need to be dealt with here; see |tcp_output.c:309| :*)
@@ -1614,8 +1614,8 @@ val tcp_output_required_def = Define`
         (* Window shrunk: |tcp_output.c:250ff| *)
         SOME \cb.
          cb with <| tt_rexmt := case cb.tt_rexmt of
-                        SOME (Timed((Persist,shift),d)) -> SOME (Timed((Persist,0),d))
-                        || _593 -> start_tt_persist 0 cb.t_rttinf arch ;
+                        SOME (Timed((Persist,shift),d)) => SOME (Timed((Persist,0),d))
+                        | _593 => start_tt_persist 0 cb.t_rttinf arch ;
                     snd_nxt := cb.snd_una |>
       else
         (*: Otherwise, leave the persist timer alone :*)
@@ -1738,8 +1738,8 @@ val tcp_output_really_def = Phase.phase 2 Define`
 
     (*: If sending urgent data, set the [[URG]] and [[urp]] fields appropriately :*)
     let (URG,urp) = (case tcp_sock.sndurp of
-                      NONE -> (F,0) ||  (*: No urgent data; don't set :*)
-                      SOME sndurpn -> let urp_n = (cb.snd_una + sndurpn) - cb.snd_nxt + 1 in
+                      NONE => (F,0) |  (*: No urgent data; don't set :*)
+                      SOME sndurpn => let urp_n = (cb.snd_una + sndurpn) - cb.snd_nxt + 1 in
                                           (* points one byte *past* the urgent byte *)
                                       if urp_n < 1 then
                                         (F,0) (*: Urgent data out of range; don't set :*)
@@ -1797,15 +1797,15 @@ val tcp_output_really_def = Phase.phase 2 Define`
     (*: If emitting a [[FIN]] for the first time then change TCP state :*)
     let st' = if FIN then
                 case tcp_sock.st of
-                  SYN_SENT     -> tcp_sock.st ||    (*: can't move yet -- wait until connection established (see [[deliver_in_2]]/[[deliver_in_3]]) :*)
-                  SYN_RECEIVED -> tcp_sock.st ||    (*: can't move yet -- wait until connection established (see [[deliver_in_2]]/[[deliver_in_3]]) :*)
-                  ESTABLISHED  -> FIN_WAIT_1 ||
-                  CLOSE_WAIT   -> LAST_ACK ||
-                  FIN_WAIT_1   -> tcp_sock.st ||    (*: FIN retransmission :*)
-                  FIN_WAIT_2   -> tcp_sock.st ||    (*: can't happen       :*)
-                  CLOSING      -> tcp_sock.st ||    (*: FIN retransmission :*)
-                  LAST_ACK     -> tcp_sock.st ||    (*: FIN retransmission :*)
-                  TIME_WAIT    -> tcp_sock.st       (*: can't happen       :*)
+                  SYN_SENT     => tcp_sock.st |    (*: can't move yet -- wait until connection established (see [[deliver_in_2]]/[[deliver_in_3]]) :*)
+                  SYN_RECEIVED => tcp_sock.st |    (*: can't move yet -- wait until connection established (see [[deliver_in_2]]/[[deliver_in_3]]) :*)
+                  ESTABLISHED  => FIN_WAIT_1 |
+                  CLOSE_WAIT   => LAST_ACK |
+                  FIN_WAIT_1   => tcp_sock.st |    (*: FIN retransmission :*)
+                  FIN_WAIT_2   => tcp_sock.st |    (*: can't happen       :*)
+                  CLOSING      => tcp_sock.st |    (*: FIN retransmission :*)
+                  LAST_ACK     => tcp_sock.st |    (*: FIN retransmission :*)
+                  TIME_WAIT    => tcp_sock.st       (*: can't happen       :*)
               else
                 tcp_sock.st in
 
@@ -1905,8 +1905,9 @@ val tcp_output_perhaps_def = Phase.phase 2 Define`
   tcp_output_perhaps arch ts_val ifds0 sock (sock',outsegs) =
     let (do_output,persist_fun) = tcp_output_required arch ifds0 sock in
     let sock'' =
-      option_case sock (\ f. sock with <| pr := TCP_PROTO(tcp_sock_of sock with cb updated_by f) |>)
-        persist_fun in
+      case persist_fun of
+        NONE => sock
+      | SOME f => sock with <| pr := TCP_PROTO(tcp_sock_of sock with cb updated_by f) |> in
     if do_output then
       tcp_output_really arch F ts_val ifds0 sock'' (sock',outsegs)
     else
@@ -2024,11 +2025,11 @@ val enqueue_or_fail_def = Phase.phase 2 Define`
 (*: wrap [[rollback_tcp_output]] together with enqueue :*)
   enqueue_or_fail rcvdsyn arch rttab ifds outsegs oq cb0 cb_in (cb',oq') =
     (case outsegs of
-        []    -> cb' = cb0 /\ oq' = oq
-     || [seg] -> (?outsegs' es'.
+        []    => cb' = cb0 /\ oq' = oq
+     | [seg] => (?outsegs' es'.
                   rollback_tcp_output rcvdsyn seg arch rttab ifds F cb0 cb_in (cb',es',outsegs') /\
                   enqueue_oq_list_qinfo (oq,outsegs',oq'))
-     || _other84 -> ASSERTION_FAILURE "enqueue_or_fail" (* only 0 or 1 segments at a time *)
+     | _other84 => ASSERTION_FAILURE "enqueue_or_fail" (* only 0 or 1 segments at a time *)
     )
 `;
 
@@ -2070,12 +2071,12 @@ val mlift_tcp_output_perhaps_or_fail_def = Phase.phase 2 Define`
               ?s1 segs.
               tcp_output_perhaps arch ts_val ifds0 s (s1,segs) /\
               case segs of
-                 []       -> s' = s1 /\ outsegs' = []
-              || [seg]    -> (?cb' es'.  (* ignore error return *)
+                 []       => s' = s1 /\ outsegs' = []
+              | [seg]    => (?cb' es'.  (* ignore error return *)
                               rollback_tcp_output T seg arch rttab ifds0 F
                                                   (tcp_sock_of s).cb (tcp_sock_of s1).cb (cb',es',outsegs') /\
                               s' = s1 with <| pr := TCP_PROTO(tcp_sock_of s1 with <| cb := cb' |>) |>)
-              || _other58 -> ASSERTION_FAILURE "mlift_tcp_output_perhaps_or_fail"  (* never happen *)
+              | _other58 => ASSERTION_FAILURE "mlift_tcp_output_perhaps_or_fail"  (* never happen *)
            )
 `;
 
@@ -2183,16 +2184,16 @@ val dropwithreset_ignore_fail_def = Phase.phase 2 Define`
     ?segs.
     dropwithreset seg_in ifds ticks reason b b' segs /\
     case segs of
-       []       -> outsegs' = []
-    || [seg]    -> (choose allocated :: if INFINITE_RESOURCES then {T} else {T;F}.
+       []       => outsegs' = []
+    | [seg]    => (choose allocated :: if INFINITE_RESOURCES then {T} else {T;F}.
                     if ~allocated then
                         outsegs' = []
                     else
                         (case test_outroute (seg,rttab,ifds,arch) of
-                            NONE          -> ASSERTION_FAILURE "dropwithreset_ignore_fail:1"  (* never happen *)
-                         || SOME (SOME e) -> outsegs' = []  (* ignore error *)
-                         || SOME NONE     -> ?queued. outsegs' = [(seg,queued)]))
-    || _other57 -> ASSERTION_FAILURE "dropwithreset_ignore_fail:2"  (* never happen *)
+                            NONE          => ASSERTION_FAILURE "dropwithreset_ignore_fail:1"  (* never happen *)
+                         | SOME (SOME e) => outsegs' = []  (* ignore error *)
+                         | SOME NONE     => ?queued. outsegs' = [(seg,queued)]))
+    | _other57 => ASSERTION_FAILURE "dropwithreset_ignore_fail:2"  (* never happen *)
 `;
 
 
