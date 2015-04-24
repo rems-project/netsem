@@ -16,16 +16,16 @@ val _ =
              Process.exit Process.failure)
     | _ => ()
 
-val lhost0_ty = mk_type("Lhost0", [])
-val host_ty = mk_type("host", [])
+val lhost0_ty = Type.mk_type("Lhost0", [])
+val host_ty = Type.mk_type("host", [])
 fun right_type tclass ty t =
-    case Type.compare(ty, type_of t) of
+    case Type.compare(ty, Term.type_of t) of
       EQUAL => true
     | _ => (err (tclass ^ " " ^ term_to_string t ^ " does not have type " ^
                  Parse.type_to_string ty ^ "\n"); false)
 
 fun ground tclass t okvars =
-    if null (Lib.set_diff (free_vars t) okvars) then true
+    if null (Lib.set_diff (Term.free_vars t) okvars) then true
     else (err(tclass ^ " " ^ term_to_string t ^
               " includes unacceptable free variables\n");
           false)
