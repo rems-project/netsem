@@ -1047,7 +1047,7 @@ int ns_getifaddrs(struct ifaddrs **ifad)
     }
     ifids = &((*ifids)->next);
     *ifids = NULL;
-    freeifaddrs(ifad);
+    freeifaddrs(*ifad);
 
     // now do the return
     ifids_next_prn = ifids_head;
@@ -1309,14 +1309,14 @@ int ns_getsockopt(SOCKET s, int level, int optname,
 
 #ifndef WIN32
 /* ---------------------------------------- */
-/* int ns_ioctl(SOCKET d, int request, ...)
+/* int ns_ioctl(SOCKET d, unsigned long request, ...)
  * Desc: Wrapper for standard UNIX style
  *       ioctl() sockets call
  * Implements: sockatmark()
  * Notes: SOME(Accepts a variable number
  * of arguements)
  */
-int ns_ioctl(SOCKET d, int request, ...)
+int ns_ioctl(SOCKET d, unsigned long request, ...)
 {
   va_list args;
   char err[MEDSTR];
@@ -1384,7 +1384,7 @@ int ns_ioctl(SOCKET d, int request, ...)
       struct ifid_info * next;
     };
 
-    int sockfd, len, lastlen;
+    int len, lastlen;
     char * buf, *ptr, lastname[SMSTR], *cptr, temp[SMSTR], output[10*LARGESTR], ifid[SMSTR], ip[SMSTR], others[LARGESTR], netmask[SMSTR];
     struct ifconf ifc_internal, *ifc;
     struct ifid_info *ifids_head, *ifids_next_prn, *ifids_free, **ifids_next;
@@ -2086,8 +2086,8 @@ int ns_recvmsg(SOCKET s, struct msghdr *msg, int flags)
 {
   int pid, retval, comma = 0;
   unsigned int len;
-  char err[MEDSTR], blist[MEDSTR], str[MEDSTR], *ip_and_port;
-  err[0] = blist[0] = str[0] = '\0';
+  char err[MEDSTR], blist[MEDSTR], str[MEDSTR], ip_and_port[MEDSTR];
+  err[0] = blist[0] = str[0] = ip_and_port[0] = '\0';
 
   pid = getpid();
 
@@ -2335,7 +2335,7 @@ int ns_send(SOCKET s, const void *msg, size_t len, int flags)
       //room to delimit special characters
       nsbuffer = malloc((len-retval)*3);
       assert(nsbuffer);
-      delimit_print(nsbuffer, (len-retval)*3, (char*)msg+retval, len-retval);
+      delimit_print(nsbuffer, (len-retval)*3, (unsigned char*)msg+retval, len-retval);
       free(nsbuffer);
     }
     print("\"));\n");
@@ -2427,7 +2427,7 @@ int ns_sendto(SOCKET s, const void *msg, size_t len, int flags,
       //room to delimit special characters
       nsbuffer = malloc((len-retval)*3);
       assert(nsbuffer);
-      delimit_print(nsbuffer, (len-retval)*3, (char*)msg+retval, len-retval);
+      delimit_print(nsbuffer, (len-retval)*3, (unsigned char*)msg+retval, len-retval);
       free(nsbuffer);
     }
     print("\"));\n");
@@ -2452,8 +2452,8 @@ int ns_sendmsg(SOCKET s, const struct msghdr *msg, int flags)
 {
   int pid, retval, comma = 0;
   unsigned int len;
-  char err[MEDSTR], blist[MEDSTR], str[MEDSTR], *ip_and_port;
-  err[0] = blist[0] = str[0] = '\0';
+  char err[MEDSTR], blist[MEDSTR], str[MEDSTR], ip_and_port[MEDSTR];
+  err[0] = blist[0] = str[0] = ip_and_port[0] = '\0';
 
   /* if(msg->msg_name != NULL) {
     sprintf(str, "(* ASSERTION FAILED in sendmsg(): call made with specific TO address. *)\n");
