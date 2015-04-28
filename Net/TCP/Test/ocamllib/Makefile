@@ -15,7 +15,7 @@ OCAMLC=$(fresh)ocamlc
 OCAMLOPT=$(fresh)ocamlopt
 OCAMLDEP=$(fresh)ocamldep
 OCAMLMKLIB=$(fresh)ocamlmklib -ocamlc $(OCAMLC) -ocamlopt $(OCAMLOPT)
-OCAMLCOPT=-I $(OCAMLPREFIX)/caml -I $(OCAMLPREFIX)
+OCAMLCOPT=-I $(OCAMLPREFIX) -ccopt "-fPIC"
 RM=rm -f
 
 CFILES=camlsupport.c cst2constr.c errmsg.c unixsupport.c \

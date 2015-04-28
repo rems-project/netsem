@@ -1,5 +1,5 @@
 CC=cc
-CCOPTS=-c -Wall -DNDEBUG
+CCOPTS=-c -Wall -DNDEBUG -fPIC
 MKDEP=makedepend
 MKLIB=ar
 MKLIBOPTS=-q
