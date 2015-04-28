@@ -1,8 +1,0 @@
-*.o*
-*.cm*
-parser.ml
-parser.mli
-parser.mly
-lexer.ml
-custom_rsh
-*.exe
