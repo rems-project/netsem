@@ -1,7 +1,8 @@
-#include <mlvalues.h>
-#include <alloc.h>
-#include <memory.h>
-#include <misc.h>
+#include <caml/mlvalues.h>
+#include <caml/alloc.h>
+#include <caml/memory.h>
+#include <caml/misc.h>
+
 #include <string.h>
 
 CAMLprim value copy_string_len(char const *s, int len)

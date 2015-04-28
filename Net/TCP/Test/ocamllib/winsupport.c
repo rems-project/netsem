@@ -12,14 +12,16 @@
 /***********************************************************************/
 
 
-#include <mlvalues.h>
-#include <callback.h>
-#include <alloc.h>
-#include <memory.h>
-#include <fail.h>
-#include <custom.h>
+#include <caml/mlvalues.h>
+#include <caml/callback.h>
+#include <caml/alloc.h>
+#include <caml/memory.h>
+#include <caml/fail.h>
+#include <caml/custom.h>
+
 #include "unixsupport.h"
 #include "cst2constr.h"
+
 #include <errno.h>
 
 #include "../nssock/ns_sockets.h"

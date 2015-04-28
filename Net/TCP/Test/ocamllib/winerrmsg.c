@@ -14,12 +14,15 @@
 /* $Id: winerrmsg.c,v 1.7 2004/06/24 11:09:34 smb50 Exp $ */
 
 #include <errno.h>
-#include <string.h>
-#include <mlvalues.h>
-#include <alloc.h>
-#include <memory.h>
-#include <misc.h>
+
+#include <caml/string.h>
+#include <caml/mlvalues.h>
+#include <caml/alloc.h>
+#include <caml/memory.h>
+#include <caml/misc.h>
+
 #include "unixsupport.h"
+
 #include <wtypes.h>
 #include <winbase.h>
 
