@@ -1,4 +1,4 @@
-CC=gcc
+CC=cc
 CCOPTS=-c -Wall -DNDEBUG
 MKDEP=makedepend
 MKLIB=ar
