@@ -3,8 +3,11 @@
 #include <windows.h>
 #endif
 
-#include <pcap.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <pcap.h>
 
 char *outputfile = NULL;
 char *interfaces = NULL;
