@@ -1,4 +1,5 @@
 strings.sml
 genstrings.exe
 genstrings.o
+trace_checker.exe
 *.imn
