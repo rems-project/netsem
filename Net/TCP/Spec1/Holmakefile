@@ -8,7 +8,9 @@ HOLDOCDIR = ../../HOLDoc/src
 
 INCLUDES = $(HOLDOCDIR)
 
-all: HolDoc.sml HolDoc.sig trace_checker.exe CheckTraces.exe GroundTraces.exe
+.PHONY: all build commit
+
+all: trace_checker.exe CheckTraces.exe GroundTraces.exe
 
 GTRACE_DEPS = GroundTraceMain.uo ground_tickers.uo find_int_inst.uo \
               GroundTrace.uo
@@ -38,7 +40,7 @@ CheckTraces.exe: CheckTraces.uo $(OBJS)
 	$(HOLMOSMLC) -o $@ $<
 
 ifdef POLY
-genstrings.uo: poly-genstrings.ML genstrings.sml
+genstrings.o: poly-genstrings.ML genstrings.sml
 	$(POLY) < $<
 
 genstrings.exe: genstrings.o
