@@ -1,5 +1,6 @@
 (* A HOL98 specification of TCP *)
-
+structure TraceFiles :> TraceFiles =
+struct
 (* Parser for trace files *)
 
 open HolKernel Parse boolLib
@@ -13,7 +14,7 @@ val _ = Version.register "$RCSfile: TraceFiles.sml,v $" "$Revision: 1.5 $" "$Dat
 fun host_and_labels_from_file filename =
   let open TextIO Substring
       val istr = openIn filename
-      val contents = all (inputAll istr)
+      val contents = full (inputAll istr)
       val _ = closeIn istr
 
       val (pre,post) = ("\n(* HOST *)\n","\n(* TSOH *)\n")
@@ -37,3 +38,4 @@ fun host_and_labels_from_file filename =
   in
   (host0,labels)
   end
+end
