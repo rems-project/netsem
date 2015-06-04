@@ -1,8 +1,0 @@
-*.cm*
-*.o*
-*.a
-*.lib
-*.idb
-*.exe
-parser_hack_script
-.depend

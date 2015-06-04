@@ -3,12 +3,15 @@
 #include <windows.h>
 #endif
 
-#include <mlvalues.h>
-#include <alloc.h>
-#include <memory.h>
-#include <callback.h>
-#include <fail.h>
+#include <caml/mlvalues.h>
+#include <caml/alloc.h>
+#include <caml/memory.h>
+#include <caml/callback.h>
+#include <caml/fail.h>
+#include <caml/signals.h>
+
 #include <pcap.h>
+
 #include <stdio.h>
 #include <string.h>
 
@@ -121,9 +124,9 @@ CAMLprim value ns_pcap_next(value handle)
   struct pcap_pkthdr header;
   int i;
 
-  enter_blocking_section();
+  caml_enter_blocking_section();
   pkt = (unsigned char*)pcap_next((pcap_t*)Long_val(handle), &header);
-  leave_blocking_section();
+  caml_leave_blocking_section();
 
   if(pkt == NULL)
     raise_error("ns_pcap_next():", "returned no data");

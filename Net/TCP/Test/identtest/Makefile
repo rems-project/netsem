@@ -2,8 +2,8 @@ OCAMLOPT=$(OCAMLPATH)/ocamlopt
 OCAMLLEX=$(OCAMLPATH)/ocamllex
 OCAMLYACC=$(OCAMLPATH)/ocamlyacc
 OCAMLDEP=$(OCAMLPATH)/ocamldep
-CC=gcc
-MKDEP=makedepend
+CC=cc
+MKDEP=$(CC) -M
 RM=rm -f
 
 OCAMLDIR=$(OCAMLPATH)/../lib/ocaml
@@ -31,7 +31,7 @@ slurpinject: errors.cmx parser.cmx lexer.cmx slurpinject.cmx
 
 depend: parser.ml lexer.ml parser.mli
 	$(OCAMLDEP) *.mli *.ml > .depend
-	$(MKDEP) $(INCLUDEDIRS) -f- *.c > .dependc
+	$(MKDEP) $(INCLUDEDIRS) *.c > .dependc
 
 clean:
 	$(RM) *.o* *.lib *.a *.cm* pcapslurp fileinject\

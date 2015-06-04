@@ -13,8 +13,8 @@
 
 /* $Id: cst2constr.c,v 1.1 2002/09/11 16:41:43 smb50 Exp $ */
 
-#include <mlvalues.h>
-#include <fail.h>
+#include <caml/mlvalues.h>
+#include <caml/fail.h>
 #include "cst2constr.h"
 
 value cst_to_constr(int n, int *tbl, int size, int deflt)

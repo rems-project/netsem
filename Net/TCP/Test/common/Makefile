@@ -7,8 +7,8 @@ OCAMLYACC=$(OCAMLPATH)/ocamlyacc
 OCAMLLEX=$(OCAMLPATH)/ocamllex
 OCAMLDOC=$(OCAMLPATH)/ocamldoc
 RM=rm -f
-CC=gcc
-MKDEP=makedepend
+CC=cc
+MKDEP=$(CC) -M
 MKLIB=ar
 
 OCAMLOPTIONS=-c -custom
@@ -56,7 +56,7 @@ realclean: clean
 
 depend:	parser.ml lexer.ml
 	$(OCAMLDEP) *.mli *.ml > .depend
-	$(MKDEP) -f- *.c > .dependc
+	$(MKDEP) *.c > .dependc
 
 # make ocamldoc
 ocamldoc.ps: all

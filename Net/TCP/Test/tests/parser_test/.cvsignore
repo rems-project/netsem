@@ -1,6 +1,0 @@
-*.cm*
-*.exe
-*.lib
-*.o*
-parser_test
-.depend

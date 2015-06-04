@@ -1,11 +1,13 @@
 #include "../nssock/ns_sockets.h"
 #include "unixsupport.h"
 #include "camlsupport.h"
-#include <mlvalues.h>
-#include <alloc.h>
+
+#include <caml/mlvalues.h>
+#include <caml/alloc.h>
+#include <caml/memory.h>
+#include <caml/misc.h>
+
 #include <assert.h>
-#include <memory.h>
-#include <misc.h>
 #include <stdlib.h>
 
 #ifndef WIN32

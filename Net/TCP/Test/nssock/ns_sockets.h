@@ -122,7 +122,7 @@ extern int ns_getsockopt(SOCKET s, int level, int optname,
 			 void *optval, socklen_t *optlen);
 
 #ifndef WIN32
-extern int ns_ioctl(SOCKET d, int request, ...);
+extern int ns_ioctl(SOCKET d, unsigned long request, ...);
 #else
 extern int ns_ioctlsocket(SOCKET s, long cmd, u_long* argp);
 #endif

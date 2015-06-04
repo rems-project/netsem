@@ -17,6 +17,8 @@
 #include <unistd.h>
 #endif
 
+#include <caml/mlvalues.h>
+
 #define Nothing ((value) 0)
 
 extern void ns_unix_error (int errcode, char * cmdname, value arg) Noreturn;

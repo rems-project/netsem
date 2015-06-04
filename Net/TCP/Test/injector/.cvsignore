@@ -1,2 +1,0 @@
-injector grammar.mli *.cmi *.cmo *.cmx *.obj *.exe *.idb
-.depend

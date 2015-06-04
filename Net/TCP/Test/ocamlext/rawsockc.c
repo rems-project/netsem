@@ -1,9 +1,10 @@
-#include <mlvalues.h>
+#include <caml/mlvalues.h>
 #include "unixsupport.h"
 
 #ifndef WIN32
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <string.h>
 #include "socketaddr.h"
 #define SOCKET_ERROR -1
 #else
@@ -60,7 +61,7 @@ CAMLprim value raw_sockopt_hdrincl(value socket)
   return Val_unit;
 }
 
-CAMLprim raw_sendto(value sock, value buff, value dest)
+CAMLprim value raw_sendto(value sock, value buff, value dest)
 {
   int retval = 0, realflags = 0;
   struct sockaddr_in dest_dummy;

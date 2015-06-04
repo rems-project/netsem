@@ -1,4 +1,4 @@
-CC=gcc
+CC=cc
 MKLIB=ar
 NSSOCKPATH=../nssock/
 NSSOCKLIB=nssock

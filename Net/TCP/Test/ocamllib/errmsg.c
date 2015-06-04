@@ -14,10 +14,11 @@
 /* $Id: errmsg.c,v 1.6 2004/06/24 11:09:33 smb50 Exp $ */
 
 #include <errno.h>
-#include <mlvalues.h>
-#include <alloc.h>
-#include <memory.h>
-#include <misc.h>
+
+#include <caml/mlvalues.h>
+#include <caml/alloc.h>
+#include <caml/memory.h>
+#include <caml/misc.h>
 
 extern int ns_error_table[];
 
