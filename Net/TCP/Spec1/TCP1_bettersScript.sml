@@ -6,8 +6,6 @@
 
 (*[ RCSID "$Id: TCP1_bettersScript.sml,v 1.84 2007/06/14 07:33:12 mn200 Exp $" ]*)
 
-structure TCP1_bettersScript =
-struct
 open HolKernel boolLib Parse
 
 val _ = new_theory "TCP1_betters";
@@ -28,7 +26,7 @@ structure Q = struct open Q open OldAbbrevTactics end
                         bits and pieces.
 *)
 
-open SingleStep BasicProvers bossLib
+open BasicProvers bossLib
 
 local open TCP1_evalSupportTheory in end;
 
@@ -37,6 +35,8 @@ open finite_mapTheory pred_setTheory
 open TCP1_seq32PropsTheory
 
 open HolDoc metisLib
+
+val WORD_SUB_EQN = TCP1_seq32PropsTheory.WORD_SUB_EQN
 
 val _ = print "Some 1-1 properties from TCP1_hostTypes\n"
 (* useful to know that the File "constructor" is injective *)
@@ -109,8 +109,8 @@ val better_dequeue = p1store_thm(
        (msg = SOME v /\ q' = Timed([], never_timer)) /\
     dequeue dq (Timed(v1::v2::vs, d), q', msg) =
        (msg = SOME v1 /\ q' = Timed(v2::vs, dq))``,
-  SingleStep.Cases_on `q'` THEN
-  SingleStep.Cases_on `p` THEN
+  Cases_on `q'` THEN
+  Cases_on `p` THEN
   BasicProvers.SRW_TAC [][TCP1_preHostTypesTheory.dequeue_def] THEN
   BasicProvers.SRW_TAC [][EQ_IMP_THM])
 
@@ -119,8 +119,8 @@ val better_enqueue = store_thm(
   ``enqueue dq (Timed (q,d), msg, q', queued) =
       ((INFINITE_RESOURCES ==> queued) /\
        (q' = Timed(if queued then (APPEND q [msg], dq) else (q,d))))``,
-  SingleStep.Cases_on `q'` THEN
-  SingleStep.Cases_on `p` THEN
+  Cases_on `q'` THEN
+  Cases_on `p` THEN
   BasicProvers.SRW_TAC [][TCP1_preHostTypesTheory.enqueue_def])
 
 
@@ -133,16 +133,16 @@ val better_in_local = p1store_thm(
 
 
 val WORD32_ss =
-    rewrites [word32Theory.HB_def, word32Theory.WL_def,
-              word32Theory.MOD_WL_def, word32Theory.word_L_def,
-              word32Theory.MSB_EVAL, word32Theory.MSBn_def,
-              bitsTheory.BIT_def, bitsTheory.BITS_def,
-              arithmeticTheory.MOD_2EXP_def, bitsTheory.DIV_2EXP_def,
-              word32Theory.n2w_11, word32Theory.TWO_COMP_def,
-              word32Theory.TWO_COMP_EVAL, word32Theory.WORD_NEG_NEG,
-              word32Theory.ADD_EVAL, word32Theory.WORD_SUB_REFL,
-              word32Theory.word_0,
-              REWRITE_RULE [word32Theory.word_0] word32Theory.WORD_ADD_CLAUSES]
+    rewrites [bitTheory.BIT_def, bitTheory.BITS_def,
+              bitTheory.MOD_2EXP_def, bitTheory.DIV_2EXP_def,
+              wordsTheory.n2w_11, wordsTheory.w2n_11,
+              wordsTheory.WORD_NEG_NEG,
+              wordsTheory.WORD_SUB_REFL,
+              wordsTheory.word_0,
+              wordsTheory.INT_MIN_def,
+              wordsTheory.dimword_32,
+              wordsTheory.dimindex_32,
+              REWRITE_RULE [wordsTheory.word_0] wordsTheory.WORD_NEG_EQ_0]
 
 
 val tcp_ARB = store_thm(
@@ -170,12 +170,12 @@ val MEM_number_skip = store_thm(
         MEM x (number_skip c skip l) =
         ?n. c <= n /\
             case skip of
-               NONE -> (x = (n, EL (n - c) l)) /\ n - c < LENGTH l
-            || SOME m -> ((m < c \/ n < m) /\ (x = (n, EL (n - c) l)) /\
-                          n - c < LENGTH l) \/
-                         (m < n /\ c <= m /\
-                          (x = (n, EL (n - c - 1) l)) /\
-                          n - c - 1 < LENGTH l)``,
+              NONE => (x = (n, EL (n - c) l)) /\ n - c < LENGTH l
+            | SOME m => ((m < c \/ n < m) /\ (x = (n, EL (n - c) l)) /\
+                         n - c < LENGTH l) \/
+                        (m < n /\ c <= m /\
+                         (x = (n, EL (n - c - 1) l)) /\
+                         n - c - 1 < LENGTH l)``,
   Induct THEN Cases_on `skip` THEN SRW_TAC [][number_skip_def] THEN
   FIRST_X_ASSUM (K ALL_TAC o assert (is_forall o concl)) THENL [
     SRW_TAC [numSimps.ARITH_ss, boolSimps.CONJ_ss][EQ_IMP_THM] THENL [
@@ -256,33 +256,33 @@ val MEM_nskip0 = save_thm(
 (* is this right? K: yes. *)
 val wf_reass_def = Phase.phase 1 Define`
   wf_reass s = case s.spliced_urp of
-                  NONE -> LENGTH s.data < 2147483648
-               || SOME n -> n >= s.seq /\ n < s.seq + LENGTH s.data + 1n /\
-                            LENGTH s.data < 2147483647
+                 NONE => LENGTH s.data < 2147483648
+               | SOME n => n >= s.seq /\ n < s.seq + LENGTH s.data + 1n /\
+                           LENGTH s.data < 2147483647
 `;
 
 val tcp_reass_myrel = prove(
   ``EVERY wf_reass rsegq ==>
     {(i,c) |
-       ?rseg. rseg IN' rsegq /\ i >= rseg.seq /\
-              i < rseg.seq + LENGTH rseg.data +
-                  (if rseg.spliced_urp <> NONE then 1i else 0) /\
-              case rseg.spliced_urp of
-                 NONE -> c = SOME (EL (Num (i - rseg.seq)) rseg.data)
-              || SOME v -> if i > v then
-                             c = SOME (EL (Num (i - rseg.seq - 1)) rseg.data)
-                           else if i = v then c = NONE
-                           else
-                             c = SOME (EL (Num(i - rseg.seq)) rseg.data)} =
+       (?rseg. rseg IN' rsegq /\ i >= rseg.seq /\
+               i < rseg.seq + LENGTH rseg.data +
+                   (if rseg.spliced_urp <> NONE then 1i else 0) /\
+               case rseg.spliced_urp of
+                  NONE => c = SOME (EL (Num (i - rseg.seq)) rseg.data)
+                | SOME v => if i > v then
+                              c = SOME (EL (Num (i - rseg.seq - 1)) rseg.data)
+                            else if i = v then c = NONE
+                            else
+                              c = SOME (EL (Num(i - rseg.seq)) rseg.data))} =
     FOLDL
       (\s sq. s UNION
               (case sq.spliced_urp of
-                  SOME n -> if sq.seq <= n /\
+                  SOME n => if sq.seq <= n /\
                                n < sq.seq + LENGTH sq.data + 1n
                             then {(n,NONE)} else {}
-               || NONE -> {}) UNION
+                | NONE => {}) UNION
               LIST_TO_SET
-                    (MAP (\ (n,e). (sq.seq + n, SOME e))
+                    (MAP (λ(n,e). (sq.seq + n, SOME e))
                          (number_skip 0 (OPTION_MAP (\x. Num(x - sq.seq))
                                                     sq.spliced_urp)
                                       sq.data))) {} rsegq``,
@@ -292,8 +292,8 @@ val tcp_reass_myrel = prove(
                      i < rseg.seq + LENGTH rseg.data +
                          (if rseg.spliced_urp <> NONE then 1i else 0) /\
                      case rseg.spliced_urp of
-                        NONE -> c = SOME (EL (Num(i - rseg.seq)) rseg.data)
-                     || SOME v -> if i > v then
+                        NONE => c = SOME (EL (Num(i - rseg.seq)) rseg.data)
+                      | SOME v => if i > v then
                                     c = SOME (EL(Num(i - rseg.seq - 1))
                                                 rseg.data)
                                   else if i = v then c = NONE
@@ -311,12 +311,12 @@ val tcp_reass_myrel = prove(
            (\s sq.
               s UNION
               (case sq.spliced_urp of
-                  NONE -> {}
-               || SOME v -> if sq.seq <= v /\
+                  NONE => {}
+                | SOME v => if sq.seq <= v /\
                                v < sq.seq + LENGTH sq.data + 1n
                             then {(v,NONE)} else {}) UNION
               LIST_TO_SET
-                     (MAP (\ (n,e). (sq.seq + n, SOME e))
+                     (MAP (λ(n,e). (sq.seq + n, SOME e))
                           (number_skip 0 (OPTION_MAP (\x. Num(x - sq.seq))
                                                      sq.spliced_urp)
                                        sq.data)))
@@ -339,7 +339,7 @@ val tcp_reass_myrel = prove(
       DISJ2_TAC THEN Q.EXISTS_TAC `h` THEN
       Q.PAT_ASSUM `!i c rseg q. X = setcomprel i c rseg q`
                   (ASSUME_TAC o GSYM) THEN
-      ASM_SIMP_TAC (srw_ss()) [TCP1_utilsTheory.neq_def],
+      ASM_SIMP_TAC (srw_ss()) [],
 
       POP_ASSUM MP_TAC THEN
       Cases_on `h.spliced_urp` THEN FULL_SIMP_TAC (srw_ss()) [] THEN
@@ -349,19 +349,18 @@ val tcp_reass_myrel = prove(
                   (ASSUME_TAC o GSYM) THEN
       ASM_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
                    [seq32_leq_plus_num, arithmeticTheory.LESS_MOD,
-                    TCP1_utilsTheory.neq_def, seq32_add_num_minus,
-                    seq32_lt_add_lcancel] THEN
+                    seq32_add_num_minus, seq32_lt_add_lcancel] THEN
       FIRST_X_ASSUM (K ALL_TAC o assert (is_forall o concl)) THENL [
-        SRW_TAC [numSimps.ARITH_ss][integer_word32Theory.WORD_SUB_EQN] THEN
+        SRW_TAC [numSimps.ARITH_ss][WORD_SUB_EQN] THEN
         SRW_TAC [numSimps.ARITH_ss, WORD32_ss]
-                [integer_word32Theory.w2i_n2w_2,
+                [integer_wordTheory.w2i_n2w_neg,
                  integerTheory.INT_LT_SUB_RADD],
 
         FULL_SIMP_TAC (srw_ss()) [] THEN CONJ_TAC THENL [
           SRW_TAC [][seq32_add_assoc] THEN
-          SRW_TAC [numSimps.ARITH_ss][integer_word32Theory.WORD_SUB_EQN] THEN
+          SRW_TAC [numSimps.ARITH_ss][WORD_SUB_EQN] THEN
           SRW_TAC [numSimps.ARITH_ss, WORD32_ss]
-                  [integer_word32Theory.w2i_n2w_2,
+                  [integer_wordTheory.w2i_n2w_neg,
                    integerTheory.INT_LT_SUB_RADD],
 
           `h.seq + n < x'`
@@ -372,9 +371,9 @@ val tcp_reass_myrel = prove(
           FULL_SIMP_TAC (srw_ss()) []
         ],
 
-        ASM_SIMP_TAC (srw_ss() ++ ARITH_ss)
-                     [seq32_add_assoc, integer_word32Theory.WORD_SUB_EQN,
-                      integer_word32Theory.w2i_n2w_2,
+        ASM_SIMP_TAC (srw_ss() ++ WORD32_ss ++ ARITH_ss)
+                     [seq32_add_assoc, WORD_SUB_EQN,
+                      integer_wordTheory.w2i_n2w_neg,
                       integerTheory.INT_LT_SUB_RADD] THEN
         `n < 2147483648` by DECIDE_TAC THEN
         `LENGTH h.data < 2147483648` by DECIDE_TAC THEN
@@ -388,14 +387,14 @@ val tcp_reass_myrel = prove(
 
       PROVE_TAC [],
       ASM_REWRITE_TAC [],
-      Q.PAT_ASSUM `setcomprel V X Y Z ` MP_TAC THEN
+      Q.PAT_ASSUM `setcomprel VV XX YY ZZ` MP_TAC THEN
       Q.PAT_ASSUM `!i c rseg q. XX = setcomprel i c rseg q`
                   (ASSUME_TAC o GSYM) THEN
       ASM_SIMP_TAC (srw_ss()) [] THEN STRIP_TAC THEN
       REPEAT (FIRST_X_ASSUM (K ALL_TAC o assert(is_forall o concl))) THENL [
         DISJ1_TAC THEN VAR_EQ_TAC THEN
         Cases_on `h.spliced_urp` THEN
-        FULL_SIMP_TAC (srw_ss()) [TCP1_utilsTheory.neq_def] THENL [
+        FULL_SIMP_TAC (srw_ss()) [] THENL [
           DISJ2_TAC THEN
           Q.EXISTS_TAC `(Num(i - h.seq),EL(Num(i - h.seq)) h.data)` THEN
           SRW_TAC [][seq32_add_num_sub, tcp_ARB, seq32_num_sub_lt,
@@ -493,13 +492,13 @@ val better_tcp_reass0 = prove(
           (\s sq.
               s UNION
               (case sq.spliced_urp of
-                  NONE -> {}
-               || SOME n ->
+                  NONE => {}
+                | SOME n =>
                     if sq.seq <= n /\ n < sq.seq + LENGTH sq.data + 1n then
                       {(n, NONE)}
                     else {}) UNION
               LIST_TO_SET
-                (MAP (\ (n,e). (sq.seq + n, SOME e))
+                (MAP (λ(n,e). (sq.seq + n, SOME e))
                      (number_skip 0 (OPTION_MAP (\x. Num(x - sq.seq))
                                                 sq.spliced_urp) sq.data)))
           {} rsegq
@@ -588,7 +587,7 @@ val seq_add_elim = prove(
   ``((s : 'a seq32) + (n:num) = s) = (n MOD 4294967296 = 0)``,
   Cases_on `s` THEN
   SRW_TAC [][TCP1_baseTypesTheory.seq32_plus_def,
-             word32Theory.WORD_ADD_INV_0_EQ, word32Theory.word_0]);
+             wordsTheory.WORD_ADD_INV_0_EQ, wordsTheory.word_0]);
 
 val build_lemma1 = prove(
   ``!seq A M pfx cs.
@@ -777,8 +776,6 @@ val build_lemma2 = prove(
     FULL_SIMP_TAC (srw_ss()) [] THEN
     MAP_EVERY Q.EXISTS_TAC [`old`, `SND p :: sfx`] THEN
     ASM_SIMP_TAC (srw_ss()) [] THEN REPEAT STRIP_TAC THENL [
-      REWRITE_TAC [listTheory.APPEND, GSYM listTheory.APPEND_ASSOC],
-
       Cases_on `n` THEN1 SRW_TAC [][] THEN
       FULL_SIMP_TAC (srw_ss()) [arithmeticTheory.ADD1, seq32_add_assoc,
                                 arithmeticTheory.ADD_COMM],
@@ -798,7 +795,7 @@ val build_lemma2 = prove(
              ((g x = g y) = (x = y))`
          by (Q.UNABBREV_TAC `g` THEN Cases_on `seq` THEN
              SIMP_TAC (srw_ss()) [TCP1_baseTypesTheory.seq32_plus_def,
-                                  word32Theory.WORD_EQ_ADD_LCANCEL]) THEN
+                                  wordsTheory.WORD_EQ_ADD_LCANCEL]) THEN
       `!x. x < 4294967296 ==> g x IN IMAGE FST M`
          by (Q.UNABBREV_TAC `g` THEN
              ASM_SIMP_TAC (srw_ss()) [] THEN
@@ -826,13 +823,13 @@ val better_tcp_reass1 = prove(
     let myrel =
           FOLDL (\s sq. s UNION
                         (case sq.spliced_urp of
-                            NONE -> {}
-                         || SOME v -> if sq.seq <= v /\
+                            NONE => {}
+                          | SOME v => if sq.seq <= v /\
                                          v < sq.seq + LENGTH sq.data + 1n
                                       then {(v, NONE)}
                                       else {}) UNION
                         LIST_TO_SET
-                          (MAP (\ (n,e). (sq.seq + n, SOME e))
+                          (MAP (λ(n,e). (sq.seq + n, SOME e))
                                (number_skip 0
                                   (OPTION_MAP (\x. Num(x - sq.seq))
                                               sq.spliced_urp)
@@ -870,7 +867,7 @@ val better_tcp_reass1 = prove(
              (!xx. FINITE (XX xx))`
             THEN1 SRW_TAC [][] THEN
          `!xx. FINITE (XX xx)`
-            by (Q.UNABBREV_ALL_TAC THEN SRW_TAC [][] THEN
+            by (markerLib.UNABBREV_ALL_TAC THEN SRW_TAC [][] THEN
                 Cases_on `xx.spliced_urp` THEN SRW_TAC [][]) THEN
          ASM_REWRITE_TAC [] THEN
          Induct THEN SRW_TAC [][]) THEN
@@ -881,8 +878,9 @@ val better_tcp_reass1 = prove(
   DISCH_THEN (Q.X_CHOOSE_THEN `cs` STRIP_ASSUME_TAC) THEN
   ASM_SIMP_TAC (srw_ss()) [] THEN
   Q.PAT_ASSUM `X = e` (K ALL_TAC) THENL [
-    Q.EXISTS_TAC `cs''` THEN ASM_SIMP_TAC (srw_ss()) [] THEN
-    `cs'' = APPEND [] cs''` by SRW_TAC [][] THEN
+    lcsymtacs.qcase_tac `cs1 = CONCAT_OPTIONAL cs2` THEN
+    Q.EXISTS_TAC `cs2` THEN ASM_SIMP_TAC (srw_ss()) [] THEN
+    `cs2 = APPEND [] cs2` by SRW_TAC [][] THEN
     POP_ASSUM SUBST1_TAC THEN
     MATCH_MP_TAC build_lemma1 THEN
     SRW_TAC [][],
@@ -981,7 +979,7 @@ val CARD_0_LT = prove(
 val CARD_EQ_1 = prove(
   ``!s. FINITE s ==> ((CARD s = 1) = ?e. s = {e})``,
   HO_MATCH_MP_TAC FINITE_INDUCT THEN SRW_TAC [][] THEN
-  EQ_TAC THEN STRIP_TAC THEN SRW_TAC [][] THEN1 PROVE_TAC [] THEN
+  EQ_TAC THEN STRIP_TAC THEN SRW_TAC [][] THEN
   POP_ASSUM MP_TAC THEN SRW_TAC [][EXTENSION] THEN PROVE_TAC []);
 
 val SURJ_LE_CARD_INJ = prove(
@@ -990,51 +988,47 @@ val SURJ_LE_CARD_INJ = prove(
               INJ f s1 s2 /\ (CARD s1 = CARD s2)``,
   HO_MATCH_MP_TAC FINITE_INDUCT THEN
   ASM_SIMP_TAC (srw_ss() ++ boolSimps.CONJ_ss)[CARD_EQ_0'] THEN
-  CONJ_TAC THENL [
-    SRW_TAC [][INJ_DEF],
-    REPEAT (GEN_TAC ORELSE DISCH_THEN STRIP_ASSUME_TAC) THEN
-    Q.ABBREV_TAC `s1' = s1 DIFF {x | f x = e}` THEN
-    `SURJ f s1' s2` by METIS_TAC [SURJ_INSERT_RNG] THEN
-    `0 < CARD s1` by (SPOSE_NOT_THEN ASSUME_TAC THEN
-                      `CARD s1 = 0` by DECIDE_TAC THEN
-                      `s1 = {}` by PROVE_TAC [CARD_EQ_0'] THEN
-                      PROVE_TAC [SURJ_EMPTY_DOM, IN_INSERT,
-                                 NOT_IN_EMPTY]) THEN
-    `CARD s1' < CARD s1`
-       by (SRW_TAC [][CARD_DIFF'] THEN
-           Q_TAC SUFF_TAC `0 < CARD (s1 INTER {x | f x = e})` THEN1
-                 DECIDE_TAC THEN
-           SRW_TAC [][CARD_0_LT] THEN
-           METIS_TAC [SURJ_DEF, IN_INSERT]) THEN
-    `CARD s1' <= CARD s2` by DECIDE_TAC THEN
-    `INJ f s1' s2 /\ (CARD s1' = CARD s2)` by METIS_TAC [FINITE_DIFF] THEN
-    `CARD s1 = SUC (CARD s2)` by DECIDE_TAC THEN
-    `CARD s1' + 1 = CARD s1` by DECIDE_TAC THEN
-    `CARD s1' = CARD s1 - CARD (s1 INTER {x | f x = e})`
-       by (Q.UNABBREV_TAC `s1'` THEN
-           Q.UNDISCH_THEN `FINITE s1` MP_TAC THEN
-           SIMP_TAC (srw_ss()) [CARD_DIFF']) THEN
-    `CARD (s1 INTER {x | f x = e}) <= CARD s1`
-       by SRW_TAC [][CARD_INTER_LESS_EQ] THEN
-    `CARD (s1 INTER {x | f x = e}) = 1` by DECIDE_TAC THEN
-    `?d. s1 INTER {x | f x = e} = {d}`
-       by PROVE_TAC [INTER_FINITE, CARD_EQ_1] THEN
-    `d IN s1 /\ (f d = e)` by FULL_SIMP_TAC (srw_ss()) [EXTENSION] THEN
-    `s1 = d INSERT s1'`
-       by (Q.PAT_ASSUM `s1 INTER X = {d}` MP_TAC THEN
-           SRW_TAC [][EXTENSION] THEN PROVE_TAC []) THEN
-    `~(d IN s1')` by (Q.UNABBREV_TAC `s1'` THEN
-                      SIMP_TAC (srw_ss()) [] THEN
-                      ASM_REWRITE_TAC []) THEN
-    METIS_TAC [EXTEND_INJ]
-  ]);
+  REPEAT (GEN_TAC ORELSE DISCH_THEN STRIP_ASSUME_TAC) THEN
+  Q.ABBREV_TAC `s1' = s1 DIFF {x | f x = e}` THEN
+  `SURJ f s1' s2` by METIS_TAC [SURJ_INSERT_RNG] THEN
+  `0 < CARD s1` by (SPOSE_NOT_THEN ASSUME_TAC THEN
+                    `CARD s1 = 0` by DECIDE_TAC THEN
+                    `s1 = {}` by PROVE_TAC [CARD_EQ_0'] THEN
+                    PROVE_TAC [SURJ_EMPTY_DOM, IN_INSERT,
+                               NOT_IN_EMPTY]) THEN
+  `CARD s1' < CARD s1`
+     by (SRW_TAC [][CARD_DIFF'] THEN
+         Q_TAC SUFF_TAC `0 < CARD (s1 INTER {x | f x = e})` THEN1
+               DECIDE_TAC THEN
+         SRW_TAC [][CARD_0_LT] THEN
+         METIS_TAC [SURJ_DEF, IN_INSERT]) THEN
+  `CARD s1' <= CARD s2` by DECIDE_TAC THEN
+  `INJ f s1' s2 /\ (CARD s1' = CARD s2)` by METIS_TAC [FINITE_DIFF] THEN
+  `CARD s1 = SUC (CARD s2)` by DECIDE_TAC THEN
+  `CARD s1' + 1 = CARD s1` by DECIDE_TAC THEN
+  `CARD s1' = CARD s1 - CARD (s1 INTER {x | f x = e})`
+     by (Q.UNABBREV_TAC `s1'` THEN
+         Q.UNDISCH_THEN `FINITE s1` MP_TAC THEN
+         SIMP_TAC (srw_ss()) [CARD_DIFF']) THEN
+  `CARD (s1 INTER {x | f x = e}) <= CARD s1`
+     by SRW_TAC [][CARD_INTER_LESS_EQ] THEN
+  `CARD (s1 INTER {x | f x = e}) = 1` by DECIDE_TAC THEN
+  `?d. s1 INTER {x | f x = e} = {d}`
+     by PROVE_TAC [INTER_FINITE, CARD_EQ_1] THEN
+  `d IN s1 /\ (f d = e)` by FULL_SIMP_TAC (srw_ss()) [EXTENSION] THEN
+  `s1 = d INSERT s1'`
+     by (Q.PAT_ASSUM `s1 INTER X = {d}` MP_TAC THEN
+         SRW_TAC [][EXTENSION] THEN PROVE_TAC []) THEN
+  `~(d IN s1')` by (Q.UNABBREV_TAC `s1'` THEN
+                    SIMP_TAC (srw_ss()) [] THEN
+                    ASM_REWRITE_TAC []) THEN
+  METIS_TAC [EXTEND_INJ]);
 
 val CARD_EQ_INJ_EQ_SURJ = prove(
   ``!s1 s2. FINITE s1 /\ FINITE s2 /\ (CARD s1 = CARD s2) ==>
             (INJ f s1 s2 = SURJ f s1 s2)``,
   PROVE_TAC [SURJ_LE_CARD_INJ, INJ_EQ_CARD_SURJ,
              arithmeticTheory.LESS_EQ_REFL]);
-
 
 val FINITE_w32_UNIV = prove(
   ``FINITE (UNIV : word32 set)``,
@@ -1074,13 +1068,13 @@ val q_ok_cardinality = prove(
     let myrel =
           FOLDL (\s sq. s UNION
                         (case sq.spliced_urp of
-                            NONE -> {}
-                         || SOME v -> if sq.seq <= v /\
+                            NONE => {}
+                          | SOME v => if sq.seq <= v /\
                                          v < sq.seq + LENGTH sq.data + 1n
                                       then {(v,NONE)}
                                       else {}) UNION
                         LIST_TO_SET
-                          (MAP (\ (n,e). (sq.seq + n, SOME e))
+                          (MAP (λ(n,e). (sq.seq + n, SOME e))
                                (number_skip 0
                                   (OPTION_MAP (\x. Num(x - sq.seq))
                                               sq.spliced_urp)
@@ -1141,7 +1135,7 @@ val q_ok_cardinality = prove(
     STRIP_TAC THEN
     CONV_TAC SWAP_VARS_CONV THEN Q.EXISTS_TAC `rseg` THEN
     Cases_on `rseg.spliced_urp` THEN
-    FULL_SIMP_TAC (srw_ss()) [TCP1_utilsTheory.neq_def] THEN
+    FULL_SIMP_TAC (srw_ss()) [] THEN
     ASM_SIMP_TAC (srw_ss() ++ boolSimps.COND_elim_ss ++ boolSimps.DNF_ss) []
   ]);
 
@@ -1185,13 +1179,13 @@ val better_tcp_reass = store_thm(
       let myrel =
             FOLDL (\s sq. s UNION
                           (case sq.spliced_urp of
-                              NONE -> {}
-                           || SOME v -> if sq.seq <= v /\
+                              NONE => {}
+                            | SOME v => if sq.seq <= v /\
                                            v < sq.seq + LENGTH sq.data + 1n
                                         then {(v, NONE)}
                                         else {}) UNION
                           LIST_TO_SET
-                            (MAP (\ (n,e). (sq.seq + n, SOME e))
+                            (MAP (λ(n,e). (sq.seq + n, SOME e))
                                  (number_skip 0n
                                      (OPTION_MAP (\x. Num(x - sq.seq))
                                                  sq.spliced_urp)
@@ -1213,8 +1207,6 @@ val better_tcp_reass = store_thm(
   DISCH_THEN MATCH_MP_TAC THEN
   MP_TAC q_ok_cardinality THEN ASM_SIMP_TAC bool_ss [] THEN
   ASM_SIMP_TAC (srw_ss()) []);
-
-
 
 val FINITE_GSPEC_AND = prove(
   ``FINITE { x | P x} \/ FINITE {x | Q x} ==> FINITE ({ x | P x /\ Q x})``,
@@ -1362,7 +1354,7 @@ val divmod_lemma = store_thm(
 
 val better_ip_case = p1store_thm(
   "better_ip_case",
-  ``ip_case (\v. ip (f v)) (IP w x y z) =
+  ``ip_CASE (IP w x y z) (\v. ip (f v)) =
       let ipnum = w * 2 EXP 24 + x * 2 EXP 16 + y * 2 EXP 8 + z in
       let res = f ipnum in
       let  lo8 = res MOD 256 in
@@ -1415,8 +1407,7 @@ val route_and_enqueue_oq_no_error = store_thm(
     Cases_on `test_outroute (msg,rttab,ifds,arch)` THEN
     FULL_SIMP_TAC (srw_ss()) [] THEN Cases_on `x` THEN
     FULL_SIMP_TAC (srw_ss()) [] THEN
-    Cases_on `queued` THEN FULL_SIMP_TAC (srw_ss()) [],
-    Q.EXISTS_TAC `T` THEN SRW_TAC [][]
+    Cases_on `queued` THEN FULL_SIMP_TAC (srw_ss()) []
   ]);
 
 val route_and_enqueue_oq_error = store_thm(
@@ -1424,8 +1415,8 @@ val route_and_enqueue_oq_error = store_thm(
   ``route_and_enqueue_oq (rttab, ifds, oq, msg, oq', SOME e, arch) =
       ?v. test_outroute(msg, rttab, ifds, arch) = SOME v /\
           case v of
-             NONE -> enqueue_oq (oq, msg, oq', F) /\ (e = ENOBUFS)
-          || SOME e' -> oq = oq' /\ e = e'``,
+             NONE => enqueue_oq (oq, msg, oq', F) /\ (e = ENOBUFS)
+           | SOME e' => oq = oq' /\ e = e'``,
   SIMP_TAC (srw_ss()) [route_and_enqueue_oq_def] THEN
   Cases_on `test_outroute(msg, rttab, ifds, arch)` THEN
   SIMP_TAC (srw_ss()) [] THEN
@@ -1447,7 +1438,7 @@ val GSPEC_ID_sym = prove(
 val (revised, asm) = let
   val base = #2 (strip_forall (concl TCP1_auxFnsTheory.bound_port_allowed_def))
   val r = rhs base
-  val setexp = rand r
+  val setexp = rand (rand r)
   val abs = rand setexp
   val ex_t = rand (#2 (dest_abs abs))
   val ugly = last (strip_conj (#2 (dest_exists ex_t)))
@@ -1472,14 +1463,13 @@ in
   MP th (ISPEC (rhs t) EXISTS_REFL)
 end
 
-
 val better_bound_port_allowed0 = prove(
   ``^asm ==>
        bound_port_allowed pr FEMPTY sf arch is p = T /\
        bound_port_allowed pr (socks |+ (sid, s)) sf arch is p =
          case s.ps1 of
-            NONE -> bound_port_allowed pr (socks \\ sid) sf arch is p
-         || SOME port ->
+            NONE => bound_port_allowed pr (socks \\ sid) sf arch is p
+          | SOME port =>
               bound_port_allowed pr (socks \\ sid) sf arch is p /\
               ((p = port) /\ proto_eq s.pr pr ==> ~newf s arch sf is)``,
   STRIP_TAC THEN SIMP_TAC (srw_ss()) [revised] THEN
@@ -1504,8 +1494,8 @@ val better_bound_ports_protocol_autobind = p1store_thm(
   ``bound_ports_protocol_autobind pr FEMPTY = {} /\
     bound_ports_protocol_autobind pr (socks |+ (sid, s)) =
       case s.ps1 of
-         NONE -> bound_ports_protocol_autobind pr (socks \\ sid)
-      || SOME p -> if proto_of s.pr = pr then
+         NONE => bound_ports_protocol_autobind pr (socks \\ sid)
+       | SOME p => if proto_of s.pr = pr then
                      p INSERT bound_ports_protocol_autobind pr (socks \\ sid)
                    else bound_ports_protocol_autobind pr (socks \\ sid)``,
   SRW_TAC [][TCP1_auxFnsTheory.bound_ports_protocol_autobind_def] THEN
@@ -1564,15 +1554,15 @@ val better_make_syn_segment = store_thm(
         let win = n2w cbrcv_win in
         let ws = OPTION_MAP CHR cbrqrscale in
         let mss = (case cbtadvmss of
-                      NONE -> NONE
-                   || SOME n -> SOME (n2w n)) in
+                      NONE => NONE
+                    | SOME n => SOME (n2w n)) in
         let ts = do_tcp_options cbtfreqtstmp cbtsrecent ts_val
         in
               w2n win = cbrcv_win /\
               (IS_SOME cbrqrscale ==> ORD (THE ws) = THE cbrqrscale) /\
-              (case ws of NONE -> T || SOME v -> ORD v <= TCP_MAXWINSCALE) /\
+              (case ws of NONE => T | SOME v => ORD v <= TCP_MAXWINSCALE) /\
               (IS_SOME cbtadvmss ==>
-                 THE cbtadvmss = word16$w2n (n2w (THE cbtadvmss))) /\
+                 THE cbtadvmss = w2n (n2w (THE cbtadvmss) : word16)) /\
               (seg = <| is1 := SOME i1; is2 := SOME i2; ps1 := SOME p1;
                         ps2 := SOME p2; seq := cbiss; ack := ack_any;
                         URG := F; ACK := F; PSH := F; RST := F; SYN := T;
@@ -1581,7 +1571,7 @@ val better_make_syn_segment = store_thm(
   SRW_TAC [][make_syn_segment_def, RES_EXISTS_THM,
              IS_SOME_exists, GSYM RIGHT_EXISTS_AND_THM,
              GSYM LEFT_FORALL_IMP_THM, RIGHT_AND_FORALL_THM,
-             word32Theory.word_0] THEN
+             wordsTheory.word_0] THEN
   Cases_on `cb.t_advmss` THEN FULL_SIMP_TAC (srw_ss()) []);
 
 val better_make_ack_segment = store_thm(
@@ -1603,7 +1593,7 @@ val better_make_ack_segment = store_thm(
                    URG := F; ACK := T; PSH := F; RST := F; SYN := F;
                    FIN := FIN; win := win; ws := NONE; urp := urp_any;
                    mss := NONE; ts := ts; data := []|>``,
-  SRW_TAC [][make_ack_segment_def, word32Theory.word_0, RES_EXISTS_THM,
+  SRW_TAC [][make_ack_segment_def, wordsTheory.word_0, RES_EXISTS_THM,
              prove(``I = \x.x``, SRW_TAC [][FUN_EQ_THM])]);
 
 val better_bsd_make_phantom_segment = store_thm(
@@ -1625,7 +1615,7 @@ val better_bsd_make_phantom_segment = store_thm(
                    URG := F; ACK := F; PSH := F; RST := F; SYN := F;
                    FIN := FIN; win := win; ws := NONE; urp := urp_any;
                    mss := NONE; ts := ts; data := []|>``,
-  SRW_TAC [][bsd_make_phantom_segment_def, word32Theory.word_0, RES_EXISTS_THM,
+  SRW_TAC [][bsd_make_phantom_segment_def, wordsTheory.word_0, RES_EXISTS_THM,
              prove(``I = \x.x``, SRW_TAC [][FUN_EQ_THM])]);
 
 
@@ -1683,18 +1673,18 @@ val calculate_buf_sizes_EQ_implication = prove(
     ((NUMERAL n, x, y ,z) =
        calculate_buf_sizes cb_t_maxseg seg_mss bwdp localp
                            rcvbuf sndbuf cb_tf_doing_tstmp arch) ==>
-     (NUMERAL n =  MIN SB_MAX (roundup y (option_case rcvbuf I bwdp))) /\
+     (NUMERAL n =  MIN SB_MAX (roundup y (option_CASE bwdp rcvbuf I))) /\
      (x = bool$LET (\sndbufsize'.
                       if sndbufsize' < y then sndbufsize'
                       else MIN (256 * 1024) (roundup y sndbufsize'))
-                   (option_case sndbuf I bwdp)) /\
+                   (option_CASE bwdp sndbuf I)) /\
      (y = bool$LET
             (\maxseg.
                 if linux_arch arch then maxseg
                  else rounddown MCLBYTES
                                 (maxseg -
                                  calculate_tcp_options_len cb_tf_doing_tstmp))
-            (MIN cb_t_maxseg (MAX 64 (option_case MSSDFLT I seg_mss)))) /\
+            (MIN cb_t_maxseg (MAX 64 (option_CASE seg_mss MSSDFLT I)))) /\
      (z = y * (if localp then SS_FLTSZ_LOCAL else SS_FLTSZ))``,
   `NUMERAL n = n` by SRW_TAC [][arithmeticTheory.NUMERAL_DEF] THEN
   POP_ASSUM SUBST_ALL_TAC THEN
@@ -1715,29 +1705,33 @@ val calculate_buf_sizes_EQ_implication = prove(
   FULL_SIMP_TAC (srw_ss()) [] THEN SRW_TAC [][] THEN
   FULL_SIMP_TAC (srw_ss()) []);
 
+val roundup_x0 = store_thm(
+  "roundup_x0[simp]",
+  ``roundup x 0 = 0``,
+  SRW_TAC[][roundup_def] THEN Cases_on `x = 0` THEN SRW_TAC[][] THEN
+  ASM_SIMP_TAC (srw_ss() ++ ARITH_ss) [arithmeticTheory.LESS_DIV_EQ_ZERO]);
+
 val calculate_buf_sizes_EQ0 = prove(
   ``cb_t_maxseg < NUMERAL n ==>
      (((NUMERAL n, x, y ,z) =
         calculate_buf_sizes cb_t_maxseg seg_mss bwdp localp rcvbuf sndbuf
                             cb_tf_doing_tstmp arch)) =
-     ((NUMERAL n = MIN SB_MAX (roundup y (option_case rcvbuf I bwdp))) /\
+     ((NUMERAL n = MIN SB_MAX (roundup y (option_CASE bwdp rcvbuf I))) /\
       (x = bool$LET (\sndbufsize'.
                        if sndbufsize' < y then sndbufsize'
                        else MIN (256 * 1024) (roundup y sndbufsize'))
-                    (option_case sndbuf I bwdp)) /\
+                    (option_CASE bwdp sndbuf I)) /\
       (y = bool$LET (\maxseg.
                        if linux_arch arch then maxseg
                        else rounddown
                               2048
                               (maxseg -
                                calculate_tcp_options_len cb_tf_doing_tstmp))
-               (MIN cb_t_maxseg (MAX 64 (option_case MSSDFLT I seg_mss)))) /\
+               (MIN cb_t_maxseg (MAX 64 (option_CASE seg_mss MSSDFLT I)))) /\
       (z = y * (if localp then SS_FLTSZ_LOCAL else SS_FLTSZ)))``,
-  STRIP_TAC THEN EQ_TAC THENL [
-    STRIP_TAC THEN IMP_RES_TAC calculate_buf_sizes_EQ_implication THEN
-    ASM_REWRITE_TAC [TCP1_paramsTheory.MCLBYTES_def],
-    ALL_TAC
-  ] THEN
+  STRIP_TAC THEN EQ_TAC THEN1
+    (STRIP_TAC THEN IMP_RES_TAC calculate_buf_sizes_EQ_implication THEN
+     ASM_REWRITE_TAC [TCP1_paramsTheory.MCLBYTES_def]) THEN
   `NUMERAL n = n` by SRW_TAC [][arithmeticTheory.NUMERAL_DEF] THEN
   POP_ASSUM SUBST_ALL_TAC THEN
   REWRITE_TAC [TCP1_paramsTheory.SB_MAX_def] THEN
@@ -1767,9 +1761,7 @@ val calculate_buf_sizes_EQ0 = prove(
       by (STRIP_TAC THEN
           `~(rcvbufsize' = 0)`
              by (DISCH_THEN SUBST_ALL_TAC THEN
-                 FULL_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
-                               [roundup_def,
-                                arithmeticTheory.LESS_DIV_EQ_ZERO]) THEN
+                 REV_FULL_SIMP_TAC (srw_ss()) []) THEN
           `roundup y rcvbufsize' = y`
              by ASM_SIMP_TAC (srw_ss()) [roundup_lt_base] THEN
           metisLib.METIS_TAC [arithmeticTheory.LESS_LESS_EQ_TRANS,
@@ -1786,17 +1778,17 @@ val calculate_buf_sizes_EQ = store_thm(
      (((NUMERAL n, x, y ,z) =
         calculate_buf_sizes cb_t_maxseg seg_mss bwdp localp rcvbuf sndbuf
           cb_tf_doing_tstmp arch)) =
-     (let maxseg = MIN cb_t_maxseg (MAX 64 (option_case MSSDFLT I seg_mss)) in
+     (let maxseg = MIN cb_t_maxseg (MAX 64 (option_CASE seg_mss MSSDFLT I)) in
       let yval = if linux_arch arch then maxseg
                  else rounddown
                         2048
                         (maxseg - calculate_tcp_options_len cb_tf_doing_tstmp)
       in
-        (NUMERAL n = MIN SB_MAX (roundup yval (option_case rcvbuf I bwdp))) /\
+        (NUMERAL n = MIN SB_MAX (roundup yval (option_CASE bwdp rcvbuf I))) /\
         (x = bool$LET (\sndbufsize'.
                          if sndbufsize' < yval then sndbufsize'
                          else MIN (256 * 1024) (roundup yval sndbufsize'))
-                    (option_case sndbuf I bwdp)) /\
+                    (option_CASE bwdp sndbuf I)) /\
         (y = yval) /\
         (z = yval * (if localp then SS_FLTSZ_LOCAL else SS_FLTSZ)))``,
   ASSUME_TAC (SIMP_RULE (bool_ss ++ boolSimps.CONJ_ss) [LET_THM]
@@ -1805,7 +1797,7 @@ val calculate_buf_sizes_EQ = store_thm(
 
 val calculate_buf_sizes2 = prove(
   ``~((let maxseg = MIN (NUMERAL cbtm)
-                     (MAX 64 (option_case MSSDFLT I seg_mss))
+                     (MAX 64 (option_CASE seg_mss MSSDFLT I))
        in if linux_arch arch then maxseg
           else rounddown
                  MCLBYTES
@@ -1816,7 +1808,7 @@ val calculate_buf_sizes2 = prove(
                          is_local_conn rcvbufsize sndbufsize
                          cb_tf_doing_tstmp arch) ==>
     let maxseg = MIN (NUMERAL cbtm)
-                     (MAX 64 (option_case MSSDFLT I seg_mss)) in
+                     (MAX 64 (option_CASE seg_mss MSSDFLT I)) in
     let t_maxseg'' = if linux_arch arch then maxseg
                      else
                        rounddown
@@ -1824,9 +1816,9 @@ val calculate_buf_sizes2 = prove(
                          (maxseg - calculate_tcp_options_len cb_tf_doing_tstmp)
     in
       (rcvbufsize' = NUMERAL tm_out) /\
-      (option_case rcvbufsize I bw_delay_product_for_rt = NUMERAL tm_out) /\
+      (option_CASE bw_delay_product_for_rt rcvbufsize I = NUMERAL tm_out) /\
       (sndbufsize' =
-        let sndbuf' = option_case sndbufsize I bw_delay_product_for_rt in
+        let sndbuf' = option_CASE bw_delay_product_for_rt sndbufsize I in
           if sndbuf' < NUMERAL tm_out then sndbuf'
           else MIN SB_MAX (roundup t_maxseg'' sndbuf')) /\
       (snd_cwnd = rcvbufsize' * (if is_local_conn then SS_FLTSZ_LOCAL
@@ -1846,7 +1838,7 @@ val calculate_buf_sizes2' = prove(
                     pairTheory.PAIR_EQ, pairTheory.FST, pairTheory.SND] THEN
   Q.ABBREV_TAC
     `maxseg = MIN (NUMERAL cbtm)
-                  (MAX 64 (option_case MSSDFLT I seg_mss))` THEN
+                  (MAX 64 (option_CASE seg_mss MSSDFLT I))` THEN
   Q.ABBREV_TAC
     `maxseg' = rounddown
                  MCLBYTES
@@ -1876,9 +1868,4 @@ val better_real_of_int = save_thm(
 val _ = Phase.add_to_phase 1 "better_real_of_int"
 
 
-
-
 val _ = export_theory()
-
-
-end; (* struct *)
