@@ -11,9 +11,11 @@ open HolDoc
 
 local open TCP1_baseTypesTheory TCP1_utilsTheory TCP1_utilPropsTheory in end
 
-local open arithmeticTheory realTheory word32Theory in end;
+local open arithmeticTheory realTheory wordsTheory in end;
 
 val _ = new_theory "TCP1_rangeAnalysis";
+
+open lcsymtacs
 
 val _ = Version.registerTheory "$RCSfile: TCP1_rangeAnalysisScript.sml,v $" "$Revision: 1.7 $" "$Date: 2006/02/20 23:03:47 $";
 
@@ -23,20 +25,25 @@ val srange_def = Define`
      ?n:num. n <= size /\ x = base + n
 `;
 
+val _ = augment_srw_ss [rewrites [wordsTheory.dimword_32,
+                                  wordsTheory.dimindex_32,
+                                  wordsTheory.INT_MIN_def,
+                                  wordsTheory.INT_MAX_def]]
+
 val TOP_BOT = prove(
   ``4294967296w : word32 = 0w``,
-  SRW_TAC [][word32Theory.n2w_11, word32Theory.MOD_WL_def,
-             word32Theory.WL_def, word32Theory.HB_def]);
+  SRW_TAC [][wordsTheory.n2w_11]);
 
 val word32_nchotomy = prove(
-  ``!w : word32. ?n. w = n2w n /\ n < 4294967296``,
-  GEN_TAC THEN Q.SPEC_THEN `w` STRUCT_CASES_TAC word32Theory.word_nchotomy THEN
-  SRW_TAC [][word32Theory.n2w_11, word32Theory.MOD_WL_def,
-             word32Theory.WL_def, word32Theory.HB_def] THEN
+  ``!w : word32. ?n. (w = n2w n) /\ n < 4294967296``,
+  GEN_TAC THEN Q.ISPEC_THEN `w` STRUCT_CASES_TAC wordsTheory.word_nchotomy THEN
+  SRW_TAC [][wordsTheory.n2w_11] THEN
   Q.EXISTS_TAC `n MOD 4294967296` THEN
   SRW_TAC [][arithmeticTheory.DIVISION]);
 
 open integerTheory
+
+val WORD_SUB_EQN = TCP1_seq32PropsTheory.WORD_SUB_EQN
 
 val srange_alt = store_thm(
   "srange_alt",
@@ -46,95 +53,83 @@ val srange_alt = store_thm(
   Q.MATCH_ABBREV_TAC `srange (SEQ32 x1 v1) (SEQ32 x2 v2) sz =
                       (SEQ32 x2 v2 <= SEQ32 x1 v1 /\
                        SEQ32 x2 v2 + sz >= SEQ32 x1 v1)` THEN
-  Q.RM_ALL_ABBREVS_TAC THEN
+  markerLib.RM_ALL_ABBREVS_TAC THEN
   SRW_TAC [][srange_def, TCP1_baseTypesTheory.seq32_leq_def, EQ_IMP_THM,
              TCP1_baseTypesTheory.seq32_diff_def,
              TCP1_baseTypesTheory.seq32_plus_def,
              TCP1_baseTypesTheory.seq32_geq_def]
   THENL [
-    SRW_TAC [][word32Theory.WORD_ADD_SUB3, word32Theory.TWO_COMP_EVAL,
-               word32Theory.TWO_COMP_def, word32Theory.WL_def,
-               word32Theory.MOD_WL_def, word32Theory.HB_def] THEN
+    SRW_TAC [][wordsTheory.WORD_ADD_SUB3, wordsTheory.word_2comp_def] THEN
     Cases_on `n = 0` THENL [
-      SRW_TAC [][TOP_BOT, integer_word32Theory.w2i_n2w_1],
-      SRW_TAC [numSimps.ARITH_ss][integer_word32Theory.w2i_n2w_2] THEN
-      SRW_TAC [numSimps.ARITH_ss][GSYM INT_SUB]
+      SRW_TAC [][TOP_BOT, integer_wordTheory.w2i_n2w_pos],
+      SRW_TAC [numSimps.ARITH_ss][integer_wordTheory.w2i_n2w_neg]
     ],
-    Q.SPEC_THEN `v2` STRIP_ASSUME_TAC word32_nchotomy THEN
-    SRW_TAC [numSimps.ARITH_ss][integer_word32Theory.WORD_SUB_EQN,
-                                word32Theory.ADD_EVAL] THEN
-    SRW_TAC [numSimps.ARITH_ss][integer_word32Theory.w2i_n2w_1,
-                                integerTheory.int_ge],
+    Q.ISPEC_THEN `v2` STRIP_ASSUME_TAC word32_nchotomy THEN
+    SRW_TAC [numSimps.ARITH_ss][WORD_SUB_EQN, wordsTheory.word_add_n2w] THEN
+    SRW_TAC [numSimps.ARITH_ss][integer_wordTheory.w2i_n2w_pos, int_ge],
     Cases_on `x1` THEN Cases_on `x2` THEN ASM_REWRITE_TAC [] THEN
     `(?n1. v1 = n2w n1 /\ n1 < 4294967296) /\
      (?n2. v2 = n2w n2 /\ n2 < 4294967296)` by PROVE_TAC [word32_nchotomy] THEN
     Q.EXISTS_TAC `Num(w2i(v1 - v2))` THEN
     STRIP_ASSUME_TAC (DECIDE ``n1:num = n2 \/ n1 < n2 \/ n2 < n1``) THENL [
-      FULL_SIMP_TAC (srw_ss()) [word32Theory.WORD_SUB_REFL,
-                                word32Theory.word_0,
-                                integer_word32Theory.w2i_n2w_1,
-                                word32Theory.ADD_EVAL],
-      ASM_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
-                   [integer_word32Theory.WORD_SUB_EQN] THEN
+      FULL_SIMP_TAC (srw_ss()) [wordsTheory.WORD_SUB_REFL,
+                                wordsTheory.word_0,
+                                integer_wordTheory.w2i_n2w_pos,
+                                wordsTheory.word_add_n2w],
+      ASM_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss) [WORD_SUB_EQN] THEN
       `~(n2 - n1 < 2147483648)`
          by (STRIP_TAC THEN
              FULL_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
-                           [integer_word32Theory.w2i_n2w_1,
-                            integer_word32Theory.WORD_SUB_EQN]) THEN
+                           [integer_wordTheory.w2i_n2w_pos,
+                            WORD_SUB_EQN]) THEN
       `2147483648 <= n2 - n1` by DECIDE_TAC THEN
       `n1 + 2147483648 < n2`
           by (FULL_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
-                            [integer_word32Theory.w2i_n2w_1,
-                             word32Theory.ADD_EVAL,
-                             integer_word32Theory.w2i_n2w_2,
-                             integer_word32Theory.WORD_SUB_EQN] THEN
+                            [integer_wordTheory.w2i_n2w_pos,
+                             wordsTheory.word_add_n2w,
+                             integer_wordTheory.w2i_n2w_neg,
+                             WORD_SUB_EQN] THEN
               Q_TAC SUFF_TAC `~(n2 = n1 + 2147483648)` THEN1 DECIDE_TAC THEN
               STRIP_TAC THEN SRW_TAC [][] THEN
               Q.UNDISCH_THEN `sz < 2147483648` ASSUME_TAC THEN
               FULL_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
-                            [integer_word32Theory.w2i_n2w_2] THEN
+                            [integer_wordTheory.w2i_n2w_neg] THEN
               FULL_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
                             [int_ge, INT_LE_SUB_LADD]) THEN
       `n1 + 4294967296 - n2 < 2147483648` by DECIDE_TAC THEN
       ASM_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
-                   [integer_word32Theory.w2i_n2w_1, word32Theory.ADD_EVAL,
-                    word32Theory.n2w_11, word32Theory.MOD_WL_def,
-                    word32Theory.HB_def, word32Theory.WL_def] THEN
+                   [integer_wordTheory.w2i_n2w_pos, wordsTheory.word_add_n2w,
+                    wordsTheory.n2w_11] THEN
       CONJ_TAC THENL [
         FULL_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
-                      [integer_word32Theory.WORD_SUB_EQN,
-                       word32Theory.ADD_EVAL] THEN
+                      [WORD_SUB_EQN, wordsTheory.word_add_n2w] THEN
         SPOSE_NOT_THEN STRIP_ASSUME_TAC THEN
         `n2 + sz < n1 + 4294967296` by DECIDE_TAC THEN
         `2147483648 <= n2 + sz - n1 /\ n2 + sz - n1 < 4294967296`
            by DECIDE_TAC THEN
-        FULL_SIMP_TAC (srw_ss()) [integer_word32Theory.w2i_n2w_2] THEN
+        FULL_SIMP_TAC (srw_ss()) [integer_wordTheory.w2i_n2w_neg] THEN
         FULL_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
                       [int_ge, INT_LE_SUB_LADD],
         SRW_TAC [][arithmeticTheory.ADD_MODULUS]
       ],
 
-      ASM_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
-                   [integer_word32Theory.WORD_SUB_EQN] THEN
+      ASM_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss) [WORD_SUB_EQN] THEN
       Q_TAC SUFF_TAC `n1 - n2 <= sz` THEN1
             ASM_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
-                          [integer_word32Theory.w2i_n2w_1,
-                           word32Theory.ADD_EVAL, word32Theory.n2w_11,
-                           word32Theory.MOD_WL_def, word32Theory.HB_def,
-                           word32Theory.WL_def] THEN
+                          [integer_wordTheory.w2i_n2w_pos,
+                           wordsTheory.word_add_n2w] THEN
       SPOSE_NOT_THEN ASSUME_TAC THEN
       FULL_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
-                    [integer_word32Theory.WORD_SUB_EQN,
-                     word32Theory.ADD_EVAL] THEN
+                    [WORD_SUB_EQN, wordsTheory.word_add_n2w] THEN
       `n2 + 4294967296 - n1 < 4294967296` by DECIDE_TAC THEN
       `2147483648 <= n2 + 4294967296 - n1`
          by (SPOSE_NOT_THEN ASSUME_TAC THEN
              FULL_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
-                           [integer_word32Theory.w2i_n2w_1]) THEN
+                           [integer_wordTheory.w2i_n2w_pos]) THEN
       `n1 <= n2 + 2147483648` by DECIDE_TAC THEN
       `n2 + (sz + 4294967296) - n1 < 4294967296` by DECIDE_TAC THEN
       `2147483648 <= n2 + (sz + 4294967296) - n1` by DECIDE_TAC THEN
-      FULL_SIMP_TAC (srw_ss()) [integer_word32Theory.w2i_n2w_2] THEN
+      FULL_SIMP_TAC (srw_ss()) [integer_wordTheory.w2i_n2w_neg] THEN
       FULL_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
                     [int_ge, INT_LE_SUB_LADD]
     ]
@@ -147,13 +142,13 @@ val srange_concrete = store_thm(
             (SEQ32 Tstamp (n2w (NUMERAL m)))
             sz
     =
-     (w2i (n2w (NUMERAL m) - n2w (NUMERAL n)) <= 0 /\
-      w2i (n2w (NUMERAL m + sz) - n2w (NUMERAL n)) >= 0))``,
+     (w2i (n2w (NUMERAL m) - n2w (NUMERAL n) : word32) <= 0 /\
+      w2i (n2w (NUMERAL m + sz) - n2w (NUMERAL n) : word32) >= 0))``,
   SRW_TAC [][srange_alt, TCP1_baseTypesTheory.seq32_geq_def,
              TCP1_baseTypesTheory.seq32_leq_def,
              TCP1_baseTypesTheory.seq32_diff_def,
              TCP1_baseTypesTheory.seq32_plus_def,
-             word32Theory.ADD_EVAL]);
+             wordsTheory.word_add_n2w]);
 val _ = Phase.add_to_phase 1 "srange_concrete"
 
 val tstamp_arb = prove(
@@ -166,10 +161,8 @@ val srange_0 = store_thm(
   ``srange (v:tstamp seq32) b 0 = (v = b)``,
   Cases_on `b` THEN Cases_on `v` THEN
   SRW_TAC [][srange_def, TCP1_baseTypesTheory.seq32_plus_def,
-             tstamp_arb, SYM word32Theory.word_0, word32Theory.WORD_ADD_0]);
+             tstamp_arb, wordsTheory.WORD_ADD_0]);
 val _ = Phase.add_to_phase 1 "srange_0"
-
-
 
 val into_srange = store_thm(
   "into_srange",
@@ -177,8 +170,8 @@ val into_srange = store_thm(
       (?d. v = SEQ32 Tstamp w + d /\ lo <= d /\ d < hi) =
       srange v (SEQ32 Tstamp w + lo) (hi - lo - 1)``,
   SRW_TAC [][srange_def, EQ_IMP_THM, TCP1_baseTypesTheory.seq32_plus_def,
-             word32Theory.WORD_EQ_ADD_LCANCEL, word32Theory.ADD_EVAL,
-             GSYM word32Theory.WORD_ADD_ASSOC] THENL [
+             wordsTheory.WORD_EQ_ADD_LCANCEL, wordsTheory.word_add_n2w,
+             GSYM wordsTheory.WORD_ADD_ASSOC] THENL [
     Q.EXISTS_TAC `d - lo` THEN
     ASM_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss) [],
     Q.EXISTS_TAC `lo + n` THEN
@@ -192,13 +185,9 @@ val irange_def = Define`
 
 val WORD_SUB_EQN' =
     SIMP_RULE bool_ss []
-              (DISCH_ALL (ADD_ASSUM ``x:num <= y``
-                                    (GSYM integer_word32Theory.WORD_SUB_EQN)))
+              (DISCH_ALL (ADD_ASSUM ``x:num <= y`` (GSYM WORD_SUB_EQN)))
 
-val WORD_SUB_0 = prove(
-  ``w - 0w : word32 = w``,
-  SRW_TAC [][word32Theory.word_sub, word32Theory.WORD_NEG_0,
-             word32Theory.WORD_ADD_0]);
+val WORD_SUB_0 = wordsTheory.WORD_SUB_RZERO
 
 val ranged_seq32_sub = store_thm(
   "ranged_seq32_sub",
@@ -215,15 +204,14 @@ val ranged_seq32_sub = store_thm(
       by PROVE_TAC [word32_nchotomy] THEN
   FULL_SIMP_TAC (srw_ss()) [TCP1_baseTypesTheory.seq32_plus_def,
                             TCP1_baseTypesTheory.seq32_diff_def,
-                            word32Theory.ADD_EVAL] THEN
+                            wordsTheory.word_add_n2w] THEN
   Cases_on `wn <= bn` THENL [
-    FULL_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
-                  [integer_word32Theory.WORD_SUB_EQN] THEN
+    FULL_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss) [WORD_SUB_EQN] THEN
     Cases_on `bn - wn < 2147483648` THENL [
-      FULL_SIMP_TAC (srw_ss()) [integer_word32Theory.w2i_n2w_1,
-                                INT_ABS_NUM] THEN
+      FULL_SIMP_TAC (srw_ss() ++ ARITH_ss)
+                    [integer_wordTheory.w2i_n2w_pos, INT_ABS_NUM] THEN
       Cases_on `bn + n - wn < 2147483648` THENL [
-        FULL_SIMP_TAC (srw_ss()) [integer_word32Theory.w2i_n2w_1,
+        FULL_SIMP_TAC (srw_ss()) [integer_wordTheory.w2i_n2w_pos,
                                   INT_ABS_NUM] THEN
         REWRITE_TAC [INT_ADD, INT_INJ] THEN
         DECIDE_TAC,
@@ -232,7 +220,7 @@ val ranged_seq32_sub = store_thm(
          2147483648 <= bn + sz - wn`
           by DECIDE_TAC THEN
         FULL_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
-                      [integer_word32Theory.w2i_n2w_2,
+                      [integer_wordTheory.w2i_n2w_neg,
                        arithmeticTheory.NOT_LESS,
                        INT_ABS, INT_LT_SUB_RADD] THEN
         FULL_SIMP_TAC bool_ss [INT_ADD, INT_LT] THEN
@@ -240,74 +228,73 @@ val ranged_seq32_sub = store_thm(
       ],
       `bn - wn < 4294967296` by DECIDE_TAC THEN
       FULL_SIMP_TAC (srw_ss()) [arithmeticTheory.NOT_LESS,
-                                integer_word32Theory.w2i_n2w_2] THEN
+                                integer_wordTheory.w2i_n2w_neg] THEN
       `2147483648 <= bn + n - wn` by DECIDE_TAC THEN
       Cases_on `bn + n - wn < 4294967296` THENL [
-        ASM_SIMP_TAC (srw_ss()) [integer_word32Theory.w2i_n2w_2] THEN
+        simp[integer_wordTheory.w2i_n2w_neg] THEN
         ASM_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss) [GSYM INT_SUB] THEN
         REWRITE_TAC [GSYM INT_ADD] THEN
         ASM_SIMP_TAC bool_ss [int_sub, AC INT_ADD_ASSOC INT_ADD_COMM],
         `bn + n - wn < 4294967296 + 2147483648` by DECIDE_TAC THEN
         `n2w (bn + n - wn) = n2w ((bn + n - wn) - 4294967296) : word32`
-            by ASM_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
+            by ASM_SIMP_TAC (bool_ss ++ numSimps.ARITH_ss)
                             [WORD_SUB_EQN', WORD_SUB_0, TOP_BOT] THEN
         `bn + n - wn - 4294967296 < 2147483648` by DECIDE_TAC THEN
-        ASM_SIMP_TAC (srw_ss()) [integer_word32Theory.w2i_n2w_1] THEN
+        simp[integer_wordTheory.w2i_n2w_pos] THEN
         ASM_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
                      [GSYM INT_SUB, GSYM INT_ADD, int_sub,
                       INT_NEG_ADD, AC INT_ADD_ASSOC INT_ADD_COMM]
       ]
     ],
-    ASM_SIMP_TAC (srw_ss()) [integer_word32Theory.WORD_SUB_EQN] THEN
-    Cases_on `wn <= bn + n` THENL [
+    ASM_SIMP_TAC (srw_ss()) [WORD_SUB_EQN] THEN Cases_on `wn <= bn + n` THENL [
       ASM_SIMP_TAC (srw_ss()) [] THEN
       `wn <= bn + sz` by DECIDE_TAC THEN
-      FULL_SIMP_TAC (srw_ss()) [integer_word32Theory.WORD_SUB_EQN] THEN
+      FULL_SIMP_TAC (srw_ss()) [WORD_SUB_EQN] THEN
       Cases_on `bn + 4294967296 - wn < 2147483648` THENL [
-        FULL_SIMP_TAC (srw_ss()) [integer_word32Theory.w2i_n2w_1] THEN
+        FULL_SIMP_TAC (srw_ss()) [integer_wordTheory.w2i_n2w_pos] THEN
         ASM_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss) [GSYM INT_SUB] THEN
         `bn + n - wn < 2147483648 /\ bn + sz - wn < 2147483648`
           by DECIDE_TAC THEN
         FULL_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
-                      [integer_word32Theory.w2i_n2w_1,
+                      [integer_wordTheory.w2i_n2w_pos,
                        INT_ABS, GSYM INT_SUB, INT_LT_SUB_RADD],
         `bn + 4294967296 - wn < 4294967296` by DECIDE_TAC THEN
         FULL_SIMP_TAC (srw_ss()) [arithmeticTheory.NOT_LESS,
-                                  integer_word32Theory.w2i_n2w_2] THEN
+                                  integer_wordTheory.w2i_n2w_neg] THEN
         `bn + n - wn < 2147483648` by DECIDE_TAC THEN
         ASM_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
-                     [GSYM INT_SUB, integer_word32Theory.w2i_n2w_1,
-                      int_sub, AC INT_ADD_ASSOC INT_ADD_COMM, GSYM INT_ADD]
+                     [GSYM INT_SUB, integer_wordTheory.w2i_n2w_pos,
+                      int_sub, AC INT_ADD_ASSOC INT_ADD_COMM, GSYM INT_ADD] THEN
+        intLib.ARITH_TAC
       ],
       ASM_SIMP_TAC (srw_ss()) [] THEN
       `bn + n < 4294967296` by DECIDE_TAC THEN
       ASM_SIMP_TAC (srw_ss()) [] THEN
       Cases_on `bn + 4294967296 - wn < 2147483648` THENL [
-        FULL_SIMP_TAC (srw_ss()) [integer_word32Theory.w2i_n2w_1,
-                                  integer_word32Theory.WORD_SUB_EQN,
-                                  INT_ABS_NUM] THEN
+        FULL_SIMP_TAC (srw_ss()) [integer_wordTheory.w2i_n2w_pos,
+                                  WORD_SUB_EQN, INT_ABS_NUM] THEN
         `~(wn <=  bn + sz)` by DECIDE_TAC THEN
         `bn + sz < 4294967296` by DECIDE_TAC THEN
         FULL_SIMP_TAC (srw_ss()) [] THEN
         Cases_on `bn + sz + 4294967296 - wn < 2147483648` THENL [
           `bn + n + 4294967296 - wn < 2147483648` by DECIDE_TAC THEN
-          FULL_SIMP_TAC (srw_ss()) [integer_word32Theory.w2i_n2w_1,
+          FULL_SIMP_TAC (srw_ss()) [integer_wordTheory.w2i_n2w_pos,
                                     INT_ADD] THEN
           DECIDE_TAC,
           `bn + sz + 4294967296 - wn < 4294967296 /\
            bn + n + 4294967296 - wn < 4294967296` by DECIDE_TAC THEN
           FULL_SIMP_TAC (srw_ss()) [arithmeticTheory.NOT_LESS,
-                                    integer_word32Theory.w2i_n2w_2] THEN
+                                    integer_wordTheory.w2i_n2w_neg] THEN
           FULL_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
                         [INT_ABS, INT_LT_SUB_RADD, INT_ADD]
         ],
         `bn + 4294967296 - wn < 4294967296` by DECIDE_TAC THEN
-        FULL_SIMP_TAC (srw_ss()) [arithmeticTheory.NOT_LESS,
-                                  integer_word32Theory.WORD_SUB_EQN,
-                                  integer_word32Theory.w2i_n2w_2] THEN
+        FULL_SIMP_TAC (srw_ss() ++ ARITH_ss)
+          [arithmeticTheory.NOT_LESS, WORD_SUB_EQN,
+           integer_wordTheory.w2i_n2w_neg] THEN
         `2147483648 <= bn + n + 4294967296 - wn` by DECIDE_TAC THEN
         `bn + n + 4294967296 - wn < 4294967296` by DECIDE_TAC THEN
-        ASM_SIMP_TAC (srw_ss()) [integer_word32Theory.w2i_n2w_2] THEN
+        ASM_SIMP_TAC (srw_ss()) [integer_wordTheory.w2i_n2w_neg] THEN
         ASM_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss) [GSYM INT_SUB,
                                                       GSYM INT_ADD] THEN
         SIMP_TAC (srw_ss()) [AC INT_ADD_ASSOC INT_ADD_COMM, int_sub]
@@ -515,14 +502,14 @@ val _ = Phase.add_to_phase 1 "nrange_concrete"
 val rounddown_def = TCP1_utilsTheory.rounddown_def
 val DIV_EQ_0 = store_thm(
   "DIV_EQ_0",
-  ``0 < n ==> ((r DIV n = 0) = r < n)``,
+  ``0 < n ==> ((r DIV n = 0) <=> r < n)``,
   STRIP_TAC THEN
   Q.SPEC_THEN `n` MP_TAC arithmeticTheory.DIVISION THEN
   ASM_REWRITE_TAC [] THEN
   DISCH_THEN (Q.SPEC_THEN `r` STRIP_ASSUME_TAC) THEN
   Q.ABBREV_TAC `p = r DIV n` THEN
   Q.ABBREV_TAC `q = r MOD n` THEN
-  Q.RM_ALL_ABBREVS_TAC THEN
+  markerLib.RM_ALL_ABBREVS_TAC THEN
   SRW_TAC [][EQ_IMP_THM] THEN
   Cases_on `p` THEN
   FULL_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
