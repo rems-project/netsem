@@ -13,7 +13,7 @@ open HolDoc
 
 local open TCP1_baseTypesTheory TCP1_utilsTheory TCP1_utilPropsTheory in end
 
-local open arithmeticTheory realTheory word32Theory in end;
+local open arithmeticTheory realTheory wordsTheory in end;
 
 val _ = BasicProvers.augment_srw_ss [rewrites [LET_THM]]
 
@@ -57,17 +57,16 @@ val Time_Pass_ticker_additive = store_thm(
     POP_ASSUM_LIST (MAP_EVERY MP_TAC) THEN RealArith.REAL_ARITH_TAC,
     Cases_on `s0` THEN
     SRW_TAC [][TCP1_baseTypesTheory.seq32_plus_def,
-               GSYM word32Theory.WORD_ADD_ASSOC,
-               word32Theory.ADD_EVAL]
+               GSYM wordsTheory.WORD_ADD_ASSOC,
+               wordsTheory.word_add_n2w]
   ]);
 
 val seq32_add_rid = prove(
   ``(x : 'a seq32) + 0n = x``,
-  SingleStep.Cases_on `x` THEN
-  simpLib.SIMP_TAC (BasicProvers.srw_ss())
+  Cases_on `x` THEN
+  simpLib.SIMP_TAC (srw_ss())
                    [TCP1_baseTypesTheory.seq32_plus_def,
-                    REWRITE_RULE [word32Theory.word_0]
-                                 word32Theory.WORD_ADD_0]);
+                    REWRITE_RULE [wordsTheory.word_0] wordsTheory.WORD_ADD_0]);
 
 
 val ARITH_TAC = POP_ASSUM_LIST (MAP_EVERY MP_TAC) THEN
@@ -161,7 +160,7 @@ val x_le_num_floor = prove(
   ]);
 
 val num_floor_le_x = prove(
-  ``(num_floor x <= y) = x < (&)y + 1``,
+  ``(num_floor x <= y) <=> x < (&)y + 1``,
   SRW_TAC [][TCP1_utilsTheory.num_floor_def] THEN
   CONV_TAC (UNBETA_CONV ``LEAST n. (&)(n + 1) > x:real``) THEN
   MATCH_MP_TAC whileTheory.LEAST_ELIM THEN
@@ -283,7 +282,7 @@ val seq32_add_assoc = prove(
   ``((x : 'a seq32) + y:num) + z = x + (y + z)``,
   Cases_on `x` THEN
   SRW_TAC [][TCP1_baseTypesTheory.seq32_plus_def,
-             GSYM word32Theory.WORD_ADD_ASSOC, word32Theory.ADD_EVAL]);
+             GSYM wordsTheory.WORD_ADD_ASSOC, wordsTheory.word_add_n2w]);
 
 (* Finally, the result we've all been waiting for... *)
 val time_pass_exists_eliminate = store_thm(
