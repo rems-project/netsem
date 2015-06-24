@@ -2,4 +2,6 @@ strings.sml
 genstrings.exe
 genstrings.o
 trace_checker.exe
+CheckTraces.exe
+GroundTraces.exe
 *.imn
