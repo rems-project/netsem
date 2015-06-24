@@ -10,7 +10,7 @@ val _ = new_theory "TCP1_urgency";
 
 val _ = Version.registerTheory "$RCSfile: TCP1_urgencyScript.sml,v $" "$Revision: 1.16 $" "$Date: 2006/10/04 10:23:17 $";
 
-open SingleStep BasicProvers bossLib
+open BasicProvers bossLib
 
 val _ = augment_srw_ss [boolSimps.LET_ss]
 
@@ -55,8 +55,7 @@ val nonurgent_host_def = Define`
     DISCH_THEN ASSUME_TAC THEN VAR_EQ_TAC
   end
 
-  val _ = augment_srw_ss [rewrites [TCP1_utilsTheory.neq_def,
-                                    finite_mapTheory.FUPDATE_LIST_THM,
+  val _ = augment_srw_ss [rewrites [finite_mapTheory.FUPDATE_LIST_THM,
                                     TCP1_hostTypesTheory.Sock_def]]
 
   val urgent_rules = store_thm(
@@ -153,6 +152,9 @@ val LAST_APPEND_1 = store_thm(
   Induct THEN SRW_TAC [][listTheory.LAST_DEF]);
 val _ = export_rewrites ["LAST_APPEND_1"]
 
+val brwt1 = SIMP_CONV (srw_ss()) [] ``F /\ p``
+val brwt2 = SIMP_CONV (srw_ss()) [] ``p \/ F``
+
 val approx_tac =
   REPEAT GEN_TAC THEN STRIP_TAC THEN
   REWRITE_TAC [TCP1_hostLTSTheory.host_redn0_cases] THEN
@@ -160,8 +162,7 @@ val approx_tac =
     (RAND_CONV
        (EVERY_DISJ_CONV
           (STRIP_QUANT_CONV (LAND_CONV (SIMP_CONV (srw_ss()) []))))) THEN
-  REWRITE_TAC [TCP1_utilsTheory.neq_def,
-               TCP1_utilsTheory.NOTIN_def] THEN
+  PURE_REWRITE_TAC [brwt1, brwt2, EXISTS_SIMP] THEN
   STRIP_TAC THEN
   Q.PAT_ASSUM `rc = y` SUBST_ALL_TAC THEN
   RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [TCP1_preHostTypesTheory.is_urgent_def]) THEN
@@ -339,21 +340,18 @@ val Time_Pass_tcpcb_relationally = prove(
     Time_Pass_tcpcb_rel dur cb cb'``,
   SRW_TAC [][TCP1_hostLTSTheory.Time_Pass_tcpcb_def,
              Time_Pass_tcpcb_rel_def, pred_setTheory.SPECIFICATION,
-             relify_def, RES_EXISTS_THM]
-  THENL [
-    FULL_SIMP_TAC (srw_ss()) [IS_SOME_EXISTS,
-                              GSYM RIGHT_EXISTS_AND_THM],
-    FULL_SIMP_TAC (srw_ss()) []
-  ]);
+             relify_def, RES_EXISTS_THM] THEN
+  SRW_TAC[][IS_SOME_EXISTS, PULL_EXISTS, GSYM RIGHT_EXISTS_AND_THM] THEN
+  SRW_TAC[][EQ_IMP_THM] THEN SRW_TAC[][] THEN METIS_TAC[]);
 
 val Time_Pass_socket_rel_def = Define`
   Time_Pass_socket_rel dur s0 s =
      case s0.pr of
-        TCP_PROTO v ->
+        TCP_PROTO v =>
           (let cb0 = v.cb in
              ?cb. Time_Pass_tcpcb_rel dur cb0 cb /\
                   (s = s0 with pr := TCP_PROTO (v with cb := cb)))
-     || UDP_PROTO  _ -> (s = s0)
+      | UDP_PROTO  _ => (s = s0)
 `;
 
 val Time_Pass_socket_relationally = prove(
@@ -441,25 +439,20 @@ val NOT_EQ_NONE = prove(
   ``~(x = NONE) = ?y. x = SOME y``,
   Cases_on `x` THEN SRW_TAC [][]);
 
+open lcsymtacs
 val fmap_every_pred_relationally = prove(
   ``(?x. fmap_every_pred (Time_Pass_socket dur) fm = SOME x /\ y IN x) =
     fm_range_relates (Time_Pass_socket_rel dur) fm y``,
-  SRW_TAC [][TCP1_hostLTSTheory.fmap_every_pred_def,
+  SRW_TAC [][TCP1_hostLTSTheory.fmap_every_pred_def, EQ_IMP_THM,
+             NOT_EQ_NONE,
              fm_range_relates_def, SYM Time_Pass_socket_relationally]
   THENL [
-    Cases_on `FDOM fm = FDOM y` THEN SRW_TAC [][] THEN
-    `?k. k IN FDOM fm /\ fm ' k = y'` by PROVE_TAC [IN_FRANGE_KEY_IN_DOM] THEN
-    Q.EXISTS_TAC `k` THEN SRW_TAC [][] THEN PROVE_TAC [],
-    POP_ASSUM (STRIP_ASSUME_TAC o SIMP_RULE (srw_ss()) []) THEN
-    FULL_SIMP_TAC (srw_ss()) [
-     tautLib.TAUT_PROVE ``(~p \/ q) = (p ==> q)``] THEN
-    FULL_SIMP_TAC (srw_ss()) [IN_FRANGE_KEY_IN_DOM, NOT_EQ_NONE,
-                              GSYM LEFT_FORALL_IMP_THM] THEN
-    RULE_ASSUM_TAC (SIMP_RULE (srw_ss())
-                              [GSYM RIGHT_EXISTS_IMP_THM, SKOLEM_THM]) THEN
-    POP_ASSUM STRIP_ASSUME_TAC THEN SRW_TAC [][]
+    `fm ' k ∈ FRANGE fm` by PROVE_TAC [IN_FRANGE_KEY_IN_DOM] THEN
+    metis_tac[optionTheory.THE_DEF],
+    qcase_tac `e ∈ FRANGE fm` >> Cases_on `e ∈ FRANGE fm` >> simp[] >>
+    metis_tac[IN_FRANGE_KEY_IN_DOM],
+    metis_tac[optionTheory.THE_DEF]
   ]);
-
 
 val Time_Pass_host_rel_def = Define`
   Time_Pass_host_rel dur h h' =
@@ -479,15 +472,14 @@ val Time_Pass_host_relationally = prove(
   SRW_TAC [][TCP1_hostLTSTheory.Time_Pass_host_def,
              relify_def, pred_setTheory.SPECIFICATION,
              SYM fmap_every_pred_relationally, Time_Pass_host_rel_def,
-             RES_EXISTS_THM]
-  THENL [
-    FULL_SIMP_TAC (srw_ss()) [IS_SOME_EXISTS,
-                              GSYM RIGHT_EXISTS_AND_THM] THEN PROVE_TAC [],
-    FULL_SIMP_TAC (srw_ss()) []
-  ]);
+             RES_EXISTS_THM, IS_SOME_EXISTS, PULL_EXISTS] >>
+  csimp[] >> metis_tac[]);
 
 val epsilon_rule = CONJUNCT1 TCP1_hostLTSTheory.host_redn_rules
 
+(* don't understand how the -- --=> relation is supposed to work without
+   having made a TCP1_net theory an ancestor *)
+(*
 val better_epsilon_rule = store_thm(
   "better_epsilon_rule",
   ``!h dur h'.
@@ -495,7 +487,6 @@ val better_epsilon_rule = store_thm(
        epsilon_1 /* rp_all, misc nonurgent */ h -- Lh_epsilon dur --=> h'``,
   SRW_TAC [][nonurgent_host_def, GSYM Time_Pass_host_relationally] THEN
   MATCH_MP_TAC epsilon_rule THEN SRW_TAC [][]);
+*)
 
 val _ = export_theory()
-
-
