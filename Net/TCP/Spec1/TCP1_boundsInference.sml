@@ -219,7 +219,7 @@ fun infer_ticks_of_constraint ths t = let
   val bounds = SIMP_RULE real_ss [into_srange] bounds
 in
   SIMP_RULE std_ss [TCP1_baseTypesTheory.seq32_plus_def,
-                    word32Theory.ADD_EVAL] bounds
+                    wordsTheory.word_add_n2w] bounds
 end
 
 val ticker_ty = mk_thy_type {Thy = "TCP1_timers", Tyop = "ticker", Args = []}
