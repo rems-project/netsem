@@ -18,8 +18,8 @@ val comp_limit = 10
 val unknown_const_value = 20
 
 (* the CLET library's most important terms *)
-val CLET_t = ``LetCompute$CLET``
-val value_t = ``LetCompute$value``
+val CLET_t = ``LetCompute$CLET : ('a -> 'b) -> 'a -> 'b``
+val value_t = ``LetCompute$value : 'a -> 'a``
 val pending_t = ``LetCompute$pending``
 
 fun dest_clet t = let
@@ -66,8 +66,11 @@ fun count_occurrences acc v t =
 fun CLET_CONV t = let
   val (f, args) = strip_comb t
   val _ = assert (same_const CLET_t) f
-  val _ = assert (fn t => length t = 2) args
-  val [vbody, v_arg] = args
+  val (vbody, v_arg) =
+      case args of
+          [a1, a2] => (a1, a2)
+        | _ => raise mk_HOL_ERR "LetComputeLib" "CLET_CONV"
+                     "Not fully applied CLET"
   val (v, body) = dest_abs vbody
   (* can't be bothered with paired or anded lets *)
   val value_conv = (* to be called when value has a value tag *)
@@ -360,7 +363,7 @@ fun rearrange_conjs c =
     markerLib.move_conj_left (equal c)
 
 val elimination_thm = prove(
-  ``(?x. (x = e) /\ P x) = CLET (\x. P x) e``,
+  ``(?x:'a. (x = e) /\ P x) = CLET (\x. P x) e``,
   simpLib.SIMP_TAC boolSimps.bool_ss [CLET_THM]);
 
 val not_elim = prove(``~p = (p = F)``, REWRITE_TAC [])
@@ -650,7 +653,7 @@ end
    ---------------------------------------------------------------------- *)
 
 val cse_elim_thm = prove(
-  ``CLET (\v. f v e) (value e) = CLET (\v. f v v) (value e)``,
+  ``CLET (\v. f v e : 'b) (value e : 'a) = CLET (\v. f v v) (value e)``,
   REWRITE_TAC [CLET_THM, value_def] THEN BETA_TAC THEN REWRITE_TAC [])
 
 fun cse_elim1_CONV t = let
@@ -720,7 +723,7 @@ end
 val CLET_ss =
     simpLib.SSFRAG {ac = [], congs = [CLET_congruence],
                      convs = [{conv = K (K CLET_CONV),
-                               key = SOME ([], ``CLET f x``),
+                               key = SOME ([], ``CLET (f:'a -> 'b) x``),
                                name = "CLET_CONV", trace = 2},
                               {conv = K (K pending_CONV),
                                key = SOME ([], ``pending x``),
