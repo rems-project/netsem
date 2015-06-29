@@ -74,7 +74,7 @@ val _ = add_rule { block_style = (AroundEachPhrase, (PP.INCONSISTENT, 0)),
                                   TM, (* host0 *)
                                   BreakSpace(1,2), TOK "--", HardSpace 1,
                                   TM, (* label *)
-                                  HardSpace 1, TOK "--->", BreakSpace(1,0)],
+                                  HardSpace 1, TOK "--=>", BreakSpace(1,0)],
                    term_name = "host_redn"
                    };
 
@@ -18517,7 +18517,7 @@ val (host_redn_rules, host_redn_ind, host_redn_cases) =
 
    epsilon_1 /* rp_all, misc nonurgent (*: Time passes :*) */
      h
-   -- Lh_epsilon dur --->
+   -- Lh_epsilon dur --=>
      h'
 
    <==
@@ -18544,17 +18544,17 @@ val (host_redn_rules, host_redn_ind, host_redn_cases) =
 
    epsilon_2 /* rp_all, misc nonurgent (*: Inductively defined time passage :*) */
      h
-   -- Lh_epsilon dur --->
+   -- Lh_epsilon dur --=>
      h'
 
    <==
 
     (?h1 h2 dur' dur''.
        dur' < dur /\
-       (?rn rp rc. rn /* rp, rc */ h -- (Lh_epsilon dur') ---> h1) /\
-       (?rn rp rc. rn /* rp, rc */ h1 -- (Lh_tau) ---> h2) /\
+       (?rn rp rc. rn /* rp, rc */ h -- (Lh_epsilon dur') --=> h1) /\
+       (?rn rp rc. rn /* rp, rc */ h1 -- (Lh_tau) --=> h2) /\
        dur' + dur'' = dur /\
-       (?rn rp rc. rn /* rp, rc */ h2 -- (Lh_epsilon dur'') ---> h')
+       (?rn rp rc. rn /* rp, rc */ h2 -- (Lh_epsilon dur'') --=> h')
     )
 
 
@@ -18574,7 +18574,7 @@ val (host_redn_rules, host_redn_ind, host_redn_cases) =
 
    rn /* rp, rc */
      h
-   -- lbl --->
+   -- lbl --=>
      h'
 
    <==

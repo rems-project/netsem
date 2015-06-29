@@ -479,7 +479,6 @@ val epsilon_rule = CONJUNCT1 TCP1_hostLTSTheory.host_redn_rules
 
 (* don't understand how the -- --=> relation is supposed to work without
    having made a TCP1_net theory an ancestor *)
-(*
 val better_epsilon_rule = store_thm(
   "better_epsilon_rule",
   ``!h dur h'.
@@ -487,6 +486,5 @@ val better_epsilon_rule = store_thm(
        epsilon_1 /* rp_all, misc nonurgent */ h -- Lh_epsilon dur --=> h'``,
   SRW_TAC [][nonurgent_host_def, GSYM Time_Pass_host_relationally] THEN
   MATCH_MP_TAC epsilon_rule THEN SRW_TAC [][]);
-*)
 
 val _ = export_theory()
