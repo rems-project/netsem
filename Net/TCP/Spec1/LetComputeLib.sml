@@ -138,7 +138,7 @@ fun namer basev = let
         val rest = String.substring(nm, 0, size nm - 5)
         val delim =
             if is_substring brss rest then brss else "_"
-        val (tyname, fld) = Substring.position delim (Substring.all rest)
+        val (tyname, fld) = Substring.position delim (Substring.full rest)
         val fld = String.extract(Substring.string fld, size delim, NONE)
       in
         mk_var(basename ^ "_" ^ fld, ty)

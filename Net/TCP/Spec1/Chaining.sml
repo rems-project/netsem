@@ -96,7 +96,7 @@ end
    its first component.   *)
 fun gentest s = let
   open Substring
-  val ss = all s
+  val ss = full s
   fun recurse seen c0 acc ss =
       case getc ss of
         NONE => acc
