@@ -183,7 +183,8 @@ val GSPEC_ss = SSFRAG {ac = [], congs = [],
                         convs = [{conv = K (K gspec_eq_empty),
                                   key = SOME ([], ``pred_set$GSPEC f``),
                                   trace = 2, name = "gspec_eq_empty"}],
-                        dprocs = [], filter = NONE, rewrs = []}
+                        dprocs = [], filter = NONE, rewrs = [],
+                        name = SOME "testEval.GSPEC_ss" }
 
 
 (* options *)
@@ -818,7 +819,8 @@ val strCONV_ss = SSFRAG {ac = [], congs = [],
                                     key = SOME([], ``CLET f (value x)``),
                                     name = "structure_reduction_CONV",
                                     trace = 2}],
-                          dprocs = [], filter = NONE, rewrs = []}
+                          dprocs = [], filter = NONE, rewrs = [],
+                          name = SOME "testEval.strCONV_ss"}
 
 (* ----------------------------------------------------------------------
     (updated record) equality conversion
@@ -881,7 +883,8 @@ val updeq_CONV_ss =
                      convs = [{conv = K (K (updrec_EQ_CONV updrec_info)),
                                key = SOME ([], ``x:'a = y``),
                                name = "updrec_EQ_CONV", trace = 2}],
-                     dprocs = [], filter = NONE, rewrs = []}
+                     dprocs = [], filter = NONE, rewrs = [],
+                     name = SOME "testEval.updeq_CONV_ss"}
 
 
 val better_do_tcp_options =
@@ -1013,7 +1016,8 @@ val rathandler_SS =
                   Q.INST [`z` |-> `real_of_num (NUMERAL (BIT1 n))`]
                          realTheory.mult_ratr,
                   Q.INST [`z` |-> `real_of_num (NUMERAL (BIT2 n))`]
-                         realTheory.mult_ratr]}
+                         realTheory.mult_ratr],
+             name = SOME "testEval.rathandler_SS"}
 
 val better_EL =
     LIST_CONJ
@@ -1245,9 +1249,10 @@ val fempty_fupdate_eq_ss = let
   val c = REWR_CONV REFL_CLAUSE ORELSEC REWR_CONV fempty_fupdate_eq
 in
   SSFRAG {ac = [], congs = [],
-           convs = [{conv = K (K c), name = "fempty_fupdate_eq", trace = 2,
-                     key = SOME([], ``FEMPTY |+ (ck,cv) = fm |+ (k,v)``)}],
-           dprocs = [], filter = NONE, rewrs = []}
+          convs = [{conv = K (K c), name = "fempty_fupdate_eq", trace = 2,
+                    key = SOME([], ``FEMPTY |+ (ck,cv) = fm |+ (k,v)``)}],
+          dprocs = [], filter = NONE, rewrs = [],
+          name = SOME "testEval.fempty_fupdate_eq_ss" }
 end
 
 val base_ss =
@@ -1293,49 +1298,52 @@ val cond_cong1 = prove(
   SIMP_TAC boolSimps.bool_ss []);
 
 val cond_ss = SSFRAG {ac = [], congs = [cond_cong1], convs = [],
-                               filter = NONE, dprocs = [], rewrs = []}
+                      filter = NONE, dprocs = [], rewrs = [],
+                      name = SOME "testEval.cond_ss" }
 
 val option_cong = prove(
   ``(p = p') ==> (option_case x y p = option_case x y p')``,
   SIMP_TAC boolSimps.bool_ss []);
 
-val option_cong_ss = SSFRAG {ac = [], congs = [option_cong],
-                              convs = [], filter = NONE,
-                              dprocs = [], rewrs = []}
+val option_cong_ss = SSFRAG {ac = [], congs = [option_cong], convs = [],
+                             filter = NONE, dprocs = [], rewrs = [],
+                             name = SOME "testEval.option_cong_ss" }
 val lconj_cong_ss = SSFRAG {ac = [], congs = [NetEvalTheory.lconj_cong],
-                             convs = [], filter = NONE, dprocs = [],
-                             rewrs = []}
-fun pending_filter th0 = let
+                            convs = [], filter = NONE, dprocs = [],
+                            rewrs = [], name = SOME "testEval.lconj_cong_ss" }
+fun pending_filter (th0,c) = let
   val th = EQT_ELIM th0
   val (f, x) = dest_comb (concl th)
 in
   if same_const f LetComputeLib.pending_t then
-    if is_eq x then [SYM (EQ_MP (SPEC x LetComputeTheory.pending_def) th)]
-    else [th0]
-  else [th0]
-end handle HOL_ERR _ => [th0]
+    if is_eq x then [(SYM (EQ_MP (SPEC x LetComputeTheory.pending_def) th), c)]
+    else [(th0,c)]
+  else [(th0,c)]
+end handle HOL_ERR _ => [(th0,c)]
 val pending_SS = SSFRAG {ac = [], congs = [], convs = [], dprocs = [],
-                          filter = SOME pending_filter, rewrs = []}
+                         filter = SOME pending_filter, rewrs = [],
+                         name = SOME "testEval.pending_SS" }
 
 
 fun STRIP_IMP_CONV c t =
     if is_imp t then RAND_CONV (STRIP_IMP_CONV c) t
     else c t
-fun safe_rewrite_filter th0 = let
+fun safe_rewrite_filter (th0,c) = let
   val (l,r) = dest_eq (#2 (strip_imp (concl th0)))
 in
   if null (free_vars l) andalso not (null (free_vars r)) then
-    [CONV_RULE (STRIP_IMP_CONV (REWR_CONV EQ_SYM_EQ)) th0]
-  else [th0]
+    [(CONV_RULE (STRIP_IMP_CONV (REWR_CONV EQ_SYM_EQ)) th0, c)]
+  else [(th0,c)]
 end
 val safe_rewrite_SS = SSFRAG {ac = [], congs = [], convs = [], dprocs = [],
-                               filter = SOME safe_rewrite_filter, rewrs = []}
+                              filter = SOME safe_rewrite_filter, rewrs = [],
+                              name = SOME "testEval.safe_rewrite_SS" }
 
 (* stops the simplifier looking inside string or number literals *)
-val noliterals_SS = SSFRAG {ac = [], congs = [REFL ``NUMERAL x``,
-                                               REFL ``STRING x y``],
-                             convs = [], dprocs = [], filter = NONE,
-                             rewrs = []}
+val noliterals_SS = SSFRAG {ac = [],
+                            congs = [REFL ``NUMERAL x``, REFL ``STRING x y``],
+                            convs = [], dprocs = [], filter = NONE,
+                            rewrs = [], name = SOME "testEval.noliterals_SS"}
 
 (* vrecords - records of variables, making sure that the last theorem
    in a trace will know about all of the variables that have appeared in
@@ -1367,7 +1375,8 @@ val elim_bad_vrecords_SS =
     SSFRAG {ac = [], congs = [], dprocs = [], filter = NONE, rewrs = [],
             convs = [{conv = K (K elim_bad_vrecords),
                       key = SOME([], ``bool$DATATYPE (x:'a)``),
-                      name = "elim_bad_vrecords", trace = 2}]}
+                      name = "elim_bad_vrecords", trace = 2}],
+            name = SOME "testEval.elim_bad_vrecords_SS"}
 (* call on a theorem when a variable v is about to be eliminated *)
 fun eliminating_vrecord v th = let
   val cutth = EQT_ELIM (ISPEC v boolTheory.DATATYPE_TAG_THM)
@@ -1398,7 +1407,8 @@ val q_ok_SS =
                                       (SIMP_CONV phase1_ss []))),
                        key = SOME([], ``tcp_reass_q_ok x``),
                        name = "calc_tcp_reass_q_ok_CONV", trace = 2}],
-             dprocs = [], filter = NONE, rewrs = []}
+             dprocs = [], filter = NONE, rewrs = [],
+             name = SOME "testEval.q_ok_SS"}
 
 val phase2_ss = phase1_ss ++ rewrites phase2_abbreviations ++
                 realSimps.REAL_ARITH_ss ++ q_ok_SS

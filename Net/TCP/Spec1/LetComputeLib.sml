@@ -713,7 +713,7 @@ val grounded_reducer = let
 in
   Traverse.REDUCER {initial = Fail "", (* never used *)
                     addcontext = (fn (c, thl) => c), (* ctxt ignored *)
-                    apply = apply}
+                    apply = apply, name = SOME "LetComputeLib.grounded_reducer"}
 end
 
 (* ----------------------------------------------------------------------
@@ -735,6 +735,7 @@ val CLET_ss =
                               pairTheory.C_UNCURRY_L,
                               pairTheory.o_UNCURRY_R,
                               LetComputeTheory.value_def,
-                              LetComputeTheory.CLET_CLET_AND_ELIM]}
+                              LetComputeTheory.CLET_CLET_AND_ELIM],
+                     name = SOME "CLET_ss"}
 
 end; (* struct *)

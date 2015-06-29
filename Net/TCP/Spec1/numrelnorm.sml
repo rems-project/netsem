@@ -192,10 +192,11 @@ val CANON_REDUCER = let
 in
   REDUCER {addcontext = add_ctxt,
            apply = fn args => CACHED_CANON (get_ctxt (#context args)),
-           initial = CTXT []}
+           initial = CTXT [], name = SOME "numrelnorm.CANON_REDUCER"}
 end
 
 val CANON_ss = SSFRAG {convs = [], rewrs = [], congs = [],
-                        filter = NONE, ac = [], dprocs = [CANON_REDUCER]}
+                       filter = NONE, ac = [], dprocs = [CANON_REDUCER],
+                       name = SOME "numrelnorm.CANON_ss" }
 
 end (* struct *)
