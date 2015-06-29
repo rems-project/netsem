@@ -1,3 +1,6 @@
+structure testEval =
+struct
+
 (* A HOL98 specification of TCP *)
 
 (* The symbolic evaluator itself *)
@@ -2755,3 +2758,5 @@ fun condprinter sysprint gravs depth pps t =
 val _ = temp_add_user_printer ({Tyop="", Thy = ""},condprinter)
 *)
 val _ = Globals.linewidth := 160;
+
+end (* struct *)
