@@ -2709,6 +2709,7 @@ in
      by the constraints *)
 end
 
+(*
 fun condprinter sysprint gravs depth pps t =
     if depth = 0 then PP.add_string pps "..."
     else if is_cond t then let
@@ -2739,5 +2740,5 @@ fun condprinter sysprint gravs depth pps t =
     else raise term_pp_types.UserPP_Failed
 
 val _ = temp_add_user_printer ({Tyop="", Thy = ""},condprinter)
-
+*)
 val _ = Globals.linewidth := 160;
