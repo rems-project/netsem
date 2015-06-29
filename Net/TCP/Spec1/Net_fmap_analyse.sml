@@ -8,11 +8,9 @@ struct
 open HolKernel Parse boolLib
 
 val _ = Version.register "$RCSfile: Net_fmap_analyse.sml,v $" "$Revision: 1.19 $" "$Date: 2007/06/19 07:41:04 $";
-structure Parse = struct
-  open Parse
-  val (Type,Term) = parse_from_grammars finite_mapTheory.finite_map_grammars
-end
-open Parse
+
+val entry_grammars = (type_grammar(), term_grammar())
+val _ = Parse.temp_set_grammars finite_mapTheory.finite_map_grammars
 
 val ERR = mk_HOL_ERR "Net_fmap_analyse"
 val WARN = HOL_WARNING "Net_fmap_analyse"
@@ -645,7 +643,7 @@ val last_elim_th = prove(
   SRW_TAC [][] THEN Cases_on `kvl2` THEN
   FULL_SIMP_TAC (srw_ss()) [] THEN EQ_TAC THENL [
     SRW_TAC [][FUPDATE_LIST_THM] THENL [
-      POP_ASSUM (MP_TAC o Q.AP_TERM `(')`) THEN
+      POP_ASSUM (MP_TAC o Q.AP_TERM `FAPPLY`) THEN
       DISCH_THEN (MP_TAC o C Q.AP_THM `FST h`) THEN
       Cases_on `h` THEN FULL_SIMP_TAC (srw_ss()) [] THEN
       `~(MEM q (MAP FST t))` by METIS_TAC [] THEN
@@ -916,7 +914,7 @@ in
   (single_simple ORELSEC complicated_case)
 end t
 
-
+val _ = Parse.temp_set_grammars entry_grammars
 (* test applications of fm_onestep
 
     open simpLib BasicProvers Net_fmap_analyse
