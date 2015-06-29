@@ -1,9 +1,9 @@
 (* -*- sml -*- *)
 
-quietdec := true;
+HOL_Interactive.toggle_quietdec();
 load "testEval";
 open testEval;
-quietdec := false;
+HOL_Interactive.toggle_quietdec();
 
 val hnd = stdOut;
 val _ = toStdOut := true;
@@ -198,4 +198,3 @@ val _ = case Process.getEnv "PATH" of
           with "brss" in their names) that is not very human-friendly.
 
    ---------------------------------------------------------------------- *)
-
