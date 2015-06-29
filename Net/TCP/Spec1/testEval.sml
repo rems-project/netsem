@@ -374,6 +374,7 @@ local
   val qok_t = ``TCP1_betters$tcp_reass_q_ok``
   val seq_fld = ``TCP1_hostTypes$tcpReassSegment_seq_fupd``
   val data_fld = ``TCP1_hostTypes$tcpReassSegment_data_fupd``
+  val n2w32 = ``words$n2w : num -> word32``
   fun get_fld fld t = let
     val (f, args) = strip_comb t
   in
@@ -383,8 +384,7 @@ local
   fun sq2num s = numSyntax.dest_numeral (rand (rand s))
 
   val s32_cons = ``TCP1_baseTypes$SEQ32 TcpForeign``
-  fun mk_seq n =
-      mk_comb(s32_cons, mk_comb(``word32$n2w``, numSyntax.mk_numeral n))
+  fun mk_seq n = mk_comb(s32_cons, mk_comb(n2w32, numSyntax.mk_numeral n))
 
   val defn = TCP1_bettersTheory.tcp_reass_q_ok_def
 in
@@ -669,15 +669,6 @@ val redn0_time_passage_impossible = prove(
 
 open BasicProvers simpLib
 
-local open word32Theory open bossLib
-in
-val THE_WL = SIMP_RULE arith_ss [HB_def,arithmeticTheory.ADD1] WL_def;
-val MSB_EVAL2 = GEN_ALL (REWRITE_RULE [MSBn_def,HB_def] MSB_EVAL);
-val TWO_COMP_EVAL2 = GEN_ALL (SIMP_RULE arith_ss [TWO_COMP_def,THE_WL]
-                                        TWO_COMP_EVAL);
-end
-
-
 val word_abbrevs =
     [wordsTheory.n2w_11, wordsTheory.dimword_def, wordsTheory.dimindex_32,
      wordsTheory.dimindex_16, wordsTheory.INT_MIN_def,
@@ -739,7 +730,7 @@ val structure_map = let
        optionSyntax.some_tm, optionSyntax.none_tm,
        realSyntax.real_injection, intSyntax.int_injection,
        finite_mapSyntax.fempty_t, finite_mapSyntax.fupdate_t,
-       ``word16$n2w``, ``word32$n2w``,
+       ``words$n2w``,
        ``TCP1_preHostTypes$IP``,
        ``string$CHR``, ``TCP1_timers$ticks_of``,
        ``TCP1_utils$funupd : ('a -> 'b) -> 'a -> 'b -> 'a -> 'b``,
@@ -878,8 +869,8 @@ val better_do_tcp_options =
       ``do_tcp_options cb_tf_doing_tstmp cb_ts_recent cb_ts_val =
           if cb_tf_doing_tstmp then
             SOME (cb_ts_val, case timewindow_val_of cb_ts_recent of
-                                NONE -> ts_seq 0w
-                             || SOME x -> x)
+                                NONE => ts_seq 0w
+                              | SOME x => x)
           else NONE``,
       SIMP_TAC bool_ss [TCP1_auxFnsTheory.do_tcp_options_def, LET_THM,
                         prove(``I = \x. x``,
@@ -1025,6 +1016,28 @@ val better_while = Phase.phase_imm 1 (prove(
 
 (* abbreviations that don't expand into things that are too large *)
    (* e.g., auto_outroute OK but make_ack_segment not *)
+
+val w2i_n2w_eq_num = store_thm(
+  "w2i_n2w_eq_num",
+  ``(w2i (n2w m : word32) = (&)n) <=>
+         n < 2147483648 /\ (n = m MOD 4294967296)``,
+  `?m'. (n2w m :word32 = n2w m') /\ m' < 4294967296`
+     by (SRW_TAC[][wordsTheory.n2w_11, wordsTheory.dimword_def,
+                   wordsTheory.dimindex_32] THEN
+         Q.EXISTS_TAC `m MOD 4294967296` THEN SRW_TAC[][]) THEN
+  `m MOD 4294967296 = m' MOD 4294967296`
+     by FULL_SIMP_TAC (srw_ss())
+          [wordsTheory.n2w_11, wordsTheory.dimword_def,
+           wordsTheory.dimindex_32]
+  THEN Cases_on `m' < 2147483648` THENL [
+    SRW_TAC [ARITH_ss]
+            [integer_wordTheory.w2i_n2w_pos, wordsTheory.INT_MIN_def,
+             wordsTheory.dimindex_32, wordsTheory.dimword_def],
+    SRW_TAC [ARITH_ss][integer_wordTheory.w2i_n2w_neg, wordsTheory.INT_MIN_def,
+                       wordsTheory.dimindex_32, wordsTheory.dimword_def,
+                       integerTheory.INT_EQ_SUB_RADD, integerTheory.INT_ADD]
+  ]);
+
 val phase1_abbreviations =
     Phase.get_phase_list 1 @
     [
@@ -1057,7 +1070,7 @@ val phase1_abbreviations =
      arithmeticTheory.GREATER_DEF,
      integerTheory.int_ge,
      integerTheory.int_gt,
-     integer_word32Theory.w2i_n2w_eq_num,
+     w2i_n2w_eq_num,
      arithmeticTheory.X_MOD_Y_EQ_X,
      better_EL,
      better_fmscan,
