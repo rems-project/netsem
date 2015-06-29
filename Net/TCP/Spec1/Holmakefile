@@ -2,7 +2,7 @@ OPTIONS = QUIT_ON_FAILURE
 TCP1_FILES = betters rangeAnalysis timerProps urgency
 OBJS = testEval.uo LetComputeLib.uo strings.uo numrelnorm.uo \
        NetEvalTheory.uo LetComputeTheory.uo Chaining.uo \
-       Net_fmap_analyse.uo \
+       Net_fmap_analyse.uo TraceFiles.uo \
        $(patsubst %,TCP1_%Theory.uo, $(TCP1_FILES))
 HOLDOCDIR = ../../HOLDoc/src
 
