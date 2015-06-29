@@ -77,9 +77,9 @@ in
 end
 
 val fm_forall_eq = let
-  open BasicProvers simpLib SingleStep
+  open BasicProvers simpLib
 in
-  prove(Parse.Term`(!v. fm1 |+ (k,v) = fm2 |+ (k,v)) =
+  prove(Parse.Term`(!v. fm1 |+ (k:'a,v:'b) = fm2 |+ (k,v)) =
                    (fm1 |+ (k,v) = fm2 |+ (k,v))`,
         SIMP_TAC (srw_ss()) [EQ_IMP_THM] THEN
         SRW_TAC [][GSYM fmap_EQ_THM] THEN SRW_TAC [][] THEN
@@ -316,7 +316,7 @@ in
 end
 
 val add_extras_cong = prove(
-  ``!p q q'. (p ==> q) ==> (p = p /\ q)``,
+  ``!p q. (p ==> q) ==> (p = p /\ q)``,
   REPEAT GEN_TAC THEN Q.ASM_CASES_TAC `p` THEN ASM_REWRITE_TAC []);
 
 fun do_list_unwind simp t = let
@@ -630,14 +630,14 @@ local
   open bossLib
 in
 val mappair_eq_lemma = prove(
-  ``!l1 l2.
+  ``!l1 (l2:('a#'b) list).
       (MAP FST l1 = MAP FST l2) /\ (MAP SND l1 = MAP SND l2) ==> (l1 = l2)``,
   Induct THEN SRW_TAC [][] THEN Cases_on `l2` THEN
   FULL_SIMP_TAC (srw_ss()) [] THEN Cases_on `h`  THEN
   FULL_SIMP_TAC (srw_ss()) []);
 
 val last_elim_th = prove(
-  ``!kvl1 kvl2 fm'.
+  ``!kvl1 kvl2 (fm':'a |-> 'b).
        (MAP FST kvl1 = MAP FST kvl2) /\ ALL_DISTINCT (MAP FST kvl1) ==>
        ((?fm. fm |++ kvl1 = fm' |++ kvl2) = (MAP SND kvl1 = MAP SND kvl2))``,
   Induct THEN1 SRW_TAC [][FUPDATE_LIST_THM] THEN
