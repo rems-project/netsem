@@ -201,7 +201,7 @@ val option_cond_thms = prove(
 
 val IS_SOME_IMP_ELIM = prove(
   ``!P v. (IS_SOME v ==> P v) = (!n. (v = SOME n) ==> P (SOME n))``,
-  REPEAT GEN_TAC THEN SingleStep.Cases_on `v` THEN
+  REPEAT GEN_TAC THEN Cases_on `v` THEN
   SRW_TAC [][]);
 
 val option_case_equalities = prove(
@@ -212,7 +212,7 @@ val option_case_equalities = prove(
     ((NONE = option_case (SOME x) (\v. NONE) v) = ?x. (v = SOME x)) /\
     ((SOME u = option_case (SOME x) (\v. NONE) v) =
         ((v = NONE) /\ (u = x)))``,
-  SingleStep.Cases_on `v` THEN SRW_TAC [][] THEN PROVE_TAC []);
+  Cases_on `v` THEN SRW_TAC [][] THEN PROVE_TAC []);
 val _ = Phase.phase_imm 1 option_case_equalities
 
 (* lists *)
@@ -220,13 +220,11 @@ val existential_append_idiom0 = prove(
   (* this appears in deliver_in_3 *)
   ``!l1 conc. (conc = APPEND l1 (k :: l2)) =
               case conc of
-                 [] -> F
-              || h::t -> (k = h) /\ (t = l2) /\ (l1 = []) \/
-                         (?l1'. (l1 = h::l1') /\ (t = APPEND l1' (k :: l2)))``,
-  let open SingleStep in
-    Induct THEN SRW_TAC [][] THEN Cases_on `conc` THEN
-    SRW_TAC [][] THEN PROVE_TAC []
-  end)
+                [] => F
+              | h::t => (k = h) /\ (t = l2) /\ (l1 = []) \/
+                        (?l1'. (l1 = h::l1') /\ (t = APPEND l1' (k :: l2)))``,
+  Induct THEN SRW_TAC [][] THEN Cases_on `conc` THEN
+  SRW_TAC [][] THEN PROVE_TAC [])
 
 val existential_append_idiom = let
   val base = SPEC_ALL existential_append_idiom0
@@ -281,13 +279,13 @@ val TAKE_EQ_THM = Phase.phase_imm 1 (prove(
   ``!n l m. (TAKE n l = m) = (LENGTH m < LENGTH l /\ (n = LENGTH m) /\
                               (?l0. (l = APPEND m l0)) \/
                              (l = m) /\ LENGTH m <= n)``,
-  SingleStep.Induct THENL [
+  Induct THENL [
     SIMP_TAC (srw_ss()) [TCP1_utilPropsTheory.TAKE_THM] THEN
-    REPEAT GEN_TAC THEN SingleStep.Cases_on `m` THEN
-    SIMP_TAC (srw_ss()) [] THEN SingleStep.Cases_on `l` THEN
+    REPEAT GEN_TAC THEN Cases_on `m` THEN
+    SIMP_TAC (srw_ss()) [] THEN Cases_on `l` THEN
     SIMP_TAC (srw_ss()) [],
-    REPEAT GEN_TAC THEN SingleStep.Cases_on `m` THEN
-    SingleStep.Cases_on `l` THEN
+    REPEAT GEN_TAC THEN Cases_on `m` THEN
+    Cases_on `l` THEN
     ASM_SIMP_TAC (srw_ss()) [TCP1_utilPropsTheory.TAKE_THM] THEN
     mesonLib.MESON_TAC []
   ]))
@@ -350,7 +348,6 @@ val lt_to_le = Phase.phase_imm 1 (prove(
   ``((x:num) < (y:num)) = (x + 1 <= y)``,
   numLib.ARITH_TAC));
 
-local open SingleStep in
 val MAX_MIN_MAX = Phase.phase_imm 1 (prove(
   (* this pattern often seems to appear *)
   ``x <= y ==> (MAX (x:real) (MIN y (MAX x z)) = MIN y (MAX x z))``,
@@ -359,7 +356,6 @@ val MAX_MIN_MAX = Phase.phase_imm 1 (prove(
     Cases_on `y <= z` THEN ASM_SIMP_TAC (srw_ss()) [],
     Cases_on `y <= x` THEN ASM_SIMP_TAC (srw_ss()) []
   ]));
-end
 
 
 val tcp_seq_flip = prove(
@@ -460,7 +456,7 @@ val funupd_as_set = Phase.phase_imm 1 (prove(
   REWRITE_TAC [pred_setTheory.SPECIFICATION]));
 
 (* stopwatch normalisation *)
-local open realTheory simpLib BasicProvers SingleStep
+local open realTheory simpLib BasicProvers
 in
 val elim_stopwatch_var = prove(
   ``0 < c1 /\ 0 < c2 ==>
@@ -2485,7 +2481,7 @@ in
     (fn x => poss_taustep hnd lab rest >- (fn y => return (x :: y))))
 end
 
-local open BasicProvers SingleStep simpLib bossLib
+local open BasicProvers simpLib bossLib
 in
 
 val antisymmetric_bounds = Phase.phase_imm 3 (prove(
