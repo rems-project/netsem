@@ -205,12 +205,12 @@ val IS_SOME_IMP_ELIM = prove(
   SRW_TAC [][]);
 
 val option_case_equalities = prove(
-  ``((NONE = option_case NONE (\v. SOME (f v)) v) = (v = NONE)) /\
-    ((option_case NONE (\v. SOME (f v)) v = NONE) = (v = NONE)) /\
-    ((option_case NONE (\v. SOME (f v)) v = SOME u) =
+  ``((NONE = option_CASE v NONE (\v. SOME (f v))) = (v = NONE)) /\
+    ((option_CASE v NONE (\v. SOME (f v)) = NONE) = (v = NONE)) /\
+    ((option_CASE v NONE (\v. SOME (f v)) = SOME u) =
         ?x. (v = SOME x) /\ (u = f x)) /\
-    ((NONE = option_case (SOME x) (\v. NONE) v) = ?x. (v = SOME x)) /\
-    ((SOME u = option_case (SOME x) (\v. NONE) v) =
+    ((NONE = option_CASE v (SOME x) (\v. NONE)) = ?x. (v = SOME x)) /\
+    ((SOME u = option_CASE v (SOME x) (\v. NONE)) =
         ((v = NONE) /\ (u = x)))``,
   Cases_on `v` THEN SRW_TAC [][] THEN PROVE_TAC []);
 val _ = Phase.phase_imm 1 option_case_equalities
@@ -679,26 +679,16 @@ end
 
 
 val word_abbrevs =
-    [word16Theory.word_0, word16Theory.w2n_EVAL, word16Theory.n2w_11,
-     word16Theory.MOD_WL_def, word16Theory.WL_def, word16Theory.HB_def,
-
-     word32Theory.n2w_11,
-     word32Theory.word_0,
-     word32Theory.w2n_EVAL,
-     word32Theory.ADD_EVAL,
-     word32Theory.MOD_WL_def,
-     TWO_COMP_EVAL2,
-     word32Theory.WL_def,
-     word32Theory.HB_def,
+    [wordsTheory.n2w_11, wordsTheory.dimword_def, wordsTheory.dimindex_32,
+     wordsTheory.dimindex_16, wordsTheory.INT_MIN_def,
      CONJ (SIMP_RULE (srw_ss()) []
-                     (Q.SPEC `(&)n` integer_word32Theory.i2w_def))
+                     (Q.SPEC `(&)n` integer_wordTheory.i2w_def))
           (SIMP_RULE (srw_ss()) []
-                     (Q.SPEC `~(&)n` integer_word32Theory.i2w_def)),
-     Q.INST [`x` |-> `NUMERAL x`] integer_word32Theory.w2i_n2w_1,
-     SIMP_RULE (srw_ss()) []
-               (Q.INST [`x` |-> `0`] integer_word32Theory.w2i_n2w_1),
-     Q.INST [`x` |-> `NUMERAL x`] integer_word32Theory.w2i_n2w_2,
-     integer_word32Theory.WORD_SUB_EQN]
+                     (Q.SPEC `~(&)n` integer_wordTheory.i2w_def)),
+     Q.SPEC `NUMERAL x` integer_wordTheory.w2i_n2w_pos,
+     integer_wordTheory.word_0_w2i,
+     Q.SPEC `NUMERAL x` integer_wordTheory.w2i_n2w_neg,
+     TCP1_seq32PropsTheory.WORD_SUB_EQN]
 
 val funupd_alt = Phase.phase_imm 1 (prove(
   (* ensures that the rewrite, generating an if, only happens if a funupd
@@ -1298,7 +1288,7 @@ val cond_ss = SSFRAG {ac = [], congs = [cond_cong1], convs = [],
                       name = SOME "testEval.cond_ss" }
 
 val option_cong = prove(
-  ``(p = p') ==> (option_case x y p = option_case x y p')``,
+  ``(p = p') ==> (option_CASE (p:'a option) (x:'b) y = option_CASE p' x y)``,
   SIMP_TAC boolSimps.bool_ss []);
 
 val option_cong_ss = SSFRAG {ac = [], congs = [option_cong], convs = [],
