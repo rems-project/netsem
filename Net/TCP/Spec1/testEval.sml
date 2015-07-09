@@ -1033,10 +1033,10 @@ val w2i_n2w_eq_num = store_thm(
           [wordsTheory.n2w_11, wordsTheory.dimword_def,
            wordsTheory.dimindex_32]
   THEN Cases_on `m' < 2147483648` THENL [
-    SRW_TAC [ARITH_ss]
+    SRW_TAC [numSimps.ARITH_ss]
             [integer_wordTheory.w2i_n2w_pos, wordsTheory.INT_MIN_def,
              wordsTheory.dimindex_32, wordsTheory.dimword_def],
-    SRW_TAC [ARITH_ss][integer_wordTheory.w2i_n2w_neg, wordsTheory.INT_MIN_def,
+    SRW_TAC [numSimps.ARITH_ss][integer_wordTheory.w2i_n2w_neg, wordsTheory.INT_MIN_def,
                        wordsTheory.dimindex_32, wordsTheory.dimword_def,
                        integerTheory.INT_EQ_SUB_RADD, integerTheory.INT_ADD]
   ]);
