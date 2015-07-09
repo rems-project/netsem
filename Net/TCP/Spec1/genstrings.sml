@@ -22,6 +22,8 @@ end
 fun main() = let
 in
   print "(* generated code; do not edit! *)\n";
+  print "structure strings = struct\n";
   List.app renderfile (CommandLine.arguments ());
+  print "end (* struct *)\n";
   print "(* eof *)\n"
 end
