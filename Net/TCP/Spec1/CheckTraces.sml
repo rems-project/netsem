@@ -1,6 +1,8 @@
 (* magic code to make SIGINT appear as an Interrupt exception *)
+(*
 prim_val catch_interrupt : bool -> unit = 1 "sys_catch_break";
 val _ = catch_interrupt true;
+*)
 
 val _ = Version.register "$RCSfile: CheckTraces.sml,v $" "$Revision: 1.53 $" "$Date: 2006/06/23 06:20:28 $";
 
@@ -61,9 +63,9 @@ fun resolvevar f s =
     let fun go sss ss =
             case varocc ss of
                 NONE => Substring.concat (List.rev (ss :: sss))
-              | SOME(ss0,v,ss1) => go ([Substring.all(*full*) (f v), ss0] @ sss) ss1
+              | SOME(ss0,v,ss1) => go ([Substring.full (f v), ss0] @ sss) ss1
     in
-        go [] (Substring.all(*full*) s)
+        go [] (Substring.full s)
     end
 
 fun lookup kvs k =
@@ -82,7 +84,11 @@ end
 
 fun fileHead n f = let
   val istr = TextIO.openIn f
-  val s = TextIO.inputLine istr ^ TextIO.inputLine istr
+  val s = case (TextIO.inputLine istr, TextIO.inputLine istr) of
+          (SOME t, SOME t') => t ^ t'
+          | (SOME t, NONE) => t
+          | (NONE, SOME t) => t
+          | (NONE, NONE) => ""
   val _ = TextIO.closeIn istr
 in
   s
@@ -106,10 +112,10 @@ in
                 case (hcs,tcs) of
                     ((hc::hcs'),(tc::tcs')) => if Substring.string hc = Substring.string tc then loop hcs' tcs' else (hcs,tcs)
                   | _ => (hcs,tcs)
-        in let val (hcs,tcs) = loop (Substring.tokens (fn c => c = #"/") (Substring.all(*full*) here))
-                                    (Substring.tokens (fn c => c = #"/") (Substring.all(*full*) there))
+        in let val (hcs,tcs) = loop (Substring.tokens (fn c => c = #"/") (Substring.full here))
+                                    (Substring.tokens (fn c => c = #"/") (Substring.full there))
            in
-               (*Substring.*)concatWith "/" (copy (List.length hcs - 1) (Substring.all(*full*) "..") @ tcs)
+               (*Substring.*)concatWith "/" (copy (List.length hcs - 1) (Substring.full "..") @ tcs)
            end
         end
 end
@@ -385,17 +391,15 @@ fun do_many_files filenamelist =
 fun do_accept_files () =
     (output (stdOut, "\nReady.\n"); flushOut stdOut;
      let fun loop () =
-         let val filename0 = inputLine stdIn in (* need to strip trailing newline always *)
-             if filename0 = "" orelse filename0 = "quit\n" then
-                 ()  (* EOF or quit means quit *)
-             else
-                 let val filename  = String.substring (filename0, 0, String.size filename0 - 1) in
-                     output (stdOut, "Processing "^filename^"\n"); flushOut stdOut;
-                     do_one_file filename;
-                     output (stdOut, "\nReady.\n"); flushOut stdOut;
-                     loop ()
-                 end
-         end
+         case inputLine stdIn of
+         NONE => () | SOME "quit\n" => () (* EOF or quit means quit *)
+         | SOME filename0 =>
+           let val filename = String.substring (filename0, 0, String.size filename0 - 1) in
+             output (stdOut, "Processing "^filename^"\n"); flushOut stdOut;
+             do_one_file filename;
+             output (stdOut, "\nReady.\n"); flushOut stdOut;
+             loop ()
+           end
      in
          loop ()
      end;
@@ -434,6 +438,7 @@ fun parse_btdirective s =
              | NONE => die "Mal-formed number for backtrack control"
 
 fun do_args args =
+    (print ("do_args with "^(Int.toString (List.length args))^" args\n") ;
     case args of
       "-s" :: args => (toStdOut := true; do_args args)
     | "-t" :: args => (outputtingHtml := false; do_args args)
@@ -446,7 +451,7 @@ fun do_args args =
     | "--sdmbt" :: args => (testEval.sdm_fail_exception := false; do_args args)
     | "--saveths" :: args => (save_tracethms := true; do_args args)
     | "--timing" :: args => (outputtingTiming := true; do_args args)
-    | _            => do_many_files args
+    | _            => do_many_files args)
 
 val _ = (print "Initialisation complete.\n"; do_args args)
 
