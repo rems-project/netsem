@@ -1401,7 +1401,7 @@ val phase1_ss = base_ss ++ CLET_ss ++ strCONV_ss ++ updeq_CONV_ss ++
                         option_cong_ss ++ cond_ss ++ lconj_cong_ss ++
                         rathandler_SS ++ safe_rewrite_SS ++ pending_SS ++
                         GSPEC_ss ++ boolSimps.CONJ_ss ++
-                        numrelnorm.CANON_ss ++ noliterals_SS ++
+                        numSimps.ARITH_NORM_ss ++ noliterals_SS ++
                         rewrites phase1_abbreviations
 val q_ok_SS =
     SSFRAG {ac = [], congs = [],
