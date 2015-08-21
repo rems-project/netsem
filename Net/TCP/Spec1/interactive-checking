@@ -65,9 +65,9 @@ val _ = case Process.getEnv "PATH" of
 
     0.  Have all of the tcp directory fully built and compiled.
     1.  Start (bare) HOL up within an emacs.  To do this,
-          a. load the elisp file in <holdir>/tools/hol98-mode.el
+          a. load the elisp file in <holdir>/tools/hol-mode.el
           b. M-x set-hol-executable and enter
-                 <holdir>/bin/hol.bare.unquote
+                 <holdir>/bin/hol
           c. Load testEval.sml from the tcp directory into an emacs buffer
           d. M-h h while in the testEval.sml buffer.
           e. Arrange the windows/buffers/emacs frames to suit.  E.g.,
@@ -75,7 +75,7 @@ val _ = case Process.getEnv "PATH" of
 
     2.  Load the testEval.uo file "quietly":
 
-          C-u M-h o "testEval"
+          C-u M-h o testEval
 
         This will take a while, mainly because of the loading of the
         srw simpset, comparable to the length of time CheckTraces
