@@ -1,4 +1,4 @@
-CC=gcc
+CC=cc
 CFILES=holtcpcb-v8.c
 RM=rm -f
 
