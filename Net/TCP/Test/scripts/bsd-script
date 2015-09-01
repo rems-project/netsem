@@ -4,7 +4,6 @@ OCAMLPATH=/usr/groups/netsem/ocaml/bin
 
 export -p PATH=$OCAMLPATH:$PATH
 export -p OCAMLPATH=$OCAMLPATH
-export -p OSTYPE=freebsd-4.6
 
 # Build
 cd /home/Net/TCP/Test

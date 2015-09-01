@@ -1,4 +1,4 @@
-CC=gcc
+CC=cc
 NSSOCKPATH=../../nssock/
 NSSOCKLIB=nssock
 NTPLIBPATH=../../common/
@@ -10,10 +10,12 @@ SERVEROUT=sockserv
 CLIENTC=sockclient.c
 CLIENTOUT=sockclient
 
+OSTYPE=$(shell uname -o)
+
 all: build-server build-client
 
 build-server: $(SERVERC) ../../nssock/libnssock.a ../../common/libntplib.a
-	if [ $(OSTYPE) = "freebsd4.6" ]; then \
+	if [ $(OSTYPE) = "FreeBSD" ]; then \
 	$(CC) -I $(NSSOCKPATH) -L $(NSSOCKPATH) -L $(NTPLIBPATH) \
 		-o $(SERVEROUT) $(SERVERC) -l$(NSSOCKLIB) -l$(NTPLIB);\
 	else \
@@ -22,7 +24,7 @@ build-server: $(SERVERC) ../../nssock/libnssock.a ../../common/libntplib.a
 	fi
 
 build-client: $(CLIENTC)
-	if [ $(OSTYPE) = "freebsd4.6" ]; then \
+	if [ $(OSTYPE) = "FreeBSD" ]; then \
 	$(CC) -I $(NSSOCKPATH) -L $(NSSOCKPATH) -L $(NTPLIBPATH) \
 		-o $(CLIENTOUT)	$(CLIENTC) -l$(NSSOCKLIB) -l$(NTPLIB);\
 	else \

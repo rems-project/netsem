@@ -18,8 +18,9 @@
 
 
 //#include <sys/types.h>
-//#include <stdio.h>
+#include <stdio.h>
 #include <stdarg.h>
+#include <dlfcn.h>
 
 struct sockaddr {
   unsigned short int sa_family;
@@ -27,7 +28,7 @@ struct sockaddr {
 };
 
 typedef unsigned int socklen_t;
-typedef int size_t;
+//typedef int size_t;
 typedef int SOCKET;
 
 struct msghdr

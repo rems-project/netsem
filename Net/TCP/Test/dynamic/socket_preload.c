@@ -5,7 +5,7 @@
 /******************************************************************/
 #include "socket_preload.h"
 #include <errno.h>
-#include <dlfcn.h>
+//#include <dlfcn.h>
 
 void *handle = 0;
 
@@ -19,9 +19,11 @@ static getsockopt_ptr_t real_getsockopt;
 #ifdef LINUX
 #define SOL_SOCKET 1
 #define SO_REUSEADDR 2
-#elif BSD
+#else
+#ifdef BSD
 #define SOL_SOCKET 0xffff
 #define SO_REUSEADDR 0x0004
+#endif
 #endif
 
 SOCKET accept(SOCKET s, struct sockaddr *addr, socklen_t *addrlen)
