@@ -1,6 +1,6 @@
 CC=cc
 CCOPTS=-c -Wall -DNDEBUG -fPIC
-MKDEP=makedepend
+MKDEP=$(CC) -M
 MKLIB=ar
 MKLIBOPTS=-q
 
@@ -13,7 +13,7 @@ libnssock.a: $(OFILES)
 	$(MKLIB) $(MKLIBOPTS) $(LIBOUT) $(OFILES)
 
 depend:
-	$(MKDEP) -f- *.c > .depend
+	$(MKDEP) *.c > .depend
 
 clean:
 	rm -f *.[oa]
