@@ -96,6 +96,11 @@ For the network rules, most of the work happens in internal transitions:
 
   timer_tt_* deal with timer expiry 
 
+The common case of a segment for an established connection is handled
+by deliver_in_3, which is broken down into four subrules each of which
+can update the state (but they form a single atomic transition).  Much
+of the "protocol" is here. 
+
 Then deliver_{in,out}_99 produce visible labels for TCP segments
 moving between the wire and the in/out queue.
 
