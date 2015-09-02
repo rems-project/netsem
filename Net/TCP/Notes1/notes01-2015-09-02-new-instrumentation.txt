@@ -1,0 +1,111 @@
+2015-09-02  Notes on the new tracing instrumentation we'll need
+(P, after Hannes/Peter conversation yesterday)
+
+The spec is a state machine with
+- "visible" transitions, for Sockets API calls and returns, and for
+   TCP segments arriving and leaving on the wire
+- internal (or "tau") transitions, e.g. for taking a TCP segment from
+   the input queue, processing it, and perhaps enqueuing an output segment
+- time-passage transitions
+- the old TCP_DEBUG transitions, exposing a TCPCB value
+
+The old trace checker had to infer the internal transitions of a trace
+with a possibly-backtracking search.  The point of the new
+instrumentation is to make them manifest in the trace, for which we'll
+need to establish the correspondence between code paths in the
+implementation and transitions of the spec 
+(when we were writing the spec we analysed some of those, in
+netsem/Net/TCP/Notes1/{tcp_input.c-annotated,tcp_output.c-annotated},
+but we didn't make the *correspondence* as explicit as we need, and
+that's out-of-date code in any case).  Can we make that correspondence
+really explicit, with dtrace probes exactly corresponding to
+particular spec rules?  Or to small sets of spec rules?  It's not
+clear how much we want the instrumented trace to record the particular
+code points the implementation executed or whether we just want to see
+the updated Socket, TCPCB, and TCP segment inqueue/outqueue data and
+to infer the spec transition from those. 
+
+On the spec side, we'll probably want to replace the tau label of the
+internal transitions with more informative things, exposing the rule
+name and (at least) all the internally-chosen quantities.  Though the
+latter might be subsumed by simply exposing all the relevant state -
+we'll still be using the checker to first introduce all the constraints of a
+possible transition and then resolve them using the host-state updates
+from the label, so we don't need to manually pick out all the
+quantities that get chosen. 
+
+The inqueue/outqueue instrumentation is a bit subtle, as previously
+those things (the spec's queues of incoming and outgoing TCP segments)
+modelled the combination of everything between the wire and the
+tcp_input/output code, including whatever buffering is going on in the
+NIC and in the OS IP layer code; we instrumented TCP segments from the
+wire (using another interface, maybe on another machine); and we
+didn't instrument the queues.  Are we moving to instrumenting at the
+top of the NIC or IP layer somehow?  Or both on the wire and there?
+
+We guess that many transitions will correspond to code paths between
+taking and releasing the locks that protect a socket and/or a TCPCB
+(Robert drew a diagram on my w/b with the proper names for these but I
+don't have it here).  But not exactly: in particular, in the spec we
+factor out most TCP output into a separate rule, deliver_out_1 (for
+non-SYN, non-RST segments) (see Chapter 17 of the spec) that can fire
+fairly nondeterministically, while in the implementation TCP output
+may often be combined with TCP input processing (corresponding to the
+spec deliver_in_* rules).
+
+We guess that the atomicity of the spec transitions doesn't need to be
+changed. But in the instrumentation (or in the post-processing of it
+before we feed it to the trace checker) we'll need to take care with
+the incremental imperative updates that the implementation does to the
+TCBCB etc., if we're probing at any intermediate points that don't
+correspond to the final state of a spec transition. 
+
+Looking at the atomicity and kinds of rules in the spec:
+
+For the Sockets API, many calls can either return quickly, e.g.
+
+  connect_1   Begin connection establishment by creating a SYN and trying
+  to enqueue it on host’s outqueue
+
+  (a visible transition labelled  tid.connect(fd,i,ps)  to a
+  state with the return value v fixed; the return_1 rule will later do a
+  tid.v transition to return that to the thread)
+
+or block, e.g.
+
+  connect 5d  Block, entering state Connect2: connection attempt already
+  in progress and connect called with blocking semantics
+
+with some later internal tau-labelled transition, e.g.
+
+  connect 2   Successfully return from blocking state after connection is
+  successfully established
+
+fixing the return value (again returned to the thread by a return_1
+tid.v transition).  
+
+
+For the network rules, most of the work happens in internal transitions:
+
+  deliver_in_* deal with the processing of TCP segments from the host’s
+  input queue; they typically take a host state with a particular socket
+  state and an inqueue and outqueue and mutate all those.
+
+  deliver_out_1  deals with the common-case generation of an outgoing
+  segment, adding it to the outqueue
+
+  timer_tt_* deal with timer expiry 
+
+Then deliver_{in,out}_99 produce visible labels for TCP segments
+moving between the wire and the in/out queue.
+
+
+The trace_* rules correspond to observing a TCP_DEBUG event.  We also
+had interface_1 to observe a change in interface connectivity
+configuration; I don't recall if that was used. Probably for testing
+some error rules. 
+
+
+Conclusion: The real work in the short/medium term is to relate those
+deliver_in_* and deliver_out_1 rules to the current codebase and
+instrumentation points.
