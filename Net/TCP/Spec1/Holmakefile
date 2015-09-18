@@ -19,11 +19,22 @@ GroundTraces.exe: $(GTRACE_DEPS)
 	$(HOLMOSMLC) -o $@ $(GTRACE_DEPS)
 
 
+ifdef POLY
+CheckTraces.o: poly-CheckTraces.ML CheckTraces.uo  strings.uo testEval.uo $(OBJS)
+	$(protect $(HOLDIR)/bin/hol) < $<
+
+CheckTraces.exe: CheckTraces.o
+	$(CC) -o $@ $< $(POLY_LDFLAGS)
+
+else
+
 #-----
 # Build options for automatic trace checking
 #-----
-CheckTraces.exe.tmp: CheckTraces.uo strings.uo
+CheckTraces.exe: CheckTraces.uo strings.uo $(OBJS)
 	$(HOLMOSMLC) -o $@ $<
+
+endif
 
 build: CheckTraces.exe.tmp
 
@@ -34,9 +45,6 @@ commit: CheckTraces.exe.tmp
 #-----
 
 trace_checker.exe: trace_checker.uo TCP1_evalSupportTheory.uo
-	$(HOLMOSMLC) -o $@ $<
-
-CheckTraces.exe: CheckTraces.uo $(OBJS)
 	$(HOLMOSMLC) -o $@ $<
 
 ifdef POLY

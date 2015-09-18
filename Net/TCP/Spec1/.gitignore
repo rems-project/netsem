@@ -5,4 +5,5 @@ trace_checker.exe
 CheckTraces.exe
 GroundTraces.exe
 .itc-info
+CheckTraces.o
 *.imn

@@ -6,8 +6,6 @@ val _ = catch_interrupt true;
 
 val _ = Version.register "$RCSfile: CheckTraces.sml,v $" "$Revision: 1.53 $" "$Date: 2006/06/23 06:20:28 $";
 
-val args = CommandLine.arguments()
-
 val odir = ref "."        (* the directory to which output files are written *)
 
 (* whether or not to save the trace theorems to a theory file *)
@@ -412,6 +410,22 @@ fun the_or exn x = case x of
 
 fun die s = (TextIO.output(TextIO.stdErr, s^"\n");
              Process.exit Process.failure)
+fun warn s = TextIO.output(TextIO.stdErr, s ^ "\n")
+
+fun usage chan =
+  TextIO.output(chan,
+                "Usage:\n  " ^ CommandLine.name() ^
+                " [options] file1 file2 ... filen\n\nOptions:\n" ^
+                "  -a        accept trace files from stdin (must be last opt)\n\
+                \  -bt btdir control backtracking with directives of the form\n\
+                \              <n>%  allow n% more steps than there are in \
+                \trace\n\
+                \              <n>   allow n more steps\n\
+                \              none  no limit on backtrancing\n\
+                \  -d dir    output files in directory dir\n\
+                \  -h        get this message\n\
+                \  -s        output to stdout rather than output files\n\
+                \  -t        output in plain text rather than HTML\n")
 (* arguments:
    -s         output to stdout rather than to appropriately-named output files.
    -t         output in plain text (rather than HTML)
@@ -438,20 +452,24 @@ fun parse_btdirective s =
              | NONE => die "Mal-formed number for backtrack control"
 
 fun do_args args =
-    (print ("do_args with "^(Int.toString (List.length args))^" args\n") ;
     case args of
       "-s" :: args => (toStdOut := true; do_args args)
     | "-t" :: args => (outputtingHtml := false; do_args args)
     | "-d" :: dir :: args => (odir := dir; do_args args)
     | "-a" :: args => if null args then do_accept_files ()
                       else die "-a must be final argument"
+    | ["-h"] => (usage TextIO.stdOut; OS.Process.exit OS.Process.success)
     | ["-bt"] => die "-bt must be followed by back track control argument"
     | "-bt" :: dir :: args => (parse_btdirective dir; do_args args)
     | "--nosdm" :: args => (testEval.sdm_check_enabled := false; do_args args)
     | "--sdmbt" :: args => (testEval.sdm_fail_exception := false; do_args args)
     | "--saveths" :: args => (save_tracethms := true; do_args args)
     | "--timing" :: args => (outputtingTiming := true; do_args args)
-    | _            => do_many_files args)
+    | s :: _ => if String.isPrefix "-" s then
+                  (warn "Bad commandline."; usage TextIO.stdErr; die "")
+                else do_many_files args
+    | [] => (usage TextIO.stdErr; die "")
 
-val _ = (print "Initialisation complete.\n"; do_args args)
+val _ = print "Initialisation complete - about to compile.\n"
 
+fun main() =  do_args (CommandLine.arguments())

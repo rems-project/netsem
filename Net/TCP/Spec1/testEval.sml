@@ -1022,8 +1022,7 @@ val better_while = Phase.phase_imm 1 (prove(
 (* abbreviations that don't expand into things that are too large *)
    (* e.g., auto_outroute OK but make_ack_segment not *)
 
-val w2i_n2w_eq_num = store_thm(
-  "w2i_n2w_eq_num",
+val w2i_n2w_eq_num = prove(
   ``(w2i (n2w m : word32) = (&)n) <=>
          n < 2147483648 /\ (n = m MOD 4294967296)``,
   `?m'. (n2w m :word32 = n2w m') /\ m' < 4294967296`
