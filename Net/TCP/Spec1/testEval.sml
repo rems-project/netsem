@@ -682,6 +682,8 @@ val word_abbrevs =
      Q.SPEC `NUMERAL x` integer_wordTheory.w2i_n2w_pos,
      integer_wordTheory.word_0_w2i,
      Q.SPEC `NUMERAL x` integer_wordTheory.w2i_n2w_neg,
+     wordsTheory.WORD_ADD_0,
+     wordsTheory.word_add_n2w |> SPECL [``NUMERAL x``, ``NUMERAL y``],
      TCP1_seq32PropsTheory.WORD_SUB_EQN]
 
 val funupd_alt = Phase.phase_imm 1 (prove(
