@@ -57,6 +57,12 @@ val _ = case Process.getEnv "PATH" of
                         (Process.system
                            "xmessage -font 12x24 -center 'Interactive \
                            \trace-checking ready!!'")
+                    else if Systeml.OS = "macosx" then
+                      ignore (OS.Process.system
+                                "osascript -e 'tell application (path to \
+                                \frontmost application as text)\ndisplay \
+                                \dialog \"Interactive trace-checking \
+                                \ready!!\"\nend'")
                     else ()
 
 (* ----------------------------------------------------------------------
