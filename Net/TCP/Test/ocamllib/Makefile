@@ -1,20 +1,11 @@
 NSSOCKLIB=../nssock/libnssock.a
 
-# empty for no, 1 for yes
-FRESH?=
-NATIVE?=$(if $(FRESH),,1)
-fresh=$(if $(FRESH),fresh-,)
-
-ifeq (,$(FRESH))
 OCAMLPREFIX=$(OCAMLPATH)/../lib/ocaml
-else
-OCAMLPREFIX=/home/kw217/Scratch/Fast/lib/$(fresh)ocaml
-endif
 
-OCAMLC=$(fresh)ocamlc
-OCAMLOPT=$(fresh)ocamlopt
-OCAMLDEP=$(fresh)ocamldep
-OCAMLMKLIB=$(fresh)ocamlmklib -ocamlc $(OCAMLC) -ocamlopt $(OCAMLOPT)
+OCAMLC=$(OCAMLPATH)/ocamlc
+OCAMLOPT=$(OCAMLPATH)/ocamlopt
+OCAMLDEP=$(OCAMLPATH)/ocamldep
+OCAMLMKLIB=$(OCAMLPATH)/ocamlmklib -ocamlc $(OCAMLC) -ocamlopt $(OCAMLOPT)
 OCAMLCOPT=-I $(OCAMLPREFIX) -ccopt "-fPIC"
 RM=rm -f
 
