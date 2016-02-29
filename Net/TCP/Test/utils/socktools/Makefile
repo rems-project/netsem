@@ -10,27 +10,18 @@ SERVEROUT=sockserv
 CLIENTC=sockclient.c
 CLIENTOUT=sockclient
 
-OSTYPE=$(shell uname -o)
+#add -ldl on Linux
+LDFLAGS=
 
 all: build-server build-client
 
 build-server: $(SERVERC) ../../nssock/libnssock.a ../../common/libntplib.a
-	if [ $(OSTYPE) = "FreeBSD" ]; then \
 	$(CC) -I $(NSSOCKPATH) -L $(NSSOCKPATH) -L $(NTPLIBPATH) \
-		-o $(SERVEROUT) $(SERVERC) -l$(NSSOCKLIB) -l$(NTPLIB);\
-	else \
-	$(CC) -I $(NSSOCKPATH) -L $(NSSOCKPATH) -L $(NTPLIBPATH) \
-		-o $(SERVEROUT) $(SERVERC) -l$(NSSOCKLIB) -l$(NTPLIB) -ldl;\
-	fi
+		-o $(SERVEROUT) $(SERVERC) -l$(NSSOCKLIB) -l$(NTPLIB) $(LDFLAGS)
 
 build-client: $(CLIENTC)
-	if [ $(OSTYPE) = "FreeBSD" ]; then \
 	$(CC) -I $(NSSOCKPATH) -L $(NSSOCKPATH) -L $(NTPLIBPATH) \
-		-o $(CLIENTOUT)	$(CLIENTC) -l$(NSSOCKLIB) -l$(NTPLIB);\
-	else \
-	$(CC) -I $(NSSOCKPATH) -L $(NSSOCKPATH) -L $(NTPLIBPATH) \
-		-o $(CLIENTOUT)	$(CLIENTC) -l$(NSSOCKLIB) -l$(NTPLIB) -ldl;\
-	fi
+		-o $(CLIENTOUT)	$(CLIENTC) -l$(NSSOCKLIB) -l$(NTPLIB) $(LDFLAGS)
 
 clean:
 	rm -f *.o $(CLIENTOUT) $(SERVEROUT)

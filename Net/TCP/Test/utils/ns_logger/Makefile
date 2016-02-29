@@ -1,4 +1,4 @@
-CC=gcc
+CC=cc
 
 all: logger tlogger
 
