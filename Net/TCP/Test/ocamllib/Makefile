@@ -17,7 +17,7 @@ CAMLIFACES=ocamllib.mli
 LIBPATHS=-cclib -L../nssock -cclib -lnssock -cclib\
 	 -L../common -cclib -lntplib
 
-all: $(CAMLIFACES:.mli=.cmi) libocamllib.a $(if $(NATIVE),libocamllibnative.a,)
+all: $(CAMLIFACES:.mli=.cmi) libocamllib.a libocamllibnative.a ocamllibnative.cmxa
 
 libocamllib.a: $(CAMLFILES:.ml=.cmo) $(CFILES:.c=.o) $(NSSOCKLIB)
 	$(OCAMLMKLIB) -o ocamllib $(CAMLFILES:.ml=.cmo) $(CFILES:.c=.o) \
@@ -25,6 +25,9 @@ libocamllib.a: $(CAMLFILES:.ml=.cmo) $(CFILES:.c=.o) $(NSSOCKLIB)
 
 libocamllibnative.a: $(CAMLFILES:.ml=.cmx) $(CFILES:.c=.o) $(NSSOCKLIB)
 	$(OCAMLMKLIB) -o ocamllibnative $(CAMLFILES:.ml=.cmx) $(CFILES:.c=.o) $(LIBPATHS)
+
+ocamllibnative.cmxa: $(CAMLFILES:.mli=.cmi) $(CAMLFILES:.ml=.cmx)
+	$(OCAMLOPT) -a -o ocamllibnative.cmxa $(CAMLFILES:.ml=.cmx) $(LIBPATHS)
 
 depend:
 	$(OCAMLDEP) *.mli *.ml > .depend
