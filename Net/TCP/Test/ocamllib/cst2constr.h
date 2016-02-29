@@ -14,7 +14,7 @@
 /* $Id: cst2constr.h,v 1.2 2002/09/25 11:23:22 smb50 Exp $ */
 
 #ifdef __STDC__
-value cst_to_constr(int n, int *tbl, int size, int deflt);
+value cst_to_constr(int n, int *tbl, int size);
 #else
 value cst_to_constr();
 #endif

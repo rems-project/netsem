@@ -191,20 +191,15 @@ static value * unix_error_exn = NULL;
 void ns_unix_error(int errcode, char *cmdname, value cmdarg)
 {
   CAMLparam0();
-  CAMLlocal5(res,name,err,arg,errconstr);
+  CAMLlocal4(res,name,err,arg);
 
   name = err = arg = Val_unit;
 
   Begin_roots3 (name, err, arg);
     arg = cmdarg == Nothing ? copy_string("") : cmdarg;
     name = copy_string(cmdname);
-    errconstr =
-      cst_to_constr(errcode, ns_error_table, sizeof(ns_error_table)/sizeof(int), -1);
-    if (errconstr == Val_int(-1)) {
-      err = Val_int((sizeof(ns_error_table)/sizeof(int)) - 1);
-    } else {
-      err = errconstr;
-    }
+    err =
+      cst_to_constr(errcode, ns_error_table, sizeof(ns_error_table)/sizeof(int));
     if (unix_error_exn == NULL) {
       unix_error_exn = caml_named_value("Ocamllib.Unix_error");
       if (unix_error_exn == NULL)

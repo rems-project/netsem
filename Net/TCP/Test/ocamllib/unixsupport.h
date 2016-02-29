@@ -21,7 +21,7 @@
 
 #define Nothing ((value) 0)
 
-extern void ns_unix_error (int errcode, char * cmdname, value arg) Noreturn;
-extern void ns_uerror (char * cmdname, value arg) Noreturn;
+extern void ns_unix_error (int errcode, char * cmdname, value arg);
+extern void ns_uerror (char * cmdname, value arg);
 
 #define UNIX_BUFFER_SIZE 16384
