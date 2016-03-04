@@ -8,7 +8,7 @@ OCAMLYACC=$(OCAMLPATH)/ocamlyacc
 OCAMLLEX=$(OCAMLPATH)/ocamllex
 OCAMLDOC=$(OCAMLPATH)/ocamldoc
 RM=rm -f
-CC=gcc
+CC=cc
 MKLIB=ar
 
 OCAMLINCL=-I $(OCAMLLIBDIR) -I ../../common -I ../../tthee -I ../common \

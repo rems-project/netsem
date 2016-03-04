@@ -1,4 +1,5 @@
 OCAMLOPTS=-I $(OCAMLPATH)/../otherlibs/unix -I $(OCAMLPATH)/../otherlibs/str -I $(OCAMLPATH)/../otherlibs/threads
+CC=cc
 
 all: otracechecker histoplot stepgraph-rezero coverage apply filter histoplot2
 
@@ -13,10 +14,10 @@ test: test.ml
 	ocamlc -g -thread $(OCAMLOPTS) str.cma unix.cma threads.cma -o $@ $^
 
 hotgzip: hotgzip.c
-	gcc $^ -lz -o $@
+	$(CC) $^ -lz -o $@
 
 hotgunzip: hotgunzip.c
-	gcc $^ -lz -o $@
+	$(CC) $^ -lz -o $@
 
 histoplot: histoplot.ml
 	ocamlc -g -thread $(OCAMLOPTS) str.cma unix.cma threads.cma -o $@ $^
