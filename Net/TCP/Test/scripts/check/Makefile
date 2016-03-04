@@ -3,7 +3,8 @@ OCAMLOPTS=-I $(OCAMLPATH)/../otherlibs/unix -I $(OCAMLPATH)/../otherlibs/str -I 
 all: otracechecker histoplot stepgraph-rezero coverage apply filter histoplot2
 
 clean:
-	rm -f otracechecker{,.cmo,.cmi} hotgzip hotgunzip histoplot{,.cmo,.cmi} *.cmo *.cmi stepgraph-rezero coveragecount apply filter
+	rm -f *.cmo *.cmi
+	rm -f otracechecker hotgzip hotgunzip histoplot histoplot2 stepgraph-rezero coveragecount apply filter
 
 otracechecker: otracechecker.ml
 	ocamlc -g -thread $(OCAMLOPTS) str.cma unix.cma threads.cma -o $@ $^
