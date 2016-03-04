@@ -1,6 +1,10 @@
 #!/usr/sbin/dtrace -Cs
 /*
+ * Dump TCB in format readable by HOL, as defined by NetSem.  Based on
+ * the dtrace script tcpdebug distributed with FreeBSD.
+ *
  * Copyright (c) 2015 George V. Neville-Neil
+ * Copyright (c) 2016 Hannes Mehnert
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,25 +28,10 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD$
- *
- * The tcpdebug D script uses the tcp:kernel::debug tracepoints
- * to replicate the action of turning on TCPDEBUG in a kernel configuration.
- *
- * A TCP debug statement shows a connection's
- *
- * direction:	input, output, user, drop
- * state:	CLOSED,	LISTEN,	SYN_SENT, SYN_RCVD, ESTABLISHED,
- *              CLOSE_WAIT, FIN_WAIT_1, CLOSING, LAST_ACK, FIN_WAIT_2,TIME_WAIT
- * sequence:	sequence space
- *
- * congestion:	rcv_nxt, rcv_wnd, rcv_up, snd_una, snd_nxt, snx_max,
- *		snd_wl1, snd_wl2, snd_wnd
- *
  * NOTE: Only sockets with SO_DEBUG set will be shown.
- *
- * Usage: tcpdebug
  */
+
+#pragma D option quiet
 
 inline string tcp_state_str[int32_t state] =
 	state == TCPS_CLOSED ?		"CLOSED" :
@@ -92,7 +81,6 @@ inline string tcp_state_str[int32_t state] =
  printf("   last_ack_send := tcp_seq_foreign(n2w %u)\n", tcb->tcps_rack);   \
  printf(" |>);\n");
 
-#pragma D option quiet
 tcp:kernel::debug-input
 /args[0]->tcps_debug/
 {
