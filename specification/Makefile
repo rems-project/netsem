@@ -8,7 +8,7 @@ PSTOPDF=ps2pdf
 # read user configuration:
 include munge.mk
 
-LTSHOLDOCDIR=../../HOLDoc
+LTSHOLDOCDIR=../HOLDoc
 LTS_TO_LATEX=$(LTSHOLDOCDIR)/lts_to_latex
 MNG_TO_LATEX=${HOLDOCDIR}/mng_to_latex
 
@@ -38,9 +38,9 @@ SPECTHEORYFILES=\
   TCP1_paramsScript.sml        \
   TCP1_auxFnsScript.sml	       \
   TCP1_hostLTSScript.sml       \
-  TCP1_netScript.sml           \
-  TCP1_net1Script.sml          \
   TCP1_evalSupportScript.sml
+#  TCP1_netScript.sml           \
+#  TCP1_net1Script.sml
 SPECTHEORIES=$(patsubst %Script.sml,%,$(SPECTHEORYFILES))
 SPECTHEORYIMNS=$(addsuffix .imn, $(SPECTHEORIES))
 SPECTHEORYPSFILES=$(addsuffix -doc.ps, $(SPECTHEORIES))
@@ -244,12 +244,13 @@ alldoc-inc.dvi : alldoc-inc.tex
 
 TCP1_auto.imn: $(SPECTHEORYIMNS)
 	echo '(*[ NOECHO ]*)' > $@
-	cat $(filter-out %LIBinterface.imn %ruleids.imn, $(SPECTHEORYIMNS)) >> $@
+	cat $(filter-out %LIBinterface.imn %ruleids.imn, $(SPECTHEORYIMNS)) | \
+		sed -e 's/recordtype.*//' >> $@
 	cat $(filter     %LIBinterface.imn, $(SPECTHEORYIMNS)) | \
-		sed -e 's/CON_LIST/LIB_LIST/' - >> $@
+		sed -e 's/CON_LIST/LIB_LIST/' >> $@
 	echo '(*[ CLASS RULE "\tsrule" ]*)' >> $@
 	cat $(filter     %ruleids.imn, $(SPECTHEORYIMNS)) | \
-		sed -e 's/CON_LIST/CLASS_LIST RULE/' - >> $@
+		sed -e 's/CON_LIST/CLASS_LIST RULE/' >> $@
 	echo '(*[ ECHO ]*)' >> $@
 
 #

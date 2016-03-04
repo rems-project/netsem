@@ -18504,7 +18504,7 @@ val Time_Pass_host_def = Define`
 
 (*: @section [[time_passage_section]] ALL Host transitions with time
 
-We now build the relation [[-- ( ) --->]], which includes time transitions, from the relation [[-- ( ) -->]],
+We now build the relation [[-- ( ) --=>]], which includes time transitions, from the relation [[-- ( ) -->]],
 which is instantaneous.  This avoids circularity (or at best inductiveness) in the definition of
 the transition relation.
 

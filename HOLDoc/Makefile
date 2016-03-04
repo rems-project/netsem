@@ -1,15 +1,9 @@
-# First build HOL/tools/holdoc from the HOL repository. The following
-# var should point to HOL/tools/holdoc. Probably easiest to run make
-# as
-#
-# make HOLDOCDIR=/path/to/my/HOL/tools/holdoc
-#
-# after all, we don't expect to build it that often.
+# First build src/ in this repository.
 #
 # Another comment is that Out_of_memory errors for ocaml executables
 # can be fixed by using OCAMLPARAM with the h flag
 #
-HOLDOCDIR=FIXME
+HOLDOCDIR=src
 
 OCAMLC=  ocamlc
 OCAMLOPT=ocamlopt
