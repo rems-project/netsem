@@ -1,4 +1,4 @@
-INCLUDES = ../Spec1
+INCLUDES = ../../../../specification
 
 all: check_3trace evalAbsFun.exe GroundConflate.exe
 

@@ -18,7 +18,7 @@ PSTOPDF=ps2pdf
 # read user configuration:
 include munge.mk
 
-LTSHOLDOCDIR=../../HOLDoc
+LTSHOLDOCDIR=../../../../HOLDoc
 LTS_TO_LATEX=$(LTSHOLDOCDIR)/lts_to_latex
 MNG_TO_LATEX=${HOLDOCDIR}/mng_to_latex
 
