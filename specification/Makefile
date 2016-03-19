@@ -38,9 +38,9 @@ SPECTHEORYFILES=\
   TCP1_paramsScript.sml        \
   TCP1_auxFnsScript.sml	       \
   TCP1_hostLTSScript.sml       \
+  TCP1_netScript.sml           \
+  TCP1_net1Script.sml          \
   TCP1_evalSupportScript.sml
-#  TCP1_netScript.sml           \
-#  TCP1_net1Script.sml
 SPECTHEORIES=$(patsubst %Script.sml,%,$(SPECTHEORYFILES))
 SPECTHEORYIMNS=$(addsuffix .imn, $(SPECTHEORIES))
 SPECTHEORYPSFILES=$(addsuffix -doc.ps, $(SPECTHEORIES))
