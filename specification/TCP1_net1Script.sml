@@ -193,18 +193,18 @@ val _ = Define `
 
 val Lnet1_to_Lnet0_def = Define `
      Lnet1_to_Lnet0 (lbl1:Lnet1) = (case lbl1 of
-         Ln1_host (hid,lbl0) -> (case lbl0 of
-              Lh_senddatagram msg -> Ln0_tau
-           || Lh_recvdatagram msg -> Ln0_tau
-           || Lh_call (tid,lib) -> Ln0_call (hid,tid,lib)
-           || Lh_return (tid,tlang) -> Ln0_return (hid,tid,tlang)
-           || Lh_loopdatagram msg -> Ln0_tau
-           || Lh_interface (ifid,b) -> Ln0_interface (hid,ifid,b)
-           || Lh_tau -> Ln0_tau
-           || Lh_trace tr -> Ln0_trace tr
-           || Lh_epsilon dur -> ARB "Lnet1_to_Lnet0:1"(* Ln0_epsilon dur *)
-           || _1 -> ARB "Lnet1_to_Lnet0:2")
-       || Ln1_epsilon dur -> Ln0_epsilon dur)
+         Ln1_host (hid,lbl0) => (case lbl0 of
+              Lh_senddatagram msg => Ln0_tau
+           | Lh_recvdatagram msg => Ln0_tau
+           | Lh_call (tid,lib) => Ln0_call (hid,tid,lib)
+           | Lh_return (tid,tlang) => Ln0_return (hid,tid,tlang)
+           | Lh_loopdatagram msg => Ln0_tau
+           | Lh_interface (ifid,b) => Ln0_interface (hid,ifid,b)
+           | Lh_tau => Ln0_tau
+           | Lh_trace tr => Ln0_trace tr
+           | Lh_epsilon dur => ARB "Lnet1_to_Lnet0:1"(* Ln0_epsilon dur *)
+           | _1 => ARB "Lnet1_to_Lnet0:2")
+       | Ln1_epsilon dur => Ln0_epsilon dur)
 `;
 
 val _ = export_theory();
