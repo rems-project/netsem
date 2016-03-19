@@ -8,3 +8,15 @@ GroundTraces.exe
 CheckTraces.o
 *.imn
 traces
+*.tmp2-tex
+*.idx
+*.ilg
+*.ind
+*.log
+*.pdf
+*.ps
+*.toc
+*.aux
+*.dvi
+*.tex-e
+*.tob

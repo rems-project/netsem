@@ -1,0 +1,5 @@
+.depend
+lts_to_latex
+*cmi
+*cmx
+*o
