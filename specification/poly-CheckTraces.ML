@@ -1,8 +1,10 @@
+PolyML.SaveState.loadState "hol.state";
+infix ++ fun p1 ++ p2 = OS.Path.concat(p1,p2);
+use (Systeml.HOLDIR ++ "tools-poly" ++ "prelude.ML");
 Globals.interactive := false;
 Globals.print_thy_loads := true;
-HOL_Interactive.toggle_quietdec();
+PolyML.print_depth 0;
 load "DiskThms";
 load "strings";
 load "testEval";
 use "CheckTraces.sml";
-val _ = PolyML.export("CheckTraces", main)

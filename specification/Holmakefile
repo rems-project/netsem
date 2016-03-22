@@ -20,11 +20,12 @@ GroundTraces.exe: $(GTRACE_DEPS)
 
 
 ifdef POLY
-CheckTraces.o: poly-CheckTraces.ML CheckTraces.uo  strings.uo testEval.uo $(OBJS)
-	$(protect $(HOLDIR)/bin/hol) < $<
 
-CheckTraces.exe: CheckTraces.o
-	$(CC) -o $@ $< $(POLY_LDFLAGS)
+CheckTraces.exe: poly-CheckTraces.ML CheckTraces.uo  strings.uo testEval.uo $(OBJS) hol.state
+	$(POLYC) -o $@ $<
+
+hol.state: $(dprot $(HOLDIR)/bin/hol.state)
+	$(CP) $< $@
 
 else
 
