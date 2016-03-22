@@ -4,7 +4,7 @@ OBJS = testEval.uo LetComputeLib.uo strings.uo numrelnorm.uo \
        NetEvalTheory.uo LetComputeTheory.uo Chaining.uo \
        Net_fmap_analyse.uo TraceFiles.uo \
        $(patsubst %,TCP1_%Theory.uo, $(TCP1_FILES))
-HOLDOCDIR = ../../HOLDoc/src
+HOLDOCDIR = ../HOLDoc/src
 
 INCLUDES = $(HOLDOCDIR)
 
