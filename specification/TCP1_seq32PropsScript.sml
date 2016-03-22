@@ -290,8 +290,8 @@ val seq32_add_num_sub = store_thm(
       simp[]
     ],
     `n + 4294967296n - m < 4294967296n` by DECIDE_TAC >>
-    fs[] >>
-    simp[w2i_n2w_pos] >> asm_simp_tac (srw_ss() ++ numSimps.MOD_ss) []
+    full_simp_tac (srw_ss()) [] >>
+    asm_simp_tac (srw_ss() ++ numSimps.MOD_ss ++ ARITH_ss) [w2i_n2w_pos]
   ]);
 
 val w2i_n2w_0_leq = store_thm(
