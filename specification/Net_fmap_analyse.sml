@@ -19,10 +19,10 @@ val tracing = ref false
 val _ = register_btrace ("fmap_analyse", tracing)
 
 val conjl_cong = prove(
-  ``!p q q'. (p ==> (q = q')) ==> (p /\ q = p /\ q')``,
+  ``!p q q'. (p ==> (q = q')) ==> (p /\ q <=> p /\ q')``,
   REPEAT GEN_TAC THEN Q.ASM_CASES_TAC `p` THEN ASM_REWRITE_TAC []);
 val conjr_cong = prove(
-  ``!p q q'. (p ==> (q = q')) ==> (q /\ p = q' /\ p)``,
+  ``!p q q'. (p ==> (q = q')) ==> (q /\ p <=> q' /\ p)``,
   REPEAT GEN_TAC THEN Q.ASM_CASES_TAC `p` THEN ASM_REWRITE_TAC []);
 
 open finite_mapSyntax finite_mapTheory
@@ -142,7 +142,7 @@ in
 end t
 
 val dnfCOND_EXPAND = prove(
-  ``!p t e. (if p then t else e) = p /\ t \/ ~p /\ e``,
+  ``!p t e. (if p then t else e) <=> p /\ t \/ ~p /\ e``,
   REPEAT GEN_TAC THEN COND_CASES_TAC THEN ASM_REWRITE_TAC []);
 
 fun push_varkeys_inwards lconsts (simpn : conv) t = let
@@ -314,7 +314,7 @@ in
 end
 
 val add_extras_cong = prove(
-  ``!p q. (p ==> q) ==> (p = p /\ q)``,
+  ``!p q. (p ==> q) ==> (p <=> p /\ q)``,
   REPEAT GEN_TAC THEN Q.ASM_CASES_TAC `p` THEN ASM_REWRITE_TAC []);
 
 fun do_list_unwind simp t = let
@@ -874,14 +874,19 @@ end body
 val last_call = ref (concl TRUTH)
 fun fm_onestep ctxt (simp_ : thm list -> conv) t = let
   val _ = last_call := t
-  val (v, _) = dest_exists t
+  val (vs, _) = strip_exists t
+  val v = hd vs
+          handle Empty => raise ERR "fn_onestep" "Term not of form ?fm. ..."
   val _ = finite_mapSyntax.is_fmap_ty (type_of v) orelse
           raise ERR "fm_onestep" "Term not of form ?fm. ..."
   val kcompare = compare_from_reduce simp_
-  val lconsts = FVL ctxt empty_varset
-
+  val lconsts = HOLset.difference(FVL ctxt empty_varset,
+                                  HOLset.fromList Term.compare vs)
   fun complicated_case t = let
     val c =
+      TRY_CONV (STRIP_QUANT_CONV
+                    (LAND_CONV (outermost_varkey_elim lconsts (simp_ []))) THENC
+                try_all_unwinds) THENC
       REPEATC
         (STRIP_QUANT_CONV
            (LAND_CONV (push_varkeys_inwards lconsts (simp_ [])) THENC
@@ -918,8 +923,7 @@ val _ = Parse.temp_set_grammars entry_grammars
 (* test applications of fm_onestep
 
     open simpLib BasicProvers Net_fmap_analyse
-    val simp_ = SIMP_CONV (srw_ss()) []
-    val simp_ = SIMP_CONV (srw_ss()) []
+    val simp_ = SIMP_CONV (srw_ss())
     val fm1 = time (fm_onestep [] simp_);
 
 
