@@ -1,7 +1,6 @@
 Network Semantics
 ======
 
-
 This repository contains the formal specification of TCP, UDP, and the Sockets API developed in the Netsem project:
 
 http://www.cl.cam.ac.uk/~pes20/Netsem/index.html
@@ -26,7 +25,7 @@ Building
 ======
 
 - Get [PolyML](http://polyml.org) (5.5.2 works fine)
-- Get [HOL](https://hol-theorem-prover.org/) (at least 3df6c6b3318ff5bb9e097003d332d06c8004ad8d from 18th Sep 2015)
+- Get [HOL](https://hol-theorem-prover.org/) (7aaf2931ee06bb733f4ac7bb4fe0c5565fab2522 from 22nd March 2016 works fine)
 - Building specification: `cd specification ; $HOL/bin/Holmake`
 - Building documentation: `cd HOLDoc/src ; $HOL/bin/Holmake` followed by `cd specification ; $HOL/bin/Holmake TCP1_net1Theory.ui TCP1_netTheory.ui ; make alldoc`
-- Building test tools (required OCaml (tested with 4.02.3)): `cd test ; make depend OCAMLPATH=MY_OCAML_PATH ; make OCAMLPATH=MY_OCAML_PATH`
+- Building test tools (required OCaml (tested with 4.02.3)): `cd test ; make depend OCAMLPATH=~/.opam/4.02.3/bin ; make OCAMLPATH=~/.opam/4.02.3/bin`
