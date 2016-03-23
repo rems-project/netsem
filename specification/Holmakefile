@@ -27,6 +27,9 @@ CheckTraces.exe: poly-CheckTraces.ML CheckTraces.uo  strings.uo testEval.uo $(OB
 hol.state: $(dprot $(HOLDIR)/bin/hol.state)
 	$(CP) $< $@
 
+genstrings.exe: genstrings.sml
+	$(POLYC) -o $@ $<
+
 else
 
 #-----
@@ -48,14 +51,7 @@ commit: CheckTraces.exe.tmp
 trace_checker.exe: trace_checker.uo TCP1_evalSupportTheory.uo
 	$(HOLMOSMLC) -o $@ $<
 
-ifdef POLY
-genstrings.o: poly-genstrings.ML genstrings.sml
-	$(POLY) < $<
-
-genstrings.exe: genstrings.o
-	cc -o $@ $< $(POLY_LDFLAGS)
-
-else
+ifndef POLY
 
 genstrings.exe : genstrings.uo
 	$(HOLMOSMLC) -o $@ $<
