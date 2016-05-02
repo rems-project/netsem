@@ -17,9 +17,6 @@ val _ = new_theory "TCP1_rangeAnalysis";
 
 open lcsymtacs
 
-val _ = Version.registerTheory "$RCSfile: TCP1_rangeAnalysisScript.sml,v $" "$Revision: 1.7 $" "$Date: 2006/02/20 23:03:47 $";
-
-
 val srange_def = Define`
   srange (x:'a seq32) (base:'a seq32) (size:num) =
      ?n:num. n <= size /\ x = base + n

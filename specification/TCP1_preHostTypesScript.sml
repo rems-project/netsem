@@ -25,9 +25,6 @@ local open arithmeticTheory stringTheory pred_setTheory integerTheory
 
 val _ = new_theory "TCP1_preHostTypes";
 
-val _ = Version.registerTheory "$RCSfile: TCP1_preHostTypesScript.sml,v $" "$Revision: 1.4 $" "$Date: 2009/02/17 11:56:46 $";
-
-
 (* -------------------------------------------------- *)
 (*                       TCP STATES            *)
 (* -------------------------------------------------- *)

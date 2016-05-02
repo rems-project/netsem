@@ -3,8 +3,6 @@ struct
 
 open HolKernel Parse LetComputeTheory boolLib
 
-val _ = Version.register "$RCSfile: LetComputeLib.sml,v $" "$Revision: 1.17 $" "$Date: 2005/07/14 02:12:23 $";
-
 structure Parse = struct
   open Parse
   val (Type,Term) = parse_from_grammars LetComputeTheory.LetCompute_grammars

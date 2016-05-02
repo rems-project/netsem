@@ -14,8 +14,6 @@ open HolDoc
 
 val _ = new_theory "TCP1_ruleids";
 
-val _ = Version.registerTheory "$RCSfile: TCP1_ruleidsScript.sml,v $" "$Revision: 1.22 $" "$Date: 2009/02/17 11:56:46 $";
-
 (*: @chapter [[TCP1_ruleids]] Rule names
 
 This file defines the names of transition rules in the specification.
@@ -105,4 +103,3 @@ val _ =
 (* -------------------------------------------------- *)
 
 val _ = export_theory();
-

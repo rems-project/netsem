@@ -8,8 +8,6 @@ open HolKernel Parse boolLib
 local open TCP1_hostLTSTheory TCP1_evalSupportTheory in end;
 
 
-val _ = Version.register "$RCSfile: TraceFiles.sml,v $" "$Revision: 1.5 $" "$Date: 2004/03/22 11:40:01 $";
-
 (* initial host, expanded, and the list of labels in the trace *)
 fun host_and_labels_from_file filename =
   let open TextIO Substring

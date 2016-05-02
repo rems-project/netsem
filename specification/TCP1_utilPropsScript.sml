@@ -20,8 +20,6 @@ val _ = new_theory "TCP1_utilProps";
 
 val _ = BasicProvers.augment_srw_ss [rewrites [LET_THM]]
 
-val _ = Version.registerTheory "$RCSfile: TCP1_utilPropsScript.sml,v $" "$Revision: 1.3 $" "$Date: 2006/02/09 08:59:04 $";
-
 open TCP1_utilsTheory
 
 val fm_exists_thm = store_thm(

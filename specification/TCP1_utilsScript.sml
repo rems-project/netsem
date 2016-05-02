@@ -19,9 +19,6 @@ val _ = new_theory "TCP1_utils";
 
 val _ = BasicProvers.augment_srw_ss [rewrites [LET_THM]]
 
-val _ = Version.registerTheory "$RCSfile: TCP1_utilsScript.sml,v $" "$Revision: 1.69 $" "$Date: 2005/02/07 15:12:27 $";
-
-
 (*: @chapter [[TCP1_utils]] Utility functions
 
 This file contains various utility functions and definitions, for functions, lists, and numeric types, that are

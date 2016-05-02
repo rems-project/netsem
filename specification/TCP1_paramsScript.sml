@@ -23,8 +23,6 @@ val Term = Parse.Term;
 
 val _ = new_theory "TCP1_params";
 
-val _ = Version.registerTheory "$RCSfile: TCP1_paramsScript.sml,v $" "$Revision: 1.30 $" "$Date: 2009/02/17 11:56:46 $";
-
 (*: @chapter [[TCP1_params]] Host behavioural parameters
 
 This file defines a large number of constants affecting the behaviour

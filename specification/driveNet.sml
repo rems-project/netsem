@@ -13,9 +13,6 @@ val Term = Parse.Term;
 
 val _ = new_theory "driveNet";
 
-val _ = Version.registerTheory "$RCSfile: driveNet.sml,v $" "$Revision: 1.2 $" "$Date: 2006/06/01 15:47:14 $";
-
-
 (*
 val dep_tokens = fn s =>
 		    let

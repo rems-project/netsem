@@ -16,9 +16,6 @@ val Term = Parse.Term;
 
 val _ = new_theory "TCP1_net1";
 
-val _ = Version.registerTheory "$RCSfile: TCP1_net1Script.sml,v $" "$Revision: 1.13 $" "$Date: 2009/02/17 17:20:50 $";
-
-
 (* Network LTS *)
 
 (*: @chapter [[net_LTS]] Detailed network LTS

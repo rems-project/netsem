@@ -38,10 +38,6 @@ val Term = Parse.Term;
 
 val _ = new_theory "TCP1_hostLTS";
 
-val _ = Version.registerTheory "$RCSfile: TCP1_hostLTSScript.sml,v $" "$Revision: 1.979 $" "$Date: 2009/02/17 11:56:46 $";
-
-
-
 (* make "generalising variables" warning (and others?) into an error, so we can see if
    we forget to generalise a variable in a clause, or mistype it, etc. *)
 val _ = set_trace "inddef strict" 1;

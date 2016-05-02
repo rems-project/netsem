@@ -28,8 +28,6 @@ val Term = Parse.Term;
 
 val _ = new_theory "TCP1_auxFns";
 
-val _ = Version.registerTheory "$RCSfile: TCP1_auxFnsScript.sml,v $" "$Revision: 1.224 $" "$Date: 2006/10/04 10:23:17 $";
-
 (*: @chapter [[TCP1_auxFns]] Auxiliary functions
 
 This file defines a large number of auxiliary functions to the host

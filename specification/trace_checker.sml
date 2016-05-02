@@ -4,8 +4,6 @@
 
 open TraceFiles Parse
 
-val _ = Version.register "$RCSfile: trace_checker.sml,v $" "$Revision: 1.8 $" "$Date: 2004/10/13 07:19:40 $";
-
 val args = CommandLine.arguments()
 
 fun err s = TextIO.output(TextIO.stdErr, s)

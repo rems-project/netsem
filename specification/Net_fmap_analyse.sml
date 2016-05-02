@@ -7,8 +7,6 @@ struct
 
 open HolKernel Parse boolLib
 
-val _ = Version.register "$RCSfile: Net_fmap_analyse.sml,v $" "$Revision: 1.19 $" "$Date: 2007/06/19 07:41:04 $";
-
 val entry_grammars = (type_grammar(), term_grammar())
 val _ = Parse.temp_set_grammars finite_mapTheory.finite_map_grammars
 

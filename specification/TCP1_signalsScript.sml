@@ -14,8 +14,6 @@ open HolDoc
 
 val _ = new_theory "TCP1_signals";
 
-val _ = Version.registerTheory "$RCSfile: TCP1_signalsScript.sml,v $" "$Revision: 1.12 $" "$Date: 2004/12/09 16:09:34 $";
-
 (*: @chapter [[TCP1_signals]] Signal names
 
 This file contains the datatype of signal names, with all the signals

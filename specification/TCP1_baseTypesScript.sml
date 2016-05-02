@@ -19,8 +19,6 @@ local open arithmeticTheory stringTheory pred_setTheory integerTheory
 
 val _ = new_theory "TCP1_baseTypes";
 
-val _ = Version.registerTheory "$RCSfile: TCP1_baseTypesScript.sml,v $" "$Revision: 1.66 $" "$Date: 2009/02/17 11:56:46 $";
-
 (*: @chapter [[TCP1_baseTypes]] Base types
 
 This file defines basic types used throughout the specification.

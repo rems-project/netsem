@@ -16,8 +16,6 @@ structure Chaining :> Chaining =
 struct
 open Lib
 
-val _ = Version.register "$RCSfile: Chaining.sml,v $" "$Revision: 1.2 $" "$Date: 2004/03/22 11:40:00 $";
-
 fun norman_hardy sort list = let
   val sort_fst = Listsort.sort (sort o (fst ## fst))
   fun sort_snd l = Listsort.sort (sort o (snd ## snd)) l

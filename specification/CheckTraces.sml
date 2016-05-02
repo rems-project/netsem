@@ -4,8 +4,6 @@ prim_val catch_interrupt : bool -> unit = 1 "sys_catch_break";
 val _ = catch_interrupt true;
 *)
 
-val _ = Version.register "$RCSfile: CheckTraces.sml,v $" "$Revision: 1.53 $" "$Date: 2006/06/23 06:20:28 $";
-
 val odir = ref "."        (* the directory to which output files are written *)
 
 (* whether or not to save the trace theorems to a theory file *)
@@ -330,7 +328,7 @@ in
     htmlOutput hnd "<pre>\n";
     output (hnd,(fileHead 2 h handle _ => ""));
     htmlOutput hnd "</pre>\n";
-    altOutput hnd ("<div class=\"verhead\" id=\"thever\">==Version numbers:\n<div class=\"vertab\">" ^ Version.getTable ()) ("==Versions:\n" ^ Version.getString ());
+    (* altOutput hnd ("<div class=\"verhead\" id=\"thever\">==Version numbers:\n<div class=\"vertab\">" ^ Version.getTable ()) ("==Versions:\n" ^ Version.getString ()); *)
     htmlOutput hnd "</div></div></div>\n";
     TextIO.flushOut hnd;
     (case try_finally (fn () => do_one_file_body hnd h)

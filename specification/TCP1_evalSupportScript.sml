@@ -23,8 +23,6 @@ val Term = Parse.Term;
 
 val _ = new_theory "TCP1_evalSupport";
 
-val _ = Version.registerTheory "$RCSfile: TCP1_evalSupportScript.sml,v $" "$Revision: 1.33 $" "$Date: 2005/12/14 12:38:16 $";
-
 (*: @chapter [[TCP1_evalSupport]] Initial state
 
 This file defines a function to construct certain initial host states for use in automated trace checking, along with other

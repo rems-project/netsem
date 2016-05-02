@@ -17,9 +17,6 @@ val Term = Parse.Term;
 
 val _ = new_theory "TCP1_net";
 
-val _ = Version.registerTheory "$RCSfile: TCP1_netScript.sml,v $" "$Revision: 1.12 $" "$Date: 2009/02/17 11:56:46 $";
-
-
 (* Network LTS *)
 
 (*: @chapter [[net_LTS]] Network labelled transition system
@@ -279,4 +276,3 @@ val _ = Hol_reln `
 
 
 val _ = export_theory();
-

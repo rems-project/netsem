@@ -6,8 +6,6 @@ struct
 
 open HolKernel boolLib simpLib BasicProvers
 
-val _ = Version.register "$RCSfile: Evaluator.sml,v $" "$Revision: 1.5 $" "$Date: 2004/03/22 11:40:00 $";
-
 fun expansion_type expth =
     type_of (bvar (rand (lhs (#2 (dest_forall (concl expth))))))
 

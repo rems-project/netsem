@@ -14,8 +14,6 @@ open HolDoc
 
 val _ = new_theory "TCP1_LIBinterface";
 
-val _ = Version.registerTheory "$RCSfile: TCP1_LIBinterfaceScript.sml,v $" "$Revision: 1.37 $" "$Date: 2005/02/07 16:31:21 $";
-
 (*: @chapter [[TCP1_LIBinterface]] System call types
 
 This file gives the system call API that is modelled by the

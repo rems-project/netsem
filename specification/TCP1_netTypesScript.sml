@@ -20,8 +20,6 @@ local open arithmeticTheory stringTheory pred_setTheory bagTheory
 
 val _ = new_theory "TCP1_netTypes";
 
-val _ = Version.registerTheory "$RCSfile: TCP1_netTypesScript.sml,v $" "$Revision: 1.45 $" "$Date: 2004/12/09 15:43:08 $";
-
 (*: @chapter [[TCP1_netTypes]] Network datagram types
 
 This file defines the types of the datagrams that appear on the

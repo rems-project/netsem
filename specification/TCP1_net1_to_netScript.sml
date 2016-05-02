@@ -14,9 +14,6 @@ val Term = Parse.Term;
 
 val _ = new_theory "TCP1_net1_to_net";
 
-val _ = Version.registerTheory "$RCSfile: TCP1_net1_to_netScript.sml,v $" "$Revision: 1.9 $" "$Date: 2009/02/17 11:56:46 $";
-
-
 (*: @chapter [[net_LTS]] Net LTS: detailed network semantics for Spec1
 
   This file no longer used. It contained some preliminary proofs about the network transition
@@ -894,4 +891,3 @@ val _ = export_theory();
 (* Local Variables: *)
 (* fill-column: 100 *)
 (* End: *)
-

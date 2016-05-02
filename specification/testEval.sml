@@ -37,8 +37,6 @@ local open numLib pred_setLib pairLib realSimps intLib in end
 
 open TextIO
 
-val _ = Version.register "$RCSfile: testEval.sml,v $" "$Revision: 1.230 $" "$Date: 2007/06/18 03:41:20 $";
-
 val _ = Globals.priming := SOME ""
 
 (* ----------------------------------------------------------------------

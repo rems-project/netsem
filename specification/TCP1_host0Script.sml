@@ -22,8 +22,6 @@ in end;
 
 val _ = new_theory "TCP1_host0";
 
-val _ = Version.registerTheory "$RCSfile: TCP1_host0Script.sml,v $" "$Revision: 1.98 $" "$Date: 2006/10/04 10:23:17 $";
-
 (*: @chapter [[TCP1_host0]] Host LTS labels and rule categories
 
 This file defines the labels for the host labelled transition system,
@@ -122,4 +120,3 @@ val _ = Hol_datatype
 (* -------------------------------------------------- *)
 
 val _ = export_theory();
-

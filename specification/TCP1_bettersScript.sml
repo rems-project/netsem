@@ -10,8 +10,6 @@ open HolKernel boolLib Parse
 
 val _ = new_theory "TCP1_betters";
 
-val _ = Version.registerTheory "$RCSfile: TCP1_bettersScript.sml,v $" "$Revision: 1.84 $" "$Date: 2007/06/14 07:33:12 $";
-
 structure Q = struct open Q open OldAbbrevTactics end
 
 

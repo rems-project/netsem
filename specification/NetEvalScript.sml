@@ -15,8 +15,6 @@ local open TCP1_hostLTSTheory in end;
 val _ = new_theory "NetEval";
 val _ = BasicProvers.augment_srw_ss [rewrites [LET_THM]]
 
-val _ = Version.registerTheory "$RCSfile: NetEvalScript.sml,v $" "$Revision: 1.79 $" "$Date: 2006/10/04 10:23:17 $";
-
 open BasicProvers
 
 (* ugly jiggery pokery to retain the reduction relation's uses of let *)

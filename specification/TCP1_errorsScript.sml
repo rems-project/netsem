@@ -14,8 +14,6 @@ open HolDoc
 
 val _ = new_theory "TCP1_errors";
 
-val _ = Version.registerTheory "$RCSfile: TCP1_errorsScript.sml,v $" "$Revision: 1.16 $" "$Date: 2004/12/09 15:43:08 $";
-
 (*: @chapter [[TCP1_errors]] Error codes
 
 This file contains the datatype of all possible error codes.  The

@@ -8,8 +8,6 @@ struct
 open Abbrev
 open HolKernel boolLib
 
-val _ = Version.register "$RCSfile: Net_Hol_reln.sml,v $" "$Revision: 1.7 $" "$Date: 2009/02/16 16:45:22 $";
-
 (* in abstract syntax term a, replace all occurrences of
      q <== p
    with

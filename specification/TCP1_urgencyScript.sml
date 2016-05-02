@@ -8,8 +8,6 @@ open HolKernel boolLib Parse
 
 val _ = new_theory "TCP1_urgency";
 
-val _ = Version.registerTheory "$RCSfile: TCP1_urgencyScript.sml,v $" "$Revision: 1.16 $" "$Date: 2006/10/04 10:23:17 $";
-
 open BasicProvers bossLib
 
 val _ = augment_srw_ss [boolSimps.LET_ss]

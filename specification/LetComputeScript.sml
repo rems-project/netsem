@@ -13,8 +13,6 @@ open simpLib boolSimps BasicProvers
 
 val _ = new_theory "LetCompute"
 
-val _ = Version.registerTheory "$RCSfile: LetComputeScript.sml,v $" "$Revision: 1.9 $" "$Date: 2005/02/02 04:59:44 $";
-
 local
   open sumTheory pairTheory listTheory optionTheory realTheory integerTheory
        finite_mapTheory
@@ -236,5 +234,3 @@ val CLET_t = mk_thy_const {Name = "CLET", Thy = "LetCompute",
                            Ty = ``:('a -> 'b) -> ('a -> 'b)``}
 
 val _ = export_theory();
-
-

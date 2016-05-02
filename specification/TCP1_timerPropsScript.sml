@@ -19,8 +19,6 @@ val _ = BasicProvers.augment_srw_ss [rewrites [LET_THM]]
 
 val _ = new_theory "TCP1_timerProps";
 
-val _ = Version.registerTheory "$RCSfile: TCP1_timerPropsScript.sml,v $" "$Revision: 1.5 $" "$Date: 2006/02/20 23:03:47 $";
-
 open TCP1_timersTheory
 
 (* -------------------------------------------------------------------- *)
