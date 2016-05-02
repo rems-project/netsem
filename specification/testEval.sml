@@ -463,8 +463,8 @@ local open realTheory simpLib BasicProvers
 in
 val elim_stopwatch_var = prove(
   ``0 < c1 /\ 0 < c2 ==>
-    ((!r1 r2. l <= r1 /\ r1 <= m /\ l <= r2 /\ r2 <= m ==>
-             P (c1 * r1 + c2 * r2)) =
+    ((!r1 r2:real. l <= r1 /\ r1 <= m /\ l <= r2 /\ r2 <= m ==>
+                   P (c1 * r1 + c2 * r2)) =
      (!r. l <= r /\ r <= m ==> P((c1 + c2) * r)))``,
   STRIP_TAC THEN EQ_TAC THEN REPEAT STRIP_TAC THENL [
     FIRST_X_ASSUM (Q.SPECL_THEN [`r`,`r`] MP_TAC) THEN
