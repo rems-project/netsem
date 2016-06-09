@@ -1,4 +1,4 @@
-SUBDIRS=ns_logger socktools diags conflate
+SUBDIRS=ns_logger socktools diags conflate tracediff
 
 all::
 	for i in $(SUBDIRS); do \
