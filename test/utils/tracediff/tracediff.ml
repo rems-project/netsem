@@ -377,23 +377,42 @@ module Comparison = struct
     | _ -> false
 end
 
-let diff fst snd =
-  if List.length fst = List.length snd then
-    let r, _ =
-      List.fold_left (fun (r, idx) (a, b) ->
-          if r then
-            if Comparison.same a b then
-              (r, succ idx)
-            else
-              (Format.fprintf Format.std_formatter "comparison failed at event %d (excluding epsilon)\n%a <> %a\n" idx Print.pp a Print.pp b;
-               (false, succ idx))
-          else
-            (r, succ idx))
-        (true, 1) (List.combine fst snd)
-    in
-    if r then print_endline "same" else print_endline "different"
+let take n xs =
+  let rec more n xs acc =
+    match n, xs with
+    | 0, _ -> List.rev acc
+    | _, x::xs -> more (pred n) xs (x::acc)
+    | _, [] -> invalid_arg "n > |xs|"
+  in
+  more n xs []
+
+let equal_len xs ys =
+  let xlen = List.length xs
+  and ylen = List.length ys
+  in
+  if xlen = ylen then
+    (xs, ys)
+  else if xlen > ylen then
+    (Printf.printf "cutting first from %d downto %d\n" xlen ylen ;
+     (take ylen xs, ys))
   else
-   print_endline "not same amount of events!"
+    (Printf.printf "cutting second from %d downto %d\n" ylen xlen ;
+     (xs, take xlen ys))
+
+let diff fst snd =
+  let r, _ =
+    List.fold_left (fun (r, idx) (a, b) ->
+        if r then
+          if Comparison.same a b then
+            (r, succ idx)
+          else
+            (Format.fprintf Format.std_formatter "comparison failed at event %d (excluding epsilon)\n%a <> %a\n" idx Print.pp a Print.pp b;
+             (false, succ idx))
+        else
+          (r, succ idx))
+      (true, 1) (List.combine fst snd)
+  in
+  if r then print_endline "same" else print_endline "different"
 
 let parse ch =
   let acc = ref [] in
@@ -420,7 +439,11 @@ let main fst snd =
     Unix.close fd ;
     r
   in
-  diff (parse1 fst) (parse1 snd)
+  let xs = parse1 fst
+  and ys = parse1 snd
+  in
+  let xs, ys = equal_len xs ys in
+  diff xs ys
 
 let _ =
   match Sys.argv with
