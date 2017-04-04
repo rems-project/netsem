@@ -274,7 +274,7 @@ val seq32_add_num_sub = store_thm(
     (s1 + Num(s2 - s1) = s2)``,
   Cases_on `s1` THEN Cases_on `s2` THEN
   SRW_TAC [][seq32_geq_def, seq32_diff_def, seq32_plus_def] THEN
-  qcase_tac `w1 - w2 : word32` THEN
+  rename1 `w1 - w2 : word32` THEN
   Q.SPEC_THEN `w1` (Q.X_CHOOSE_THEN `n` STRIP_ASSUME_TAC)
               strong_word_nchotomy THEN
   Q.SPEC_THEN `w2` (Q.X_CHOOSE_THEN `m` STRIP_ASSUME_TAC)
@@ -331,7 +331,7 @@ val seq32_num_sub_lt = store_thm(
     Q_TAC SUFF_TAC `j < i + n` THEN1 DECIDE_TAC THEN
     SPOSE_NOT_THEN (ASSUME_TAC o REWRITE_RULE [NOT_LESS]) THEN
     `j - (i + n) < 2147483648` by DECIDE_TAC THEN
-    FULL_SIMP_TAC (srw_ss() ++ ARITH_ss) [w2i_n2w_pos, WORD_SUB_EQN],
+    fs[w2i_n2w_pos, WORD_SUB_EQN],
 
     FULL_SIMP_TAC (srw_ss()) [NOT_LESS_EQ] THEN
     `w2i (n2w j - n2w i : word32) = w2i (n2w (j + 4294967296 - i) : word32)`
@@ -344,16 +344,16 @@ val seq32_num_sub_lt = store_thm(
            `2147483648 <= j + 4294967296 - i /\
             j + 4294967296 - i < 4294967296` by DECIDE_TAC THEN
            FULL_SIMP_TAC (srw_ss() ++ ARITH_ss) [w2i_n2w_neg]) THEN
-    Q.PAT_ASSUM `0 <= w2i (n2w X)` (K ALL_TAC) THEN
+    Q.PAT_X_ASSUM `0 <= w2i (n2w X)` (K ALL_TAC) THEN
     ASM_SIMP_TAC (srw_ss() ++ ARITH_ss) [w2i_n2w_pos] THEN
     REPEAT VAR_EQ_TAC THEN
     `0 < n`
        by (SPOSE_NOT_THEN (ASSUME_TAC o SIMP_RULE (srw_ss()) [NOT_LESS]) THEN
-           Q.PAT_ASSUM `w2i x < 0` MP_TAC THEN
+           Q.PAT_X_ASSUM `w2i x < 0` MP_TAC THEN
            ASM_SIMP_TAC (srw_ss() ++ ARITH_ss) [WORD_SUB_EQN] THEN
            ASM_SIMP_TAC (srw_ss() ++ ARITH_ss) [w2i_n2w_pos]) THEN
     ASM_REWRITE_TAC [] THEN
-    Q.PAT_ASSUM `w2i x < 0` MP_TAC THEN
+    Q.PAT_X_ASSUM `w2i x < 0` MP_TAC THEN
     ASM_SIMP_TAC (srw_ss() ++ ARITH_ss) [WORD_SUB_EQN] THEN
     Cases_on `j + 4294967296 - (i + n) MOD 4294967296 < 2147483648` THEN1
           simp[w2i_n2w_pos] THEN

@@ -131,7 +131,7 @@ val ORDERINGS_THM = store_thm(
              pred_setTheory.SPECIFICATION, EQ_IMP_THM,
              listTheory.LENGTH_NIL] THEN
   FULL_SIMP_TAC (srw_ss()) [pred_setTheory.INSERT_COMM] THEN
-  qcase_tac `LENGTH l = _` >>
+  rename1 `LENGTH l = _` >>
   `l = [] \/ ?h t. l = h::t` by PROVE_TAC [listTheory.list_CASES] THEN
   POP_ASSUM SUBST_ALL_TAC THEN
   FULL_SIMP_TAC (srw_ss()) [listTheory.LENGTH_NIL] THEN

@@ -162,10 +162,10 @@ val approx_tac =
           (STRIP_QUANT_CONV (LAND_CONV (SIMP_CONV (srw_ss()) []))))) THEN
   PURE_REWRITE_TAC [brwt1, brwt2, EXISTS_SIMP] THEN
   STRIP_TAC THEN
-  Q.PAT_ASSUM `rc = y` SUBST_ALL_TAC THEN
+  Q.PAT_X_ASSUM `rc = y` SUBST_ALL_TAC THEN
   RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [TCP1_preHostTypesTheory.is_urgent_def]) THEN
   TRY (FIRST_X_ASSUM CONTR_TAC) THEN
-  Q.PAT_ASSUM `nonurgent_approx x` MP_TAC THEN
+  Q.PAT_X_ASSUM `nonurgent_approx x` MP_TAC THEN
   SRW_TAC [][nonurgent_approx_def] THEN
   Q.EXISTS_TAC `tid` THEN
   ASM_SIMP_TAC (srw_ss()) [finite_mapTheory.NOT_EQ_FAPPLY,
@@ -191,7 +191,7 @@ val accept_5_approx = store_thm(
   ``nonurgent_approx h /\ is_urgent rc ==>
     ~(accept_5 /* rp, rc */ h -- lbl --> h')``,
   approx_tac THEN
-  Q.PAT_ASSUM `TCP_PROTO y = x` (MP_TAC o SYM) THEN
+  Q.PAT_X_ASSUM `TCP_PROTO y = x` (MP_TAC o SYM) THEN
   FULL_SIMP_TAC (srw_ss()) []);
 
 val close_5_approx = store_thm(
@@ -205,7 +205,7 @@ val connect_2_approx = store_thm(
   ``nonurgent_approx h /\ is_urgent rc ==>
     ~(connect_2 /* rp, rc */ h -- lbl --> h')``,
   approx_tac THEN
-  Q.PAT_ASSUM `TCP_PROTO y = x` (MP_TAC o SYM) THEN
+  Q.PAT_X_ASSUM `TCP_PROTO y = x` (MP_TAC o SYM) THEN
   ASM_SIMP_TAC (srw_ss()) []);
 
 val connect_3_approx = store_thm(
@@ -213,7 +213,7 @@ val connect_3_approx = store_thm(
   ``nonurgent_approx h /\ is_urgent rc ==>
     ~(connect_3 /* rp, rc */ h -- lbl --> h')``,
   approx_tac THEN
-  Q.PAT_ASSUM `TCP_PROTO y = x` (MP_TAC o SYM) THEN
+  Q.PAT_X_ASSUM `TCP_PROTO y = x` (MP_TAC o SYM) THEN
   ASM_SIMP_TAC (srw_ss()) []);
 
 val connect_4_approx = store_thm(
@@ -447,7 +447,7 @@ val fmap_every_pred_relationally = prove(
   THENL [
     `fm ' k ∈ FRANGE fm` by PROVE_TAC [IN_FRANGE_KEY_IN_DOM] THEN
     metis_tac[optionTheory.THE_DEF],
-    qcase_tac `e ∈ FRANGE fm` >> Cases_on `e ∈ FRANGE fm` >> simp[] >>
+    rename1 `e ∈ FRANGE fm` >> Cases_on `e ∈ FRANGE fm` >> simp[] >>
     metis_tac[IN_FRANGE_KEY_IN_DOM],
     metis_tac[optionTheory.THE_DEF]
   ]);

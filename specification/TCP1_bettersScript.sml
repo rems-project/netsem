@@ -335,7 +335,7 @@ val tcp_reass_myrel = prove(
       POP_ASSUM MP_TAC THEN Cases_on `h.spliced_urp` THEN
       FULL_SIMP_TAC (srw_ss()) [] THEN SRW_TAC [][] THEN
       DISJ2_TAC THEN Q.EXISTS_TAC `h` THEN
-      Q.PAT_ASSUM `!i c rseg q. X = setcomprel i c rseg q`
+      Q.PAT_X_ASSUM `!i c rseg q. X = setcomprel i c rseg q`
                   (ASSUME_TAC o GSYM) THEN
       ASM_SIMP_TAC (srw_ss()) [],
 
@@ -343,7 +343,7 @@ val tcp_reass_myrel = prove(
       Cases_on `h.spliced_urp` THEN FULL_SIMP_TAC (srw_ss()) [] THEN
       SRW_TAC [][MEM_nskip0] THEN SRW_TAC [][] THEN DISJ2_TAC THEN
       Q.EXISTS_TAC `h` THEN
-      Q.PAT_ASSUM `!i c rseg q. X = setcomprel i c rseg q`
+      Q.PAT_X_ASSUM `!i c rseg q. X = setcomprel i c rseg q`
                   (ASSUME_TAC o GSYM) THEN
       ASM_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
                    [seq32_leq_plus_num, arithmeticTheory.LESS_MOD,
@@ -385,8 +385,8 @@ val tcp_reass_myrel = prove(
 
       PROVE_TAC [],
       ASM_REWRITE_TAC [],
-      Q.PAT_ASSUM `setcomprel VV XX YY ZZ` MP_TAC THEN
-      Q.PAT_ASSUM `!i c rseg q. XX = setcomprel i c rseg q`
+      Q.PAT_X_ASSUM `setcomprel VV XX YY ZZ` MP_TAC THEN
+      Q.PAT_X_ASSUM `!i c rseg q. XX = setcomprel i c rseg q`
                   (ASSUME_TAC o GSYM) THEN
       ASM_SIMP_TAC (srw_ss()) [] THEN STRIP_TAC THEN
       REPEAT (FIRST_X_ASSUM (K ALL_TAC o assert(is_forall o concl))) THENL [
@@ -875,8 +875,8 @@ val better_tcp_reass1 = prove(
   Q.X_GEN_TAC `e` THEN EQ_TAC THEN
   DISCH_THEN (Q.X_CHOOSE_THEN `cs` STRIP_ASSUME_TAC) THEN
   ASM_SIMP_TAC (srw_ss()) [] THEN
-  Q.PAT_ASSUM `X = e` (K ALL_TAC) THENL [
-    lcsymtacs.qcase_tac `cs1 = CONCAT_OPTIONAL cs2` THEN
+  Q.PAT_X_ASSUM `e = _` (K ALL_TAC) THENL [
+    rename1 `cs1 = CONCAT_OPTIONAL cs2` THEN
     Q.EXISTS_TAC `cs2` THEN ASM_SIMP_TAC (srw_ss()) [] THEN
     `cs2 = APPEND [] cs2` by SRW_TAC [][] THEN
     POP_ASSUM SUBST1_TAC THEN
@@ -1015,7 +1015,7 @@ val SURJ_LE_CARD_INJ = prove(
      by PROVE_TAC [INTER_FINITE, CARD_EQ_1] THEN
   `d IN s1 /\ (f d = e)` by FULL_SIMP_TAC (srw_ss()) [EXTENSION] THEN
   `s1 = d INSERT s1'`
-     by (Q.PAT_ASSUM `s1 INTER X = {d}` MP_TAC THEN
+     by (Q.PAT_X_ASSUM `s1 INTER X = {d}` MP_TAC THEN
          SRW_TAC [][EXTENSION] THEN PROVE_TAC []) THEN
   `~(d IN s1')` by (Q.UNABBREV_TAC `s1'` THEN
                     SIMP_TAC (srw_ss()) [] THEN

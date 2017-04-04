@@ -97,18 +97,15 @@ val srange_alt = store_thm(
       ASM_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
                    [integer_wordTheory.w2i_n2w_pos, wordsTheory.word_add_n2w,
                     wordsTheory.n2w_11] THEN
-      CONJ_TAC THENL [
-        FULL_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
-                      [WORD_SUB_EQN, wordsTheory.word_add_n2w] THEN
-        SPOSE_NOT_THEN STRIP_ASSUME_TAC THEN
-        `n2 + sz < n1 + 4294967296` by DECIDE_TAC THEN
-        `2147483648 <= n2 + sz - n1 /\ n2 + sz - n1 < 4294967296`
-           by DECIDE_TAC THEN
-        FULL_SIMP_TAC (srw_ss()) [integer_wordTheory.w2i_n2w_neg] THEN
-        FULL_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
-                      [int_ge, INT_LE_SUB_LADD],
-        SRW_TAC [][arithmeticTheory.ADD_MODULUS]
-      ],
+      FULL_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
+                    [WORD_SUB_EQN, wordsTheory.word_add_n2w] THEN
+      SPOSE_NOT_THEN STRIP_ASSUME_TAC THEN
+      `n2 + sz < n1 + 4294967296` by DECIDE_TAC THEN
+      `2147483648 <= n2 + sz - n1 /\ n2 + sz - n1 < 4294967296`
+         by DECIDE_TAC THEN
+      FULL_SIMP_TAC (srw_ss()) [integer_wordTheory.w2i_n2w_neg] THEN
+      FULL_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss)
+                    [int_ge, INT_LE_SUB_LADD],
 
       ASM_SIMP_TAC (srw_ss() ++ numSimps.ARITH_ss) [WORD_SUB_EQN] THEN
       Q_TAC SUFF_TAC `n1 - n2 <= sz` THEN1
