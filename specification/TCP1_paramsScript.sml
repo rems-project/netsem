@@ -235,7 +235,7 @@ used in the model.
 
 
 val HZ_def = Phase.phase 1 Define`
-  HZ = 100 : real  (* Note this is the FreeBSD 4.6 value. Becomes 1000 in
+  HZ = 1000 : real  (* Note this is the FreeBSD 4.6 value. Becomes 1000 in
                       FreeBSD 6.0 *)
 `
 (*:
@@ -458,7 +458,7 @@ val sf_default_n_def = Phase.phase 1 Define`
 
   sf_default_n Linux_2_4_20_8 SOCK_STREAM SO_RCVBUF      = 43689 /\ (* from tests - strange number? *)
   sf_default_n WinXP_Prof_SP1 SOCK_STREAM SO_RCVBUF      = 8192  /\ (* from tests *)
-  sf_default_n FreeBSD_4_6_RELEASE SOCK_STREAM SO_RCVBUF = 57344 /\ (* from code, becomes 65536 in FreeBSD 6.0 *)
+  sf_default_n FreeBSD_4_6_RELEASE SOCK_STREAM SO_RCVBUF = 65535 /\ (* from code, becomes 65536 in FreeBSD 6.0 *)
 
   sf_default_n Linux_2_4_20_8 SOCK_STREAM SO_SNDLOWAT      = 1 /\ (* from tests *)
   sf_default_n WinXP_Prof_SP1 SOCK_STREAM SO_SNDLOWAT      = 1 /\ (* Note this value has not been checked in testing. *)
@@ -600,7 +600,7 @@ worthwhile modelling these parameters changing during operation.
 
 val MSSDFLT_def = Phase.phase 1 Define`
 (*: initial [[t_maxseg]], modulo route and link MTUs :*)
-  MSSDFLT = 512 : num  (* BSD default; RFC1122 sec. 4.2.2.6 says this MUST be 536 *)
+  MSSDFLT = 536 : num  (* BSD default; RFC1122 sec. 4.2.2.6 says this MUST be 536 *)
 `;
 
 val SS_FLTSZ_LOCAL_def = Phase.phase 1 Define`
