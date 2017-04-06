@@ -1749,7 +1749,7 @@ end
 
 exception SendDatagramMismatch
 val sdm_check_enabled = ref true
-val sdm_fail_exception = ref true
+val sdm_fail_exception = ref false
 val sdm_test_term = ``\h:host m:msg. HD (timed_val_of h.oq) = m``
 fun check_for_senddatagram_mismatch host label = let
   val (f, args) = strip_comb label
