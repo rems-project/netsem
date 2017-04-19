@@ -161,7 +161,7 @@ val _ = case Process.getEnv "PATH" of
 
 
              The "seq" implementation of lazy lists is available in
-             <holdir>/src/parse/.
+             <holdir>/src/portableML/.
 
           e. When doing a do_epsilon step, things are slightly more
              tedious because of the local-block that needs to be
