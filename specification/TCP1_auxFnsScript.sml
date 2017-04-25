@@ -370,43 +370,43 @@ val calculate_buf_sizes_def = Define`
          BSD has the route MTU if avail, or [[MIN MSSDFLT (link MTU)]] otherwise, as the first argument
          of the MIN below.  That is the same calculation as we did in [[connect_1]]. We don't repeat it,
          but use the cached value in [[cb.t_maxseg]]. :*)
-      let maxseg = (MIN cb_t_maxseg (MAX 64 (option_CASE seg_mss MSSDFLT I))) in
+         MIN cb_t_maxseg (MAX 64 (option_CASE seg_mss MSSDFLT I))
+    in
+
+    (* buffootle: rcv *)
+    let rcvbufsize' = option_CASE bw_delay_product_for_rt rcvbufsize I in
+    let (rcvbufsize'',t_maxseg'') = (if rcvbufsize' < t_maxseg'
+                                     then (rcvbufsize',rcvbufsize')
+                                     else (MIN SB_MAX (roundup t_maxseg' rcvbufsize'),
+                                           t_maxseg')) in
+
+    (* buffootle: snd *)
+    let sndbufsize' = option_CASE bw_delay_product_for_rt sndbufsize I in
+    let sndbufsize'' = (if sndbufsize' < t_maxseg''
+                        then sndbufsize'
+                        else MIN SB_MAX (roundup t_maxseg' sndbufsize')) in
+
+    let do_rfc3390 = F in (* FIXME - fine in FreeBSD 4.6, may become T in
+                                FreeBSD 6.0 *)
+
+    let mss =
           if linux_arch arch then
-            maxseg
+            t_maxseg'
           else
             (*: BSD subtracts the size consumed by options in the TCP
             header post connection establishment. The WinXP and Linux
             behaviour has not been fully tested but it appears Linux
             does not do this and WinXP does. :*)
-            maxseg - (calculate_tcp_options_len cb_tf_doing_tstmp)
+            t_maxseg' - (calculate_tcp_options_len cb_tf_doing_tstmp)
     in
-    (*: round down to multiple of cluster size if larger (as BSD).
-    From BSD code; assuming true for WinXP for now :*)
-    let t_maxseg'' = if linux_arch arch then t_maxseg'  (* from tests *)
-                     else rounddown MCLBYTES t_maxseg' in
-
-    (* buffootle: rcv *)
-    let rcvbufsize' = option_CASE bw_delay_product_for_rt rcvbufsize I in
-    let (rcvbufsize'',t_maxseg''') = (if rcvbufsize' < t_maxseg''
-                                     then (rcvbufsize',rcvbufsize')
-                                     else (MIN SB_MAX (roundup t_maxseg'' rcvbufsize'),
-                                           t_maxseg'')) in
-
-    (* buffootle: snd *)
-    let sndbufsize' = option_CASE bw_delay_product_for_rt sndbufsize I in
-    let sndbufsize'' = (if sndbufsize' < t_maxseg'''
-                        then sndbufsize'
-                        else MIN SB_MAX (roundup t_maxseg'' sndbufsize')) in
-
-    let do_rfc3390 = F in (* FIXME - fine in FreeBSD 4.6, may become T in
-                                FreeBSD 6.0 *)
-
     (* compute initial cwnd *)
+    (* XXX: the 10 is the default of sysctl tcp.initcwnd.segments (RFC6928) -- and the algorithm is more complicated (cases where that sysctl is 0, and RFC3390 is applied) *)
     let snd_cwnd =
-      if do_rfc3390 then MIN (4 * t_maxseg''') (MAX (2 * t_maxseg''') 4380)
+      if do_rfc3390 then MIN (4 * t_maxseg'') (MAX (2 * t_maxseg'') 4380)
       else
-        (t_maxseg''' * (if is_local_conn then SS_FLTSZ_LOCAL else SS_FLTSZ)) in
-    (rcvbufsize'',sndbufsize'',t_maxseg''',snd_cwnd)
+        MIN (10 * mss) (MAX (2 * mss) (10 * 1460))
+    in
+    (rcvbufsize'',sndbufsize'',t_maxseg'',snd_cwnd)
 `
 (*: @description
 Used in [[deliver_in_1]] and [[deliver_in_2]]. :*)

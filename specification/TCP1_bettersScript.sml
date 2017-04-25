@@ -1674,32 +1674,34 @@ val calculate_buf_sizes_EQ_implication = prove(
      (NUMERAL n =  MIN SB_MAX (roundup y (option_CASE bwdp rcvbuf I))) /\
      (x = bool$LET (\sndbufsize'.
                       if sndbufsize' < y then sndbufsize'
-                      else MIN (256 * 1024) (roundup y sndbufsize'))
+                      else MIN SB_MAX (roundup y sndbufsize'))
                    (option_CASE bwdp sndbuf I)) /\
-     (y = bool$LET
-            (\maxseg.
-                if linux_arch arch then maxseg
-                 else rounddown MCLBYTES
-                                (maxseg -
-                                 calculate_tcp_options_len cb_tf_doing_tstmp))
-            (MIN cb_t_maxseg (MAX 64 (option_CASE seg_mss MSSDFLT I)))) /\
-     (z = y * (if localp then SS_FLTSZ_LOCAL else SS_FLTSZ))``,
+     (NUMERAL y = MIN cb_t_maxseg (MAX 64 (option_CASE seg_mss MSSDFLT I))) /\
+     (z = bool$LET
+            (\mss.
+               MIN (10 * mss) (MAX (2 * mss) (10 * 1460)))
+            (if linux_arch arch then y
+             else (y - calculate_tcp_options_len cb_tf_doing_tstmp)))``,
   `NUMERAL n = n` by SRW_TAC [][arithmeticTheory.NUMERAL_DEF] THEN
   POP_ASSUM SUBST_ALL_TAC THEN
-  SIMP_TAC bool_ss
-           [calculate_buf_sizes_def, TCP1_paramsTheory.SB_MAX_def,
-            TCP1_paramsTheory.MCLBYTES_def] THEN
+  `NUMERAL y = y` by SRW_TAC [][arithmeticTheory.NUMERAL_DEF] THEN
+  POP_ASSUM SUBST_ALL_TAC THEN
+  SIMP_TAC bool_ss [calculate_buf_sizes_def, TCP1_paramsTheory.SB_MAX_def] THEN
   CONV_TAC (RAND_CONV (RAND_CONV (REWR_CONV (GSYM combinTheory.I_THM)))) THEN
   LET_ELIM_TAC THEN FULL_SIMP_TAC (srw_ss()) [] THEN REPEAT VAR_EQ_TAC THEN
-  `t_maxseg' <= maxseg` by SRW_TAC [][Abbr`t_maxseg'`] THEN
-  `maxseg <= cb_t_maxseg` by SRW_TAC [][Abbr`maxseg`] THEN
-  `t_maxseg'' <= t_maxseg'` by SRW_TAC [][Abbr`t_maxseg''`, rounddown_leq] THEN
-  `t_maxseg'' <= cb_t_maxseg` by DECIDE_TAC THEN
-  `~(rcvbufsize' < t_maxseg'')`
+  `mss <= t_maxseg''` by SRW_TAC [][Abbr`mss`] THEN
+  `t_maxseg' <= cb_t_maxseg` by SRW_TAC [][Abbr`t_maxseg'`] THEN
+  `mss' <= t_maxseg'` by SRW_TAC [][Abbr`mss'`] THEN
+  `mss' <= cb_t_maxseg` by DECIDE_TAC THEN
+  `~(rcvbufsize' < t_maxseg')`
       by (STRIP_TAC THEN FULL_SIMP_TAC (srw_ss()) [] THEN DECIDE_TAC) THEN
   Q.UNDISCH_THEN `Abbrev ~do_rfc3390` MP_TAC THEN
   REWRITE_TAC [markerTheory.Abbrev_def] THEN
   DISCH_THEN (SUBST_ALL_TAC o EQF_INTRO) THEN
+  FULL_SIMP_TAC (srw_ss()) [] THEN SRW_TAC [][] THEN
+  FULL_SIMP_TAC (srw_ss()) [] THEN
+  Q.UNDISCH_THEN `Abbrev (mss = mss')` MP_TAC THEN
+  REWRITE_TAC [markerTheory.Abbrev_def] THEN
   FULL_SIMP_TAC (srw_ss()) [] THEN SRW_TAC [][] THEN
   FULL_SIMP_TAC (srw_ss()) []);
 
@@ -1717,20 +1719,20 @@ val calculate_buf_sizes_EQ0 = prove(
      ((NUMERAL n = MIN SB_MAX (roundup y (option_CASE bwdp rcvbuf I))) /\
       (x = bool$LET (\sndbufsize'.
                        if sndbufsize' < y then sndbufsize'
-                       else MIN (256 * 1024) (roundup y sndbufsize'))
+                       else MIN SB_MAX (roundup y sndbufsize'))
                     (option_CASE bwdp sndbuf I)) /\
-      (y = bool$LET (\maxseg.
-                       if linux_arch arch then maxseg
-                       else rounddown
-                              2048
-                              (maxseg -
-                               calculate_tcp_options_len cb_tf_doing_tstmp))
-               (MIN cb_t_maxseg (MAX 64 (option_CASE seg_mss MSSDFLT I)))) /\
-      (z = y * (if localp then SS_FLTSZ_LOCAL else SS_FLTSZ)))``,
+      (NUMERAL y = MIN cb_t_maxseg (MAX 64 (option_CASE seg_mss MSSDFLT I))) /\
+      (z = bool$LET
+            (\mss.
+               MIN (10 * mss) (MAX (2 * mss) (10 * 1460)))
+            (if linux_arch arch then y
+             else (y - calculate_tcp_options_len cb_tf_doing_tstmp))))``,
   STRIP_TAC THEN EQ_TAC THEN1
     (STRIP_TAC THEN IMP_RES_TAC calculate_buf_sizes_EQ_implication THEN
      ASM_REWRITE_TAC [TCP1_paramsTheory.MCLBYTES_def]) THEN
   `NUMERAL n = n` by SRW_TAC [][arithmeticTheory.NUMERAL_DEF] THEN
+  POP_ASSUM SUBST_ALL_TAC THEN
+  `NUMERAL y = y` by SRW_TAC [][arithmeticTheory.NUMERAL_DEF] THEN
   POP_ASSUM SUBST_ALL_TAC THEN
   REWRITE_TAC [TCP1_paramsTheory.SB_MAX_def] THEN
   LET_ELIM_TAC THEN
@@ -1740,32 +1742,30 @@ val calculate_buf_sizes_EQ0 = prove(
                      else th) THEN
   ASM_SIMP_TAC (srw_ss()) [] THEN
   ASM_SIMP_TAC bool_ss [calculate_buf_sizes_def,
-                        TCP1_paramsTheory.SB_MAX_def,
-                        TCP1_paramsTheory.MCLBYTES_def] THEN
+                        TCP1_paramsTheory.SB_MAX_def] THEN
   LET_ELIM_TAC THEN VAR_EQ_TAC THEN
   Q.UNDISCH_THEN `Abbrev(do_rfc3390 = F)`
                  (SUBST_ALL_TAC o EQF_INTRO o
                   REWRITE_RULE [markerTheory.Abbrev_def]) THEN
-  `t_maxseg' <= maxseg` by SRW_TAC [][Abbr`t_maxseg'`] THEN
-  `t_maxseg'' <= t_maxseg'` by SRW_TAC [][Abbr`t_maxseg''`, rounddown_leq] THEN
-  `maxseg <= cb_t_maxseg` by SRW_TAC [][Abbr`maxseg`] THEN
-  `t_maxseg'' <= cb_t_maxseg` by DECIDE_TAC THEN
+  `mss <= t_maxseg'` by SRW_TAC [][Abbr`mss`] THEN
+  `mss' <= t_maxseg'` by SRW_TAC [][Abbr`mss'`] THEN
+  `t_maxseg' <= cb_t_maxseg` by SRW_TAC [][Abbr`t_maxseg'`] THEN
+  `mss' <= cb_t_maxseg` by DECIDE_TAC THEN
   FULL_SIMP_TAC (srw_ss()) [] THEN
-  `cb_t_maxseg < 262144 /\ cb_t_maxseg < roundup y rcvbufsize'`
+  `cb_t_maxseg < 262144 /\ cb_t_maxseg < roundup t_maxseg' rcvbufsize'`
      by (SIMP_TAC (srw_ss()) [Abbr`n`] THEN FULL_SIMP_TAC (srw_ss()) []) THEN
-  `y = t_maxseg''`
-     by SRW_TAC [][Abbr`y`, Abbr`t_maxseg''`, Abbr`t_maxseg'`] THEN
-  `~(rcvbufsize' < y)`
+  `~(rcvbufsize' < t_maxseg')`
       by (STRIP_TAC THEN
           `~(rcvbufsize' = 0)`
              by (DISCH_THEN SUBST_ALL_TAC THEN
                  REV_FULL_SIMP_TAC (srw_ss()) []) THEN
-          `roundup y rcvbufsize' = y`
+          `roundup t_maxseg' rcvbufsize' = t_maxseg'`
              by ASM_SIMP_TAC (srw_ss()) [roundup_lt_base] THEN
           metisLib.METIS_TAC [arithmeticTheory.LESS_LESS_EQ_TRANS,
                               arithmeticTheory.LESS_TRANS,
                               prim_recTheory.LESS_REFL]) THEN
-  Q.UNDISCH_THEN `y = t_maxseg''` SUBST_ALL_TAC THEN
+  Q.UNDISCH_THEN `Abbrev (mss' = mss)` MP_TAC THEN
+  REWRITE_TAC [markerTheory.Abbrev_def] THEN
   POP_ASSUM (fn th => RULE_ASSUM_TAC (REWRITE_RULE [th])) THEN
   FULL_SIMP_TAC (srw_ss()) [] THEN REPEAT VAR_EQ_TAC THEN
   FULL_SIMP_TAC (srw_ss()) []);
@@ -1778,40 +1778,29 @@ val calculate_buf_sizes_EQ = store_thm(
           cb_tf_doing_tstmp arch)) =
      (let maxseg = MIN cb_t_maxseg (MAX 64 (option_CASE seg_mss MSSDFLT I)) in
       let yval = if linux_arch arch then maxseg
-                 else rounddown
-                        2048
-                        (maxseg - calculate_tcp_options_len cb_tf_doing_tstmp)
+                 else (maxseg - calculate_tcp_options_len cb_tf_doing_tstmp)
       in
-        (NUMERAL n = MIN SB_MAX (roundup yval (option_CASE bwdp rcvbuf I))) /\
+        (NUMERAL n = MIN SB_MAX (roundup maxseg (option_CASE bwdp rcvbuf I))) /\
         (x = bool$LET (\sndbufsize'.
-                         if sndbufsize' < yval then sndbufsize'
-                         else MIN (256 * 1024) (roundup yval sndbufsize'))
+                         if sndbufsize' < maxseg then sndbufsize'
+                         else MIN SB_MAX (roundup maxseg sndbufsize'))
                     (option_CASE bwdp sndbuf I)) /\
-        (y = yval) /\
-        (z = yval * (if localp then SS_FLTSZ_LOCAL else SS_FLTSZ)))``,
+        (y = maxseg) /\
+        (z = yval * MIN (10 * yval) (MAX (2 * yval) (10 * 1460))))``,
   ASSUME_TAC (SIMP_RULE (bool_ss ++ boolSimps.CONJ_ss) [LET_THM]
                         calculate_buf_sizes_EQ0) THEN
   SIMP_TAC bool_ss [LET_THM] THEN FIRST_ASSUM ACCEPT_TAC);
 
 val calculate_buf_sizes2 = prove(
-  ``~((let maxseg = MIN (NUMERAL cbtm)
-                     (MAX 64 (option_CASE seg_mss MSSDFLT I))
-       in if linux_arch arch then maxseg
-          else rounddown
-                 MCLBYTES
-                 (maxseg - calculate_tcp_options_len cb_tf_doing_tstmp)) =
+  ``~((MIN (NUMERAL cbtm) (MAX 64 (option_CASE seg_mss MSSDFLT I))) =
       NUMERAL tm_out) ==>
     ((rcvbufsize', sndbufsize', NUMERAL tm_out, snd_cwnd) =
      calculate_buf_sizes (NUMERAL cbtm) seg_mss bw_delay_product_for_rt
                          is_local_conn rcvbufsize sndbufsize
                          cb_tf_doing_tstmp arch) ==>
-    let maxseg = MIN (NUMERAL cbtm)
-                     (MAX 64 (option_CASE seg_mss MSSDFLT I)) in
-    let t_maxseg'' = if linux_arch arch then maxseg
-                     else
-                       rounddown
-                         MCLBYTES
-                         (maxseg - calculate_tcp_options_len cb_tf_doing_tstmp)
+    let maxseg = MIN (NUMERAL cbtm) (MAX 64 (option_CASE seg_mss MSSDFLT I)) in
+    let mss = if linux_arch arch then maxseg
+              else (maxseg - calculate_tcp_options_len cb_tf_doing_tstmp)
     in
       (rcvbufsize' = NUMERAL tm_out) /\
       (option_CASE bw_delay_product_for_rt rcvbufsize I = NUMERAL tm_out) /\
@@ -1819,8 +1808,7 @@ val calculate_buf_sizes2 = prove(
         let sndbuf' = option_CASE bw_delay_product_for_rt sndbufsize I in
           if sndbuf' < NUMERAL tm_out then sndbuf'
           else MIN SB_MAX (roundup t_maxseg'' sndbuf')) /\
-      (snd_cwnd = rcvbufsize' * (if is_local_conn then SS_FLTSZ_LOCAL
-                                 else SS_FLTSZ)) /\
+      (snd_cwnd = MIN (10 * mss) (MAX (2 * mss) (10 * 1460))) /\
       rcvbufsize' < t_maxseg''``,
   SIMP_TAC bool_ss [calculate_buf_sizes_def, LET_THM, pairTheory.UNCURRY,
                     pairTheory.PAIR_EQ, pairTheory.FST, pairTheory.SND] THEN
