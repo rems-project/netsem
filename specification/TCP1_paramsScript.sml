@@ -458,7 +458,7 @@ val sf_default_n_def = Phase.phase 1 Define`
 
   sf_default_n Linux_2_4_20_8 SOCK_STREAM SO_RCVBUF      = 43689 /\ (* from tests - strange number? *)
   sf_default_n WinXP_Prof_SP1 SOCK_STREAM SO_RCVBUF      = 8192  /\ (* from tests *)
-  sf_default_n FreeBSD_4_6_RELEASE SOCK_STREAM SO_RCVBUF = 65535 /\ (* from code, becomes 65536 in FreeBSD 6.0 *)
+  sf_default_n FreeBSD_4_6_RELEASE SOCK_STREAM SO_RCVBUF = 65535 /\ (* from code, becomes 65536 in FreeBSD 6.0 - sysctl net.inet.tcp.recvspace is 65536, why 65535 here? *)
 
   sf_default_n Linux_2_4_20_8 SOCK_STREAM SO_SNDLOWAT      = 1 /\ (* from tests *)
   sf_default_n WinXP_Prof_SP1 SOCK_STREAM SO_SNDLOWAT      = 1 /\ (* Note this value has not been checked in testing. *)
