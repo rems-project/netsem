@@ -16173,7 +16173,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
    )
 
 /\
-   (!h iq iq' seg
+   (!h iq iq' seg oq oq' outsegs' bndlm bndlm'
      i1.
 
 
@@ -16185,15 +16185,15 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
 
 
 
-   deliver_in_6 /* rp_tcp, network nonurgent (*: Receive and drop (silently) a sane segment that matches a [[CLOSED]] socket :*) */
-     h with <| iq := iq |>
+   deliver_in_6 /* rp_tcp, network nonurgent (*: Receive and drop (maybe with an RST) a sane segment that matches a [[CLOSED]] socket :*) */
+     h with <| iq := iq ; oq := oq ; bndlm := bndlm |>
    -- Lh_tau -->
-     h with <| iq := iq' |>
+     h with <| iq := iq' ; oq := oq' ; bndlm := bndlm' |>
 
    <==
 
    (*: \textbf{Summary:}
-   Receive and drop any segment for this host that does not match any sockets (but does have
+   Receive and drop any segment for this host that does match a socket in [[CLOSED]] state (and does have
    sensible checksum or offset fields).
 
    Note that pathological segments where [[is1]], [[ps1]], or [[ps2]] are not set in the segment are
@@ -16207,7 +16207,10 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
           tcp_socket_best_match h.socks (sid,sock) seg h.arch /\
           tcp_sock.st = CLOSED) /\
           seg.is2 = SOME i1 /\  i1 IN local_ips(h.ifds) /\  (* IP matches this host *)
-          T (*: placeholder for segment checksum and offset field sensible :*)
+          T /\ (*: placeholder for segment checksum and offset field sensible :*)
+
+          dropwithreset seg h.ifds (ticks_of h.ticks) BANDLIM_RST_CLOSEDPORT bndlm bndlm' outsegs' /\
+          enqueue_and_ignore_fail h.arch h.rttab h.ifds outsegs' oq oq'
 
 
    )
