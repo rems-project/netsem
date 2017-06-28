@@ -769,7 +769,7 @@ val update_rtt_def = Phase.phase 1 Define`(*: update RTT estimators from new mea
 
 val expand_cwnd_def = Phase.phase 1 Define`(*: expand congestion window :*)
   expand_cwnd ssthresh maxseg maxwin cwnd
-    = MIN maxwin (cwnd + (if cwnd > ssthresh then (maxseg * maxseg) DIV cwnd else maxseg))
+    = MIN maxwin (cwnd + (if cwnd > ssthresh then MAX 1 ((maxseg * maxseg) DIV cwnd) else maxseg))
 `
 (*:
 @description
