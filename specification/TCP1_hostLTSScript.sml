@@ -18285,7 +18285,7 @@ TODO3
         (case quad of
           SOME (is1,ps1,is2,ps2) => if flav = TA_DROP \/ tcp_sock.st = CLOSED then T
 				    else
-					is1 = sock.is1 /\ ps1 = sock.ps1 /\ is2 = sock.is2 /\ ps2 = sock.ps2 |
+					is1 = sock.is1 /\ ps1 = sock.ps1 /\ ((sock.is2 = NONE /\ sock.ps2 = NONE) \/ (is2 = sock.is2 /\ ps2 = sock.ps2)) |
           NONE                   => T) /\
         (st  = tcp_sock.st \/ tcp_sock.st = CLOSED))))
 
