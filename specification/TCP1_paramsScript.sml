@@ -275,7 +275,7 @@ val SLOW_TIMER_INTVL_def = Phase.phase 1 Define`
 `(*: @mergewithnext :*);
 
 val SLOW_TIMER_MODEL_INTVL_def = Phase.phase 1 Define`
-  SLOW_TIMER_MODEL_INTVL = (1/1000) : duration (*: 1msec fuzziness to mask atomicity of model; Note that it might be possible to reduce this fuzziness :*)
+  SLOW_TIMER_MODEL_INTVL = (1/100) : duration (*: 10msec fuzziness to mask atomicity of model; Note that it might be possible to reduce this fuzziness :*)
 `(*: @mergewithnext :*);
 
 val FAST_TIMER_INTVL_def = Phase.phase 1 Define`
