@@ -1486,7 +1486,7 @@ val make_rst_segment_from_seg_def = Phase.phase 2 Define`
 
    (if ACK' then
        (* RFC794 S3.4: for RST+ACK segments the ack value must be valid *)
-       ack' = tcp_seq_flip_sense seg.seq + LENGTH seg.data + (if seg.SYN then 1 else 0)
+       ack' = tcp_seq_flip_sense seg.seq + LENGTH seg.data + (if seg.SYN then 1 else 0) + (if seg.FIN then 1 else 0)
      else
        (* otherwise it can be arbitrary, although it possibly should be zero *)
        ack' IN { n | T }
