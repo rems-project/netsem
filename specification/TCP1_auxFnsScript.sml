@@ -1350,8 +1350,8 @@ val make_ack_segment_def = Define`
     (* Determine window size; fail if out of range *)
     (* Connection is now established so any scaling should be taken into account *)
     (* Note it might be appropriate to clip the value to be in range rather than failing if out of range. *)
-    let win = n2w (cb.rcv_wnd >> cb.rcv_scale) in
-    w2n win = cb.rcv_wnd >> cb.rcv_scale /\ (* FIXME: silly window avoidance *)
+    let win = n2w (MIN (cb.rcv_wnd >> cb.rcv_scale) 65535) in
+    w2n win = MIN (cb.rcv_wnd >> cb.rcv_scale) 65535 /\ (* FIXME: silly window avoidance *)
 
     (* Set timestamping option? *)
     let ts = do_tcp_options cb.tf_doing_tstmp cb.ts_recent ts_val' in
@@ -1765,8 +1765,8 @@ val tcp_output_really_def = Phase.phase 2 Define`
 
     (*: Advertise an appropriately scaled receive window :*)
     (*: Assert the advertised window is within a sensible range :*)
-    let win = n2w (rcv_wnd' >> cb.rcv_scale) in
-    w2n win = rcv_wnd' >> cb.rcv_scale /\
+    let win = n2w (MIN (rcv_wnd' >> cb.rcv_scale) 65535) in
+    w2n win = MIN (rcv_wnd' >> cb.rcv_scale) 65535 /\
 
     (*: Assert the urgent pointer is within a sensible range :*)
     let urp_ = n2w urp in

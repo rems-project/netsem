@@ -1580,10 +1580,10 @@ val better_make_ack_segment = store_thm(
          let cbrcv_scale = cb.rcv_scale in
          let cb_doing_tstmp = cb.tf_doing_tstmp in
          let cb_ts_recent = cb.ts_recent in
-         let win = n2w (cbrcv_win >> cbrcv_scale) in
+         let win = n2w (MIN (cbrcv_win >> cbrcv_scale) 65535) in
          let ts = do_tcp_options cb.tf_doing_tstmp cb.ts_recent ts_val
          in
-           w2n win = cbrcv_win >> cbrcv_scale /\
+           w2n win = MIN (cbrcv_win >> cbrcv_scale) 65535 /\
            seg = <|is1 := SOME i1; is2 := SOME i2; ps1 := SOME p1;
                    ps2 := SOME p2;
                    seq := if FIN then cb.snd_una else cb.snd_nxt;
