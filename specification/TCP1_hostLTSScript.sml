@@ -15099,7 +15099,9 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
 
     (*: If an ACK with no SYN has been received send a RST segment, else just silently drop
         everything else. See {@link [[dropwithreset]]}. :*)
-    (if ~SYN /\ ACK then
+        (* see 793 3.4 p35, paragraph starting with 2 "non-sync state",
+           "incoming segment acknowledges something not yet sent, send reset" *)
+    (if ACK then
        dropwithreset seg h.ifds (ticks_of h.ticks) BANDLIM_RST_OPENPORT bndlm bndlm' outsegs
      else
        outsegs = [] /\ bndlm' = bndlm) /\
