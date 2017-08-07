@@ -15414,7 +15414,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
               rcv_nxt     := rcv_nxt';
               rcv_wnd     := rcv_wnd';
               tf_rxwin0sent := (rcv_wnd' = 0);
-              rcv_adv     := rcv_nxt' + (rcv_wnd' >> rcv_scale') << rcv_scale';
+              rcv_adv     := rcv_nxt' + (MIN (rcv_wnd' >> rcv_scale') TCP_MAXWIN) << rcv_scale';
               rcv_up      := rcv_up';
               t_maxseg    := t_maxseg'';
               ts_recent     := case ts of

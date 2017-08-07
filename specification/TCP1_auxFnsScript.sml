@@ -1750,10 +1750,15 @@ val tcp_output_really_def = Phase.phase 2 Define`
 
     (*: Calculate size of the receive window (based upon available buffer space) :*)
     let rcv_wnd'' = calculate_bsd_rcv_wnd sock.sf tcp_sock in
-    let rcv_wnd' = MAX (Num (cb.rcv_adv - cb.rcv_nxt)) (MIN (TCP_MAXWIN << cb.rcv_scale)
-                  (if rcv_wnd'' < sock.sf.n(SO_RCVBUF) DIV 4 /\ rcv_wnd'' < cb.t_maxseg
-		   then 0  (*: Silly window avoidance: shouldn't advertise a tiny window :*)
-                   else rcv_wnd'')) in
+    let rcv_wnd' =
+      if tcp_sock.st = TIME_WAIT then
+        Num (cb.rcv_adv - cb.rcv_nxt)
+      else
+        MAX (Num (cb.rcv_adv - cb.rcv_nxt)) (MIN (TCP_MAXWIN << cb.rcv_scale)
+        (if rcv_wnd'' < sock.sf.n(SO_RCVBUF) DIV 4 /\ rcv_wnd'' < cb.t_maxseg
+        then 0  (*: Silly window avoidance: shouldn't advertise a tiny window :*)
+        else rcv_wnd''))
+    in
 
     (*: Possibly set the segment's timestamp option. Under BSD, we may need to send a
         [[FIN]] segment from [[SYN_SENT]], if the user called [[shutdown()]], in which
