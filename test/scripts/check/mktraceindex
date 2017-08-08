@@ -1,4 +1,17 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl
+use warnings;
+
+# Some quick notes from 2017:
+# - instead of generating an index of trace checks run on different computers,
+#   now all are run on the same computer.  This means some normalisation is no
+#   longer needed (and time is different).
+# - disclaimer: I'm not a perl programmer.  I use this mktraceindex as a
+#   standalone script after all CheckTraces have finished.  Some data is not
+#   available in this scenario (such as statistics about backtracking etc.).
+#   I commented these bits and pieces out, and hacked this script until it
+#   worked ok for me.
+#
+# hannes, August 2017
 
 #
 # This program generates the index.html/index-re.html files that
@@ -64,7 +77,7 @@ my $FAKED_UP_DOC_LOCATION = "/usr/groups/tthee/check/IHaveNoIdeaAtAll/something.
 
 my $sortedoutput = 0;
 my $onlyoutput;
-my $ntraces;
+my $ntraces = 0;
 my $simpleoutput = 0;
 while (@ARGV) {
     if ($ARGV[0] eq "--sort=class") {
@@ -114,72 +127,105 @@ my $total = 0;
 
 my $BODYPRE = <<"EOF";
 <h2>Results:</h2>
-<p>NB: Machine speeds vary greatly; in timings, "st" is the number of startup times, which is a good normalised time for the trace.<br>The following code is <em>current&nbsp;step</em>..<em>max&nbsp;step&nbsp;reached</em>/<em>max&nbsp;step</em>(<em>total&nbsp;number&nbsp;of&nbsp;steps&nbsp;attempted</em>).
-<p><table class="main" border=0px cellspacing=0px cellpadding=0px>
+<p>The following code is <em>current&nbsp;step</em>..<em>max&nbsp;step&nbsp;reached</em>/<em>max&nbsp;step</em>(<em>total&nbsp;number&nbsp;of&nbsp;steps&nbsp;attempted</em>).
+<p><table class="sortable" border=0px cellspacing=0px cellpadding=0px>
+<tr><th>Trace</th><th>State</th><th>Time</th><th>Steps</th><th>Total steps</th><th>Description</th></tr>
 EOF
 
 my @bodylines = ();
 
 # first, parse the log file and compute start times (relative machine speeds)
-parselog("log.dat",time);  # treat "now" as the end of run
-getstarttimes();
+#parselog("log.dat",time);  # treat "now" as the end of run
+#getstarttimes();
 
 my $uglypwd = `pwd`; chomp $uglypwd;  # probably starts /auto, so not stable
 
-my $tracelengths;  # set below
+sub duration {
+    my ($file) = @_;
+    if (open(F,$file)) {
+        my @list=<F>;
+        close F;
+        my $this="==Step ";
+        my @f=grep /$this/,@list;
+
+        sub findseconds {
+            my ($string) = @_;
+            $string =~ s/==[\w\s\d<():-]+> (\d+):/$1/;
+            return $string;
+        }
+
+        my $laststep = pop @f;
+        my $start = findseconds (shift @f);
+        my $stop = findseconds ($laststep);
+        $laststep =~ s/==Step ([\d]+).+\n/$1/;
+        my $steps = @f;
+        return ($stop - $start, $laststep, $steps);
+    } else { return (-1, -1, -1) }
+}
+
+#my $tracelengths;  # set below
 
 # next, parse the HTML files
 foreach my $file (glob("*.out.html")) {
     my $basename = $file;
     $basename =~ s/\.out\.html$//;
     my ($tracefile,$description,$state) = gettraceinfo($file,$basename);
-    if (!defined($inputloc) || $inputloc eq "none") {
-        $inputloc = $tracefile;
-        $inputloc =~ s{/[^/]*$ }{}x;
-        $tracelengths = gettracelengths($inputloc);
-    }
+#    if (!defined($inputloc) || $inputloc eq "none") {
+#        $inputloc = $tracefile;
+#        $inputloc =~ s{/[^/]*$ }{}x;
+#        $tracelengths = gettracelengths($inputloc);
+#    }
     my $description2 = $description;
     $description =~ s/\n/: /g;
     $description =~ s/\(\* Test (?:Hosts?|Description): | \*\)//g;
     $description2 =~ s/\n/\\n/g;
     $description2 =~ s/\"/\\\"/g;
     $description2 =~ s/\'/\\\'/g;
-    $state =~ m/Trace [^ ]+ ([^ ]+)/;
-    my $class = defined($1) ? $1 : "other";
+    $state =~ s/[=\*]+Trace [^ ]+ ([^ ]+)/$1/;
+    #my $class = defined($1) ? $1 : "other";
     my $clickcode = qq{onclick="prompt('$basename:\\n$description2','/usr/groups/tthee/local/Net-src/TCP/Test/scripts/check/stepgraph $uglypwd/$file');"};
     my $blobcode = qq{<span $clickcode>[D]</span>};
     my $clickcodet = qq{onclick="prompt('$basename:\\n$description2','/usr/groups/tthee/local/Net/TCP/Test/scripts/check/stepgraphtimed -i -p $uglypwd/$file');"};
     my $blobcodet = qq{<span $clickcodet>[T]</span>};
-    my $reltracefile = relpath($FAKED_UP_DOC_LOCATION,$tracefile);
-    my $jobent = $jobs{$tracefile};
-    my $time = "??";
-    my $nstarts = "??";
-    my $wkey = $jobent->{'worker'};
-    my $trunc = ($jobent->{'trunc'} ? "*" : "");
-    if (defined($jobent->{'start'})) {
-        $time = $jobent->{'timeawake'};
-        if (defined($time{$wkey})) {
-            $nstarts = $time / $time{$wkey};
-        }
-    }
-    my $attempts = $jobent->{'count'};
-    my $tracelength = exists($tracelengths->{$basename}) ? $tracelengths->{$basename} : "?";
-    my $stepinfo = "$jobent->{'curstep'}..$jobent->{'maxstep'}/$tracelength($jobent->{'nsteps'})";
-    my $timeline = sprintf("<td nowrap class=\"three\">%s%ds=</td><td nowrap class=\"three\">%s%.2fst</td><td nowrap class=\"three\">&nbsp;%s (x%d)</td><td nowrap class=\"three\">&nbsp;%s</td>", $trunc, $time, $trunc, $nstarts, $wkey, $attempts, $stepinfo);
+    my ($time, $steps, $totalsteps) = duration($file);
+#    my $reltracefile = relpath($FAKED_UP_DOC_LOCATION,$tracefile);
+#    my $jobent = $jobs{$tracefile};
+#    my $time = "??";
+#    my $nstarts = "??";
+#    my $wkey = $jobent->{'worker'};
+#    my $trunc = ($jobent->{'trunc'} ? "*" : "");
+#    if (defined($jobent->{'start'})) {
+#        $time = $jobent->{'timeawake'};
+#        if (defined($time{$wkey})) {
+#            $nstarts = $time / $time{$wkey};
+#        }
+#    }
+#    my $attempts = $jobent->{'count'};
+#    my $tracelength = exists($tracelengths->{$basename}) ? $tracelengths->{$basename} : "?";
+#    my $stepinfo = "$jobent->{'curstep'}..$jobent->{'maxstep'}/$tracelength($jobent->{'nsteps'})";
+#    my $timeline = sprintf("<td nowrap class=\"three\">%s%ds=</td><td nowrap class=\"three\">%s%.2fst</td><td nowrap class=\"three\">&nbsp;%s (x%d)</td><td nowrap class=\"three\">&nbsp;%s</td>", $trunc, $time, $trunc, $nstarts, $wkey, $attempts, $stepinfo);
+
+    my $td = "<td nowrap class=\"three\">";
+    my $etd = "</td>";
+    my $timeline = sprintf("%s%d%s%s%d%s%s%d%s",
+                           $td, $time, $etd,
+                           $td, $steps, $etd,
+                           $td, $totalsteps, $etd);
+
     my $annot = $annotations->{$basename}->{'code'};
     my $annotclass = defined($annot) ? $annot : '~';
-    if ($class eq 'SUCCEEDED') {
+    if ($state eq 'SUCCEEDED') {
         $codes{$annotclass}->{'success'}++;
         push @{$codes{$annotclass}->{'successes'}}, $basename;
-    } elsif ($class eq 'INCOMPLETE' or $class eq 'KILLED') {
+    } elsif ($state eq 'INCOMPLETE' or $state eq 'KILLED') {
         # do nothing
     } else {
         $codes{$annotclass}->{'failure'}++;
         push @{$codes{$annotclass}->{'failures'}}, $basename;
     }
     $annot = (defined($annot)) ? " [$annot]" : "";
-    my $bodyline = qq{<tr><td nowrap class="one"><a href="$file">$basename</a> $blobcode $blobcodet (<a href="$reltracefile.html">source</a>/<a href="$reltracefile">p</a>/<a href="$reltracefile.ps.gz">ps</a>/<a href="$basename.annotated.ps.gz">ps</a>): <span class="class"><span class="$class">$state</span></span><span class="annot">$annot</span></td>$timeline<td nowrap class="two">&nbsp;&nbsp;&nbsp;$description</td>};
-    my $simpleline = "$basename $class $time $nstarts $jobent->{'maxstep'} $jobent->{'nsteps'} $tracelength $wkey";
+    #my $bodyline = qq{<tr><td nowrap class="one"><a href="$file">$basename</a> $blobcode $blobcodet (<a href="$reltracefile.html">source</a>/<a href="$reltracefile">p</a>/<a href="$reltracefile.ps.gz">ps</a>/<a href="$basename.annotated.ps.gz">ps</a>): <span class="class"><span class="$class">$state</span></span><span class="annot">$annot</span></td>$timeline<td nowrap class="two">&nbsp;&nbsp;&nbsp;$description</td>};
+    #my $simpleline = "$basename $class $time $nstarts $jobent->{'maxstep'} $jobent->{'nsteps'} $tracelength $wkey";
     # --simple fields are single-space-delimited (so cut -d' ' works), and are as follows:
     #
     # 1: trace0293                trace name
@@ -191,15 +237,17 @@ foreach my $file (glob("*.out.html")) {
     # 7: 78                       maximum merge index in input trace
     # 8: zonule.cl.cam.ac.uk[41]  worker
 
+
+    my $bodyline = qq{<tr><td nowrap class="one"><a href="$file">$basename</a> (<a href="$tracefile">source</a>/<a href="$tracefile.pdf">seq</a>): </td><td nowrap class="one"><span class="class"><span class="$state">$state</span></span><span class="annot">$annot</span></td>$timeline<td nowrap class="two">&nbsp;&nbsp;&nbsp;$description</td>};
+
     push @bodylines, { 'tracefile' => $tracefile,
                        'basename' => $basename,
-                       'class'    => $class,
-                       'bodyline' => $bodyline,
-                       'simpleline' => $simpleline};
-    if (!defined($counts{$class})) {
-        $counts{$class} = 1;
+                       'class'    => $state,
+                       'bodyline' => $bodyline};
+    if (!defined($counts{$state})) {
+        $counts{$state} = 1;
     } else {
-        $counts{$class}++;
+        $counts{$state}++;
     }
     $total++;
 }
@@ -229,7 +277,6 @@ my $stylestr = ($sortedoutput ? " (sorted)" : "")
 $simpleoutput or print <<"EOF";
 <html>
 <head>
-REFRESH-CODE-HERE
 <title>HOL Trace Index$stylestr</title>
 <style type="text/css">
 TD.three { text-align: right }
@@ -245,6 +292,7 @@ SPAN.class SPAN.CRASHED        , DIV.summary TR.CRASHED        , DIV.summary TD.
 SPAN.class SPAN.KILLED         , DIV.summary TR.KILLED         , DIV.summary TD.KILLED          { background-color: #c0c0ff }
 SPAN.class SPAN.TO_COME        , DIV.summary TR.TO_COME        , DIV.summary TD.TO_COME         { background-color: #f0f0f0 }
 SPAN.class SPAN.PROCESSED      , DIV.summary TR.PROCESSED      , DIV.summary TD.PROCESSED       { background-color: #c0ffc0 }
+SPAN.class SPAN.NONE           , DIV.summary TR.NONE           , DIV.summary TD.NONE            { background-color: #ffffff }
 SPAN.annot { font-size: 71%; font-variant: small-caps }
 SPAN.annUNSPEC SPAN.annfail { font-weight: bold; color: #c00000 }
 SPAN.annUNSPEC SPAN.annsuccess { font-weight: bold; color: #00c000 }
@@ -270,6 +318,7 @@ function togglethree () {
 }
 //-->
 </script>
+<script src="sorttable.js"></script>
 </head>
 <body>
 <h1>HOL Trace Index$stylestr</h1>
@@ -278,19 +327,13 @@ function togglethree () {
 <br>Checker output in $outputloc
 
 <p>
-<a href="log.dat">View log</a>.
-<a href="status.dat">View status</a>.
-<a href="progress.ps">View progress chart</a>.
-<span class="shvc" onclick="togglethree()">Show/hide times.</span>
-RELOAD-CODE-HERE
-<br>
-Local only:
-<a href="http://zonule:7777/cgi-bin/inprogressreport?$outputloc">View inprogress report</a>.
-<a href="http://zonule:7777/cgi-bin/analyselog?$outputloc">View analyselog report</a>.
-<p>
-<!-- }}}}}}}}}}}} for emacs perl mode, sorry -->
+<!-- }}}}}}}}}}}}}}}}}} for emacs perl mode, sorry -->
 EOF
 # now do summary:
+
+if ($ntraces == 0) {
+    $ntraces = $total
+}
 
 my @toporder = ('PROCESSED','INCOMPLETE','KILLED','TO_COME');
 my $processed = $total - (($counts{'INCOMPLETE'} || 0) + ($counts{'KILLED'} || 0));
@@ -329,18 +372,18 @@ $thebar .= "</table></div>\n";
 $simpleoutput or print qq{<p>Of $processed processed traces,<br>\n$thebar\n<p>$thetable};
 
 # generate explanatory key for annotations:
-my $ANNKEY = "<p>Annotations are as follows (expected outcome is underlined):\n<table>\n";
-foreach my $k (sort(keys(%codes))) {
-    my $annclass = "ann" . ($codes{$k}->{'cat'} || "UNSPEC");
-    my $failclass = $codes{$k}->{'failure'} ? "annfail" : "annfailzero";
-    my $successclass = $codes{$k}->{'success'} ? "annsuccess" : "annsuccesszero";
-    my $failures = join(",",map { my $x = $_; $x =~ s/^trace//; "<a href=\"trace$x.out.html\">$x</a>" } @{$codes{$k}->{'failures'}});
-    my $successes = join(",",map { my $x = $_; $x =~ s/^trace//; "<a href=\"trace$x.out.html\">$x</a>" } @{$codes{$k}->{'successes'}});
-    $ANNKEY .= "<tr><td nowrap><span class=\"annot\">[$k]</span></td><td nowrap>$codes{$k}->{'desc'}</td><td nowrap><span class=\"$annclass\">(<span class=\"$failclass\">$codes{$k}->{'failure'} failures</span>, <span class=\"$successclass\">$codes{$k}->{'success'} successes</span>)</span></td><td nowrap>$failures / $successes</td></tr>\n";
-}
-$ANNKEY .= "</table>\n";
-$ANNKEY = "" if (!(keys(%$annotations)));
-$simpleoutput or print $ANNKEY;
+#my $ANNKEY = "<p>Annotations are as follows (expected outcome is underlined):\n<table>\n";
+#foreach my $k (sort(keys(%codes))) {
+#    my $annclass = "ann" . ($codes{$k}->{'cat'} || "UNSPEC");
+#    my $failclass = $codes{$k}->{'failure'} ? "annfail" : "annfailzero";
+#    my $successclass = $codes{$k}->{'success'} ? "annsuccess" : "annsuccesszero";
+#    my $failures = join(",",map { my $x = $_; $x =~ s/^trace//; "<a href=\"trace$x.out.html\">$x</a>" } @{$codes{$k}->{'failures'}});
+#    my $successes = join(",",map { my $x = $_; $x =~ s/^trace//; "<a href=\"trace$x.out.html\">$x</a>" } @{$codes{$k}->{'successes'}});
+#    $ANNKEY .= "<tr><td nowrap><span class=\"annot\">[$k]</span></td><td nowrap>$codes{$k}->{'desc'}</td><td nowrap><span class=\"$annclass\">(<span class=\"$failclass\">$codes{$k}->{'failure'} failures</span>, <span class=\"$successclass\">$codes{$k}->{'success'} successes</span>)</span></td><td nowrap>$failures / $successes</td></tr>\n";
+#}
+#$ANNKEY .= "</table>\n";
+#$ANNKEY = "" if (!(keys(%$annotations)));
+#$simpleoutput or print $ANNKEY;
 
 # finally, print the body text (big table) we accumulated earlier:
 $simpleoutput or print $BODYPRE;
