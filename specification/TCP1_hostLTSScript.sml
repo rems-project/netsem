@@ -17003,16 +17003,11 @@ TODO3
       else
        (*: Update the control block based upon the number of occasions on which the timer expired :*)
 
-       (if shift+1 = 1 /\ cb.t_rttinf.tf_srtt_valid then (*: On the first retransmit store values for recovery from a bad retransmit :*)
-          (*: we cannot guess the safe window for this if we do not know the RTT, hence the second condition :*)
-          snd_cwnd_prev' = cb.snd_cwnd /\
-          snd_ssthresh_prev' = cb.snd_ssthresh /\
-          t_badrxtwin' = TimeWindow((),kern_timer (time (cb.t_rttinf.t_srtt / 2)))  (*: [[kern_timer]] for a ticks-based deadline :*)
-        else (*: Otherwise keep the previous values :*)
-          snd_cwnd_prev' = cb.snd_cwnd_prev /\
-          snd_ssthresh_prev' = cb.snd_ssthresh_prev /\
-          t_badrxtwin' = cb.t_badrxtwin  (*: should be TimeWindowClosed, since retransmit timer is always longer than [[t_srtt/2]] :*)
-       ) /\
+       (* in SYN_SENT, the conditional code is actually no longer executed... te only thing we have there is snd_cwnd = 1 *)
+       snd_cwnd_prev' = cb.snd_cwnd_prev /\
+       snd_ssthresh_prev' = cb.snd_ssthresh_prev /\
+       t_badrxtwin' = cb.t_badrxtwin  (*: should be TimeWindowClosed, since retransmit timer is always longer than [[t_srtt/2]] :*)
+       /\
 
        (if (shift+1 = 3) /\ ~(linux_arch h.arch) then (*: On the third retransmit turn off window scaling and timestamping options :*)
           tf_req_tstmp' = F /\
@@ -17039,6 +17034,14 @@ TODO3
           else
             cb.t_rttinf) in
 
+       (* tcp_maxseg() is used now to compute t_maxseg (and snd_cwnd / snd_ssthresh) *)
+       let maxseg =
+         cb.t_maxseg -
+         ((if cb.tf_req_tstmp then 12 else 0) +
+          (case cb.request_r_scale of
+             NONE => 0
+           | SOME _ => 4))
+       in
        cb' = cb with <|     (*: Restart the [[rexmt]] timer to time the retransmitted SYN :*)
                         tt_rexmt := start_tt_rexmtsyn h.arch (shift + 1) F cb.t_rttinf;
                         (*: reset to next backoff point :*)
@@ -17053,10 +17056,10 @@ TODO3
                         (* BSD timer_rexmt() clears this, but tcp_output() *does not* set it, as we're doing
                            a retransmit. see tcp_output.c::785. *)
                         t_rttseg          := NONE;
-                        snd_cwnd          := cb.t_maxseg;
+                        snd_cwnd          := maxseg;
                         (*: Calculation as per BSD :*)
-                        snd_ssthresh      := cb.t_maxseg * MAX 2 (MIN cb.snd_wnd cb.snd_cwnd
-                                                                      DIV (2 * cb.t_maxseg));
+                        snd_ssthresh      := maxseg * MAX 2 (MIN cb.snd_wnd cb.snd_cwnd
+                                                                      DIV (2 * maxseg));
                         snd_cwnd_prev     := snd_cwnd_prev';
                         snd_ssthresh_prev := snd_ssthresh_prev';
                         t_dupacks         := 0 |> /\
