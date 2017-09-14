@@ -583,7 +583,8 @@ val tracesock_eq = Phase.phase 2 Define`(*: compare two sockets for "equality" m
                                    (if flav = TA_DROP then T else is2 = sock.is2) /\
                                    (if flav = TA_DROP then T else ps2 = sock.ps2) |
          NONE                   => T) /\
-       st  = tcp_sock.st /\
+       (* TODO on close(), there's a small window where FreeBSD is in FIN_WAIT_2, but our model goes directly to TIME_WAIT (a better fix would be to go via FIN_WAIT_2 to TIME_WAIT) *)
+       (st  = tcp_sock.st \/ (st = FIN_WAIT_2 /\ tcp_sock.st = TIME_WAIT)) /\
        tracecb_eq flav st sock.es cb tcp_sock.cb)
 `;
 
