@@ -15210,9 +15210,18 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
 
      ((rcvbufsize',sndbufsize',t_maxseg'',snd_cwnd') =
          if mss <> NONE \/ ~bsd_arch h.arch then
+            let (r, s, t, c) =
             calculate_buf_sizes ourmss mss bw_delay_product_for_rt
                                 (is_localnet h.ifds i2) (sf.n(SO_RCVBUF))
                                 (sf.n(SO_SNDBUF)) tf_doing_tstmp' h.arch
+            in
+            (* NOTE if we're in simultaneous open, do not adjust these yet -- FreeBSD doesn't call cc_conn_init yet (only once transitioning to ESTABLISHED) *)
+            if ~ACK then
+              (* this is horrible, and should be more properly fixed! *)
+              let c' = c - ourmss in
+              (r, s, t, c')
+            else
+              (r, s, t, c)
          else
             (*: Note that since |tcp_mss()| is not called |snd_cwnd| remains at its initial (stupidly high) value. :*)
             (sf.n(SO_RCVBUF),sf.n(SO_SNDBUF),cb.t_maxseg,cb.snd_cwnd)
@@ -15450,20 +15459,28 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
                                  TODO: may also have to hack window scaling here too if it is also
                                  broken *)
 
-                           let cb''' =
-                             (if ((linux_arch h.arch) /\ cb.tf_req_tstmp) then
+                                 (* NOTE: FreeBSD is the same, tstmp _and_ window scaling is both reproduced in the SYN+ACK *)
+
+                           let cb'' =
+                             (if cb.tf_req_tstmp then
                                cb' with <| tf_req_tstmp := T;
                                            tf_doing_tstmp := T |>
                               else
                                cb') in
+                           let cb''' =
+                             (if bsd_arch h.arch then
+                              (case cb.request_r_scale of
+                                  NONE => cb''
+                                | SOME v => cb'' with <| tf_doing_ws := T ;
+                                                         rcv_scale := v |>)
+                              else
+                                cb'') in
 
                            (* SB: BSD is broken: during a simultaneous open, after receiving a
                               SYN segment it emits an ACK segment, not a SYN,ACK segment. The
                               SYN,ACK is only emitted following a retransmit timeout. *)
-                           (if bsd_arch h.arch then
-                              make_ack_segment cb''' F(* do not emit FIN yet*) (i1,i2,p1,p2) (ticks_of h.ticks)
-                            else
-                              make_syn_ack_segment cb''' (i1,i2,p1,p2) (ticks_of h.ticks))).
+                              (* NOTE: no longer the truth - FreeBSD as well sends a SYN ACK! *)
+                           make_syn_ack_segment cb''' (i1,i2,p1,p2) (ticks_of h.ticks)).
 
       (* OLD COMMENT by MS below.  KW is not sure what the bug referred to is, but has moved the
          logic for properly handling FIN emission into make_ack_segment, rather than the hack
