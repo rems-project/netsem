@@ -1295,8 +1295,8 @@ val make_syn_ack_segment_def = Define`
     (*: We don't scale yet ([[>> rcv_scale']]). RFC1323 says: segments with SYN are not scaled, and BSD
        agrees.  Even though we know what scaling the other end wants to use, and we know whether we
        are doing scaling, we can't use it until we reach the ESTABLISHED state. :*)
-    let win = n2w cb.rcv_wnd in (*: [[rcv_window - LENGTH data']] :*)
-    w2n win = cb.rcv_wnd /\ (* FIXME: silly window avoidance logic *)
+    let win = n2w (MIN cb.rcv_wnd 65535) in (*: [[rcv_window - LENGTH data']] :*)
+    w2n win = MIN cb.rcv_wnd 65535 /\ (* FIXME: silly window avoidance logic *)
 
     (* If doing window scaling, set it; fail if out of range *)
     let ws = if cb.tf_doing_ws then SOME (CHR cb.rcv_scale) else NONE in
