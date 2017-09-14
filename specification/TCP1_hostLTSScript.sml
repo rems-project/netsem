@@ -18275,22 +18275,22 @@ TODO3
 
    <==
 
-     sid IN FDOM h.socks /\
      tr = (flav,sid,quad,st,cb) /\
-     st NOTIN {ESTABLISHED; FIN_WAIT_1; FIN_WAIT_2; CLOSING;
-               CLOSE_WAIT; LAST_ACK; TIME_WAIT} /\
-     (st = CLOSED \/  (*: BSD emits one of these each time a tcpcb is created, eg at end of 3WHS :*)
-      ((?sock tcp_sock.
-        sock = (h.socks ' sid) /\
-        proto_of sock.pr = PROTO_TCP /\
-        tcp_sock = tcp_sock_of sock /\
-        (case quad of
-          SOME (is1,ps1,is2,ps2) => if flav = TA_DROP \/ tcp_sock.st = CLOSED then T
-				    else
-					is1 = sock.is1 /\ ps1 = sock.ps1 /\ ((sock.is2 = NONE /\ sock.ps2 = NONE) \/ (is2 = sock.is2 /\ ps2 = sock.ps2)) |
-          NONE                   => T) /\
-        (st  = tcp_sock.st \/ tcp_sock.st = CLOSED))))
-
+     (sid IN FDOM h.socks /\
+      st NOTIN {ESTABLISHED; FIN_WAIT_1; FIN_WAIT_2; CLOSING;
+                CLOSE_WAIT; LAST_ACK; TIME_WAIT} /\
+      (st = CLOSED \/  (*: BSD emits one of these each time a tcpcb is created, eg at end of 3WHS :*)
+       ((?sock tcp_sock.
+         sock = (h.socks ' sid) /\
+         proto_of sock.pr = PROTO_TCP /\
+         tcp_sock = tcp_sock_of sock /\
+         (case quad of
+           SOME (is1,ps1,is2,ps2) => if flav = TA_DROP \/ tcp_sock.st = CLOSED then T
+                                     else
+                                        is1 = sock.is1 /\ ps1 = sock.ps1 /\ ((sock.is2 = NONE /\ sock.ps2 = NONE) \/ (is2 = sock.is2 /\ ps2 = sock.ps2)) |
+           NONE                   => T) /\
+         (st  = tcp_sock.st \/ tcp_sock.st = CLOSED)))))
+         \/ (st = CLOSED /\ sid NOTIN FDOM h.socks /\ sid IN' h.bound /\ quad = NONE)
 
 
      )
