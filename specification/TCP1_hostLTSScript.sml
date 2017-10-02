@@ -441,7 +441,13 @@ val di3_ackstuff_def = Phase.phase 2 Define`
           (bsd_arch arch ==> (cb.rcv_nxt < seq + LENGTH data /\ seq < cb.rcv_nxt + cb.rcv_wnd))) in
       let maybe_dup_ack = (~has_data /\ win = cb.snd_wnd /\ mode_of cb.tt_rexmt = SOME Rexmt) in
 
-      if ack <= cb.snd_una /\ maybe_dup_ack then
+      (* It turns out since some time the first FIN(+ACK) doesn't account for dupacks
+         this is simultaneous close, see rev261244 (and rev239672 and rev258821) for details
+      *)
+      if ack <= cb.snd_una /\ maybe_dup_ack /\ seg.FIN /\ tcp_sock_0.st NOTIN {CLOSE_WAIT;CLOSING;LAST_ACK;TIME_WAIT} then
+          modify_cb (\cb'.cb' with <| t_dupacks := 0 |>)
+
+      else if ack <= cb.snd_una /\ maybe_dup_ack then
         (*: Received a duplicate acknowledgement: it is an old acknowledgement (strictly less than
             [[snd_una]]) and it meets the duplicate acknowledgement conditions above.
             Do Fast Retransmit/Fast Recovery Congestion Control (RFC 2581 Ch3.2 Pg6) and
