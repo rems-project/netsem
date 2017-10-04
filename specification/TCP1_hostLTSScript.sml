@@ -16752,12 +16752,16 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
                                     t_idletime := t_idletime' |>
         |>) |> /\
 
-     (if bsd_arch h.arch then make_rst_segment_from_cb tcp_sock.cb (i1,i2,p1,p2) seg' else T) /\
-     dropwithreset seg h.ifds (ticks_of h.ticks) BANDLIM_UNLIMITED bndlm bndlm' outsegs /\
-     outsegs' = (if bsd_arch h.arch then [TCP(seg')] else outsegs) /\
-     enqueue_each_and_ignore_fail h.arch h.rttab h.ifds outsegs' oq oq'
-
-
+     (* we need to check for in-window sequence number, and if it is out of window send an ACK! *)
+     ( ( (cb.rcv_nxt <= seq /\ seq < cb.rcv_nxt + cb.rcv_wnd) /\
+         (if bsd_arch h.arch then make_rst_segment_from_cb tcp_sock.cb (i1,i2,p1,p2) seg' else T) /\
+         dropwithreset seg h.ifds (ticks_of h.ticks) BANDLIM_UNLIMITED bndlm bndlm' outsegs /\
+         outsegs' = (if bsd_arch h.arch then [TCP(seg')] else outsegs) /\
+         enqueue_each_and_ignore_fail h.arch h.rttab h.ifds outsegs' oq oq') \/
+       ( make_ack_segment cb F (i1,i2,p1,p2) (ticks_of h.ticks) seg' /\
+         outsegs' = [TCP(seg')] /\
+         enqueue_each_and_ignore_fail h.arch h.rttab h.ifds outsegs' oq oq')
+     )
    )
 
 /\
