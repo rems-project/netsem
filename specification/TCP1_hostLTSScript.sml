@@ -16244,6 +16244,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
    (!h iq iq' socks seg sock
      ts tid ts_st d
      sid fid sf i1 p1 i2 p2 st cb es sndq rcvq cantsndmore cantrcvmore sndurp rcvurp iobc
+     seq
      err sock'.
 
    deliver_in_7 /* rp_tcp, network nonurgent (*: Receive RST and zap non-[[{CLOSED]]; [[LISTEN]]; [[SYN_SENT]]; [[SYN_RECEIVED]]; [[TIME_WAIT}]] socket :*) */
@@ -16264,14 +16265,14 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
                  TCP_Sock(st,cb,NONE,sndq,sndurp,rcvq,rcvurp,iobc)) /\
      st NOTIN {CLOSED; LISTEN; SYN_SENT; SYN_RECEIVED; TIME_WAIT} /\
 
-     (?seq_discard ack_discard URG_discard ACK_discard PSH_discard SYN_discard FIN_discard
+     (?ack_discard URG_discard ACK_discard PSH_discard SYN_discard FIN_discard
        win_discard ws_discard urp_discard mss_discard ts_discard data_discard.
      seg = <|
             is1  := SOME i2;
             is2  := SOME i1;
             ps1  := SOME p2;
             ps2  := SOME p1;
-            seq  := tcp_seq_flip_sense (seq_discard:tcp_seq_foreign);
+            seq  := tcp_seq_flip_sense (seq:tcp_seq_foreign);
             ack  := tcp_seq_flip_sense (ack_discard:tcp_seq_local);
             URG  := URG_discard;
             ACK  := ACK_discard;
@@ -16287,6 +16288,8 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
             data := data_discard
            |>
      ) /\
+
+     cb.rcv_nxt <= seq /\ seq < cb.rcv_nxt + cb.rcv_wnd /\
 
      (* there does not exist a better socket match to which the segment should be sent, as the whole quad is matched *)
 
@@ -16305,7 +16308,6 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
      (* this was previously calling tcp_drop_and_close which was expecting an RST to be on the output
         queue. Obviously, we do not want to send an RST in response to an RST! *)
 
-     (* TODO: check sequence number is in the right range; cf tcp_input.c:1447 and rfc793:4272 *)
      (* TODO: P does not see why that assert is true *)
      (* gather together all the 'zap socket on receipt of a RST' cases together here *)
      (* this based on TCPv2p963ff, with a partial skim of previous control-flow (not sure why RST
@@ -16326,7 +16328,8 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
 
    (!h iq iq' socks seg sock
      sid fid sf i1 p1 i2 p2 cb es sndq rcvq cantsndmore cantrcvmore sndurp rcvurp iobc
-     sock' socks_update'.
+     sock' socks_update'
+     seq.
 
    deliver_in_7a /* rp_tcp, network nonurgent (*: Receive RST and zap [[SYN_RECEIVED]] socket :*) */
      h with <| socks := socks |++ [(sid,sock)];
@@ -16341,14 +16344,14 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
 
     dequeue_iq(iq,iq',SOME (TCP seg)) /\
 
-    (?seq_discard ack_discard URG_discard ACK_discard PSH_discard SYN_discard FIN_discard
+    (?ack_discard URG_discard ACK_discard PSH_discard SYN_discard FIN_discard
       win_discard ws_discard urp_discard mss_discard ts_discard data_discard.
       seg = <|
               is1  := SOME i2;
               is2  := SOME i1;
               ps1  := SOME p2;
               ps2  := SOME p1;
-              seq  := tcp_seq_flip_sense (seq_discard:tcp_seq_foreign);
+              seq  := tcp_seq_flip_sense (seq:tcp_seq_foreign);
               ack  := tcp_seq_flip_sense (ack_discard:tcp_seq_local);
               URG  := URG_discard;
               ACK  := ACK_discard;
@@ -16369,6 +16372,8 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
     (* Not a better sock match as the whole quad is matched *)
     sock = Sock(SOME fid,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,cantsndmore,cantrcvmore,
                 TCP_Sock(SYN_RECEIVED,cb,NONE,sndq,sndurp,rcvq,rcvurp,iobc)) /\
+
+    cb.rcv_nxt <= seq /\ seq < cb.rcv_nxt + cb.rcv_wnd /\
 
     ( (*: There is a corresponding listening socket -- passive open :*)
      (?(sid',lsock) :: socks \\ sid.
@@ -16559,7 +16564,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
 /\
    (!h iq iq' socks seg sock sock'
      sid fid sf i1 p1 i2 p2 cb es sndq rcvq cantsndmore cantrcvmore sndurp rcvurp iobc
-     ack.
+     seq ack.
 
    deliver_in_7d /* rp_tcp, network nonurgent (*: Receive RST and zap [[SYN_SENT]](acceptable ack) socket :*) */
      h with <| socks := socks |++ [(sid,sock)] ;
@@ -16580,14 +16585,14 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
      sock = Sock(SOME fid,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,cantsndmore,cantrcvmore,
                  TCP_Sock(SYN_SENT,cb,NONE,sndq,sndurp,rcvq,rcvurp,iobc)) /\
 
-     (?seq_discard URG_discard PSH_discard SYN_discard FIN_discard
+     (?URG_discard PSH_discard SYN_discard FIN_discard
        win_discard ws_discard urp_discard mss_discard ts_discard data_discard.
      seg = <|
             is1  := SOME i2;
             is2  := SOME i1;
             ps1  := SOME p2;
             ps2  := SOME p1;
-            seq  := tcp_seq_flip_sense (seq_discard:tcp_seq_foreign);
+            seq  := tcp_seq_flip_sense (seq:tcp_seq_foreign);
             ack  := tcp_seq_flip_sense (ack:tcp_seq_local);
             URG  := URG_discard;
             ACK  := T;
@@ -16604,6 +16609,8 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
            |>
      ) /\
 
+     cb.rcv_nxt <= seq /\ seq < cb.rcv_nxt + cb.rcv_wnd /\
+
      (* there does not exist a better socket match to which the segment should be sent, as the whole quad is matched *)
 
      cb.iss < ack /\ ack <= cb.snd_max  /\ (*: acceptable ack :*)
@@ -16618,6 +16625,57 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
 
 
    )
+
+/\
+   (!h iq iq' socks seg sock
+     sid fid sf i1 p1 i2 p2 st cb es sndq rcvq cantsndmore cantrcvmore sndurp rcvurp iobc
+     seq.
+
+   deliver_in_7e /* rp_tcp, network nonurgent (*: Receive RST with out of window sequence, and ignore :*) */
+     h with <| socks := socks |++ [(sid,sock)] ;
+               iq := iq |>
+   -- Lh_tau -->
+     h with <| socks := socks |++ [(sid,sock)] ;
+               iq := iq' |>
+
+   <==
+
+   (*: \textbf{Summary}
+   Receiving a RST segment with an out of window sequence number - ignore and move on.
+   :*)
+
+     dequeue_iq(iq,iq',SOME (TCP seg)) /\
+     sid NOTIN FDOM socks /\
+     sock = Sock(SOME fid,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,cantsndmore,cantrcvmore,
+                 TCP_Sock(st,cb,NONE,sndq,sndurp,rcvq,rcvurp,iobc)) /\
+
+     (?ack_discard URG_discard PSH_discard SYN_discard FIN_discard ACK_discard
+       win_discard ws_discard urp_discard mss_discard ts_discard data_discard.
+     seg = <|
+            is1  := SOME i2;
+            is2  := SOME i1;
+            ps1  := SOME p2;
+            ps2  := SOME p1;
+            seq  := tcp_seq_flip_sense (seq:tcp_seq_foreign);
+            ack  := tcp_seq_flip_sense (ack_discard:tcp_seq_local);
+            URG  := URG_discard;
+            ACK  := ACK_discard;
+            PSH  := PSH_discard;
+            RST  := T;
+            SYN  := SYN_discard;
+            FIN  := FIN_discard;
+            win  := win_discard;
+            ws   := ws_discard;
+            urp  := urp_discard;
+            mss  := mss_discard;
+            ts   := ts_discard;
+            data := data_discard
+           |>
+     ) /\
+
+     ( (seq < cb.rcv_nxt) \/ (seq >= cb.rcv_nxt + cb.rcv_wnd) )
+   )
+
 
 /\
    (!h iq iq' socks seg sock sock' bndlm bndlm' tcp_sock
@@ -16721,7 +16779,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
    <==
 
      (*: \textbf{Summary:}
-     Receive a SYN in [[TIME_WAIT}]] state where there is no matching [[LISTEN]] socket.
+     Receive a SYN in [[TIME_WAIT]] state where there is no matching [[LISTEN]] socket.
      Drop it and (depending on the architecture) generate a RST. :*)
 
      dequeue_iq(iq,iq',SOME (TCP seg)) /\
