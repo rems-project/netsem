@@ -16754,7 +16754,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
 
      (if bsd_arch h.arch then make_rst_segment_from_cb tcp_sock.cb (i1,i2,p1,p2) seg' else T) /\
      dropwithreset seg h.ifds (ticks_of h.ticks) BANDLIM_UNLIMITED bndlm bndlm' outsegs /\
-     outsegs' = (if bsd_arch h.arch then (TCP(seg'))::outsegs else outsegs) /\
+     outsegs' = (if bsd_arch h.arch then [TCP(seg')] else outsegs) /\
      enqueue_each_and_ignore_fail h.arch h.rttab h.ifds outsegs' oq oq'
 
 
@@ -16825,7 +16825,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
 
      (if bsd_arch h.arch then make_rst_segment_from_cb cb (i1,i2,p1,p2) seg' else T) /\
      dropwithreset seg h.ifds (ticks_of h.ticks) BANDLIM_RST_CLOSEDPORT bndlm bndlm' outsegs /\
-     outsegs' = (if bsd_arch h.arch then (TCP(seg'))::outsegs else outsegs) /\
+     outsegs' = (if bsd_arch h.arch then [TCP(seg')] else outsegs) /\
      enqueue_each_and_ignore_fail h.arch h.rttab h.ifds outsegs' oq oq'
 
    (*:
