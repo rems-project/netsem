@@ -16289,7 +16289,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
            |>
      ) /\
 
-     cb.rcv_nxt <= seq /\ seq < cb.rcv_nxt + cb.rcv_wnd /\
+     cb.last_ack_sent <= seq /\ seq < cb.last_ack_sent + cb.rcv_wnd /\
 
      (* there does not exist a better socket match to which the segment should be sent, as the whole quad is matched *)
 
@@ -16373,7 +16373,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
     sock = Sock(SOME fid,sf,SOME i1,SOME p1,SOME i2,SOME p2,es,cantsndmore,cantrcvmore,
                 TCP_Sock(SYN_RECEIVED,cb,NONE,sndq,sndurp,rcvq,rcvurp,iobc)) /\
 
-    cb.rcv_nxt <= seq /\ seq < cb.rcv_nxt + cb.rcv_wnd /\
+    cb.last_ack_sent <= seq /\ seq < cb.last_ack_sent + cb.rcv_wnd /\
 
     ( (*: There is a corresponding listening socket -- passive open :*)
      (?(sid',lsock) :: socks \\ sid.
@@ -16609,7 +16609,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
            |>
      ) /\
 
-     cb.rcv_nxt <= seq /\ seq < cb.rcv_nxt + cb.rcv_wnd /\
+     cb.last_ack_sent <= seq /\ seq < cb.last_ack_sent + cb.rcv_wnd /\
 
      (* there does not exist a better socket match to which the segment should be sent, as the whole quad is matched *)
 
@@ -16673,7 +16673,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
            |>
      ) /\
 
-     ( (seq < cb.rcv_nxt) \/ (seq >= cb.rcv_nxt + cb.rcv_wnd) )
+     ( (seq < cb.last_ack_sent) \/ (seq >= cb.last_ack_sent + cb.rcv_wnd) )
    )
 
 
@@ -16753,7 +16753,7 @@ The other rules deal with [[RST]]s and a variety of pathological situations.
         |>) |> /\
 
      (* we need to check for in-window sequence number, and if it is out of window send an ACK! *)
-     ( ( (cb.rcv_nxt <= seq /\ seq < cb.rcv_nxt + cb.rcv_wnd) /\
+     ( ( (cb.last_ack_sent <= seq /\ seq < cb.last_ack_sent + cb.rcv_wnd) /\
          (if bsd_arch h.arch then make_rst_segment_from_cb tcp_sock.cb (i1,i2,p1,p2) seg' else T) /\
          dropwithreset seg h.ifds (ticks_of h.ticks) BANDLIM_UNLIMITED bndlm bndlm' outsegs /\
          outsegs' = (if bsd_arch h.arch then [TCP(seg')] else outsegs) /\
