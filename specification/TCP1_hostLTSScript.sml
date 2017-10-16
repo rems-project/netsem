@@ -123,13 +123,14 @@ val di3_topstuff_def = Phase.phase 2 Define`
         timewindow_val_of cb.ts_recent = SOME ts_recent /\ (*: most recent timestamp recorded :*)
         ts_val < ts_recent) in (*: check the segment's timestamp is not old :*)
 
+    let rcv_wnd' = calculate_bsd_rcv_wnd sock.sf tcp_sock in
+
     (*: If the segment lies entirely off the right-hand edge of [[sock]]'s receive window then it
         should be dropped, provided it is not a window probe. :*)
     let segment_off_right_hand_edge =
-      (let rcv_wnd' = calculate_bsd_rcv_wnd sock.sf tcp_sock in    (*: size of receive window :*)
-        (seq >= cb.rcv_nxt + rcv_wnd') /\  (*: segment starts on or after the right hand edge :*)
-        (rseq > cb.rcv_nxt + rcv_wnd') /\  (*: segment ends after the right hand edge :*)
-        (rcv_wnd' <> 0)) in  (*: The segment is not a window probe, \ie, [[rcv_wnd']] is not
+        ((seq >= cb.rcv_nxt + rcv_wnd') /\  (*: segment starts on or after the right hand edge :*)
+         (rseq > cb.rcv_nxt + rcv_wnd') /\  (*: segment ends after the right hand edge :*)
+         (rcv_wnd' <> 0)) in  (*: The segment is not a window probe, \ie, [[rcv_wnd']] is not
         zero :*)
 
     (*: Drop the segment being processed if either the PAWS check or the "off right hand edge
@@ -169,7 +170,8 @@ val di3_topstuff_def = Phase.phase 2 Define`
                                 tt_fin_wait_2 := tt_fin_wait_2';
                                 t_idletime := t_idletime';
                                 ts_recent updated_by ts_recent' onlywhen
-                                  (~drop_it /\ IS_SOME ts /\ seq <= cb.last_ack_sent)
+                                  (~drop_it /\ IS_SOME ts /\ seq <= cb.last_ack_sent) ;
+                                rcv_wnd := rcv_wnd'
                               |>) andThen
 
     if drop_it then

@@ -1853,7 +1853,6 @@ val tcp_output_really_def = Phase.phase 2 Define`
                         <| st := st'; cb := tcp_sock.cb with
                           <| tt_rexmt      := tt_rexmt';
                              snd_cwnd      := snd_cwnd';
-                             rcv_wnd       := rcv_wnd';
                              tf_rxwin0sent := (rcv_wnd' = 0);
                              tf_shouldacknow := F;
                              t_rttseg      := t_rttseg';
