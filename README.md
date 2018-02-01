@@ -6,7 +6,7 @@ This repository contains the formal specification of TCP, UDP, and the Sockets A
 http://www.cl.cam.ac.uk/~pes20/Netsem/index.html
 
 It has been relicensed under the simplified BSD license.  Currently (2015), it
-is revived using contemporary systems (newer HOL4, PolyML, dtrace, ..)
+is revived using contemporary systems (newer HOL4, PolyML, DTrace, ..)
 
 
 The `demo-traces/` directory contains some example traces (state is unclear)
